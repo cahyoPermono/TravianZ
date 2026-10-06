@@ -23,10 +23,38 @@ include_once 'GameEngine/Data/unitdata.php';
 
 $units = $database->getMovement(34, $village->wid, 1);
 $artifactsSum = $database->getArtifactsSumByKind($session->uid, $village->wid, 3);
-// Rally-point indicator (issue #249): the incoming count is never revealed; an
-// incoming unit type whose stack is smaller than this village's rally point
-// (gid 16) level is flagged with a bold "?" instead of a plain one.
+// Rally-point level and Scout presence reconnaissance network
 $rpLevel = (int) $database->getFieldLevelInVillage($village->wid, 16);
+
+// Hitung total unit pengintai (Scout) pembela yang bersiaga di desa (pasukan sendiri + bala bantuan)
+$defScouts = 0;
+$scoutUnitIDs = [4, 14, 23, 44, 52, 64, 74, 82];
+
+$defOwnUnits = isset($village->unitarray) && is_array($village->unitarray)
+    ? $village->unitarray
+    : $database->getUnit($village->wid, false);
+
+if (is_array($defOwnUnits)) {
+    foreach ($scoutUnitIDs as $sid) {
+        if (!empty($defOwnUnits['u' . $sid])) {
+            $defScouts += (int) $defOwnUnits['u' . $sid];
+        }
+    }
+}
+
+$defEnfUnits = isset($village->enforcetome) && is_array($village->enforcetome)
+    ? $village->enforcetome
+    : $database->getEnforceVillage($village->wid, 0);
+
+if (is_array($defEnfUnits)) {
+    foreach ($defEnfUnits as $enf) {
+        foreach ($scoutUnitIDs as $sid) {
+            if (!empty($enf['u' . $sid])) {
+                $defScouts += (int) $enf['u' . $sid];
+            }
+        }
+    }
+}
 ?>
 
 <style>
@@ -36,6 +64,75 @@ $rpLevel = (int) $database->getFieldLevelInVillage($village->wid, 16);
 .atk_marker.marker2{background:#f2c200}
 .atk_marker.marker3{background:#e23b3b}
 .atk_marker:hover{box-shadow:inset 0 0 0 2px rgba(255,255,255,.55),0 0 0 1px #333}
+
+/* Military Intelligence Reconnaissance Card */
+.tz-intel-box {
+    margin: 10px 0 6px 0;
+    padding: 8px 12px;
+    background: #fbfbf9;
+    border: 1px solid #d5cfc2;
+    border-left: 4px solid #3f6eb0;
+    border-radius: 4px;
+    font-size: 11px;
+    color: #333;
+}
+.tz-intel-box.siege-alert {
+    border-left-color: #c23a2b;
+    background: #fff9f8;
+}
+.tz-intel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #e8e3d8;
+    padding-bottom: 4px;
+    margin-bottom: 6px;
+}
+.tz-intel-title {
+    font-weight: bold;
+    color: #4a453e;
+    font-size: 11.5px;
+}
+.tz-intel-status {
+    font-size: 11px;
+}
+.tz-intel-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 4px 12px;
+}
+.tz-intel-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.tz-intel-label {
+    color: #777;
+    font-weight: 500;
+}
+.tz-intel-val {
+    font-weight: bold;
+}
+.tz-jammed {
+    color: #c23a2b;
+    font-style: italic;
+    font-weight: normal;
+}
+.tz-active {
+    color: #2f852f;
+    font-style: italic;
+    font-weight: normal;
+}
+.tz-intel-footer {
+    margin-top: 6px;
+    padding-top: 4px;
+    border-top: 1px dashed #e8e3d8;
+    font-size: 10.5px;
+    color: #555;
+}
+.tz-intel-footer.tz-locked {
+    color: #888;
+}
 </style>
 <script type="text/javascript">
 function cycleMarker(moveid, el){
@@ -67,18 +164,14 @@ function cycleMarker(moveid, el){
         $isElders = ($from === 0);
         $owner = $isElders? 0 : $database->getVillageField($from, 'owner');
         $isMine = ($owner == $session->uid);
-        // Issue #267: reveal the hero column whenever the incoming movement
-        // carries a hero, not only for our own movements. For enemy attacks the
-        // count stays hidden ("?") via the troops-row logic below, but the hero
-        // icon column must still be shown so the defender sees an incoming hero.
+        $isEnemyAttack = ($atk == 3 || $atk == 4) && !$isElders && !$isMine;
+
         $colspan = ($u['t11'] > 0)? 11 : 10;
         $tribe = $isElders? 4 : $database->getUserField($owner, 'tribe', 0);
         $start = ($tribe - 1) * 10 + 1;
         $end = $tribe * 10;
         $dt = $generator->procMtime($u['endtime']);
-        // Base travel time per troop type (issue #245): distance / unit speed,
-        // WITHOUT tournament square or artefact effects. INCREASE_SPEED is the
-        // server speed multiplier, matching MyGenerator::procDistanceTime().
+
         $mtimes = [];
         if (!$isElders) {
             $fromInfo = $database->getMInfo($from);
@@ -89,7 +182,135 @@ function cycleMarker(moveid, el){
                 $mtimes[$i] = $spd > 0 ? $generator->getTimeFormat((int) round(($dist / $spd) * 3600 / INCREASE_SPEED)) : '-';
             }
         }
+
+        // Kalkulasi Intelijen Militer
+        $atkTotalTroops = 0;
+        $atkScoutCount  = 0;
+        $slowestSpeed   = 999;
+        $hasSiege       = false;
+        $hasCavalry     = false;
+        $hasInfantry    = false;
+
+        if ($isEnemyAttack) {
+            for ($i = 1; $i <= 10; $i++) {
+                $tval = isset($u['t' . $i]) ? (int) $u['t' . $i] : 0;
+                if ($tval > 0) {
+                    $atkTotalTroops += $tval;
+                    $actualUnitID = $start + $i - 1;
+                    if (in_array($actualUnitID, $scoutUnitIDs)) {
+                        $atkScoutCount += $tval;
+                    }
+                    $spd = isset($GLOBALS['u' . $actualUnitID]['speed']) ? (int) $GLOBALS['u' . $actualUnitID]['speed'] : 0;
+                    if ($spd > 0 && $spd < $slowestSpeed) {
+                        $slowestSpeed = $spd;
+                    }
+                    if (isset($unitsbytype['siege']) && in_array($actualUnitID, $unitsbytype['siege'])) {
+                        $hasSiege = true;
+                    } elseif (isset($unitsbytype['cavalry']) && in_array($actualUnitID, $unitsbytype['cavalry'])) {
+                        $hasCavalry = true;
+                    } elseif (isset($unitsbytype['infantry']) && in_array($actualUnitID, $unitsbytype['infantry'])) {
+                        $hasInfantry = true;
+                    }
+                }
+            }
+            if (!empty($u['t11'])) {
+                $atkTotalTroops += (int) $u['t11'];
+            }
+        }
+
+        // Duel Intelijen: jika scout musuh >= scout defender, efek patroli defender tersaring
+        $scoutJammed = ($atkScoutCount > 0 && $defScouts > 0 && $atkScoutCount >= $defScouts);
+        $effectiveScouts = ($defScouts > 0 && !$scoutJammed) ? $defScouts : 0;
+
+        $hasEyesight = ($artifactsSum['totals'] > 0);
+
+        // Lapisan Fitur Intelijen yang terbuka:
+        $canSeeSpeed  = ($rpLevel >= 10 || $effectiveScouts >= 20 || $hasEyesight);
+        $canSeeScale  = ($rpLevel >= 15 || $effectiveScouts >= 50 || $hasEyesight);
+        $canSeeRoster = ($rpLevel >= 20 || $effectiveScouts >= 100 || $hasEyesight);
+
+        // Label Kecepatan:
+        $isSiegeAlert = false;
+        if ($hasSiege || $slowestSpeed <= 4) {
+            $speedLabel = '⚠️ Pengepungan (~' . ($slowestSpeed < 999 ? $slowestSpeed : 3) . ' field/jam: Ketapel/Ram!)';
+            $isSiegeAlert = true;
+        } elseif ($slowestSpeed >= 13 && !$hasInfantry) {
+            $speedLabel = '⚡ Laju Cepat (~' . $slowestSpeed . ' field/jam: Kavaleri murni)';
+        } else {
+            $speedLabel = '🚶 Laju Standar (~' . ($slowestSpeed < 999 ? $slowestSpeed : 7) . ' field/jam: Infanteri)';
+        }
+
+        // Label Skala Pasukan:
+        if ($atkTotalTroops < 100) {
+            $scaleLabel = '🟢 Skirmish / Raid Kecil (1 - 99 prajurit)';
+        } elseif ($atkTotalTroops < 500) {
+            $scaleLabel = '🟡 Regiment (100 - 499 prajurit)';
+        } elseif ($atkTotalTroops < 2000) {
+            $scaleLabel = '🟠 Battalion (500 - 1.999 prajurit)';
+        } elseif ($atkTotalTroops < 10000) {
+            $scaleLabel = '🔴 Legion / Big Army (2.000 - 9.999 prajurit)';
+        } else {
+            $scaleLabel = '🟣 Imperial Hammer (10.000+ prajurit)';
+        }
 ?>
+
+<?php if ($isEnemyAttack): ?>
+<div class="tz-intel-box <?= $isSiegeAlert ? 'siege-alert' : '' ?>">
+    <div class="tz-intel-header">
+        <span class="tz-intel-title">🛡️ INTELIJEN MILITER & PENGAWASAN</span>
+        <span class="tz-intel-status">
+            <?php if ($canSeeRoster): ?>
+                <b style="color:#2f852f;">● MAKSIMAL (Unit Terbuka)</b>
+            <?php elseif ($canSeeScale): ?>
+                <b style="color:#c87f0a;">● LANJUT (Skala Terdeteksi)</b>
+            <?php elseif ($canSeeSpeed): ?>
+                <b style="color:#2f6fb0;">● TAKTIS (Laju Terdeteksi)</b>
+            <?php else: ?>
+                <b style="color:#777;">○ DASAR</b>
+            <?php endif; ?>
+        </span>
+    </div>
+    <div class="tz-intel-grid">
+        <div class="tz-intel-item">
+            <span class="tz-intel-label">Titik Temu:</span>
+            <span class="tz-intel-val">Level <?= $rpLevel ?></span>
+        </div>
+        <div class="tz-intel-item">
+            <span class="tz-intel-label">Patroli Pengintai:</span>
+            <span class="tz-intel-val">
+                <?= number_format($defScouts) ?> Scout
+                <?php if ($defScouts == 0): ?>
+                    <i class="tz-jammed">(Kosong)</i>
+                <?php elseif ($scoutJammed): ?>
+                    <i class="tz-jammed">(Tersaring pengintai musuh)</i>
+                <?php else: ?>
+                    <i class="tz-active">(Bersiaga)</i>
+                <?php endif; ?>
+            </span>
+        </div>
+        <div class="tz-intel-item">
+            <span class="tz-intel-label">Ritme Gerak:</span>
+            <span class="tz-intel-val">
+                <?= $canSeeSpeed ? $speedLabel : '<i>(Perlu Lvl 10 / 20 Scout)</i>' ?>
+            </span>
+        </div>
+        <div class="tz-intel-item">
+            <span class="tz-intel-label">Estimasi Skala:</span>
+            <span class="tz-intel-val">
+                <?= $canSeeScale ? $scaleLabel : '<i>(Perlu Lvl 15 / 50 Scout)</i>' ?>
+            </span>
+        </div>
+    </div>
+    <div class="tz-intel-footer <?= $canSeeRoster ? '' : 'tz-locked' ?>">
+        <?php if ($canSeeRoster): ?>
+            ✓ <b>Komposisi Unit Terdeteksi:</b> Seluruh icon jenis pasukan yang dibawa musuh ditandai pada tabel di bawah (angka pasti tetap dirahasiakan).
+        <?php else: ?>
+            ℹ️ <i>Tingkatkan Titik Temu ke Level 20 atau siagakan 100 Scout di desa untuk membuka identifikasi jenis unit.</i>
+        <?php endif; ?>
+    </div>
+</div>
+<?php endif; ?>
+
 <table class="troop_details" cellpadding="1" cellspacing="1">
     <thead><tr>
         <td class="role">
@@ -119,14 +340,23 @@ function cycleMarker(moveid, el){
                     if (!$isMine) echo '<td class="none">?</td>';
                     else echo '<td class="'.($val==0?'none':'').'">'.($val==0?'0':$val).'</td>';
                 } else {
-                    // Issue #249: the incoming count is never revealed, it is
-                    // always a "?". That "?" is shown in bold when the stack of
-                    // this unit type is smaller than the defender's rally point
-                    // level. The eyesight artifact still reveals which troop
-                    // types are present (0 for the absent ones).
-                    if ($val == 0) echo '<td class="none">'.($artifactsSum['totals']==0?'?':'0').'</td>';
-                    elseif ($rpLevel > 0 && $val < $rpLevel) echo '<td><b style="color:#000">?</b></td>';
-                    else echo '<td class="none">?</td>';
+                    if ($val == 0) {
+                        if ($canSeeRoster) {
+                            echo '<td class="none">0</td>';
+                        } else {
+                            echo '<td class="none">' . ($hasEyesight ? '0' : '?') . '</td>';
+                        }
+                    } else {
+                        if ($hasEyesight) {
+                            echo '<td><b>' . $val . '</b></td>';
+                        } elseif ($canSeeRoster) {
+                            echo '<td><b style="color:#c23a2b;font-size:12px;" title="Unit terdeteksi ikut menyerang!">?</b></td>';
+                        } elseif ($rpLevel > 0 && $val < $rpLevel) {
+                            echo '<td><b style="color:#000;">?</b></td>';
+                        } else {
+                            echo '<td class="none">?</td>';
+                        }
+                    }
                 }
             endfor;?>
         </tr>
