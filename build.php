@@ -79,7 +79,13 @@ $technology->procTech($_POST);
 $market->procMarket($_POST);
 
 if ( isset( $_GET['gid'] ) ) {
-    $_GET['id'] = strval( $building->getTypeField( preg_replace( "/[^a-zA-Z0-9_-]/", "", $_GET['gid'] ) ) );
+    $gidClean = preg_replace( "/[^a-zA-Z0-9_-]/", "", $_GET['gid'] );
+    $_GET['id'] = strval( $building->getTypeField( $gidClean ) );
+    if ( $gidClean == '37' && (empty($_GET['id']) || $_GET['id'] === '0') ) {
+        $tabParam = isset($_GET['t4tab']) ? '?t4tab=' . preg_replace("/[^a-zA-Z0-9_-]/", "", $_GET['t4tab']) : '';
+        header("Location: hero.php" . $tabParam);
+        exit;
+    }
 } else if ( isset( $_POST['id'] ) ) {
     $_GET['id'] = preg_replace( "/[^a-zA-Z0-9_-]/", "", $_POST['id'] ); // WTF is this?
 }

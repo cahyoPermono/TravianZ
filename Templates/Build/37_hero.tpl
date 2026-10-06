@@ -53,15 +53,18 @@ if ($t4HeroRes) {
 	$heroStatColumns['res'] = 'resources';
 }
 
+$heroSelfUrl = (!empty($id) ? "build.php?id=" . $id : "hero.php");
+
 // Render the "(+)" link for a stat, or "(+)" uneditable
 // if the hero has no more points or the stat is already at the top (100).
 // Identical behavior to the original 5 if/else blocks.
-$renderAddLink = function ($action) use ($hero_info, $id, $heroStatColumns) {
+$renderAddLink = function ($action) use ($hero_info, $id, $heroStatColumns, $heroSelfUrl) {
 	$field = $heroStatColumns[$action];
 	if ($hero_info['points'] > 0 && $hero_info[$field] < 100) {
 		// class + data-* pentru JS; linkul ramane un GET valid, deci fara JS
 		// pagina se comporta exact ca inainte (un punct per click, cu refresh).
-		return "<a href=\"build.php?id=" . $id . "&add=" . $action . "\""
+		$addSep = (strpos($heroSelfUrl, '?') !== false) ? '&' : '?';
+		return "<a href=\"" . $heroSelfUrl . $addSep . "add=" . $action . "\""
 			. " class=\"t4AddPoint\" data-stat=\"" . $action . "\""
 			. " data-base=\"" . (int) $hero_info[$field] . "\">(<b>+</b>)</a>";
 	}
@@ -119,7 +122,8 @@ $renderAddLink = function ($action) use ($hero_info, $id, $heroStatColumns) {
                        . "<input type=\"hidden\" name=\"hero\" value=\"1\">"
                        . "<input type=\"text\" class=\"text\" name=\"name\" maxlength=\"20\" value=\"" . $hero_info['name'] . "\">";
                 } else {
-                    echo "<a href=\"build.php?id=" . $id . "&rename\">" . $hero_info['name'] . "</a></form>";
+                    $renameSep = (strpos($heroSelfUrl, '?') !== false) ? '&' : '?';
+                    echo "<a href=\"" . $heroSelfUrl . $renameSep . "rename\">" . $hero_info['name'] . "</a></form>";
                 }
             ?>
             <?php echo LEVEL; ?> <?php echo $hero_info['level']; ?>
@@ -399,22 +403,26 @@ $renderAddLink = function ($action) use ($hero_info, $id, $heroStatColumns) {
     } 
     ?> 
     <?php if($hero_info['level'] <= 3){ ?> 
-        <p><?php echo YOU_CAN; ?> <a href="build.php?id=<?php echo $id; ?>&add=reset"><?php echo RESET; ?></a><?php echo YOUR_POINT_UNTIL; ?> <b>3</b><?php echo OR_LOWER; ?> </p> 
+        <?php $resetSep = (strpos($heroSelfUrl, '?') !== false) ? '&' : '?'; ?>
+        <p><?php echo YOU_CAN; ?> <a href="<?php echo $heroSelfUrl . $resetSep; ?>add=reset"><?php echo RESET; ?></a><?php echo YOUR_POINT_UNTIL; ?> <b>3</b><?php echo OR_LOWER; ?> </p> 
     <?php } ?> 
      
 <p><?php echo YOUR_HERO_HAS; ?> <b><?php echo floor($hero_info['health']); ?></b>% <?php echo OF_HIT_POINTS; ?>.<br/>  
-    <?php echo YOUR_HERO_HAS; ?> <?php echo CONQUERED; ?> <b><?php echo $database->VillageOasisCount($village->wid); ?></b> <a href="build.php?id=<?php echo $id; ?>&land"><?php echo OASES; ?></a>.</p>
+    <?php
+    $oasisUrl = (!empty($id) ? "build.php?id=" . $id . "&land" : "hero.php?t4tab=land");
+    ?>
+    <?php echo YOUR_HERO_HAS; ?> <?php echo CONQUERED; ?> <b><?php echo $database->VillageOasisCount($village->wid); ?></b> <a href="<?php echo $oasisUrl; ?>"><?php echo OASES; ?></a>.</p>
 
 <?php
     /**
-     * Regenerarea totala pe zi: cea data de puncte plus cea din iteme.
-     *
-     * Cizmele de Regenerare / Refacere / Vindecare adauga puncte de viata pe zi
-     * (regen_hp), aplicate in AutomationHero. Pana acum efectul lor nu aparea
-     * nicaieri, deci nu se vedea daca itemul face ceva.
+     * Regenerarea totala pe zi: baza + atribute + Conacul eroului + iteme.
      */
-    $t4BaseRegen = (int) $hero_info['regeneration'] * 5 * SPEED;
-    $t4ItemRegen = 0;
+    $baseRegenConst = defined('HERO_BASE_REGEN') ? (int)HERO_BASE_REGEN : 10;
+    $t4BaseRegen    = ($baseRegenConst + ((int) $hero_info['regeneration'] * 5)) * SPEED;
+    $t4MansionLevel = isset($village->wid) ? (int)$database->getFieldLevelInVillage($village->wid, 37) : 0;
+    $mansionRate    = defined('HERO_MANSION_REGEN_PER_LEVEL') ? (int)HERO_MANSION_REGEN_PER_LEVEL : 3;
+    $t4MansionRegen = $t4MansionLevel * $mansionRate * SPEED;
+    $t4ItemRegen    = 0;
 
     // HeroItems nu are enabled(); flagul se verifica prin HeroBattleBonus,
     // care il expune si e deja incarcat pe aceasta pagina.
@@ -425,21 +433,21 @@ $renderAddLink = function ($action) use ($hero_info, $id, $heroStatColumns) {
         $t4Bon   = $t4Items->getBonuses($session->uid);
 
         if ($t4Bon && !empty($t4Bon[HB_REGEN_HP])) {
-            $t4ItemRegen = (int) $t4Bon[HB_REGEN_HP];
+            $t4ItemRegen = (int) $t4Bon[HB_REGEN_HP] * SPEED;
         }
     }
 
-    if ($t4ItemRegen > 0) {
+    $t4TotalRegen = $t4BaseRegen + $t4MansionRegen + $t4ItemRegen;
 ?>
 <p class="t4h-regen">
     <?php echo defined('TZ_HERO_REGEN_TOTAL') ? TZ_HERO_REGEN_TOTAL : 'Health regeneration'; ?>:
-    <b><?php echo number_format($t4BaseRegen + $t4ItemRegen); ?></b>/<?php echo DAY; ?>
+    <b><?php echo number_format($t4TotalRegen); ?></b>/<?php echo DAY; ?>
     <span class="t4h-regen-detail">(<?php echo number_format($t4BaseRegen); ?>
-        <?php echo defined('TZ_HERO_REGEN_BASE') ? TZ_HERO_REGEN_BASE : 'base'; ?>
+        <?php echo defined('TZ_HERO_REGEN_BASE') ? TZ_HERO_REGEN_BASE : 'base'; ?><?php if ($t4MansionRegen > 0) { ?>
+        + <?php echo number_format($t4MansionRegen); ?> mansion<?php } ?><?php if ($t4ItemRegen > 0) { ?>
         + <?php echo number_format($t4ItemRegen); ?>
-        <?php echo defined('TZ_HERO_REGEN_ITEMS') ? TZ_HERO_REGEN_ITEMS : 'from items'; ?>)</span>
-</p>
-<?php } ?> 
+        <?php echo defined('TZ_HERO_REGEN_ITEMS') ? TZ_HERO_REGEN_ITEMS : 'from items'; ?><?php } ?>)</span>
+</p> 
 	 
 <?php
 // NOTE: the actions below are triggered by GET (?add=...) and modify
@@ -470,7 +478,7 @@ if ($t4HeroRes && isset($_POST['t4restype'])) {
 		}
 	}
 
-	header("Location: build.php?id=" . $id);
+	header("Location: " . $heroSelfUrl);
 	exit;
 }
 
@@ -539,7 +547,7 @@ if (isset($_POST['t4points'])) {
 		}
 	}
 
-	header("Location: build.php?id=" . $id);
+	header("Location: " . $heroSelfUrl);
 	exit;
 }
 
@@ -585,14 +593,14 @@ if (isset($_GET['add'])) {
 				    AND `level` <= 3
 				    AND (" . implode(' OR ', $resetWhere) . ")");
 
-			header("Location: build.php?id=" . $id . "");
+			header("Location: " . $heroSelfUrl);
 			exit;
 		}
 	// if level > 3, exactly like in the original: nothing happens (no redirect).
 	} elseif (isset($heroStatColumns[$action])) {
 		$column = $heroStatColumns[$action];
 		mysqli_query($database->dblink, "UPDATE " . TB_PREFIX . "hero SET `$column` = `$column` + 1, `points` = `points` - 1 WHERE `heroid` = " . $hero_info['heroid'] . " AND `points` > 0 AND `$column` < 100");
-		header("Location: build.php?id=" . $id . "");
+		header("Location: " . $heroSelfUrl);
 		exit;
 	}
 }

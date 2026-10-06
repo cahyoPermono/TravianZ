@@ -431,7 +431,7 @@ class Account {
     } else {
         $kid = $_POST['kid'];   // suprascrie parametrul cu valoarea din POST
     }
-    $database->generateVillages(
+    $wid = $database->generateVillages(
         [
             [
                 'wid'    => 0,
@@ -447,6 +447,12 @@ class Account {
         $uid,
         $username
     );
+
+    if (defined('HERO_FROM_START') && HERO_FROM_START && class_exists('Units')) {
+        $tribe = (int) $database->getUserField($uid, 'tribe', 0);
+        Units::createStarterHero($uid, $wid, $tribe, $username);
+    }
+
     $message->sendWelcome($uid, $username);
 }
 };

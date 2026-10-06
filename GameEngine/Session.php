@@ -571,6 +571,11 @@ function __construct() {
         $this->tribe = $this->userarray['tribe'];
         $this->isAdmin = $this->access >= MODERATOR;
 
+        // T4-style hero from start: ensure starter hero is created if enabled
+        if (defined('HERO_FROM_START') && HERO_FROM_START && $this->access == 2 && !empty($this->villages)) {
+            Units::createStarterHero($this->uid, (int)$this->villages[0], (int)$this->tribe, $this->username);
+        }
+
         $this->alliance = $_SESSION['alliance_user'] = $this->userarray['alliance'];
 
         $this->checker = $_SESSION['checker'];

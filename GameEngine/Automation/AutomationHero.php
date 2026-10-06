@@ -121,6 +121,8 @@ trait AutomationHero {
 
     // Passive HP regeneration: returns the new health value, or -1 if unchanged.
     private function calculateHealthRegen($hdata) {
+        global $database;
+
         // Eroii morti nu se regenereaza (se ridica prin inviere, nu singuri).
         if ((int) $hdata['dead'] === 1) {
             return -1;
@@ -158,8 +160,16 @@ trait AutomationHero {
                 // GameEngine/config.php:  define('HERO_BASE_REGEN', 10);
                 $baseRegen = defined('HERO_BASE_REGEN') ? (float) HERO_BASE_REGEN : 10;
 
-                // HP pe zi din toate sursele: baza + atribut (5 per punct) + iteme
-                $perDay = $baseRegen + ($hdata['regeneration'] * 5) + $itemRegen;
+                // Option 3: Passive HP regeneration bonus from Hero's Mansion in the hero's home village
+                $mansionLevel = 0;
+                if (!empty($hdata['wref']) && isset($database)) {
+                    $mansionLevel = (int) $database->getFieldLevelInVillage($hdata['wref'], 37);
+                }
+                $mansionRegenRate = defined('HERO_MANSION_REGEN_PER_LEVEL') ? (float) HERO_MANSION_REGEN_PER_LEVEL : 3.0;
+                $mansionRegen = $mansionLevel * $mansionRegenRate;
+
+                // HP pe zi din toate sursele: baza + atribut (5 per punct) + iteme + conac erou
+                $perDay = $baseRegen + ($hdata['regeneration'] * 5) + $itemRegen + $mansionRegen;
 
                 $reg = $hdata['health']
                      + $perDay * $speed / 86400 * (time() - $hdata['lastupdate']);

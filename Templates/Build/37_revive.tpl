@@ -118,10 +118,12 @@ $renderReviveRow = function ($hero_datarow, $name, $wood, $clay, $iron, $crop, $
 	$html .= "</td>";
 
 	$html .= "<td class=\"val\" width=\"20%\" style=\"text-align: center\">";
+	$reviveBase = (!empty($id) ? "build.php?id=" . $id : "hero.php");
+	$reviveSep  = (strpos($reviveBase, '?') !== false) ? '&amp;' : '?';
 	if ($village->awood < $wood || $village->aclay < $clay || $village->airon < $iron || $village->acrop < $crop) {
 		$html .= "<span class=\"none\">" . NOT . "" . ENOUGH_RESOURCES . "</span>";
 	} else {
-		$html .= "<a href=\"build.php?id=" . $id . "&amp;revive=1&amp;hid=" . $hero_datarow['heroid'] . "\">" . REVIVE . "</a>";
+		$html .= "<a href=\"" . $reviveBase . $reviveSep . "revive=1&amp;hid=" . $hero_datarow['heroid'] . "\">" . REVIVE . "</a>";
 	}
 	$html .= "</td>";
 	$html .= "</tr>";
@@ -154,6 +156,12 @@ foreach ($heroes as $hero_datarow) {
 	$crop = $heroLevelData['crop'];
 
 	$timeToTrain    = $database->getArtifactsValueInfluence($session->uid, $village->wid, 5, $heroLevelData['time'] / SPEED);
+	$mansionLevel   = (int) $database->getFieldLevelInVillage($village->wid, 37);
+	$discountRate   = defined('HERO_MANSION_REVIVE_DISCOUNT') ? (float)HERO_MANSION_REVIVE_DISCOUNT : 0.025;
+	$mansionDiscount = min(0.50, $mansionLevel * $discountRate);
+	if ($mansionDiscount > 0) {
+		$timeToTrain = max(1, (int) round($timeToTrain * (1 - $mansionDiscount)));
+	}
 	$training_time  = $generator->getTimeFormat($timeToTrain);
 	$training_time2 = time() + $timeToTrain;
 
@@ -209,13 +217,24 @@ foreach ($heroes as $hero_datarow) {
 	if (isset($_GET['revive']) && $_GET['revive'] == 1 && isset($_GET['hid']) && $_GET['hid'] == $hero_datarow['heroid'] && $hero_datarow['inrevive'] == 0 && $hero_datarow['intraining'] == 0 && $hero_datarow['dead'] == 1) {
 		mysqli_query($database->dblink, "UPDATE " . TB_PREFIX . "hero SET `inrevive` = '1', `trainingtime` = '" . (int) $training_time2 . "', `wref` = '" . (int) $village->wid . "' WHERE `heroid` = " . (int) $_GET['hid'] . " AND `uid` = '" . (int) $session->uid . "'");
 		$database->modifyResource($village->wid, $wood, $clay, $iron, $crop, 0);
-		header("Location: build.php?id=" . $id . "");
+		header("Location: " . $reviveBase . "");
 		exit;
 	}
 }
 ?>
 
-</table><br />
+</table>
+<?php if ($mansionLevel > 0): ?>
+<p style="color:#007700;font-size:11px;margin:6px 0 10px 0;">
+    <b><?php echo defined('HEROSMANSION') ? HEROSMANSION : "Hero's Mansion"; ?> <?php echo LEVEL; ?> <?php echo $mansionLevel; ?>:</b>
+    -<?php echo ($mansionDiscount * 100); ?>% revive time discount applied!
+</p>
+<?php else: ?>
+<p style="color:#666;font-size:11px;margin:6px 0 10px 0;">
+    <i>Tip: Building Hero's Mansion reduces revive time by 2.5% per level (up to -50% at level 20).</i>
+</p>
+<?php endif; ?>
+<br />
 
 
 	<?php

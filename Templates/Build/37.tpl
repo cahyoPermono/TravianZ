@@ -79,6 +79,52 @@
 
         <p class="build_desc"><?php echo HEROSMANSION_DESC; ?></p>
 
+        <?php
+        $curMansionLvl = (int) $village->resarray['f' . $id];
+        $curMansionRegen = $curMansionLvl * (defined('HERO_MANSION_REGEN_PER_LEVEL') ? HERO_MANSION_REGEN_PER_LEVEL : 3);
+        $curMansionDiscount = min(50, round($curMansionLvl * 2.5, 1));
+        $nextMansionLvl = $curMansionLvl + 1;
+        $nextMansionRegen = $nextMansionLvl * (defined('HERO_MANSION_REGEN_PER_LEVEL') ? HERO_MANSION_REGEN_PER_LEVEL : 3);
+        $nextMansionDiscount = min(50, round($nextMansionLvl * 2.5, 1));
+        ?>
+        <table id="distribution" class="mansion_buffs" cellpadding="1" cellspacing="1" style="margin-bottom:12px;">
+            <thead>
+                <tr>
+                    <th colspan="3"><?php echo defined('HEROSMANSION') ? HEROSMANSION : "Hero's Mansion"; ?> &mdash; Passive Bonuses</th>
+                </tr>
+                <tr>
+                    <td>Bonus</td>
+                    <td>Current Level (<?php echo $curMansionLvl; ?>)</td>
+                    <?php if ($curMansionLvl < 20): ?>
+                    <td>Next Level (<?php echo $nextMansionLvl; ?>)</td>
+                    <?php endif; ?>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Hero Health Regeneration</td>
+                    <td><b>+<?php echo $curMansionRegen; ?></b> HP / <?php echo DAY; ?></td>
+                    <?php if ($curMansionLvl < 20): ?>
+                    <td style="color:#008800;">+<?php echo $nextMansionRegen; ?> HP / <?php echo DAY; ?></td>
+                    <?php endif; ?>
+                </tr>
+                <tr>
+                    <td>Hero Revive Time Reduction</td>
+                    <td><b>-<?php echo $curMansionDiscount; ?>%</b> training time</td>
+                    <?php if ($curMansionLvl < 20): ?>
+                    <td style="color:#008800;">-<?php echo $nextMansionDiscount; ?>% training time</td>
+                    <?php endif; ?>
+                </tr>
+                <tr>
+                    <td>Oasis Slots Unlocked</td>
+                    <td><b><?php echo min(3, max(0, (int)floor(($curMansionLvl - 5) / 5))); ?></b> / 3 slots</td>
+                    <?php if ($curMansionLvl < 20): ?>
+                    <td><?php echo min(3, max(0, (int)floor(($nextMansionLvl - 5) / 5))); ?> / 3 slots</td>
+                    <?php endif; ?>
+                </tr>
+            </tbody>
+        </table>
+
         
         <?php
         if ($hero_info) {

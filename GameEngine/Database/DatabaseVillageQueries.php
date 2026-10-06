@@ -465,19 +465,33 @@ trait DatabaseVillageQueries {
             return $cachedValue;
         }
 
+        $HeroMansionLevel = 0;
         $AttackerFields = $this->getResourceLevel( $vref, $use_cache );
         for ( $i = 19; $i <= 38; $i ++ ) {
-            if ( $AttackerFields[ 'f' . $i . 't' ] == 37 ) {
-                $HeroMansionLevel = $AttackerFields[ 'f' . $i ];
+            if ( isset($AttackerFields[ 'f' . $i . 't' ]) && $AttackerFields[ 'f' . $i . 't' ] == 37 ) {
+                $HeroMansionLevel = (int) $AttackerFields[ 'f' . $i ];
             }
         }
-        if ( $this->VillageOasisCount( $vref ) < floor( ( $HeroMansionLevel - 5 ) / 5 ) ) {
+
+        // Option 2: Oasis slots unlocked by Hero Level OR Hero's Mansion Level (whichever is higher)
+        // Level 10 -> 1 oasis, Level 15 -> 2 oases, Level 20 -> 3 oases
+        $vinfo = $this->getVillage( $vref );
+        $uid = (int) ($vinfo['owner'] ?? 0);
+        $hero = $this->getHero( $uid, 0, false, $use_cache );
+        $heroLevel = (!empty($hero) && isset($hero[0]['level'])) ? (int)$hero[0]['level'] : 0;
+
+        $mansionSlots = floor( ( $HeroMansionLevel - 5 ) / 5 );
+        $heroSlots    = floor( ( $heroLevel - 5 ) / 5 );
+        $maxOases     = min(3, max(0, (int)$mansionSlots, (int)$heroSlots));
+
+        if ( $this->VillageOasisCount( $vref ) < $maxOases ) {
             $OasisInfo = $this->getOasisInfo( $wref );
-            //fix by ronix
             if (
-                $OasisInfo['conqured'] == 0 ||
-                $OasisInfo['conqured'] != 0 &&
-                intval( $OasisInfo['loyalty'] ) < ( 99 / min(3, (4 - $this->VillageOasisCount($OasisInfo['conqured'], $use_cache))) )
+                !empty($OasisInfo) && (
+                    $OasisInfo['conqured'] == 0 ||
+                    ($OasisInfo['conqured'] != 0 &&
+                    intval( $OasisInfo['loyalty'] ) < ( 99 / min(3, (4 - $this->VillageOasisCount($OasisInfo['conqured'], $use_cache))) ))
+                )
             ) {
                 $CoordsVillage = $this->getCoor( $vref );
                 $CoordsOasis   = $this->getCoor( $wref );

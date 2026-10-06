@@ -1453,6 +1453,59 @@ class Units {
 		header("Location: build.php?id=39&t=99");
 		exit();
     }
+
+	/**
+	 * Create a starter hero for a player (T4-style hero from the start).
+	 *
+	 * @param int $uid User ID
+	 * @param int $wid Home Village ID
+	 * @param int $tribe Tribe ID (1..9)
+	 * @param string $username Player username
+	 * @return bool True if created, false if already exists
+	 */
+	public static function createStarterHero($uid, $wid, $tribe, $username) {
+		global $database;
+		$uid = (int) $uid;
+		$wid = (int) $wid;
+		$tribe = (int) $tribe;
+		if ($uid <= 0 || $wid <= 0) {
+			return false;
+		}
+
+		$existing = $database->getHero($uid);
+		if (!empty($existing)) {
+			return false;
+		}
+
+		$basicUnits = [
+			1 => 1,   // Roman Legionnaire
+			2 => 11,  // Teuton Clubswinger
+			3 => 21,  // Gaul Phalanx
+			6 => 51,  // Hun Mercenary
+			7 => 61,  // Egyptian Slave Militia
+			8 => 71,  // Spartan Hoplite
+			9 => 81,  // Viking Thrall
+		];
+		$unit = $basicUnits[$tribe] ?? 1;
+		$now = time();
+		$cleanName = $database->escape($username);
+
+		$q = "INSERT INTO " . TB_PREFIX . "hero
+			  (`uid`, `unit`, `name`, `wref`, `level`, `points`, `experience`, `silver`, `production`, `dead`, `health`, `attack`, `defence`, `attackbonus`, `defencebonus`, `regeneration`, `resources`, `res_type`, `autoregen`, `lastupdate`, `trainingtime`, `inrevive`, `intraining`)
+			  VALUES ($uid, $unit, '$cleanName', $wid, 0, 5, 0, 100, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 50, $now, $now, 0, 0)";
+		$database->query($q);
+
+		// Place hero into home village garrison
+		$database->query("UPDATE " . TB_PREFIX . "units SET `hero` = 1 WHERE `vref` = $wid");
+
+		// Opportunistically populate adventure offers if T4 hero is active
+		if (defined('NEW_FUNCTIONS_HERO_T4') && NEW_FUNCTIONS_HERO_T4 && class_exists('HeroAdventure')) {
+			$adventures = new HeroAdventure();
+			$adventures->generateOffers($uid);
+		}
+
+		return true;
+	}
 };
 $units = new Units;
 

@@ -133,3 +133,42 @@ Sistem bot menggunakan generator nama pintar di `GameEngine/NameGenerator.php` s
 3. **Mendeteksi Serangan Masuk**:
    - Jika masa proteksi Anda telah habis dan desa Anda diserang oleh bot, Anda akan melihat ikon pedang bersilang di menu atas beserta timer kedatangan di *Rally Point*.
    - Pasukan raid bot berjumlah kecil (5–15 orang). *Cranny* level tinggi dapat menyembunyikan semua sumber daya Anda sehingga bot pulang dengan tangan hampa.
+
+---
+
+## 8. Fitur Hero T4 dari Awal & Sistem Oasis Opsional
+
+Server kini telah dilengkapi fitur **Hero dari Awal Permainan** persis seperti di Travian T4 beserta penyempurnaan sistem **Hero's Mansion Opsional**:
+
+1. **Auto-Provisioning**:
+   - Setiap akun baru yang mendaftar (termasuk bot dan pemain yang sudah ada) otomatis langsung memiliki 1 Hero hidup di desanya sesuai sukunya masing-masing (Level 0, 100% Health, 5 Poin Atribut, 100 Silver).
+
+2. **Halaman `hero.php` Mandiri (T4 Style)**:
+   - Pemain dapat mengklik potret Hero di bar atas atau membuka URL `hero.php` kapan saja untuk:
+     - **Hero Overview**: Mengalokasikan poin atribut (Offence, Defence, Off-Bonus, Def-Bonus, Regeneration, Resources) dan menghidupkan kembali (*revive*) Hero jika gugur.
+     - **Items / Inventory** (`hero.php?t4tab=items`): Memakai perlengkapan, helm, senjata, baju zirah, dan sepatu.
+     - **Adventures** (`hero.php?t4tab=adventures`): Mengirim Hero berpetualang mencari XP, perak, dan item.
+     - **Auctions** (`hero.php?t4tab=auction`): Pelelangan item perlengkapan.
+     - **Oasis Management** (`hero.php?t4tab=land`): Melihat oasis yang dikuasai desa saat ini, koordinat, bonus sumber daya, serta tombol pelepasan oasis tanpa perlu membangun Hero's Mansion.
+
+3. **Penaklukan Oasis Berdasarkan Level Hero (Hero's Mansion Jadi Opsional)**:
+   - Pemain **TIDAK DIWAJIBKAN** membangun *Hero's Mansion* untuk menaklukkan oasis di peta.
+   - Slot oasis kini otomatis terbuka berdasarkan **Level Hero** atau level *Hero's Mansion* (mana saja yang lebih tinggi):
+     - **Level 10**: Membuka slot oasis ke-1.
+     - **Level 15**: Membuka slot oasis ke-2.
+     - **Level 20**: Membuka slot oasis ke-3 (maksimal 3 oasis per desa).
+   - Selama Hero Anda sudah mencapai level 10 dan Anda mengalahkan hewan liar di oasis dalam radius 3 kotak, oasis dapat langsung ditaklukkan dengan serangan biasa bersama Hero.
+
+4. **Buff Pasif Hero's Mansion (Manfaat Jika Dibangun)**:
+   - Walaupun opsional, membangun *Hero's Mansion* tetap memberikan keuntungan pasif yang sangat besar bagi Hero:
+     - **Regenerasi HP Pasif Tambahan**: Memberikan **+3 HP / hari** per level gedung (*Hero's Mansion* Level 10 = +30 HP/hari, Level 20 = +60 HP/hari).
+     - **Diskon Waktu Revive**: Mempercepat waktu pemulihan/pelatihan kembali Hero yang gugur sebesar **-2.5% per level** (*Hero's Mansion* Level 10 = -25% lebih cepat, Level 20 = -50% lebih cepat).
+     - **Slot Cadangan**: Jika Hero masih level rendah tetapi Anda sudah membangun mansion, slot oasis tetap aktif mengikuti level mansion.
+
+5. **Konfigurasi Server**:
+   - Diatur pada `GameEngine/config.php`:
+     - `define("HERO_FROM_START", true);`
+     - `define("HERO_MANSION_OPTIONAL", true);`
+     - `define("HERO_MANSION_REGEN_PER_LEVEL", 3);`
+     - `define("HERO_MANSION_REVIVE_DISCOUNT", 0.025);`
+

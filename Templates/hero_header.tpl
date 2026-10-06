@@ -327,18 +327,28 @@ if (isset($building) && is_object($building) && method_exists($building, 'getTyp
  */
 $tzHeroClickable = true;
 
-if ($tzHeroField > 0) {
+if (file_exists(dirname(__DIR__) . '/hero.php')) {
+    $tzHeroBase = 'hero.php';
+    $tzLinkHero = 'hero.php';
+    $tzLinkAdv  = 'hero.php?t4tab=adventures';
+    $tzLinkAuc  = 'hero.php?t4tab=auction';
+} elseif ($tzHeroField > 0) {
     $tzHeroBase = 'build.php?id=' . $tzHeroField;
+    $tzLinkHero = $tzHeroBase;
+    $tzLinkAdv  = $tzHeroBase . '&amp;t4tab=adventures';
+    $tzLinkAuc  = $tzHeroBase . '&amp;t4tab=auction';
 } elseif ($tzHeroWref > 0) {
     $tzHeroBase = 'build.php?newdid=' . $tzHeroWref . '&amp;gid=37';
+    $tzLinkHero = $tzHeroBase;
+    $tzLinkAdv  = $tzHeroBase . '&amp;t4tab=adventures';
+    $tzLinkAuc  = $tzHeroBase . '&amp;t4tab=auction';
 } else {
     $tzHeroBase      = '';
     $tzHeroClickable = false;
+    $tzLinkHero = '';
+    $tzLinkAdv  = '';
+    $tzLinkAuc  = '';
 }
-
-$tzLinkHero = $tzHeroBase;
-$tzLinkAdv  = $tzHeroClickable ? $tzHeroBase . '&amp;t4tab=adventures' : '';
-$tzLinkAuc  = $tzHeroClickable ? $tzHeroBase . '&amp;t4tab=auction'    : '';
 
 /**
  * Cand nu e clickabil folosim <span> in loc de <a>: fara href gol, fara
