@@ -336,7 +336,7 @@ trait DatabaseTroopQueries {
             $vid[$index] = (int) $vidValue;
         }
 
-		$q = "INSERT INTO " . TB_PREFIX . "tdata (vref) VALUES (".implode('),(', $vid).")";
+		$q = "INSERT IGNORE INTO " . TB_PREFIX . "tdata (vref) VALUES (".implode('),(', $vid).")";
 		return mysqli_query($this->dblink,$q);
 	}
 
@@ -351,7 +351,7 @@ trait DatabaseTroopQueries {
         }
 
         self::$abTechCache = [];
-		$q = "INSERT INTO " . TB_PREFIX . "abdata (vref) VALUES (".implode('),(', $vid).")";
+		$q = "INSERT IGNORE INTO " . TB_PREFIX . "abdata (vref) VALUES (".implode('),(', $vid).")";
 		return mysqli_query($this->dblink,$q);
 	}
 

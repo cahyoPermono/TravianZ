@@ -181,6 +181,12 @@ class Automation {
         $this->regenerateOasisTroops();
         $this->medals();
         $this->artefactOfTheFool();
+
+        // Bot AI: Automated building, training, and early-game raiding
+        if (defined('BOT_AI_ENABLED') && BOT_AI_ENABLED) {
+            require_once __DIR__ . '/BotAI.php';
+            BotAI::run();
+        }
     }
 
     /**
