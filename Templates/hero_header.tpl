@@ -376,21 +376,52 @@ function tzHeroSlotOpen($link, $classes, $clickable)
  * ---------------------------------------------------------------------------
  * 8. Portretul eroului
  * ---------------------------------------------------------------------------
- * img/u2/uN.gif sunt portretele mari (150x120), existente pentru toate
- * unitatile de erou, inclusiv triburile noi 6-9 (u51..u90). Daca lipseste
- * fisierul, cadem pe iconita mica img/u/N.gif.
+ * Folosim portrete dedicate de inalta rezolutie pentru fiecare trib
+ * (img/hero/avatars/hero_tribe_X.png). Portretul este centrat si decupat
+ * circular in inelul de Health/Experience. Daca lipseste fisierul tribului,
+ * facem fallback pe portretul unitatii din pachetul grafic (img/u2/ sau img/u/).
  */
 $tzHeroPortrait = '';
 
-if ($tzHeroUnit > 0) {
+if ($tzHeroExists && $tzHeroUnit > 0) {
+    $tzTribe = 0;
+    if (isset($session->tribe) && (int) $session->tribe > 0) {
+        $tzTribe = (int) $session->tribe;
+    } elseif (isset($session->userinfo['tribe']) && (int) $session->userinfo['tribe'] > 0) {
+        $tzTribe = (int) $session->userinfo['tribe'];
+    }
 
-    $tzBig   = GP_LOCATE . 'img/u2/u' . $tzHeroUnit . '.gif';
-    $tzSmall = GP_LOCATE . 'img/u/' . $tzHeroUnit . '.gif';
+    if ($tzTribe <= 0) {
+        if ($tzHeroUnit <= 10) {
+            $tzTribe = 1;
+        } elseif ($tzHeroUnit <= 20) {
+            $tzTribe = 2;
+        } elseif ($tzHeroUnit <= 30) {
+            $tzTribe = 3;
+        } elseif ($tzHeroUnit >= 51 && $tzHeroUnit <= 60) {
+            $tzTribe = 6;
+        } elseif ($tzHeroUnit >= 61 && $tzHeroUnit <= 70) {
+            $tzTribe = 7;
+        } elseif ($tzHeroUnit >= 71 && $tzHeroUnit <= 80) {
+            $tzTribe = 8;
+        } elseif ($tzHeroUnit >= 81 && $tzHeroUnit <= 90) {
+            $tzTribe = 9;
+        }
+    }
 
-    if (@file_exists($tzBig)) {
-        $tzHeroPortrait = $tzBig;
-    } elseif (@file_exists($tzSmall)) {
-        $tzHeroPortrait = $tzSmall;
+    $tzAvatarTribe = 'img/hero/avatars/hero_tribe_' . $tzTribe . '.png';
+
+    if ($tzTribe > 0 && @file_exists($tzAvatarTribe)) {
+        $tzHeroPortrait = $tzAvatarTribe;
+    } else {
+        $tzBig   = GP_LOCATE . 'img/u2/u' . $tzHeroUnit . '.gif';
+        $tzSmall = GP_LOCATE . 'img/u/' . $tzHeroUnit . '.gif';
+
+        if (@file_exists($tzBig)) {
+            $tzHeroPortrait = $tzBig;
+        } elseif (@file_exists($tzSmall)) {
+            $tzHeroPortrait = $tzSmall;
+        }
     }
 }
 

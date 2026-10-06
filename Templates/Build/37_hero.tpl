@@ -112,25 +112,46 @@ $renderAddLink = function ($action) use ($hero_info, $id, $heroStatColumns, $her
 
 <div class="t4h-wrap">
 
+<?php
+    $t4HeroTribe = (int) ($session->tribe ?? 1);
+    if ($t4HeroTribe <= 0 && isset($hero_info['unit'])) {
+        $u = (int) $hero_info['unit'];
+        if ($u <= 10) $t4HeroTribe = 1;
+        elseif ($u <= 20) $t4HeroTribe = 2;
+        elseif ($u <= 30) $t4HeroTribe = 3;
+        elseif ($u >= 51 && $u <= 60) $t4HeroTribe = 6;
+        elseif ($u >= 61 && $u <= 70) $t4HeroTribe = 7;
+        elseif ($u >= 71 && $u <= 80) $t4HeroTribe = 8;
+        elseif ($u >= 81 && $u <= 90) $t4HeroTribe = 9;
+    }
+    $t4HeroAvatar = 'img/hero/avatars/hero_tribe_' . $t4HeroTribe . '.png';
+    $hasHeroAvatar = @file_exists($t4HeroAvatar);
+?>
+
 <div class="t4h-panel">
     <div class="t4h-head">
-        <span>
-            <?php
-                if (isset($_GET['rename'])) {
-                    echo "<form action=\"\" method=\"POST\" style=\"display:inline;margin:0;\">"
-                       . "<input type=\"hidden\" name=\"userid\" value=\"" . $session->uid . "\">"
-                       . "<input type=\"hidden\" name=\"hero\" value=\"1\">"
-                       . "<input type=\"text\" class=\"text\" name=\"name\" maxlength=\"20\" value=\"" . $hero_info['name'] . "\">";
-                } else {
-                    $renameSep = (strpos($heroSelfUrl, '?') !== false) ? '&' : '?';
-                    echo "<a href=\"" . $heroSelfUrl . $renameSep . "rename\">" . $hero_info['name'] . "</a></form>";
-                }
-            ?>
-            <?php echo LEVEL; ?> <?php echo $hero_info['level']; ?>
-            <span class="info">( <?php
-                echo "<img class=\"unit u" . $hero_info['unit'] . "\" src=\"img/x.gif\" alt=\"" . $technology->getUnitName($hero_info['unit']) . "\" title=\"" . $technology->getUnitName($hero_info['unit']) . "\" /> "
-                   . $technology->getUnitName($hero_info['unit']);
-            ?> )</span>
+        <span style="display:inline-flex;align-items:center;gap:8px;">
+            <?php if ($hasHeroAvatar) { ?>
+                <img src="<?php echo $t4HeroAvatar; ?>" alt="" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid #b59858;box-shadow:0 1px 3px rgba(0,0,0,0.25);vertical-align:middle;" />
+            <?php } ?>
+            <span>
+                <?php
+                    if (isset($_GET['rename'])) {
+                        echo "<form action=\"\" method=\"POST\" style=\"display:inline;margin:0;\">"
+                           . "<input type=\"hidden\" name=\"userid\" value=\"" . $session->uid . "\">"
+                           . "<input type=\"hidden\" name=\"hero\" value=\"1\">"
+                           . "<input type=\"text\" class=\"text\" name=\"name\" maxlength=\"20\" value=\"" . $hero_info['name'] . "\">";
+                    } else {
+                        $renameSep = (strpos($heroSelfUrl, '?') !== false) ? '&' : '?';
+                        echo "<a href=\"" . $heroSelfUrl . $renameSep . "rename\">" . $hero_info['name'] . "</a></form>";
+                    }
+                ?>
+                <?php echo LEVEL; ?> <?php echo $hero_info['level']; ?>
+                <span class="info">( <?php
+                    echo "<img class=\"unit u" . $hero_info['unit'] . "\" src=\"img/x.gif\" alt=\"" . $technology->getUnitName($hero_info['unit']) . "\" title=\"" . $technology->getUnitName($hero_info['unit']) . "\" /> "
+                       . $technology->getUnitName($hero_info['unit']);
+                ?> )</span>
+            </span>
         </span>
         <span><?php echo defined('TZ_POINTS') ? TZ_POINTS : 'Points'; ?></span>
     </div>

@@ -110,17 +110,29 @@ div#mtop {
 
 /* ATENTIE: portretul e copil al lui .tzHeroCenter, care e position:absolute,
    deci coordonatele sunt relative la INEL (64x64), nu la #tzHeroBox.
-   Centrare = (64 - 32) / 2 pe ambele axe. */
+   Centrare = (64 - 34) / 2 = 15px pe ambele axe (diametru inel interior: 35px). */
 .tzHeroPortrait {
     position: absolute;
+    left: 15px;
+    top: 15px;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+img.tzHeroPortrait {
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+}
+
+.tzHeroPortraitEmpty {
     left: 16px;
     top: 16px;
     width: 32px;
     height: 32px;
-    object-fit: contain;
-}
-
-.tzHeroPortraitEmpty {
+    border-radius: 0;
     fill: #b9b7b2;
 }
 
