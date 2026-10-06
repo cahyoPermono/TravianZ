@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
     container_name: travianz-web
     ports:
-      - "8080:80"
+      - "${WEB_PORT:-8080}:80"
     volumes:
       - ./:/var/www/html
     environment:
@@ -28,7 +28,7 @@ services:
     volumes:
       - db-data:/var/lib/mysql
     ports:
-      - "3306:3306"
+      - "${DB_EXTERNAL_PORT:-3306}:3306"
     networks:
       - travianz-network
     restart: unless-stopped
@@ -49,7 +49,7 @@ services:
       PMA_USER: root
       PMA_PASSWORD: ${MARIADB_ROOT_PASSWORD:-${MYSQL_ROOT_PASSWORD:-rootpassword}}
     ports:
-      - "8081:80"
+      - "${PMA_PORT:-8081}:80"
     depends_on:
       db:
         condition: service_healthy

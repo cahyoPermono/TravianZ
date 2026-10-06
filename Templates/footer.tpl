@@ -69,7 +69,7 @@ $serverVersion = 'v.11 Full Refactor';
                 <!-- Version -->
                 <div class="copyright">
 
-                    <?php echo TZ_SERVER_RUNNING_ON; ?>
+                    <?php echo defined('TZ_SERVER_RUNNING_ON') ? TZ_SERVER_RUNNING_ON : '▶ Server running on'; ?>
 
                     <a href="version.php"
                        style="color:#FF5555;text-decoration:none;font-weight:bold;transition:0.3s;"
