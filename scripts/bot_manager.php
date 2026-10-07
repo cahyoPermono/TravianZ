@@ -33,6 +33,7 @@ $tribeNames = [
     7 => 'Egyptian',
     8 => 'Spartan',
     9 => 'Viking',
+    10 => 'Nusantara',
 ];
 
 // Ensure is_bot column exists in users table
@@ -45,6 +46,9 @@ switch ($action) {
 
         echo "=== Spawning $count Bot Account(s) with Natural Names ===\n";
         $playableTribes = [1, 2, 3, 6, 7, 8, 9];
+        if (defined('NEW_FUNCTION_TRIBE_NUSANTARA') && NEW_FUNCTION_TRIBE_NUSANTARA) {
+            $playableTribes[] = 10;
+        }
 
         $created = 0;
         for ($i = 1; $i <= $count; $i++) {

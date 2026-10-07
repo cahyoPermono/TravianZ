@@ -53,6 +53,11 @@ class NameGenerator {
             'Ubba', 'Halfdan', 'Leif', 'Erik', 'Canute', 'Olaf', 'Torstein',
             'Gorm', 'Sweyn', 'Aslaug', 'Lagertha', 'Hakon', 'Torvald'
         ],
+        10 => [ // Nusantara
+            'GajahMada', 'HayamWuruk', 'RadenWijaya', 'Kertanegara', 'KenArok',
+            'Tribhuwana', 'Adityawarman', 'EmpuNala', 'AryaWiraraja', 'Bhayangkara',
+            'Suryawisesa', 'Jayakatwang', 'PatihNambi', 'DyahGitarja', 'BraWijaya'
+        ],
     ];
 
     /**
@@ -97,6 +102,7 @@ class NameGenerator {
         7 => ['Alexandria', 'Thebes', 'Memphis', 'Giza', 'Luxor', 'Aswan', 'Karnak', 'Abydos', 'Edfu', 'Tanis'],
         8 => ['Sparta', 'Laconia', 'Messenia', 'Amfissa', 'Peloponnese', 'Therapne', 'Geraki', 'Gythium', 'Sellasia'],
         9 => ['Kattegat', 'Uppsala', 'Jorvik', 'Hedeby', 'Birka', 'Trondheim', 'Roskilde', 'Ribe', 'Gudvangen', 'Stavanger'],
+        10 => ['Wilwatikta', 'Trowulan', 'Daha', 'Kahuripan', 'Tumapel', 'Wengker', 'Mataun', 'Pajang', 'Janggala', 'Lasem'],
     ];
 
     /**
