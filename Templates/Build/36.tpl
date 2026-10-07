@@ -79,7 +79,7 @@ $currentCap = $level > 0? (int)$bid36[$level]['attri'] * TRAPPER_CAPACITY : 0;
                 <tr>
                     <td class="desc">
                         <div class="tit">
-                            <img class="unit u99" src="img/x.gif" alt="<?php echo U99; ?>" title="<?php echo U99; ?>" />
+                            <img class="unit u99" src="img/x.gif" alt="<?php echo defined('U99_TRAP') ? U99_TRAP : 'Trap'; ?>" title="<?php echo defined('U99_TRAP') ? U99_TRAP : 'Trap'; ?>" />
                             <a href="#" onClick="return Popup(36,4,'gid');"><?php echo TRAP;?></a>
                             <span class="info">(<?php echo AVAILABLE;?>: <?php echo (int)$village->unitarray['u99'];?>)</span>
                         </div>
@@ -109,7 +109,7 @@ $currentCap = $level > 0? (int)$bid36[$level]['attri'] * TRAPPER_CAPACITY : 0;
         <tbody>
             <?php foreach ($trainlist as $train): $TrainCount++;?>
             <tr>
-                <td class="desc"><img class="unit u<?php echo $train['unit'];?>" src="img/x.gif" alt="<?php echo U99;?>" title="<?php echo U99;?>" /><?php echo $train['amt'];?> <?php echo U99;?></td>
+                <td class="desc"><img class="unit u<?php echo $train['unit'];?>" src="img/x.gif" alt="<?php echo defined('U99_TRAP') ? U99_TRAP : 'Trap';?>" title="<?php echo defined('U99_TRAP') ? U99_TRAP : 'Trap';?>" /><?php echo $train['amt'];?> <?php echo defined('U99_TRAP') ? U99_TRAP : 'Trap';?></td>
                 <td class="dur">
                     <?php if ($TrainCount == 1): $NextFinished = $generator->getTimeFormat(($train['timestamp'] - time()) - ($train['amt'] - 1) * $train['eachtime']);?>
                         <span id="timer1"><?php echo $generator->getTimeFormat($train['timestamp'] - time());?></span>

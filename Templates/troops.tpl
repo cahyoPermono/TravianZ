@@ -49,7 +49,7 @@ $troopsPresent = false;
  * Loop all possible units (u1-u90, tribes 1-9)
  * ---------------------------------------------------------
  */
-for ($i = 1; $i <= 90; $i++) {
+for ($i = 1; $i <= 100; $i++) {
 
     $unitKey = 'u' . $i;
 

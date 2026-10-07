@@ -35,7 +35,7 @@
 
 $a2bTribe = isset($session->tribe) ? (int) $session->tribe : 1;
 
-if ($a2bTribe < 1 || $a2bTribe > 9) {
+if ($a2bTribe < 1 || $a2bTribe > 10) {
     $a2bTribe = 1;
 }
 

@@ -6834,48 +6834,49 @@ img.u71, img.u72, img.u73, img.u74, img.u75, img.u76, img.u77, img.u78, img.u79,
 img.u81, img.u82, img.u83, img.u84, img.u85, img.u86, img.u87, img.u88, img.u89, img.u90 {
     background-image: url("../../img/u/v9_vikings2.gif");
 }
+img.u91, img.u92, img.u93, img.u94, img.u95, img.u96, img.u97, img.u98, img.u99, img.u100 {
+    background-image: url("../../img/u/v10_nusantara2.gif");
+}
 
 img.uhab, img.ucata, img.ustock, img.uwall, img.ubarr, img.upal, img.ugeb, img.uhero, img.uunits, img.app {
     background-image: url("../../img/u/specials.gif");
 }
-img.u1, img.u11, img.u21, img.u31, img.u41, img.u51, img.u61, img.u71, img.u81, img.uhab {
+img.u1, img.u11, img.u21, img.u31, img.u41, img.u51, img.u61, img.u71, img.u81, img.u91, img.uhab {
     background-position: 0 0;
 }
-img.u2, img.u12, img.u22, img.u32, img.u42, img.u52, img.u62, img.u72, img.u82, img.ucata {
+img.u2, img.u12, img.u22, img.u32, img.u42, img.u52, img.u62, img.u72, img.u82, img.u92, img.ucata {
     background-position: -19px 0;
 }
-img.u3, img.u13, img.u23, img.u33, img.u43, img.u53, img.u63, img.u73, img.u83, img.ustock {
+img.u3, img.u13, img.u23, img.u33, img.u43, img.u53, img.u63, img.u73, img.u83, img.u93, img.ustock {
     background-position: -38px 0;
 }
-img.u4, img.u14, img.u24, img.u34, img.u44, img.u54, img.u64, img.u74, img.u84, img.uwall {
+img.u4, img.u14, img.u24, img.u34, img.u44, img.u54, img.u64, img.u74, img.u84, img.u94, img.uwall {
     background-position: -57px 0;
 }
-img.u5, img.u15, img.u25, img.u35, img.u45, img.u55, img.u65, img.u75, img.u85, img.ubarr {
+img.u5, img.u15, img.u25, img.u35, img.u45, img.u55, img.u65, img.u75, img.u85, img.u95, img.ubarr {
     background-position: -76px 0;
 }
-img.u6, img.u16, img.u26, img.u36, img.u46, img.u56, img.u66, img.u76, img.u86, img.upal {
+img.u6, img.u16, img.u26, img.u36, img.u46, img.u56, img.u66, img.u76, img.u86, img.u96, img.upal {
     background-position: -95px 0;
 }
-img.u7, img.u17, img.u27, img.u37, img.u47, img.u57, img.u67, img.u77, img.u87, img.ugeb {
+img.u7, img.u17, img.u27, img.u37, img.u47, img.u57, img.u67, img.u77, img.u87, img.u97, img.ugeb {
     background-position: -114px 0;
 }
-img.u8, img.u18, img.u28, img.u38, img.u48, img.u58, img.u68, img.u78, img.u88, img.uhero {
+img.u8, img.u18, img.u28, img.u38, img.u48, img.u58, img.u68, img.u78, img.u88, img.u98, img.uhero {
     background-position: -133px 0;
 }
-img.u9, img.u19, img.u29, img.u39, img.u49, img.u59, img.u69, img.u79, img.u89, img.uunits {
+img.u9, img.u19, img.u29, img.u39, img.u49, img.u59, img.u69, img.u79, img.u89, img.u99, img.uunits {
     background-position: -152px 0;
 }
 img.app {
     background-position: -170px 0;
 }
-img.u10, img.u20, img.u30, img.u40, img.u50, img.u60, img.u70, img.u80, img.u90 {
+img.u10, img.u20, img.u30, img.u40, img.u50, img.u60, img.u70, img.u80, img.u90, img.u100 {
     background-position: -171px 0;
 }
-img.u98 {
-    background-image: url("../../img/u/98.gif");
-}
-img.u99 {
-    background-image: url("../../img/u/99.gif");
+.gid36 img.u99, img.trap {
+    background-image: url("../../img/u/99.gif") !important;
+    background-position: 0 0 !important;
 }
 span.tribe {
     background-position: left center;
@@ -6903,6 +6904,9 @@ span.tribe8 {
 }
 span.tribe9 {
     background-image: url("../../img/u/89.gif");
+}
+span.tribe10 {
+    background-image: url("../../img/u/99.gif");
 }
 img.att_all {
     background-image: url("../../img/a/att_all.gif");
@@ -8190,6 +8194,14 @@ div#side_info div#qge img.q_l3g {
     background-image: url("../../img/q/l3g.jpg");
     width: 146px;
 }
+div#side_info div#qge img.q_l10 {
+    background-image: url("../../img/q/l10.jpg");
+    width: 135px;
+}
+div#side_info div#qge img.q_l10g {
+    background-image: url("../../img/q/l10g.jpg");
+    width: 135px;
+}
 div.quest div#qstbg {
     background-color: white;
     background-position: center bottom;
@@ -9318,6 +9330,36 @@ body.manual img.big_u89 {
 }
 body.manual img.big_u90 {
     background-image: url("../../img/u2/u90.gif");
+}
+body.manual img.big_u91 {
+    background-image: url("../../img/u2/u91.gif");
+}
+body.manual img.big_u92 {
+    background-image: url("../../img/u2/u92.gif");
+}
+body.manual img.big_u93 {
+    background-image: url("../../img/u2/u93.gif");
+}
+body.manual img.big_u94 {
+    background-image: url("../../img/u2/u94.gif");
+}
+body.manual img.big_u95 {
+    background-image: url("../../img/u2/u95.gif");
+}
+body.manual img.big_u96 {
+    background-image: url("../../img/u2/u96.gif");
+}
+body.manual img.big_u97 {
+    background-image: url("../../img/u2/u97.gif");
+}
+body.manual img.big_u98 {
+    background-image: url("../../img/u2/u98.gif");
+}
+body.manual img.big_u99 {
+    background-image: url("../../img/u2/u99.gif");
+}
+body.manual img.big_u100 {
+    background-image: url("../../img/u2/u100.gif");
 }
 div.plus table#gold_features td.preview img {
     height: 150px;

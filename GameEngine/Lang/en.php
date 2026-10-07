@@ -33,6 +33,7 @@ tz_def('TRIBE6', 'Huns');
 tz_def('TRIBE7', 'Egyptians');
 tz_def('TRIBE8', 'Spartans');
 tz_def('TRIBE9', 'Vikings');
+tz_def('TRIBE10', 'Nusantara');
 
 tz_def('HOME', 'Homepage');
 tz_def('INSTRUCT', 'Instructions');
@@ -696,7 +697,7 @@ tz_def('U27', 'Ram');
 tz_def('U28', 'Trebuchet');
 tz_def('U29', 'Chieftain');
 tz_def('U30', 'Settler');
-tz_def('U99', 'Trap');
+tz_def('U99_TRAP', 'Trap');
 
 //NATURE UNITS
 tz_def('U31', 'Rat');
@@ -765,6 +766,21 @@ tz_def('U87', 'Ram');
 tz_def('U88', 'Catapult');
 tz_def('U89', 'Jarl');
 tz_def('U90', 'Viking Settler');
+//NUSANTARA (TRIBE 10)
+tz_def('U91', 'Pendekar Keris');
+tz_def('U92', 'Prajurit Tombak');
+tz_def('U93', 'Pemanah Busur Gendewa');
+tz_def('U94', 'Telik Sandi');
+tz_def('U95', 'Kavaleri Berkuda');
+tz_def('U96', 'Gajah Perang Bhayangkara');
+tz_def('U97', 'Cetbang Pemecah Benteng');
+tz_def('U98', 'Meriam Kalantaka');
+tz_def('U99', 'Senapati Palapa');
+tz_def('U100', 'Pemukim Bahari');
+tz_def('TRIBE10_L1', 'Moderate time requirements');
+tz_def('TRIBE10_L2', 'Balanced offense and maritime defense');
+tz_def('TRIBE10_L3', 'Mobile cavalry and cunning scouts');
+tz_def('TRIBE10_L4', 'Versatile empire builders');
 
 //INDEX.php
 tz_def('LOGIN', 'Login');
@@ -1286,7 +1302,7 @@ tz_def('DEFENCE_LEVEL', 'Defence Bonus at level');
 tz_def('CITYWALL_DESC', 'Provides a defense bonus for your troops (((1.03 ^ level) * 100)% + 10) defensive points per level to the basic defensive value for a village. The higher level Wall will give your troops a higher defence bonus.<br>Tribe-specific: Romans only');
 
 tz_def('EARTHWALL', 'Earth Wall');
-tz_def('EARTHWALL_DESC', 'Provides a defense bonus for your troops (((1.02 ^ level) * 100)% + 6) defensive points per level to the basic defensive value for a village. A higher level Earth Wall will give your troops a higher defence bonus.<br>Tribe-specific: Teutons only');
+tz_def('EARTHWALL_DESC', 'Provides a defense bonus for your troops (((1.02 ^ level) * 100)% + 6) defensive points per level to the basic defensive value for a village. A higher level Earth Wall will give your troops a higher defence bonus.<br>Tribe-specific: Teutons and Nusantara');
 
 tz_def('PALISADE', 'Palisade');
 tz_def('PALISADE_DESC', 'Provides a defense bonus for your troops (((1.025 ^ level) * 100)% + 8) defensive points per level to the basic defensive value for a village. A higher level Palisade will give your troops a higher defence bonus.<br>Tribe-specific: Gauls only');

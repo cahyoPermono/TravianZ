@@ -656,8 +656,8 @@ if ($barrack==0){ ?>
 
 // Checking 2 warrior trained or no
 $units = $village->unitall;
-$unarray=array(1=>U1,2=>U11,3=>U21,6=>U51,7=>U61,8=>U71,9=>U81);
-$unarray2=array(1=>"u1",2=>"u11",3=>"u21",6=>"u51",7=>"u61",8=>"u71",9=>"u81");
+$unarray=array(1=>U1,2=>U11,3=>U21,6=>U51,7=>U61,8=>U71,9=>U81,10=>U91);
+$unarray2=array(1=>"u1",2=>"u11",3=>"u21",6=>"u51",7=>"u61",8=>"u71",9=>"u81",10=>"u91");
 if ($units[$unarray2[$session->userinfo['tribe']]]<2){ ?>
 {"markup":"\n\t\t<div id=\"qstd\"><h1> <img class=\"point\" src=\"img\/x.gif\" alt=\"\" title=\"\"\/> <?php echo Q20; ?><\/h1><br \/><i>&rdquo;<?php echo Q20_DESC; ?> <?php echo $unarray[$session->userinfo['tribe']];?>.&rdquo;<\/i><br \/><br \/><div class=\"rew\"><p class=\"ta_aw\"><?php echo Q20_ORDER; ?> <?php echo $unarray[$session->userinfo['tribe']];?>.<\/div><br \/><span id=\"qst_accpt\"><\/span><\/div>\n\t\t<div id=\"qstbg\" class=\"units\"><\/div>\n\t\t","number":"-20","reward":false,"qgsrc":"q_l<?php echo $session->userinfo['tribe'];?>","msrc":"<?php echo $messagelol; ?>","altstep":99}
 <?php $_SESSION['qstnew']='0'; }else{ $_SESSION['qstnew']='1'; ?>
@@ -790,7 +790,8 @@ $unarray2 = array(
     6 => "u60",
     7 => "u70",
     8 => "u80",
-    9 => "u90"
+    9 => "u90",
+    10 => "u100"
 );
 if ($units[$unarray2[$session->userinfo['tribe']]]<3){ $cp = CP;?>
 
@@ -811,7 +812,7 @@ if (count($vil)<2){ ?>
 
 <?php } elseif($_SESSION['qst']== 36){
 
-$unarray=array(1=>CITYWALL,2=>EARTHWALL,3=>PALISADE,6=>MAKESHIFTWALL,7=>STONEWALL,8=>DEFENSIVEWALL,9=>BARRICADE);
+$unarray=array(1=>CITYWALL,2=>EARTHWALL,3=>PALISADE,6=>MAKESHIFTWALL,7=>STONEWALL,8=>DEFENSIVEWALL,9=>BARRICADE,10=>EARTHWALL);
 
 
 $wall = $village->resarray['f40'];
@@ -1099,8 +1100,8 @@ if ($barrack==0){ ?>
 
 // Checking 2 warrior trained or no
 $units = $village->unitall;
-$unarray=array(1=>U1,2=>U11,3=>U21,6=>U51,7=>U61,8=>U71,9=>U81);
-$unarray2=array(1=>"u1",2=>"u11",3=>"u21",6=>"u51",7=>"u61",8=>"u71",9=>"u81");
+$unarray=array(1=>U1,2=>U11,3=>U21,6=>U51,7=>U61,8=>U71,9=>U81,10=>U91);
+$unarray2=array(1=>"u1",2=>"u11",3=>"u21",6=>"u51",7=>"u61",8=>"u71",9=>"u81",10=>"u91");
 if ($units[$unarray2[$session->userinfo['tribe']]]<2){ ?>
 {"markup":"\n\t\t<div id=\"qstd\"><h1> <img class=\"point\" src=\"img\/x.gif\" alt=\"\" title=\"\"\/> <?php echo TZ_TASK_18_TRAIN; ?><\/h1><br \/><i>&rdquo;Now that you have barracks you can start training troops. Train two <?php echo $unarray[$session->userinfo['tribe']];?>.&rdquo;<\/i><br \/><br \/><div class=\"rew\"><p class=\"ta_aw\"><?php echo TZ_ORDER; ?><\/p>Please train 2 <?php echo $unarray[$session->userinfo['tribe']];?>.<\/div><br \/><span id=\"qst_accpt\"><\/span><\/div>\n\t\t<div id=\"qstbg\" class=\"units\"><\/div>\n\t\t","number":"-21","reward":false,"qgsrc":"q_l<?php echo $session->userinfo['tribe'];?>","msrc":"<?php echo $messagelol; ?>","altstep":0}
 <?php $_SESSION['qstnew']='0'; }else{ $_SESSION['qstnew']='1'; ?>
@@ -1227,7 +1228,7 @@ if ($residence<10 && $palace<10 && $commandcenter<10){?>
 
 // check whether 3 settlers were trained, or whether the user already has a second village founded
 $units = $village->unitall;
-$unarray2=array("","u10", "u20","u30");
+$unarray2=array(1=>"u10", 2=>"u20", 3=>"u30", 6=>"u60", 7=>"u70", 8=>"u80", 9=>"u90", 10=>"u100");
 $vil = $database->getProfileVillages($session->uid);
 if ( $units[$unarray2[$session->userinfo['tribe']]] < 3 && count( $vil ) == 1 ){ $cp = CP;?>
 
@@ -1248,7 +1249,7 @@ if (count($vil)<2){ ?>
 
 <?php } elseif($_SESSION['qst']== 36){
 
-$unarray=array(1=>CITYWALL,2=>EARTHWALL,3=>PALISADE,6=>MAKESHIFTWALL,7=>STONEWALL,8=>DEFENSIVEWALL,9=>BARRICADE);
+$unarray=array(1=>CITYWALL,2=>EARTHWALL,3=>PALISADE,6=>MAKESHIFTWALL,7=>STONEWALL,8=>DEFENSIVEWALL,9=>BARRICADE,10=>EARTHWALL);
 
 
 $wall = $village->resarray['f40'];

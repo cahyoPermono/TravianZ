@@ -125,6 +125,17 @@ $regTribes = array(
             regText('TRIBE9_L4', 'Not recommended for new players!'),
         ),
     ),
+    10 => array( /* Nusantara */
+        'name'  => defined('TRIBE10') ? TRIBE10 : 'Nusantara',
+        'flag'  => (defined('NEW_FUNCTION_TRIBE_NUSANTARA') && NEW_FUNCTION_TRIBE_NUSANTARA),
+        'best'  => false,
+        'lines' => array(
+            regText('TRIBE10_L1', 'Moderate time requirements'),
+            regText('TRIBE10_L2', 'Archers and Cetbang cannons with high offensive power'),
+            regText('TRIBE10_L3', 'Strong maritime economy and versatile units'),
+            regText('TRIBE10_L4', 'Well suited to strategic and tactical players'),
+        ),
+    ),
 );
 
 /* Drop every tribe that is disabled by the install feature flags. */

@@ -87,6 +87,11 @@ $unitData = [
 	84 => $u84 ?? [], 
 	85 => $u85 ?? [], 
 	86 => $u86 ?? [],
+	91 => $u91 ?? [], 
+	92 => $u92 ?? [], 
+	93 => $u93 ?? [], 
+	95 => $u95 ?? [], 
+	96 => $u96 ?? [],
 ];
 
 // The single source of truth for "which units belong to each tribe", used
@@ -103,6 +108,7 @@ $tribeUnits = [
 	7 => [61, 62, 63, 65, 66],
 	8 => [71, 72, 73, 75, 76],
 	9 => [81, 83, 84, 85, 86],
+	10 => [91, 92, 93, 95, 96],
 ];
 
 // The 2 pre-existing bugs, explicitly identified on the unit (see note above).

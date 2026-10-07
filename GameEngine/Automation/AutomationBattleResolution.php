@@ -744,7 +744,7 @@ trait AutomationBattleResolution {
         $database->query("DELETE FROM " . TB_PREFIX . "route where wid = " . (int)$data['to'] . " OR `from` = " . (int)$data['to']);
 
         $units2reset = [];
-        for ($u = 1; $u <= 90; $u++) $units2reset[] = 'u' . $u . ' = 0';
+        for ($u = 1; $u <= 100; $u++) $units2reset[] = 'u' . $u . ' = 0';
         // cucerirea goleste spitalul si coada de vindecare
         $database->clearHospital($data['to']);
         $units2reset[] = 'u99 = 0';
@@ -928,7 +928,7 @@ trait AutomationBattleResolution {
      * @return string HTML fragment for the trap report line; empty if no prisoners freed.
      */
     private function handlePrisoners($data, $from, $to, $ownally, $type, $totalsend_att, $totaldead_att, $totaltraped_att) {
-        global $database, $units, $bid19, $u99;
+        global $database, $units, $bid19, $u99, $u99_trap;
 
         if ($type != 3 || $totalsend_att - ($totaldead_att + $totaltraped_att) <= 0) {
             return '';
@@ -1018,11 +1018,12 @@ trait AutomationBattleResolution {
         $newtraps = round(($mytroops + $anothertroops) / 3);
         $database->modifyUnit($data['to'], ['99', '99o'], [$mytroops + $anothertroops, $mytroops + $anothertroops], [0, 0]);
         if ($newtraps > 0) {
+            $trapData = $u99_trap ?? $u99;
             $repairDuration = $database->getArtifactsValueInfluence(
                 $to['owner'], $to['wref'], 5,
-                round(($bid19[max($this->getTypeLevel(36, $to['wref']), 1)]['attri'] / 100) * $u99['time'] / SPEED)
+                round(($bid19[max($this->getTypeLevel(36, $to['wref']), 1)]['attri'] / 100) * $trapData['time'] / SPEED)
             );
-            $database->trainUnit($to['wref'], 99, $newtraps, $u99['pop'], $repairDuration, 0);
+            $database->trainUnit($to['wref'], 99, $newtraps, $trapData['pop'], $repairDuration, 0);
         }
 
         $trapper_pic = "<img src=\"".GP_LOCATE."img/u/98.gif\" alt=\"".rc_tok('RC_TRAP')."\" title=\"".rc_tok('RC_TRAP')."\" />";
@@ -1220,7 +1221,7 @@ trait AutomationBattleResolution {
      */
     private function isValidBattleTribe($tribe) {
         return (is_int($tribe) || is_string($tribe))
-            && preg_match('/^[1-9]$/D', (string)$tribe) === 1;
+            && preg_match('/^(?:[1-9]|10)$/D', (string)$tribe) === 1;
     }
 
     /**
@@ -1269,7 +1270,7 @@ trait AutomationBattleResolution {
         // validates this BEFORE combat; this guard also protects future callers.
         if (!$this->isValidBattleTribe($targettribe)) {
             $this->logInvalidBattleContext($data, 'invalid own-defence tribe');
-            return array_fill(1, 90, 0) + ['hero' => 0];
+            return array_fill(1, 100, 0) + ['hero' => 0];
         }
         $targettribe = (int)$targettribe;
 		
@@ -1502,9 +1503,9 @@ trait AutomationBattleResolution {
         $unitssend_deff = [];
 
         //Resetting the enforcement arrays
-        for ($i = 1; $i <= 90; $i++) {
+        for ($i = 1; $i <= 100; $i++) {
             $DefenderEnf['u'.$i] = 0;
-            if ($i <= 9) {
+            if ($i <= 10) {
                 $DefenderHeroesTotArray[$i] = 0;
                 $DefenderHeroesDeadArray[$i] = 0;
             }
@@ -1514,7 +1515,7 @@ trait AutomationBattleResolution {
         $enforcementarray2 = $database->getEnforceVillage($data['to'], 0);
         if (count($enforcementarray2) > 0) {
             foreach ($enforcementarray2 as $enforce2) {
-                for ($i = 1; $i <= 90; $i++) {
+                for ($i = 1; $i <= 100; $i++) {
                     $DefenderEnf['u'.$i] += $enforce2['u'.$i];
                 }
 
@@ -1613,7 +1614,7 @@ trait AutomationBattleResolution {
      *     Attacker:        array attacker units with trapped troops removed
      * }
      */
-    private function calculateTrappedUnits($data, $Defender, $Attacker, $NatarCapital, $scout, $start, $end) {
+    private function calculateTrappedUnits($data, $Defender, $Attacker, $NatarCapital, $scout, $start, $end, $targettribe = null) {
         global $database;
 
         $traped = [];
@@ -1624,7 +1625,7 @@ trait AutomationBattleResolution {
         if ($NatarCapital){
             for($i = 1; $i <= 11; $i++) $traped[$i] = $data['t'.$i];
         }
-        elseif(empty($scout))
+        elseif(empty($scout) && ($targettribe === null || $targettribe == 3))
         {
             $traps = max($Defender['u99'] - $Defender['u99o'], 0);
 
@@ -1819,7 +1820,7 @@ trait AutomationBattleResolution {
 
         if (count($enforcementarray) > 0) {
             foreach ($enforcementarray as $enforce) {
-                for ($i = 1; $i <= 90; $i++) {
+                for ($i = 1; $i <= 100; $i++) {
                     if (!isset($enforDefender['u'.$i])) {
                         $enforDefender['u'.$i] = 0;
                     }
@@ -1832,7 +1833,7 @@ trait AutomationBattleResolution {
             }
         }
 
-        for ($i = 1; $i <= 90; $i++) {
+        for ($i = 1; $i <= 100; $i++) {
             if (!isset($Defender['u'.$i]) || empty($Defender['u'.$i]) || $Defender['u'.$i] < 0) {
                 $Defender['u'.$i] = 0;
             }
@@ -2076,7 +2077,7 @@ trait AutomationBattleResolution {
         $totaldead_def = 0;
         $totalpoint_att = 0;
 
-        for($i = 1 ;$i <= 90; $i++) {
+        for($i = 1 ;$i <= 100; $i++) {
             $unitarray = $GLOBALS["u".$i];
 
             //Reinforcements dead troops
@@ -2828,18 +2829,18 @@ trait AutomationBattleResolution {
                 $attpop  = $popData['attpop'];
 
                 //fix by ronix
-                for ($i = 1; $i <= 90; $i++) {
+                for ($i = 1; $i <= 100; $i++) {
                     if (!isset($enforDefender['u'.$i])) {
                         $enforDefender['u'.$i] = 0;
                     }
                     $enforDefender['u'.$i] += (isset($Defender['u'.$i]) ? $Defender['u'.$i] : 0);
                 }
 
-                $defspy = $enforDefender['u4'] > 0 || $enforDefender['u14'] > 0 || $enforDefender['u23'] > 0 || $enforDefender['u44'] > 0;
+                $defspy = $enforDefender['u4'] > 0 || $enforDefender['u14'] > 0 || $enforDefender['u23'] > 0 || $enforDefender['u44'] > 0 || $enforDefender['u54'] > 0 || $enforDefender['u64'] > 0 || $enforDefender['u74'] > 0 || $enforDefender['u84'] > 0 || $enforDefender['u94'] > 0;
 
                 if(PEACE == 0 || $targettribe == 4 || $targettribe == 5 || $scout){
                     // trapper resolution + prisoners — extracted to calculateTrappedUnits() [#155]
-                    $trapResult = $this->calculateTrappedUnits($data, $Defender, $Attacker, $NatarCapital, $scout, $start, $end);
+                    $trapResult = $this->calculateTrappedUnits($data, $Defender, $Attacker, $NatarCapital, $scout, $start, $end, $targettribe);
                     for($i = 1; $i <= 11; $i++) ${'traped'.$i} = $trapResult['traped'][$i];
                     $totaltraped_att = $trapResult['totaltraped_att'];
                     $Attacker        = $trapResult['Attacker'];
@@ -2950,7 +2951,7 @@ trait AutomationBattleResolution {
                     $owndead = [];
                     $alldead = [];
                     
-                    for($i = 1; $i <= 90; $i++) $alldead[$i] = 0;
+                    for($i = 1; $i <= 100; $i++) $alldead[$i] = 0;
                     // BUG FIXED: 'hero' key was only defensively set AFTER applyReinforcementCasualties()
                     // ran (see the guard a few lines below), but that function itself does
                     // "$alldead['hero'] += $dead['hero']" (by reference) as soon as a reinforcement
@@ -3252,7 +3253,7 @@ trait AutomationBattleResolution {
 		
 		if(count($enforcementarray) > 0){
 			foreach($enforcementarray as $enforce){
-				for($i = 1; $i <= 90; $i++){
+				for($i = 1; $i <= 100; $i++){
 					$ownunit['u'.$i] += $enforce['u'.$i];
 				}
 			}
@@ -3261,7 +3262,7 @@ trait AutomationBattleResolution {
 		$enforceoasis = $database->getOasisEnforce($base, 0, $use_cache);
 		if(count($enforceoasis) > 0){
 			foreach($enforceoasis as $enforce){
-				for($i = 1; $i <= 90; $i++){
+				for($i = 1; $i <= 100; $i++){
 					$ownunit['u'.$i] += $enforce['u'.$i];
 				}
 			}
@@ -3270,7 +3271,7 @@ trait AutomationBattleResolution {
 		$enforceoasis1 = $database->getOasisEnforce($base, 1, $use_cache);
 		if(count($enforceoasis1) > 0){
 			foreach($enforceoasis1 as $enforce){
-				for($i = 1; $i <= 90; $i++){
+				for($i = 1; $i <= 100; $i++){
 					$ownunit['u'.$i] += $enforce['u'.$i];
 				}
 			}
@@ -3278,7 +3279,7 @@ trait AutomationBattleResolution {
 		
 		$movement = $database->getVillageMovement($base);
 		if(!empty($movement)){
-			for($i = 1; $i <= 90; $i++){
+			for($i = 1; $i <= 100; $i++){
 				if(!isset($ownunit['u' . $i])){
 					$ownunit['u'.$i] = 0;
 				}

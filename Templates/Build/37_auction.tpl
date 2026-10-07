@@ -421,6 +421,7 @@ $t4LblSilver = defined('HERO_SILVER') ? HERO_SILVER : 'Silver';
                     7 => 'egiptean.png',  // Egipteni
                     8 => 'spartan.png',   // Spartani
                     9 => 'vikings.png',   // Vikingi
+                    10 => 'nusantara.png', // Nusantara
                 ];
 
                 $t4Tribe = 0;

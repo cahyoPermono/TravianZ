@@ -25,6 +25,7 @@ $start_timer = $generator->pageLoadTimeStart();
 use App\Utils\AccessLogger;
 
 include_once ("GameEngine/Village.php");
+include_once ("GameEngine/Units.php");
 AccessLogger::logRequest();
 
 //Check if a rally point has already been built
@@ -81,6 +82,9 @@ if(isset($_GET['o'])){
 }else{
 	if($session->sit == 0) $disabled = "";
 	else $disabled = "disabled=disabled";
+}
+if (!isset($units) || !is_object($units)) {
+	$units = new Units();
 }
 $process = $units->procUnits($_POST);
 ?>

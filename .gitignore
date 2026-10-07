@@ -43,3 +43,8 @@ var/log/access.log
 # Docker environment file with sensitive credentials
 .env
 *.lnk
+
+# Scratch and development temporary files
+scratch/
+cookies*.txt
+

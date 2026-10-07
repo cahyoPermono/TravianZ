@@ -112,7 +112,7 @@ class Building {
         29 => array('exact' => array(array(19, 20)), 'notCapital' => true),
         30 => array('exact' => array(array(20, 20)), 'notCapital' => true),
         31 => array('tribe' => array(1), 'unique' => false),
-        32 => array('tribe' => array(2), 'unique' => false),
+        32 => array('tribe' => array(2, 10), 'unique' => false),
         33 => array('tribe' => array(3), 'unique' => false),
         35 => array('levels' => array(array(16, 10)), 'exact' => array(array(11, 20)), 'tribe' => array(2), 'capitalOnly' => true),
         36 => array('levels' => array(array(16, 1)), 'tribe' => array(3), 'rebuildAtLevel' => 20),

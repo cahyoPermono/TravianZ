@@ -523,4 +523,47 @@
 			array('wood' => 190000, 'clay' => 205000, 'iron' => 214500, 'crop' => 54000, 'time' => 376200), array('wood' => 194000, 'clay' => 209500, 'iron' => 214500, 'crop' => 55500, 'time' => 382800), array('wood' => 198500, 'clay' => 214000, 'iron' => 214500, 'crop' => 57000, 'time' => 389400), array('wood' => 202000, 'clay' => 219000, 'iron' => 214500, 'crop' => 58000, 'time' => 396000),
 			array('wood' => 206500, 'clay' => 223500, 'iron' => 214500, 'crop' => 59000, 'time' => 402600));
 
+// NUSANTARA UNITS (TRIBE 10)
+global $u91, $u92, $u93, $u95, $u96, $u11, $u12, $u22, $u24, $u16;
+$nusantaraHeroMap = [
+	91 => [11, $u91 ?? null, $u11 ?? null, 'h11_full'],
+	92 => [12, $u92 ?? null, $u12 ?? null, 'h12_full'],
+	93 => [22, $u93 ?? null, $u22 ?? null, 'h22_full'],
+	95 => [24, $u95 ?? null, $u24 ?? null, 'h24_full'],
+	96 => [16, $u96 ?? null, $u16 ?? null, 'h16_full']
+];
+
+foreach ($nusantaraHeroMap as $nu => [$refUid, $uN, $uR, $hRefName]) {
+	$varName = 'h' . $nu . '_full';
+	$$varName = [];
+	$refArr = $$hRefName ?? [];
+	if (!empty($refArr) && !empty($uN) && !empty($uR)) {
+		foreach ($refArr as $lvl => $d) {
+			$$varName[$lvl] = [
+				'wood' => (int) round($uN['wood'] * ($d['wood'] / max(1, $uR['wood']))),
+				'clay' => (int) round($uN['clay'] * ($d['clay'] / max(1, $uR['clay']))),
+				'iron' => (int) round($uN['iron'] * ($d['iron'] / max(1, $uR['iron']))),
+				'crop' => (int) round($uN['crop'] * ($d['crop'] / max(1, $uR['crop']))),
+				'time' => (int) round($uN['time'] * ($d['time'] / max(1, $uR['time'])))
+			];
+		}
+	} else {
+		$w = (int)($uN['wood'] ?? 110);
+		$c = (int)($uN['clay'] ?? 130);
+		$i = (int)($uN['iron'] ?? 140);
+		$cr = (int)($uN['crop'] ?? 50);
+		$t = (int)($uN['time'] ?? 1400);
+		for ($lvl = 0; $lvl <= 60; $lvl++) {
+			$mul = 1 + ($lvl * 0.15);
+			$$varName[$lvl] = [
+				'wood' => (int) round($w * 2 * $mul),
+				'clay' => (int) round($c * 2 * $mul),
+				'iron' => (int) round($i * 2 * $mul),
+				'crop' => (int) round($cr * 2 * $mul),
+				'time' => (int) round($t * 2 * ($lvl + 1))
+			];
+		}
+	}
+}
+
 ?>

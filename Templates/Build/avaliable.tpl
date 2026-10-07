@@ -173,6 +173,9 @@ if($wall == 0 && $wall1 == 0) {
     if($session->tribe == 9 && $id == 40) {
         include("avaliable/barricade.tpl");
     }
+    if($session->tribe == 10 && $id == 40) {
+        include("avaliable/earthwall.tpl");
+    }
 }
 if((($warehouse == 0 && $warehouse1 == 0) || $warehouse == 20) && $mainbuilding >= 1 && $id != 39 && $id != 40) {
     include("avaliable/warehouse.tpl");

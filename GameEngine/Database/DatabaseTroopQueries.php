@@ -301,7 +301,7 @@ trait DatabaseTroopQueries {
 
         $dbarray     = $this->getUnit( $vid );
         $totalunits  = 0;
-        for ( $i = 1; $i <= 90; $i ++ ) {
+        for ( $i = 1; $i <= 100; $i ++ ) {
             $totalunits += $dbarray[ 'u' . $i ];
         }
         
@@ -495,7 +495,7 @@ trait DatabaseTroopQueries {
 		$cols = []; $vals = []; $upd = [];
 		foreach($units as $k => $u) {
 			$u = (int)$u; $a = (int)$amounts[$k];
-			if($a <= 0 || $u < 1 || $u > 90) continue;
+			if($a <= 0 || $u < 1 || $u > 100) continue;
 			$cols[] = "u$u"; $vals[] = $a; $upd[] = "u$u = u$u + $a";
 		}
 		if(empty($cols)) return true;
@@ -561,19 +561,21 @@ trait DatabaseTroopQueries {
 		global $technology;
 
 		if(!$mode) {
-			// Rutare generica pe tipul unitatii (u1-u90 + offsetul +1000 pentru cladirile mari)
-			global $unitsbytype;
+			// Rutare generica pe tipul unitatii (u1-u100 + offsetul +1000 pentru cladirile mari)
+			global $unitsbytype, $session;
 			$isGreat = $unit > 1000;
 			$baseUnit = $isGreat ? $unit - 1000 : $unit;
 
-			if($baseUnit == 99) $queued = $technology->getTrainingList(8);
+			$uid = $this->getVillageField($vid, "owner");
+			$ownerTribe = (isset($session->tribe) && isset($session->uid) && $session->uid == $uid) ? (int)$session->tribe : (int)$this->getUserField($uid, "tribe", 0);
+
+			if($baseUnit == 99 && $ownerTribe == 3) $queued = $technology->getTrainingList(8);
 			elseif(in_array($baseUnit, $unitsbytype['expansion'])) $queued = $technology->getTrainingList(4);
 			elseif(in_array($baseUnit, $unitsbytype['siege'])) $queued = $technology->getTrainingList($isGreat ? 7 : 3);
 			elseif(in_array($baseUnit, $unitsbytype['cavalry'])) $queued = $technology->getTrainingList($isGreat ? 6 : 2);
 			else $queued = $technology->getTrainingList($isGreat ? 5 : 1);
 		
 			$now = time();
-            $uid = $this->getVillageField($vid, "owner");
             $each = $this->getArtifactsValueInfluence($uid, $vid, 5, $each);
             
             $time2 = $now + $each;

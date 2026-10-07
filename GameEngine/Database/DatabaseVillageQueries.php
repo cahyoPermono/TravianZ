@@ -2250,7 +2250,9 @@ trait DatabaseVillageQueries {
     }
 
     // Units at home
-    $q = "SELECT (u10+u20+u30+u60+u70+u80+u90) as R1, (u9+u19+u29+u59+u69+u79+u89) as R2
+    $ownerTribe = (int)$this->getUserField($village->owner, "tribe", 0);
+    $chiefCol = ($ownerTribe == 10) ? "+u99" : "";
+    $q = "SELECT (u10+u20+u30+u60+u70+u80+u90+u100) as R1, (u9+u19+u29+u59+u69+u79+u89{$chiefCol}) as R2
           FROM " . TB_PREFIX . "units
           WHERE vref = " . (int)$village->wid;
     $result = mysqli_query($this->dblink,$q);
@@ -2278,14 +2280,14 @@ trait DatabaseVillageQueries {
     }
 
     // FIX: Count ALL reinforcements properly (SUM over ALL rows)
-    $q = "SELECT COALESCE(SUM(u10+u20+u30+u60+u70+u80+u90),0) AS s
+    $q = "SELECT COALESCE(SUM(u10+u20+u30+u60+u70+u80+u90+u100),0) AS s
           FROM " . TB_PREFIX . "enforcement
           WHERE `from` = " . (int)$village->wid;
     $result = mysqli_query($this->dblink,$q);
     $row = mysqli_fetch_array($result, MYSQLI_ASSOC);
     $settlers += (int)$row['s'];
 
-    $q = "SELECT COALESCE(SUM(u9+u19+u29+u59+u69+u79+u89),0) AS c
+    $q = "SELECT COALESCE(SUM(u9+u19+u29+u59+u69+u79+u89+u99),0) AS c
           FROM " . TB_PREFIX . "enforcement
           WHERE `from` = " . (int)$village->wid;
     $result = mysqli_query($this->dblink,$q);

@@ -1485,6 +1485,7 @@ class Units {
 			7 => 61,  // Egyptian Slave Militia
 			8 => 71,  // Spartan Hoplite
 			9 => 81,  // Viking Thrall
+			10 => 91, // Nusantara Pendekar Keris
 		];
 		$unit = $basicUnits[$tribe] ?? 1;
 		$now = time();

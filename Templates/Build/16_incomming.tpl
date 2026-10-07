@@ -28,7 +28,7 @@ $rpLevel = (int) $database->getFieldLevelInVillage($village->wid, 16);
 
 // Hitung total unit pengintai (Scout) pembela yang bersiaga di desa (pasukan sendiri + bala bantuan)
 $defScouts = 0;
-$scoutUnitIDs = [4, 14, 23, 44, 52, 64, 74, 82];
+$scoutUnitIDs = [4, 14, 23, 44, 52, 64, 74, 82, 94];
 
 $defOwnUnits = isset($village->unitarray) && is_array($village->unitarray)
     ? $village->unitarray

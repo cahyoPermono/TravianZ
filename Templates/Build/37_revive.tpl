@@ -85,6 +85,13 @@ $heroFullData = [
     84 => $h84_full ?? [],
     85 => $h85_full ?? [],
     86 => $h86_full ?? [],
+
+    // Nusantara
+    91 => $h91_full ?? [],
+    92 => $h92_full ?? [],
+    93 => $h93_full ?? [],
+    95 => $h95_full ?? [],
+    96 => $h96_full ?? [],
 ];
 
 // The "can be resurrected" line was duplicated identically in the original: one version
@@ -148,7 +155,17 @@ foreach ($heroes as $hero_datarow) {
 	// only by the key used in the lookup (current level vs. ceiling 60) -
 	// same result, without duplicating the 5 calculation lines.
 	$levelKey      = ($hero_datarow['level'] <= 60) ? $hero_datarow['level'] : 60;
-	$heroLevelData = $heroFullData[$hero_datarow['unit']][$levelKey];
+	$heroLevelData = $heroFullData[$hero_datarow['unit']][$levelKey] ?? null;
+	if (!$heroLevelData) {
+		$baseU = $GLOBALS['u' . $hero_datarow['unit']] ?? ['wood' => 100, 'clay' => 100, 'iron' => 100, 'crop' => 100, 'time' => 1000];
+		$heroLevelData = [
+			'wood' => (int)($baseU['wood'] * 2),
+			'clay' => (int)($baseU['clay'] * 2),
+			'iron' => (int)($baseU['iron'] * 2),
+			'crop' => (int)($baseU['crop'] * 2),
+			'time' => (int)($baseU['time'] * 2 * ($levelKey + 1))
+		];
+	}
 
 	$wood = $heroLevelData['wood'];
 	$clay = $heroLevelData['clay'];

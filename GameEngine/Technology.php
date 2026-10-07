@@ -44,7 +44,7 @@ include_once($autoprefix."GameEngine/Lang/en.php");
 
 class Technology {
 
-	public $unarray = [1 => U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11, U12, U13, U14, U15, U16, U17, U18, U19, U20, U21, U22, U23, U24, U25, U26, U27, U28, U29, U30, U31, U32, U33, U34, U35, U36, U37, U38, U39, U40, U41, U42, U43, U44, U45, U46, U47, U48, U49, U50, U51, U52, U53, U54, U55, U56, U57, U58, U59, U60, U61, U62, U63, U64, U65, U66, U67, U68, U69, U70, U71, U72, U73, U74, U75, U76, U77, U78, U79, U80, U81, U82, U83, U84, U85, U86, U87, U88, U89, U90 , U99, U0];
+	public $unarray = [1 => U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11, U12, U13, U14, U15, U16, U17, U18, U19, U20, U21, U22, U23, U24, U25, U26, U27, U28, U29, U30, U31, U32, U33, U34, U35, U36, U37, U38, U39, U40, U41, U42, U43, U44, U45, U46, U47, U48, U49, U50, U51, U52, U53, U54, U55, U56, U57, U58, U59, U60, U61, U62, U63, U64, U65, U66, U67, U68, U69, U70, U71, U72, U73, U74, U75, U76, U77, U78, U79, U80, U81, U82, U83, U84, U85, U86, U87, U88, U89, U90, 91 => U91, 92 => U92, 93 => U93, 94 => U94, 95 => U95, 96 => U96, 97 => U97, 98 => U98, 99 => U99, 100 => U100, 0 => U0];
 
 	public function grabAcademyRes() {
 		global $village;
@@ -261,7 +261,9 @@ class Technology {
 		if($res['crop'] > 0) $cropcalc = floor($res['crop'] / ($unitarray['crop'] * ($great ? 3 : 1)));
 		else $cropcalc = 0;
 
-		if($unit != "u99") $popcalc = floor($village->getProd("crop") / $unitarray['pop']);		
+		global $session;
+		$isTrap = ($unit == "u99" && (isset($session->tribe) && $session->tribe == 3));
+		if(!$isTrap) $popcalc = floor($village->getProd("crop") / $unitarray['pop']);		
 		else $popcalc = $village->getProd("crop");
 	
 		return min($woodcalc, $claycalc, $ironcalc, $cropcalc);
@@ -312,7 +314,11 @@ class Technology {
 			$ownunit = array();
 		}
 
-		$ownunit['u99']  = 0;
+		$owner = $database->getVillageField($base, "owner");
+		$ownertribe = (int) $database->getUserField($owner, "tribe", 0);
+		if($ownertribe == 3) {
+			$ownunit['u99']  = 0;
+		}
 		$ownunit['u99o'] = 0;
 		$enforcementarray = $database->getEnforceVillage($base, 0, $useCache);
 		$this->addUnits($ownunit, $enforcementarray);
@@ -581,13 +587,15 @@ class Technology {
 	}
 
 	private function checkTrainingBuilding($unit) {
-		global $building;
+		global $building, $session;
 		
-		$footies = [1, 2, 3, 11, 12, 13, 14, 21, 22, 31, 32, 33, 34, 41, 42, 43, 44, 51, 52, 61, 62, 63, 71, 72, 73, 74, 81, 82, 83, 84];
-		$calvary = [4, 5, 6, 15, 16, 23, 24, 25, 26, 35, 36, 45, 46, 53, 54, 55, 56, 64, 65, 66, 75, 76, 85, 86];
-		$workshop = [7, 8, 17, 18, 27, 28, 37, 38, 47, 48, 57, 58, 67, 68, 77, 78, 87, 88];
-		$special = [9, 10, 19, 20, 29, 30, 39, 40, 49, 50, 59, 60, 69, 70, 79, 80, 89, 90];
-		$trapper = [99];
+		$footies = [1, 2, 3, 11, 12, 13, 14, 21, 22, 31, 32, 33, 34, 41, 42, 43, 44, 51, 52, 61, 62, 63, 71, 72, 73, 74, 81, 82, 83, 84, 91, 92, 93];
+		$calvary = [4, 5, 6, 15, 16, 23, 24, 25, 26, 35, 36, 45, 46, 53, 54, 55, 56, 64, 65, 66, 75, 76, 85, 86, 94, 95, 96];
+		$workshop = [7, 8, 17, 18, 27, 28, 37, 38, 47, 48, 57, 58, 67, 68, 77, 78, 87, 88, 97, 98];
+		$isTrap = ($unit == 99 && (isset($session->tribe) && $session->tribe == 3));
+		$special = [9, 10, 19, 20, 29, 30, 39, 40, 49, 50, 59, 60, 69, 70, 79, 80, 89, 90, 100];
+		if(!$isTrap) { $special[] = 99; }
+		$trapper = $isTrap ? [99] : [];
 		
 		//Check if the player is trying to train troops without the needed buildings
 		// Great Workshop este acum gid 49; Command Center (44) e alternativa hunilor la Residence/Palace
@@ -601,13 +609,15 @@ class Technology {
 	}
 
 	private function getTrainingTime($unit, $great) {
-		global $building, ${'u'.$unit}, $bid19, $bid20, $bid21, $bid25, $bid26, $bid29, $bid30, $bid41, $bid44, $bid49;
+		global $building, ${'u'.$unit}, $u99_trap, $bid19, $bid20, $bid21, $bid25, $bid26, $bid29, $bid30, $bid41, $bid44, $bid49, $session;
 		
-		$footies = [1, 2, 3, 11, 12, 13, 14, 21, 22, 31, 32, 33, 34, 41, 42, 43, 44, 51, 52, 61, 62, 63, 71, 72, 73, 74, 81, 82, 83, 84];
-		$calvary = [4, 5, 6, 15, 16, 23, 24, 25, 26, 35, 36, 45, 46, 53, 54, 55, 56, 64, 65, 66, 75, 76, 85, 86];
-		$workshop = [7, 8, 17, 18, 27, 28, 37, 38, 47, 48, 57, 58, 67, 68, 77, 78, 87, 88];
-		$special = [9, 10, 19, 20, 29, 30, 39, 40, 49, 50, 59, 60, 69, 70, 79, 80, 89, 90];
-		$trapper = [99];
+		$footies = [1, 2, 3, 11, 12, 13, 14, 21, 22, 31, 32, 33, 34, 41, 42, 43, 44, 51, 52, 61, 62, 63, 71, 72, 73, 74, 81, 82, 83, 84, 91, 92, 93];
+		$calvary = [4, 5, 6, 15, 16, 23, 24, 25, 26, 35, 36, 45, 46, 53, 54, 55, 56, 64, 65, 66, 75, 76, 85, 86, 94, 95, 96];
+		$workshop = [7, 8, 17, 18, 27, 28, 37, 38, 47, 48, 57, 58, 67, 68, 77, 78, 87, 88, 97, 98];
+		$isTrap = ($unit == 99 && (isset($session->tribe) && $session->tribe == 3));
+		$special = [9, 10, 19, 20, 29, 30, 39, 40, 49, 50, 59, 60, 69, 70, 79, 80, 89, 90, 100];
+		if(!$isTrap) { $special[] = 99; }
+		$trapper = $isTrap ? [99] : [];
 		
 		if(in_array($unit, $footies)) {		    
 			if($great) {
@@ -641,8 +651,8 @@ class Technology {
 			}
 		}
 		if(in_array($unit, $trapper)) {
-		    
-				$each = round(($bid19[$building->getTypeLevel(36)]['attri'] / 100) * ${'u'.$unit}['time'] / SPEED);
+				$trapTime = $u99_trap['time'] ?? 600;
+				$each = round(($bid19[$building->getTypeLevel(36)]['attri'] / 100) * $trapTime / SPEED);
 		}	
 		
 		// FIX: bonusurile de instruire ale eroului (coifuri) nu erau aplicate
@@ -694,8 +704,8 @@ class Technology {
 	 */
 	public function getTrainingBonusInfo($unit, $baseTime) {
 
-		$footies = [1, 2, 3, 11, 12, 13, 14, 21, 22, 31, 32, 33, 34, 41, 42, 43, 44, 51, 52, 61, 62, 63, 71, 72, 73, 74, 81, 82, 83, 84];
-		$calvary = [4, 5, 6, 15, 16, 23, 24, 25, 26, 35, 36, 45, 46, 53, 54, 55, 56, 64, 65, 66, 75, 76, 85, 86];
+		$footies = [1, 2, 3, 11, 12, 13, 14, 21, 22, 31, 32, 33, 34, 41, 42, 43, 44, 51, 52, 61, 62, 63, 71, 72, 73, 74, 81, 82, 83, 84, 91, 92, 93];
+		$calvary = [4, 5, 6, 15, 16, 23, 24, 25, 26, 35, 36, 45, 46, 53, 54, 55, 56, 64, 65, 66, 75, 76, 85, 86, 94, 95, 96];
 
 		$baseTime = (int) $baseTime;
 
@@ -956,9 +966,10 @@ class Technology {
 	}
 
 	private function getMaxTrainable($unit, $amt, $great) {
-		global $database, $village, $bid36;
+		global $database, $village, $bid36, $session;
 		
-		if($unit % 10 == 0 || $unit % 10 == 9 && $unit != 99) {
+		$isTrap = ($unit == 99 && (isset($session->tribe) && $session->tribe == 3));
+		if($unit % 10 == 0 || ($unit % 10 == 9 && !$isTrap)) {
 			if($this->maxUnit($unit, $great) < $amt) $amt = 0;
 			else
 			{
@@ -967,7 +978,7 @@ class Technology {
 		   		if($unit % 10 == 9 && $slots['chiefs'] <= $amt) $amt = $slots['chiefs'];
 			}
 		}else{
-		    if($unit != 99){
+		    if(!$isTrap){
 		        if($this->maxUnit($unit, $great) < $amt) $amt = 0;
 		    }else{
 		        $trainlist = $this->getTrainingList(8);
@@ -1046,9 +1057,9 @@ class Technology {
 			
 			case 24: return $building->getTypeLevel(22) >= 5 && $building->getTypeLevel(20) >= 3;
 
-			// TRIBE 6-9 (Huns, Egyptians, Spartans, Vikings)
-			// scout de cavalerie (ca 4/23) - Egipteni
-			case 64: return $building->getTypeLevel(22) >= 5 && $building->getTypeLevel(20) >= 1;
+			// scout de cavalerie (ca 4/23) - Egipteni, Nusantara
+			case 64:
+			case 94: return $building->getTypeLevel(22) >= 5 && $building->getTypeLevel(20) >= 1;
 
 			// scout de infanterie: Huni (cerinta proiectului) + Spartani (Sentinel: Academie 1 + Fierarie 1)
 			case 52: return $building->getTypeLevel(22) >= 1 && $building->getTypeLevel(15) >= 5;
@@ -1056,7 +1067,8 @@ class Technology {
 
 			// infanterie defensiva (ca 2)
 			case 62:
-			case 72: return $building->getTypeLevel(22) >= 1 && $building->getTypeLevel(13) >= 1;
+			case 72:
+			case 92: return $building->getTypeLevel(22) >= 1 && $building->getTypeLevel(13) >= 1;
 
 			// infanterie elita/ofensiva (ca 3)
 			case 73:
@@ -1064,13 +1076,15 @@ class Technology {
 
 			// infanterie de atac (ca 13/33/43)
 			case 63:
-			case 83: return $building->getTypeLevel(22) >= 3 && $building->getTypeLevel(12) >= 1;
+			case 83:
+			case 93: return $building->getTypeLevel(22) >= 3 && $building->getTypeLevel(12) >= 1;
 
 			// scout de infanterie (ca 14/34/44)
 			case 82: return $building->getTypeLevel(22) >= 1 && $building->getTypeLevel(15) >= 5;
 
 			// cavalerie usoara de raid (ca 24)
-			case 53: return $building->getTypeLevel(22) >= 5 && $building->getTypeLevel(20) >= 3;
+			case 53:
+			case 95: return $building->getTypeLevel(22) >= 5 && $building->getTypeLevel(20) >= 3;
 
 			// cavalerie medie (ca 5/25)
 			case 54:
@@ -1085,25 +1099,29 @@ class Technology {
 			case 56:
 			case 66:
 			case 76:
-			case 86: return $building->getTypeLevel(22) >= 15 && $building->getTypeLevel(20) >= 10;
+			case 86:
+			case 96: return $building->getTypeLevel(22) >= 15 && $building->getTypeLevel(20) >= 10;
 
 			// berbece (ca 7/17/27)
 			case 57:
 			case 67:
 			case 77:
-			case 87: return $building->getTypeLevel(22) >= 10 && $building->getTypeLevel(21) >= 1;
+			case 87:
+			case 97: return $building->getTypeLevel(22) >= 10 && $building->getTypeLevel(21) >= 1;
 
 			// catapulta (ca 8/18/28)
 			case 58:
 			case 68:
 			case 78:
-			case 88: return $building->getTypeLevel(22) >= 15 && $building->getTypeLevel(21) >= 10;
+			case 88:
+			case 98: return $building->getTypeLevel(22) >= 15 && $building->getTypeLevel(21) >= 10;
 
 			// chief (ca 9/29)
 			case 59:
 			case 69:
 			case 79:
-			case 89: return $building->getTypeLevel(22) >= 20 && $building->getTypeLevel(16) >= 10;
+			case 89:
+			case 99: return $building->getTypeLevel(22) >= 20 && $building->getTypeLevel(16) >= 10;
 		}
 	}
 
@@ -1168,7 +1186,11 @@ class Technology {
 	}
 
 	public function getUnitName($i) {
-		return $this->unarray[$i];
+		global $session;
+		if ($i == 99 && (isset($session->tribe) && $session->tribe == 3)) {
+			return defined('U99_TRAP') ? U99_TRAP : 'Trap';
+		}
+		return $this->unarray[$i] ?? '';
 	}
 
 	public function finishTech() {
@@ -1216,8 +1238,8 @@ class Technology {
 		$enforce=$database->getEnforceArray($id, 0, $use_cache);
 		$fail=0;
 
-        // extins la u90; nota: bucla veche ($i<50) omitea u50 - corectat
-        for ($i=1; $i<=90; $i++) {
+        // extins la u100; nota: bucla veche ($i<50) omitea u50 - corectat
+        for ($i=1; $i<=100; $i++) {
             if($enforce['u'.$i.'']>0){
                 $fail=1;
             }
