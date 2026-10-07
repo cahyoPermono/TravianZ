@@ -187,6 +187,12 @@ class Automation {
             require_once __DIR__ . '/BotAI.php';
             BotAI::run();
         }
+
+        // PvE Bandit Camps & World Boss: Maintain active camps on map
+        if (defined('BANDIT_CAMPS_ENABLED') && BANDIT_CAMPS_ENABLED) {
+            require_once __DIR__ . '/BanditCamp.php';
+            BanditCamp::run();
+        }
     }
 
     /**

@@ -153,6 +153,13 @@ $idUser      = isset($_SESSION['id_user']) ? (int)$_SESSION['id_user'] : 0;
 		</a>
 	</p>
 
+	<!-- PvE Bandit Camps & World Boss -->
+	<p>
+		<a href="bandit.php" style="color: #c0392b; font-weight: bold;">
+			⚔️ Sarang Bandit &amp; Boss
+		</a>
+	</p>
+
     <!-- Plus / Support / Custom links -->
     <p>
 

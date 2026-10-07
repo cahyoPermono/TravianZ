@@ -409,6 +409,10 @@
 #map_content .o11{background-image:url(un/m/o11.gif);}
 #map_content .o12{background-image:url(un/m/o12.gif);}
 #map_content .o99{background-image:url(un/m/o99.gif);}
+#map_content .bandit_t1{background-image:url(bandit/tile_tier_1.png);}
+#map_content .bandit_t2{background-image:url(bandit/tile_tier_2.png);}
+#map_content .bandit_t3{background-image:url(bandit/tile_tier_3.png);}
+#map_content .bandit_t4{background-image:url(bandit/tile_tier_4.png);}
 #map_content .t0{background-image:url(un/m/t0.gif);}
 #map_content .t1{background-image:url(un/m/t1.gif);}
 #map_content .t2{background-image:url(un/m/t2.gif);}

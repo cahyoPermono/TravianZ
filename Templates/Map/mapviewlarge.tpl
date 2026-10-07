@@ -167,15 +167,19 @@ SELECT
     " . TB_PREFIX . "users.alliance AS user_alliance,
 
     " . TB_PREFIX . "alidata.id AS aliance_id,
-    " . TB_PREFIX . "alidata.tag AS aliance_name
+    " . TB_PREFIX . "alidata.tag AS aliance_name,
 
-FROM ((((((" . TB_PREFIX . "wdata
+    " . TB_PREFIX . "bandit_camps.tier AS bandit_tier,
+    " . TB_PREFIX . "bandit_camps.name AS bandit_camp_name
+
+FROM (((((((" . TB_PREFIX . "wdata
     LEFT JOIN " . TB_PREFIX . "vdata ON " . TB_PREFIX . "vdata.wref = " . TB_PREFIX . "wdata.id)
     LEFT JOIN " . TB_PREFIX . "odata ON " . TB_PREFIX . "odata.wref = " . TB_PREFIX . "wdata.id)
     LEFT JOIN " . TB_PREFIX . "users AS info_user_oasis ON info_user_oasis.id = " . TB_PREFIX . "odata.owner)
     LEFT JOIN " . TB_PREFIX . "alidata AS info_alliance_oasis ON info_alliance_oasis.id = info_user_oasis.alliance)
     LEFT JOIN " . TB_PREFIX . "users ON " . TB_PREFIX . "users.id = " . TB_PREFIX . "vdata.owner)
     LEFT JOIN " . TB_PREFIX . "alidata ON " . TB_PREFIX . "alidata.id = " . TB_PREFIX . "users.alliance)
+    LEFT JOIN " . TB_PREFIX . "bandit_camps ON (" . TB_PREFIX . "bandit_camps.wref = " . TB_PREFIX . "wdata.id AND " . TB_PREFIX . "bandit_camps.status = 1))
 
 WHERE " . TB_PREFIX . "wdata.id IN ($maparray)
 ORDER BY FIND_IN_SET(" . TB_PREFIX . "wdata.id,'$maparray2')
@@ -420,49 +424,54 @@ while ($donnees = mysqli_fetch_assoc($result2)) {
     /* =========================
        IMAGE DECISION
     ========================= */
-    $image = ($donnees['map_occupied'] == 1 && $donnees['map_fieldtype'] > 0)
-        ? (($donnees['ville_user'] == $session->uid)
-            ? ($donnees['ville_pop'] >= 100
-                ? ($donnees['ville_pop'] >= 250
-                    ? ($donnees['ville_pop'] >= 500 ? 'b30' : 'b20')
-                    : 'b10')
-                : 'b00')
-            : (($targetalliance != 0)
-                ? ($friend == 1
-                    ? ($donnees['ville_pop'] >= 100
-                        ? ($donnees['ville_pop'] >= 250
-                            ? ($donnees['ville_pop'] >= 500 ? 'b31' : 'b21')
-                            : 'b11')
-                        : 'b01')
-                    : ($war == 1
+    if (!empty($donnees['bandit_tier'])) {
+        $bTier = max(1, min(4, (int)$donnees['bandit_tier']));
+        $image = 'bandit_t' . $bTier;
+    } else {
+        $image = ($donnees['map_occupied'] == 1 && $donnees['map_fieldtype'] > 0)
+            ? (($donnees['ville_user'] == $session->uid)
+                ? ($donnees['ville_pop'] >= 100
+                    ? ($donnees['ville_pop'] >= 250
+                        ? ($donnees['ville_pop'] >= 500 ? 'b30' : 'b20')
+                        : 'b10')
+                    : 'b00')
+                : (($targetalliance != 0)
+                    ? ($friend == 1
                         ? ($donnees['ville_pop'] >= 100
                             ? ($donnees['ville_pop'] >= 250
-                                ? ($donnees['ville_pop'] >= 500 ? 'b32' : 'b22')
-                                : 'b12')
-                            : 'b02')
-                        : ($neutral == 1
+                                ? ($donnees['ville_pop'] >= 500 ? 'b31' : 'b21')
+                                : 'b11')
+                            : 'b01')
+                        : ($war == 1
                             ? ($donnees['ville_pop'] >= 100
                                 ? ($donnees['ville_pop'] >= 250
-                                    ? ($donnees['ville_pop'] >= 500 ? 'b35' : 'b25')
-                                    : 'b15')
-                                : 'b05')
-                            : ($targetalliance == $session->alliance
+                                    ? ($donnees['ville_pop'] >= 500 ? 'b32' : 'b22')
+                                    : 'b12')
+                                : 'b02')
+                            : ($neutral == 1
                                 ? ($donnees['ville_pop'] >= 100
                                     ? ($donnees['ville_pop'] >= 250
-                                        ? ($donnees['ville_pop'] >= 500 ? 'b33' : 'b23')
-                                        : 'b13')
-                                    : 'b03')
-                                : ($donnees['ville_pop'] >= 100
-                                    ? ($donnees['ville_pop'] >= 250
-                                        ? ($donnees['ville_pop'] >= 500 ? 'b34' : 'b24')
-                                        : 'b14')
-                                    : 'b04')))))
-                : ($donnees['ville_pop'] >= 100
-                    ? ($donnees['ville_pop'] >= 250
-                        ? ($donnees['ville_pop'] >= 500 ? 'b34' : 'b24')
-                        : 'b14')
-                    : 'b04')))
-        : $donnees['map_image'];
+                                        ? ($donnees['ville_pop'] >= 500 ? 'b35' : 'b25')
+                                        : 'b15')
+                                    : 'b05')
+                                : ($targetalliance == $session->alliance
+                                    ? ($donnees['ville_pop'] >= 100
+                                        ? ($donnees['ville_pop'] >= 250
+                                            ? ($donnees['ville_pop'] >= 500 ? 'b33' : 'b23')
+                                            : 'b13')
+                                        : 'b03')
+                                    : ($donnees['ville_pop'] >= 100
+                                        ? ($donnees['ville_pop'] >= 250
+                                            ? ($donnees['ville_pop'] >= 500 ? 'b34' : 'b24')
+                                            : 'b14')
+                                        : 'b04')))))
+                    : ($donnees['ville_pop'] >= 100
+                        ? ($donnees['ville_pop'] >= 250
+                            ? ($donnees['ville_pop'] >= 500 ? 'b34' : 'b24')
+                            : 'b14')
+                        : 'b04')))
+            : $donnees['map_image'];
+    }
 
     /* =========================
        ATTACK MARKERS
@@ -503,7 +512,8 @@ while ($donnees = mysqli_fetch_assoc($result2)) {
     /* =========================
        AREA GENERATION
     ========================= */
-    $map_gen .= "<area id='a_" . $row . "_" . $i . "' shape='poly' coords='" . $coorarray[$coorindex] . "' title='" . $donnees['ville_name'] . "' href='karte.php?d=" . $donnees['map_id'] . "&c=" . $generator->getMapCheck($donnees['map_id']) . "' target='_parent' />\n";
+    $displayTitle = !empty($donnees['bandit_camp_name']) ? $donnees['bandit_camp_name'] : $donnees['ville_name'];
+    $map_gen .= "<area id='a_" . $row . "_" . $i . "' shape='poly' coords='" . $coorarray[$coorindex] . "' title='" . htmlspecialchars($displayTitle, ENT_QUOTES) . "' href='karte.php?d=" . $donnees['map_id'] . "&c=" . $generator->getMapCheck($donnees['map_id']) . "' target='_parent' />\n";
 
     /* =========================
        JS MAP DATA
@@ -515,8 +525,8 @@ while ($donnees = mysqli_fetch_assoc($result2)) {
         if ($donnees['map_occupied']) {
 
             if ($donnees['map_fieldtype'] != 0) {
-
-                $map_js .= ",\"" . $donnees['ville_name'] . "\",\"" . $donnees['user_username'] . "\",\"" . $donnees['ville_pop'] . "\",\"" . $donnees['aliance_name'] . "\",\"" . $donnees['user_tribe'] . "\"]\n";
+                $jsVillageName = !empty($donnees['bandit_camp_name']) ? addslashes($donnees['bandit_camp_name']) : addslashes($donnees['ville_name']);
+                $map_js .= ",\"" . $jsVillageName . "\",\"" . addslashes($donnees['user_username']) . "\",\"" . $donnees['ville_pop'] . "\",\"" . addslashes($donnees['aliance_name']) . "\",\"" . $donnees['user_tribe'] . "\"]\n";
             }
 
         } elseif ($donnees['map_oasis'] != 0) {
@@ -568,6 +578,21 @@ while ($donnees = mysqli_fetch_assoc($result2)) {
 ?>
 
 
+<style type="text/css">
+/* Bandit Camp & World Boss isometric map tiles */
+#map_content .bandit_t1, div#map div#map_content div.bandit_t1 {
+    background-image: url('img/bandit/tile_tier_1.png?v=<?= file_exists(__DIR__ . "/../../img/bandit/tile_tier_1.png") ? filemtime(__DIR__ . "/../../img/bandit/tile_tier_1.png") : time() ?>') !important;
+}
+#map_content .bandit_t2, div#map div#map_content div.bandit_t2 {
+    background-image: url('img/bandit/tile_tier_2.png?v=<?= file_exists(__DIR__ . "/../../img/bandit/tile_tier_2.png") ? filemtime(__DIR__ . "/../../img/bandit/tile_tier_2.png") : time() ?>') !important;
+}
+#map_content .bandit_t3, div#map div#map_content div.bandit_t3 {
+    background-image: url('img/bandit/tile_tier_3.png?v=<?= file_exists(__DIR__ . "/../../img/bandit/tile_tier_3.png") ? filemtime(__DIR__ . "/../../img/bandit/tile_tier_3.png") : time() ?>') !important;
+}
+#map_content .bandit_t4, div#map div#map_content div.bandit_t4 {
+    background-image: url('img/bandit/tile_tier_4.png?v=<?= file_exists(__DIR__ . "/../../img/bandit/tile_tier_4.png") ? filemtime(__DIR__ . "/../../img/bandit/tile_tier_4.png") : time() ?>') !important;
+}
+</style>
 <div id="map_content">
 	<div id="mbig">
 		<div id="lightframe">

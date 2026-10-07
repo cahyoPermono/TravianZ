@@ -9026,6 +9026,18 @@ div#map div#map_content div.o12 {
 div#map div#map_content div.o99 {
     background-image: url("../../img/m/o99.gif");
 }
+div#map div#map_content div.bandit_t1 {
+    background-image: url("../../img/m/bandit_t1.png");
+}
+div#map div#map_content div.bandit_t2 {
+    background-image: url("../../img/m/bandit_t2.png");
+}
+div#map div#map_content div.bandit_t3 {
+    background-image: url("../../img/m/bandit_t3.png");
+}
+div#map div#map_content div.bandit_t4 {
+    background-image: url("../../img/m/bandit_t4.png");
+}
 div#map div#map_content div.t0 {
     background-image: url("../../img/m/t0.gif");
 }

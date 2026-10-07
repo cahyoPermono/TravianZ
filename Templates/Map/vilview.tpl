@@ -41,6 +41,19 @@ $oasislink = '';
 $coords = "(".$basearray['x']."|".$basearray['y'].")";
 $otext = $isOasis? ($oasis['conqured']? OCCUOASIS : UNOCCUOASIS) : '';
 
+$isBanditCamp = false;
+$banditData = null;
+if (!$isOasis && !empty($basearray['occupied'])) {
+    if (class_exists('BanditCamp') || file_exists(__DIR__ . '/../../GameEngine/BanditCamp.php')) {
+        require_once __DIR__ . '/../../GameEngine/BanditCamp.php';
+        $bcCheck = $database->query_return("SELECT * FROM " . TB_PREFIX . "bandit_camps WHERE wref = " . (int)$d . " AND status = 1 LIMIT 1");
+        if (!empty($bcCheck[0])) {
+            $isBanditCamp = true;
+            $banditData = $bcCheck[0];
+        }
+    }
+}
+
 // ---------- 1. FIELD ----------
 $fieldMap = array(
     1=>'3-3-3-9', 2=>'3-4-5-6', 3=>'4-4-4-6', 4=>'4-5-3-6',
@@ -104,17 +117,33 @@ function renderReports($database,$generator,$session,$d,$limit,$typeMap=null){
 ?>
 
 <h1><?php
-if(!$isOasis){
-    echo!$basearray['occupied']? ABANDVALLEY : $basearray['name'];
+if ($isBanditCamp) {
+    echo htmlspecialchars($banditData['name']);
+} elseif (!$isOasis) {
+    echo !$basearray['occupied']? ABANDVALLEY : $basearray['name'];
 } else {
     echo $oasis['conqured']? OCCUOASIS : UNOCCUOASIS;
 }
 echo ' '.$coords;
 ?></h1>
 
+<?php if ($isBanditCamp) { ?>
+<div style="margin: 6px 0 10px 0; padding: 6px 10px; background: #fff3cd; border: 1px solid #ffeeba; border-radius: 4px; font-weight: bold; color: #856404; font-size: 11px;">
+    ⚔️ <?php echo BanditCamp::getTierLabel((int)$banditData['tier']); ?> &nbsp;|&nbsp; <?php echo BanditCamp::getTierStars((int)$banditData['tier']); ?>
+</div>
+<?php } ?>
+
 <?php if($basearray['occupied'] && $basearray['capital']) echo '<div id="dmain">(capital)</div>';?>
 
-<?php if($uinfo && $uinfo['owner']==3 && $uinfo['name']==PLANVILLAGE){?>
+<?php if ($isBanditCamp) { 
+    $bTier = max(1, min(4, (int)$banditData['tier']));
+    $campImg = file_exists(__DIR__ . "/../../img/bandit/camp_tier_{$bTier}.png")
+        ? "img/bandit/camp_tier_{$bTier}.png"
+        : "img/bandit/camp_tier_{$bTier}.jpg";
+    $glowColor = ($bTier === 4) ? 'rgba(192, 57, 43, 0.55)' : (($bTier === 3) ? 'rgba(142, 68, 173, 0.55)' : (($bTier === 2) ? 'rgba(41, 128, 185, 0.55)' : 'rgba(39, 174, 96, 0.55)'));
+?>
+<img src="<?php echo $campImg; ?>" id="detailed_map" alt="<?php echo htmlspecialchars($banditData['name']); ?>" title="<?php echo htmlspecialchars($banditData['name']); ?>" style="width: 300px; height: 264px; object-fit: contain; background: transparent; border: none; filter: drop-shadow(0 6px 14px <?php echo $glowColor; ?>);" />
+<?php } elseif($uinfo && $uinfo['owner']==3 && $uinfo['name']==PLANVILLAGE){?>
 <img src="img/x.gif" id="detailed_map" class="f99" alt="<?php echo PLANVILLAGE;?>">
 <?php } else {
     $mapClass = $isOasis? 'w'.$basearray['oasistype'] : 'f'.$basearray['fieldtype'];
@@ -123,7 +152,50 @@ echo ' '.$coords;
 <?php }?>
 
 <div id="map_details">
-<?php if($isOasis){?>
+<?php if ($isBanditCamp) { ?>
+    <table id="village_info" class="tableNone"><tbody>
+        <tr><th>Kategori</th><td><b style="color: #c0392b;"><?php echo ((int)$banditData['tier'] === 4) ? 'WORLD BOSS (Epic Raid)' : 'Sarang Bandit PvE'; ?></b></td></tr>
+        <tr><th>Penjaga</th><td><?php echo number_format((int)$banditData['cur_hp']); ?> Total Pasukan</td></tr>
+        <tr><th>Bounty Sumber Daya</th><td>
+            <img class="r1" src="img/x.gif" title="Kayu"> <?php echo number_format((int)$banditData['bounty_wood']); ?> &nbsp;
+            <img class="r2" src="img/x.gif" title="Tanah Liat"> <?php echo number_format((int)$banditData['bounty_clay']); ?> &nbsp;
+            <img class="r3" src="img/x.gif" title="Besi"> <?php echo number_format((int)$banditData['bounty_iron']); ?> &nbsp;
+            <img class="r4" src="img/x.gif" title="Gandum"> <?php echo number_format((int)$banditData['bounty_crop']); ?>
+        </td></tr>
+        <tr><th>Hadiah Kemenangan</th><td>
+            <span style="color: #2980b9; font-weight: bold;">+<?php echo number_format((int)$banditData['reward_exp']); ?> Hero EXP</span> &nbsp;|&nbsp;
+            <span style="color: #27ae60; font-weight: bold;">+<?php echo number_format((int)$banditData['reward_cp']); ?> CP</span> &nbsp;|&nbsp;
+            <span style="color: #f39c12; font-weight: bold;">+<?php echo number_format((int)$banditData['reward_silver']); ?> Silver</span>
+        </td></tr>
+    </tbody></table>
+
+    <table id="troop_info" class="tableNone"><thead><tr><th colspan="3">Pasukan Penjaga Sarang:</th></tr></thead><tbody>
+    <?php
+    $unit = $database->getUnit($d, false);
+    $hasGuards = false;
+    for ($i = 1; $i <= 50; $i++) {
+        if (!empty($unit['u' . $i]) && $unit['u' . $i] > 0) {
+            $hasGuards = true;
+            $uName = defined('U' . $i) ? constant('U' . $i) : "Pasukan $i";
+            echo '<tr><td class="ico"><img class="unit u' . $i . '" src="img/x.gif" alt="' . htmlspecialchars($uName) . '"></td>'
+               . '<td class="val">' . number_format($unit['u' . $i]) . '</td>'
+               . '<td class="desc">' . htmlspecialchars($uName) . '</td></tr>';
+        }
+    }
+    if (!$hasGuards) {
+        echo '<tr><td colspan="3" style="color: #27ae60; font-weight: bold;">Seluruh penjaga telah ditumpas!</td></tr>';
+    }
+    ?>
+    </tbody></table>
+
+    <table class="tableNone rep"><thead><tr><th><?php echo REPORT;?>:</th></tr></thead><tbody>
+    <?php
+    $limit = 'ntype < 8 OR ntype > 17';
+    renderReports($database, $generator, $session, $d, $limit);
+    ?>
+    </tbody></table>
+
+<?php } elseif($isOasis){?>
     <?php if($oasis['owner']==2){?>
         <table id="bonus" class="tableNone bonus"><thead><tr><th><?php echo BONUS;?></th></tr></thead><tbody>
             <?php renderBonus($bonusData);?>
@@ -198,7 +270,16 @@ echo ' '.$coords;
 
 <table id="options" class="tableNone"><thead><tr><th><?php echo OPTION;?></th></tr></thead><tbody>
 <tr><td><a href="karte.php?z=<?php echo $d;?>">&raquo; <?php echo CENTREMAP;?>.</a></td></tr>
-<?php if(!$basearray['occupied']){?>
+<?php if ($isBanditCamp) { ?>
+<tr><td class="none">
+    <?php if ($village->resarray['f39'] > 0) { ?>
+        <a href="a2b.php?s=2&z=<?php echo $d; ?>" style="color: #c0392b; font-weight: bold;">&raquo; ⚔️ Serbu / Jarah Sarang Ini (Raid)</a>
+    <?php } else { ?>
+        &raquo; ⚔️ Serbu Sarang Ini (<?php echo BUILDRALLY; ?>)
+    <?php } ?>
+</td></tr>
+<tr><td><a href="bandit.php">&raquo; 🗺️ Buka Radar Sarang Bandit &amp; World Boss</a></td></tr>
+<?php } elseif(!$basearray['occupied']){?>
 <tr><td class="none">
 <?php
 if($isOasis){
