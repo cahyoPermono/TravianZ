@@ -17,7 +17,7 @@
 mysqli_report(MYSQLI_REPORT_OFF);
 
 // =========================
-// TRIBURI ACTIVE (1-3 mereu; 6-9 doar daca flagul e activ)
+// TRIBURI ACTIVE (1-3 mereu; 6-10 doar daca flagul e activ)
 // =========================
 $activeTribes = [1, 2, 3];
 $tribeFlagMap = [
@@ -25,16 +25,17 @@ $tribeFlagMap = [
     7 => 'NEW_FUNCTION_TRIBE_EGIPTEANS',
     8 => 'NEW_FUNCTION_TRIBE_SPARTANS',
     9 => 'NEW_FUNCTION_TRIBE_VIKINGS',
+    10 => 'NEW_FUNCTION_TRIBE_NUSANTARA',
 ];
 foreach ($tribeFlagMap as $tid => $flag) {
     if (defined($flag) && constant($flag)) $activeTribes[] = $tid;
 }
-$tribeInList = implode(',', $activeTribes); // ex: "1,2,3,6,7"
+$tribeInList = implode(',', $activeTribes); // ex: "1,2,3,6,7,10"
 
 // =========================
 // TRIBES COUNT
 // =========================
-$tribes = array_fill(1, 9, 0); // tribes[1..9]
+$tribes = array_fill(1, 10, 0); // tribes[1..10]
 $tribesRes = mysqli_query($database->dblink,
     "SELECT tribe, COUNT(*) AS Total FROM ".TB_PREFIX."users WHERE tribe IN ($tribeInList) GROUP BY tribe");
 if ($tribesRes) {
@@ -167,9 +168,9 @@ $q=mysqli_query($database->dblink,
 if($q) while($r=mysqli_fetch_assoc($q)) 
 	$artefacts[]=$r;
 
-// Troops (toate unitatile 1-90, insumate)
+// Troops (toate unitatile 1-100, insumate)
 $units=[]; 
-$result = mysqli_query($database->dblink, "SELECT " . implode(',', array_map(fn($i) => "SUM(u$i) AS u$i",range(1,90)))." FROM ".TB_PREFIX."units");
+$result = mysqli_query($database->dblink, "SELECT " . implode(',', array_map(fn($i) => "SUM(u$i) AS u$i",range(1,100)))." FROM ".TB_PREFIX."units");
 if($result) 
 	$units=mysqli_fetch_assoc($result);
 function u($units,$k){ 

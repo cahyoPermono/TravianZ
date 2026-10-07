@@ -43,7 +43,7 @@
 
     // BUG REPARAT: access<8/10 exclude Multihunter/Admin dar NU excludea conturile
     // banate (access=0, 0 < 8 e adevarat), deci jucatori banati aparea in top 10.
-    $result = mysqli_query($database->dblink,"SELECT * FROM ".TB_PREFIX."users WHERE access>0 AND access<".(INCLUDE_ADMIN?"10":"8")." AND id > 5 AND tribe IN (1,2,3,6,7,8,9) ORDER BY ap DESC, id DESC Limit 10");
+    $result = mysqli_query($database->dblink,"SELECT * FROM ".TB_PREFIX."users WHERE access>0 AND access<".(INCLUDE_ADMIN?"10":"8")." AND id > 5 AND tribe IN (1,2,3,6,7,8,9,10) ORDER BY ap DESC, id DESC Limit 10");
     $result2 = mysqli_query($database->dblink,"SELECT * FROM ".TB_PREFIX."users WHERE id = '".$session->uid."' ORDER BY ap DESC, id DESC Limit 1");
 	?>
 	<table cellpadding="1" cellspacing="1">
@@ -152,7 +152,7 @@ setInterval(function(){
     echo "Row ".$i;
     }
     // BUG REPARAT: vezi comentariul de la query-ul Top Attackers de mai sus.
-    $result = mysqli_query($database->dblink,"SELECT * FROM ".TB_PREFIX."users WHERE access>0 AND access<".(INCLUDE_ADMIN?"10":"8")." AND id > 5 AND tribe IN (1,2,3,6,7,8,9) ORDER BY dp DESC, id DESC Limit 10");
+    $result = mysqli_query($database->dblink,"SELECT * FROM ".TB_PREFIX."users WHERE access>0 AND access<".(INCLUDE_ADMIN?"10":"8")." AND id > 5 AND tribe IN (1,2,3,6,7,8,9,10) ORDER BY dp DESC, id DESC Limit 10");
     $result2 = mysqli_query($database->dblink,"SELECT * FROM ".TB_PREFIX."users WHERE id = '".$session->uid."' ORDER BY dp DESC Limit 1");
 ?>
 <table cellpadding="1" cellspacing="1" id="top10_defs" class="top10 row_table_data">
@@ -209,7 +209,7 @@ setInterval(function(){
     // BUG REPARAT (semnalat de Catalin): vezi comentariul de la query-ul Top
     // Attackers de mai sus - acesta e query-ul exact din poza cu "ASD" banat
     // aparand pe locul 1 la Climbers of the week.
-    $result = mysqli_query($database->dblink,"SELECT * FROM ".TB_PREFIX."users WHERE access>0 AND access<".(INCLUDE_ADMIN?"10":"8")." AND id > 5 AND tribe IN (1,2,3,6,7,8,9) ORDER BY clp DESC, id DESC Limit 10");
+    $result = mysqli_query($database->dblink,"SELECT * FROM ".TB_PREFIX."users WHERE access>0 AND access<".(INCLUDE_ADMIN?"10":"8")." AND id > 5 AND tribe IN (1,2,3,6,7,8,9,10) ORDER BY clp DESC, id DESC Limit 10");
     $result2 = mysqli_query($database->dblink,"SELECT * FROM ".TB_PREFIX."users WHERE id = '".$session->uid."' ORDER BY clp DESC Limit 1");
 ?>
 <div class="clear"></div>
@@ -262,7 +262,7 @@ setInterval(function(){
     echo "Row ".$i;
     }
     // BUG REPARAT: vezi comentariul de la query-ul Top Attackers de mai sus.
-    $result = mysqli_query($database->dblink,"SELECT * FROM ".TB_PREFIX."users WHERE access>0 AND access<".(INCLUDE_ADMIN?"10":"8")." AND id > 5 AND tribe IN (1,2,3,6,7,8,9) ORDER BY RR DESC, id DESC Limit 10");
+    $result = mysqli_query($database->dblink,"SELECT * FROM ".TB_PREFIX."users WHERE access>0 AND access<".(INCLUDE_ADMIN?"10":"8")." AND id > 5 AND tribe IN (1,2,3,6,7,8,9,10) ORDER BY RR DESC, id DESC Limit 10");
     $result2 = mysqli_query($database->dblink,"SELECT * FROM ".TB_PREFIX."users WHERE id = '".$session->uid."' ORDER BY RR DESC Limit 1");
 ?>
 <table cellpadding="1" cellspacing="1" id="top10_raiders" class="top10 row_table_data">

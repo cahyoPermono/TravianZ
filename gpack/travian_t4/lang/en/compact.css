@@ -578,9 +578,11 @@ div.village1 div#village_map {
 div.village1 img#resfeld {
     height: 264px;
     left: 0;
+    top: 0;
     position: absolute;
     width: 300px;
     z-index: 20;
+    cursor: pointer;
 }
 div.village1 img.reslevel {
     height: 12px;
@@ -7941,6 +7943,9 @@ div.statistics div#submenu2 img.btn_v8 {
 }
 div.statistics div#submenu2 img.btn_v9 {
     background-image: url("../../img/s/v9.gif");
+}
+div.statistics div#submenu2 img.btn_v10 {
+    background-image: url("../../img/s/v10.gif");
 }
 div.forum img.switch_admin {
     background-image: url("../../img/f/switch_admin.gif");

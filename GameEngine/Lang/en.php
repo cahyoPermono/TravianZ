@@ -2369,6 +2369,7 @@ tz_def('TZ_THE_LARGEST_HUNS', 'The largest Huns');
 tz_def('TZ_THE_LARGEST_EGYPTIANS', 'The largest Egyptians');
 tz_def('TZ_THE_LARGEST_SPARTANS', 'The largest Spartans');
 tz_def('TZ_THE_LARGEST_VIKINGS', 'The largest Vikings');
+tz_def('TZ_THE_LARGEST_NUSANTARA', 'The largest Nusantara');
 tz_def('TZ_THE_LARGEST_VILLAGES', 'The largest villages');
 tz_def('TZ_THE_MOST_EXPERIENCED_HEROES', 'The most experienced heroes');
 tz_def('TZ_THE_MOST_SUCCESSFUL_ATTACKERS', 'The most successful attackers');

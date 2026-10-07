@@ -463,9 +463,9 @@ if ((int)$village->resarray['f99t'] != 0) {
 
     </div>
 
-    <!-- Overlay maps -->
-    <img class="map1" usemap="#map1" src="img/x.gif" alt="" />
-    <img class="map2" usemap="#map2" src="img/x.gif" alt="" />
+    <!-- Overlay maps with exact dimensions to prevent Chromium coordinate scaling bugs -->
+    <img class="map1" usemap="#map1" src="img/dorf2_map1_540x448.png" width="540" height="448" alt="" />
+    <img class="map2" usemap="#map2" src="img/dorf2_map2_422x339.png" width="422" height="339" alt="" />
 
 </div>
 

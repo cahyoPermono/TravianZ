@@ -188,6 +188,9 @@ if(isset($_GET['id'])) {
 		case 19:
 			include("Templates/Ranking/player_9.tpl");
 			break;
+		case 20:
+			include("Templates/Ranking/player_10.tpl");
+			break;
 		case 41:
 			include("Templates/Ranking/alliance_attack.tpl");
 			break;

@@ -2423,6 +2423,16 @@ trait DatabaseVillageQueries {
 	    
 	    //Exlude Support, Nature, Natars, TaskMaster and Multihunter
 	    if (($getVillage['owner'] ?? 0) > 5){
+            if (!isset($technology) || !is_object($technology)) {
+                global $autoprefix;
+                include_once((defined('ROOT') ? ROOT : '') . "GameEngine/Technology.php");
+                if (class_exists('Technology')) {
+                    $technology = new Technology();
+                }
+            }
+            if (!isset($technology) || !is_object($technology)) {
+                return;
+            }
 	        $crop = $this->getCropProdstarv($wref, false);
 	        $unitArrays = $technology->getAllUnits($wref, false, 0, false);
 	        $villageUpkeep = $getVillage['pop'] + $technology->getUpkeep($unitArrays, 0, $wref);

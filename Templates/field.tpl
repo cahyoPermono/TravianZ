@@ -219,10 +219,42 @@ for ($i = 1; $i <= 18; $i++) {
 }
 ?>
 
-    <!-- Overlay click map -->
+    <!-- Overlay click map with exact 300x264 dimensions -->
     <img id="resfeld"
          usemap="#rx"
-         src="img/x.gif"
+         src="img/resfeld_300x264.png"
+         width="300"
+         height="264"
          alt="" />
+
+<?php
+/**
+ * Direct clickable overlays for each resource field:
+ * Guarantees 100% click reliability in all modern browsers (Chrome, Brave, Safari, Edge)
+ * without depending on browser image-map coordinate scaling quirks.
+ */
+for ($i = 1; $i <= 18; $i++) {
+    if (!isset($coorarray[$i])) continue;
+    list($cx, $cy, $r) = explode(',', $coorarray[$i]);
+    $cx = (int)$cx; $cy = (int)$cy; $r = (int)$r;
+    $left = $cx - $r;
+    $top = $cy - $r;
+    $diameter = $r * 2;
+    $fieldType  = isset($arrayVillage['f'.$i.'t']) ? (int)$arrayVillage['f'.$i.'t'] : 0;
+    $fieldLevel = isset($arrayVillage['f'.$i]) ? (int)$arrayVillage['f'.$i] : 0;
+    $resourceName = Building::procResType($fieldType);
+    $isActive = isset($activeFields[$i]);
+    $title = $resourceName . ' Level ' . $fieldLevel . ($isActive ? ' (upgrade in progress)' : '');
+    echo '<a href="build.php?id=' . $i . '"
+            title="' . safeHTML($title) . '"
+            class="resfield_overlay"
+            style="position:absolute;left:' . $left . 'px;top:' . $top . 'px;width:' . $diameter . 'px;height:' . $diameter . 'px;border-radius:50%;z-index:30;cursor:pointer;display:block;"></a>' . "\r\n";
+}
+// Village center overlay (coords 144, 131, 36)
+echo '<a href="dorf2.php"
+        title="' . safeHTML(VILLAGE_CENTER) . '"
+        class="resfield_overlay"
+        style="position:absolute;left:' . (144 - 36) . 'px;top:' . (131 - 36) . 'px;width:72px;height:72px;border-radius:50%;z-index:30;cursor:pointer;display:block;"></a>' . "\r\n";
+?>
 
 </div>

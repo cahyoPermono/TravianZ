@@ -100,6 +100,11 @@ if (!isset($_SESSION['search']) || !is_numeric($_SESSION['search'])) {
                         <img class="btn_v9" src="img/x.gif" alt="<?php echo TRIBE9; ?>">
                     </a>
                     <?php endif; ?>
+                    <?php if (defined('NEW_FUNCTION_TRIBE_NUSANTARA') && NEW_FUNCTION_TRIBE_NUSANTARA): ?>
+                    <a title="<?php echo defined('TRIBE10') ? TRIBE10 : 'Nusantara'; ?>" href="statistiken.php?id=20">
+                        <img class="btn_v10" src="img/x.gif" alt="<?php echo defined('TRIBE10') ? TRIBE10 : 'Nusantara'; ?>">
+                    </a>
+                    <?php endif; ?>
                 </div>
 
             </th>
