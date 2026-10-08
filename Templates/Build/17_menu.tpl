@@ -35,4 +35,6 @@ $hasRoutes = $session->goldclub == 1 && count($database->getProfileVillages($ses
     <?php if ($hasRoutes):?>
     | <a href="build.php?id=<?php echo (int)$id;?>&amp;t=4" <?php if($t===4) echo 'class="selected"';?>><?php echo TRADE_ROUTES;?></a>
     <?php endif;?>
+    | <a href="build.php?id=<?php echo (int)$id;?>&amp;t=5" <?php if($t===5) echo 'class="selected"';?> style="<?php if($t===5) echo 'font-weight:bold;'; ?> color:#8a1f11;">🏴‍☠️ Pasar Gelap</a>
+    | <a href="build.php?id=<?php echo (int)$id;?>&amp;t=6" <?php if($t===6) echo 'class="selected"';?> style="<?php if($t===6) echo 'font-weight:bold;'; ?> color:#2e6b38;">⚔️ Tentara Bayaran</a>
 </div>

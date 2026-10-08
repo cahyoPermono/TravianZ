@@ -1334,6 +1334,12 @@ trait AutomationBattleResolution {
         }
         $this->applyHospitalWounded($data['to'], $woundedMap);
 
+        // Mercenary casualties
+        if (isset($battlepart[2]) && $battlepart[2] > 0) {
+            require_once __DIR__ . '/../Mercenary.php';
+            Mercenary::applyCasualties($data['to'], (float)$battlepart[2]);
+        }
+
         return $owndead;
     }
 

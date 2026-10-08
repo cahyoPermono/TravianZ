@@ -553,6 +553,13 @@ class Technology {
         
         if(!isset($array[$index])) $array[$index] = 0;
         $upkeep += $array[$index] * 6;
+
+        // Mercenary Garrison Upkeep
+        if ($prisoners == 0 && $vid > 0) {
+            require_once __DIR__ . '/Mercenary.php';
+            $upkeep += Mercenary::getVillageUpkeep($vid);
+        }
+
         $who = $database->getVillageField($vid, "owner");
         
         //If it's a WW village, halve the crop consumption

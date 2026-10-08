@@ -963,6 +963,20 @@ class Battle {
         $dp += $own_dp;
         $cdp += $own_cdp;
 
+        // Mercenary Garrison Defense
+        if ($DefenderWref > 0) {
+            require_once __DIR__ . '/Mercenary.php';
+            $mercDef = Mercenary::getGarrisonDefense($DefenderWref);
+            if ($mercDef['involve'] > 0) {
+                $dp += $mercDef['dp'];
+                $cdp += $mercDef['cdp'];
+                $involve += $mercDef['involve'];
+                if ($DefenderID > 0) {
+                    $perOwnerDp[$DefenderID] = ($perOwnerDp[$DefenderID] ?? 0) + $mercDef['dp'] + $mercDef['cdp'];
+                }
+            }
+        }
+
         if ($DefenderID > 0) {
             $perOwnerDp[$DefenderID] = ($perOwnerDp[$DefenderID] ?? 0) + $own_dp + $own_cdp;
         }

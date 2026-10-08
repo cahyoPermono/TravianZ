@@ -129,6 +129,8 @@ trait AutomationStarvation {
             }
 
             if($difcrop > 0 && $oldcrop <= 0){
+                require_once __DIR__ . '/../Mercenary.php';
+                Mercenary::checkDesertion($starv['wref']);
                 $this->starvationKillTroops($starv, $starvingTroops, $type, $subtype, $difcrop, $upkeep, $time);
             }
         }

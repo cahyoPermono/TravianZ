@@ -22,6 +22,8 @@
 
 include_once("Weather.php");
 include_once("Plague.php");
+include_once("BlackMarket.php");
+include_once("Mercenary.php");
 
 class Market
 {
@@ -55,6 +57,18 @@ class Market
         }
 
         if (!isset($post['ft'])) {
+            return;
+        }
+
+        // Black Market actions
+        if (strpos($post['ft'], 'bm_') === 0) {
+            BlackMarket::procPost($post);
+            return;
+        }
+
+        // Mercenary actions
+        if (strpos($post['ft'], 'merc_') === 0) {
+            Mercenary::procPost($post);
             return;
         }
 

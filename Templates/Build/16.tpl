@@ -98,6 +98,40 @@ $hasRally = $village->resarray['f39'] > 0;
     </table>
     <?php endforeach; ?>
 
+    <!-- MERCENARY GARRISON -->
+    <?php
+    require_once __DIR__ . '/../../GameEngine/Mercenary.php';
+    $mercGarrison = Mercenary::getGarrison($village->wid);
+    if ($mercGarrison['total_troops'] > 0):
+    ?>
+    <table class="troop_details" cellpadding="1" cellspacing="1">
+        <thead><tr>
+            <td class="role"><a href="build.php?gid=17&amp;t=6" style="color: #2e6b38; font-weight: bold;">⚔️ Enclave Bayaran</a></td>
+            <td colspan="4"><a href="build.php?gid=17&amp;t=6">Garnisun Tentara Bayaran Netral</a></td>
+        </tr></thead>
+        <tbody class="units">
+            <tr>
+                <th>&nbsp;</th>
+                <td title="Garda Zirah Besi" style="font-size:11px;">🛡️ Garda Zirah</td>
+                <td title="Pemanah Busur Kreta" style="font-size:11px;">🏹 Pemanah Kreta</td>
+                <td title="Penjarah Stepa" style="font-size:11px;">🐎 Penjarah Stepa</td>
+                <td title="Penebas Benteng" style="font-size:11px;">🔨 Penebas Benteng</td>
+            </tr>
+            <tr>
+                <th><?= TROOPS ?></th>
+                <td class="<?= $mercGarrison['m1']==0?'none':'' ?>"><?= number_format($mercGarrison['m1']) ?></td>
+                <td class="<?= $mercGarrison['m2']==0?'none':'' ?>"><?= number_format($mercGarrison['m2']) ?></td>
+                <td class="<?= $mercGarrison['m3']==0?'none':'' ?>"><?= number_format($mercGarrison['m3']) ?></td>
+                <td class="<?= $mercGarrison['m4']==0?'none':'' ?>"><?= number_format($mercGarrison['m4']) ?></td>
+            </tr>
+        </tbody>
+        <tbody class="infos"><tr><th><?= UPKEEP ?></th><td colspan="4">
+            <div class="sup"><?= $mercGarrison['upkeep'] ?><img class="r4" src="img/x.gif"> <?= PER_HR ?></div>
+            <div class="sback"><a href="build.php?gid=17&amp;t=6" style="color:#2e6b38; font-weight:bold;">Kelola Kontrak</a></div>
+        </td></tr></tbody>
+    </table>
+    <?php endif; ?>
+
     <?php
     // split my reinforcements
     $enforcevill = []; $enforceoasis = [];
