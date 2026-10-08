@@ -1,0 +1,1639 @@
+/* ==========================================================================
+   TRAVIANZ: NUSANTARA EXPANSION & THE FORBIDDEN REALMS
+   Aesthetic Thesis: Epic War Council / Dark Renaissance Tactical Fantasy
+   DFII Score: 18 (Exceptional)
+   Crafted with custom design tokens, heraldic ornamentation, and 60fps micro-interactions
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@500;600;700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+  /* Surface Palette */
+  --bg-abyss: #05070b;
+  --bg-charcoal: #0a0e16;
+  --bg-slate: #0f1522;
+  --plate-base: rgba(13, 18, 28, 0.85);
+  --plate-raised: rgba(19, 26, 40, 0.92);
+  --plate-highlight: rgba(27, 36, 56, 0.95);
+  
+  /* Borders & Frames */
+  --frame-hairline: rgba(255, 255, 255, 0.07);
+  --frame-iron: rgba(148, 163, 184, 0.18);
+  --frame-gold: rgba(212, 175, 55, 0.4);
+  --frame-gold-glow: rgba(245, 158, 11, 0.8);
+  
+  /* Heraldic Gold & Metals */
+  --gold-glow: #fbbf24;
+  --gold-primary: #d4af37;
+  --gold-bronze: #92400e;
+  --gold-gradient: linear-gradient(135deg, #fef08a 0%, #d4af37 45%, #b45309 100%);
+  --gold-gradient-subtle: linear-gradient(135deg, rgba(212, 175, 55, 0.15) 0%, rgba(180, 83, 9, 0.05) 100%);
+  --gold-metallic: linear-gradient(180deg, #fef9c3 0%, #eab308 50%, #854d0e 100%);
+  
+  /* Faction / Feature Seals */
+  --seal-nusantara: #10b981;
+  --seal-nusantara-glow: rgba(16, 185, 129, 0.35);
+  --seal-bandit: #ef4444;
+  --seal-bandit-glow: rgba(239, 68, 68, 0.35);
+  --seal-weather: #0284c7;
+  --seal-weather-glow: rgba(2, 132, 199, 0.35);
+  --seal-plague: #a855f7;
+  --seal-plague-glow: rgba(168, 85, 247, 0.35);
+  --seal-mercenary: #3b82f6;
+  
+  /* Typography Colors */
+  --text-parchment: #f8fafc;
+  --text-silver: #cbd5e1;
+  --text-ash: #94a3b8;
+  --text-mute: #64748b;
+  
+  /* Fonts */
+  --font-decorative: 'Cinzel Decorative', Georgia, serif;
+  --font-title: 'Cinzel', Georgia, serif;
+  --font-body: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  
+  /* Shadows & Illuminations */
+  --shadow-elevation: 0 20px 40px -10px rgba(0, 0, 0, 0.8), 0 0 1px 1px rgba(255, 255, 255, 0.05);
+  --shadow-gold-aura: 0 0 35px rgba(212, 175, 55, 0.25);
+  --shadow-crimson-aura: 0 0 35px rgba(239, 68, 68, 0.25);
+  --radius-xl: 18px;
+  --radius-lg: 12px;
+  --radius-md: 8px;
+  --radius-pill: 9999px;
+}
+
+/* ==========================================================================
+   Base & Resets
+   ========================================================================== */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+  color-scheme: dark;
+}
+
+body.war-portal {
+  background-color: var(--bg-abyss);
+  background-image: 
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(212, 175, 55, 0.14), transparent),
+    radial-gradient(circle at 10% 25%, rgba(16, 185, 129, 0.06), transparent 35%),
+    radial-gradient(circle at 90% 45%, rgba(239, 68, 68, 0.06), transparent 40%),
+    linear-gradient(180deg, var(--bg-abyss) 0%, var(--bg-charcoal) 60%, var(--bg-abyss) 100%);
+  color: var(--text-parchment);
+  font-family: var(--font-body);
+  line-height: 1.6;
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--gold-primary);
+  color: #05070b;
+}
+
+.portal-container {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* ==========================================================================
+   Sticky War Room Navigation
+   ========================================================================== */
+.war-nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(7, 10, 16, 0.88);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border-bottom: 1px solid var(--frame-gold);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.8);
+  transition: all 0.3s ease;
+}
+
+.war-nav-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 82px;
+}
+
+.portal-brand {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  text-decoration: none;
+}
+
+.brand-crest {
+  height: 52px;
+  width: auto;
+  filter: drop-shadow(0 0 12px rgba(212, 175, 55, 0.45));
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.portal-brand:hover .brand-crest {
+  transform: scale(1.06) rotate(-2deg);
+}
+
+.brand-meta {
+  display: flex;
+  flex-direction: column;
+}
+
+.brand-name {
+  font-family: var(--font-decorative);
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+  background: var(--gold-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  line-height: 1;
+}
+
+.brand-edition {
+  font-family: var(--font-title);
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--gold-glow);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-top: 4px;
+  opacity: 0.9;
+}
+
+.war-nav-menu {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  list-style: none;
+}
+
+.war-nav-link {
+  font-family: var(--font-title);
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text-silver);
+  text-decoration: none;
+  text-transform: uppercase;
+  position: relative;
+  padding: 8px 0;
+  transition: color 0.25s ease;
+}
+
+.war-nav-link:hover {
+  color: #fff;
+}
+
+.war-nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 2px;
+  background: var(--gold-gradient);
+  box-shadow: 0 0 8px var(--gold-glow);
+  transition: width 0.25s ease;
+}
+
+.war-nav-link:hover::after {
+  width: 100%;
+}
+
+.war-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* User Session Badge */
+.player-crest-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(212, 175, 55, 0.12);
+  border: 1px solid var(--frame-gold);
+  border-radius: var(--radius-pill);
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-parchment);
+}
+
+.player-crest-badge strong {
+  color: var(--gold-glow);
+  font-family: var(--font-title);
+}
+
+/* Military Action Buttons */
+.war-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 11px 22px;
+  font-family: var(--font-title);
+  font-size: 13.5px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  text-decoration: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid transparent;
+}
+
+.war-btn-gold {
+  background: var(--gold-gradient);
+  color: #07090e;
+  border-color: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 4px 20px rgba(212, 175, 55, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.war-btn-gold::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+  transform: skewX(-25deg);
+  transition: left 0.7s ease;
+}
+
+.war-btn-gold:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(245, 158, 11, 0.6);
+  color: #000;
+}
+
+.war-btn-gold:hover::before {
+  left: 140%;
+}
+
+.war-btn-iron {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--frame-gold);
+  color: var(--gold-glow);
+  backdrop-filter: blur(8px);
+}
+
+.war-btn-iron:hover {
+  background: rgba(212, 175, 55, 0.15);
+  border-color: var(--gold-glow);
+  color: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+}
+
+.war-btn-lg {
+  padding: 16px 34px;
+  font-size: 15px;
+  border-radius: var(--radius-lg);
+}
+
+.mobile-nav-toggle {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--gold-glow);
+  font-size: 28px;
+  cursor: pointer;
+}
+
+/* ==========================================================================
+   Hero Stage: The Asymmetric War Room
+   ========================================================================== */
+.hero-stage {
+  position: relative;
+  padding: 60px 0 70px;
+  overflow: hidden;
+}
+
+.hero-backdrop-glow {
+  position: absolute;
+  top: 5%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 900px;
+  height: 480px;
+  background: radial-gradient(ellipse at center, rgba(212, 175, 55, 0.16) 0%, transparent 70%);
+  filter: blur(60px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.hero-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 48px;
+  align-items: center;
+  position: relative;
+  z-index: 1;
+}
+
+/* Hero Left: Narrative & Callouts */
+.hero-dispatch {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.imperial-seal-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid var(--frame-gold);
+  border-radius: var(--radius-pill);
+  padding: 8px 18px;
+  margin-bottom: 24px;
+  box-shadow: 0 0 20px rgba(212, 175, 55, 0.18);
+}
+
+.seal-gem {
+  width: 10px;
+  height: 10px;
+  background: var(--gold-primary);
+  border-radius: 50%;
+  box-shadow: 0 0 10px var(--gold-glow);
+  animation: sealPulse 2s infinite ease-in-out;
+}
+
+@keyframes sealPulse {
+  0% { transform: scale(0.9); opacity: 0.7; }
+  50% { transform: scale(1.3); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.7; }
+}
+
+.seal-text {
+  font-family: var(--font-title);
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: var(--gold-glow);
+  text-transform: uppercase;
+}
+
+.hero-headline {
+  font-family: var(--font-decorative);
+  font-size: 50px;
+  font-weight: 900;
+  line-height: 1.12;
+  margin-bottom: 22px;
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.9);
+}
+
+.hero-headline .gold-shimmer {
+  background: var(--gold-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: inline-block;
+}
+
+.hero-manifesto {
+  font-size: 17.5px;
+  color: var(--text-silver);
+  line-height: 1.7;
+  margin-bottom: 36px;
+  max-width: 620px;
+  font-weight: 400;
+}
+
+.hero-manifesto strong {
+  color: #fff;
+  font-weight: 600;
+}
+
+.hero-cta-cluster {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 42px;
+}
+
+/* War Intel Stats Ribbon */
+.intel-ribbon {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  width: 100%;
+}
+
+.intel-card {
+  background: var(--plate-base);
+  border: 1px solid var(--frame-iron);
+  border-radius: var(--radius-lg);
+  padding: 16px 14px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+  transition: all 0.25s ease;
+}
+
+.intel-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: var(--gold-gradient);
+  opacity: 0.7;
+}
+
+.intel-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--frame-gold);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.7);
+}
+
+.intel-metric {
+  font-family: var(--font-title);
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--gold-glow);
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+.intel-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-ash);
+}
+
+/* Hero Right: Life-Size Commander Stage */
+.hero-commander-stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.commander-aura-ring {
+  position: absolute;
+  width: 360px;
+  height: 360px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(212, 175, 55, 0.2) 0%, rgba(16, 185, 129, 0.1) 50%, transparent 70%);
+  filter: blur(25px);
+  z-index: 0;
+  animation: auraFloat 5s infinite alternate ease-in-out;
+}
+
+@keyframes auraFloat {
+  0% { transform: scale(0.95); opacity: 0.7; }
+  100% { transform: scale(1.1); opacity: 1; }
+}
+
+.commander-pedestal {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 420px;
+  background: var(--plate-raised);
+  border: 1px solid var(--frame-gold);
+  border-radius: var(--radius-xl);
+  padding: 24px;
+  box-shadow: var(--shadow-elevation), var(--shadow-gold-aura);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  backdrop-filter: blur(14px);
+}
+
+.commander-portrait-frame {
+  position: relative;
+  width: 260px;
+  height: 270px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.commander-portrait-img {
+  max-height: 260px;
+  width: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 15px 25px rgba(0, 0, 0, 0.9));
+  transition: transform 0.4s ease;
+}
+
+.commander-pedestal:hover .commander-portrait-img {
+  transform: scale(1.05) translateY(-4px);
+}
+
+.faction-banner-badge {
+  width: 100%;
+  max-width: 280px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--frame-gold);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+
+.faction-banner-badge img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.commander-caption-box {
+  text-align: center;
+  width: 100%;
+}
+
+.commander-caption-title {
+  font-family: var(--font-title);
+  font-size: 18px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 0.5px;
+}
+
+.commander-caption-sub {
+  font-size: 12px;
+  color: var(--seal-nusantara);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-top: 2px;
+}
+
+/* ==========================================================================
+   Tactical Expansion Codex (The 6 Features)
+   ========================================================================== */
+.codex-section {
+  padding: 80px 0;
+  position: relative;
+}
+
+.section-heraldry-header {
+  text-align: center;
+  margin-bottom: 56px;
+  position: relative;
+}
+
+.heraldry-seal-tag {
+  display: inline-block;
+  font-family: var(--font-title);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--gold-primary);
+  margin-bottom: 12px;
+}
+
+.heraldry-title {
+  font-family: var(--font-title);
+  font-size: 38px;
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: 0.5px;
+  margin-bottom: 16px;
+}
+
+.heraldry-subtitle {
+  font-size: 16.5px;
+  color: var(--text-silver);
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+/* Asymmetric Codex Grid */
+.codex-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+/* Feature 1: Grand Nusantara Banner Feature */
+.grand-feature-card {
+  background: var(--plate-base);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  border-radius: var(--radius-xl);
+  padding: 38px;
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 36px;
+  align-items: center;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 35px var(--seal-nusantara-glow);
+  position: relative;
+  overflow: hidden;
+}
+
+.grand-feature-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 300px;
+  height: 100%;
+  background: radial-gradient(circle at 100% 50%, rgba(16, 185, 129, 0.12) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.grand-feature-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.grand-feature-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  padding: 5px 14px;
+  border-radius: var(--radius-pill);
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #34d399;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+
+.grand-feature-title {
+  font-family: var(--font-title);
+  font-size: 30px;
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 14px;
+  line-height: 1.2;
+}
+
+.grand-feature-desc {
+  font-size: 15px;
+  color: var(--text-silver);
+  line-height: 1.7;
+  margin-bottom: 24px;
+}
+
+.grand-unit-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--frame-iron);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+}
+
+.strip-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--gold-glow);
+  margin-right: 4px;
+}
+
+.sprite-trooper {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.8));
+  transition: transform 0.2s ease;
+}
+
+.sprite-trooper:hover {
+  transform: scale(1.4);
+}
+
+.grand-visual-column {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.grand-banner-preview {
+  width: 100%;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--frame-gold);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.7);
+}
+
+.grand-traits-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.mini-trait-box {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--frame-iron);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+
+.mini-trait-name {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--gold-glow);
+  margin-bottom: 2px;
+}
+
+.mini-trait-info {
+  font-size: 11.5px;
+  color: var(--text-ash);
+  line-height: 1.4;
+}
+
+/* 2-Column Split Cards for Features 2-6 */
+.codex-dual-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 28px;
+}
+
+.codex-card {
+  background: var(--plate-base);
+  border: 1px solid var(--frame-hairline);
+  border-radius: var(--radius-xl);
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(14px);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.codex-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: var(--card-accent, var(--gold-gradient));
+  opacity: 0.8;
+}
+
+.codex-card:hover {
+  transform: translateY(-5px);
+  background: var(--plate-raised);
+  border-color: var(--card-border-hover, var(--frame-gold));
+  box-shadow: var(--shadow-elevation), var(--card-glow, 0 0 25px rgba(0, 0, 0, 0.5));
+}
+
+.codex-card-bandit {
+  --card-accent: linear-gradient(90deg, #ef4444, #b91c1c);
+  --card-border-hover: rgba(239, 68, 68, 0.5);
+  --card-glow: var(--shadow-crimson-aura);
+}
+
+.codex-card-weather {
+  --card-accent: linear-gradient(90deg, #0ea5e9, #0284c7);
+  --card-border-hover: rgba(14, 165, 233, 0.5);
+  --card-glow: 0 0 35px var(--seal-weather-glow);
+}
+
+.codex-card-plague {
+  --card-accent: linear-gradient(90deg, #a855f7, #7e22ce);
+  --card-border-hover: rgba(168, 85, 247, 0.5);
+  --card-glow: 0 0 35px var(--seal-plague-glow);
+}
+
+.codex-card-market {
+  --card-accent: linear-gradient(90deg, #f59e0b, #d97706);
+  --card-border-hover: var(--frame-gold);
+  --card-glow: var(--shadow-gold-aura);
+}
+
+.codex-card-mercenary {
+  --card-accent: linear-gradient(90deg, #3b82f6, #1d4ed8);
+  --card-border-hover: rgba(59, 130, 246, 0.5);
+  --card-glow: 0 0 35px rgba(59, 130, 246, 0.35);
+}
+
+.codex-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.codex-icon-plate {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--frame-iron);
+}
+
+.codex-tag {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+}
+
+.tag-bandit { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); }
+.tag-weather { background: rgba(14, 165, 233, 0.15); color: #38bdf8; border: 1px solid rgba(14, 165, 233, 0.4); }
+.tag-plague { background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4); }
+.tag-market { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
+.tag-mercenary { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4); }
+
+.codex-card-title {
+  font-family: var(--font-title);
+  font-size: 22px;
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 12px;
+}
+
+.codex-card-body {
+  font-size: 14.5px;
+  color: var(--text-silver);
+  line-height: 1.65;
+  margin-bottom: 22px;
+  flex-grow: 1;
+}
+
+/* Feature specific visuals */
+.bandit-preview-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  margin-bottom: 18px;
+  border: 1px solid var(--frame-iron);
+}
+
+.bandit-preview-img {
+  width: 72px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+.weather-chips-cluster {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.weather-chip {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--frame-iron);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  text-align: center;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-ash);
+}
+
+.weather-chip.active {
+  border-color: var(--seal-weather);
+  color: #38bdf8;
+  background: rgba(14, 165, 233, 0.1);
+}
+
+.bullet-traits-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid var(--frame-hairline);
+}
+
+.bullet-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--text-ash);
+}
+
+.bullet-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--gold-primary);
+}
+
+/* ==========================================================================
+   War Council: The 8 Civilizations Arena
+   ========================================================================== */
+.council-section {
+  padding: 80px 0;
+  position: relative;
+  background: linear-gradient(180deg, transparent 0%, rgba(13, 18, 28, 0.5) 50%, transparent 100%);
+}
+
+.faction-tabs-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 38px;
+}
+
+.faction-tab-btn {
+  background: var(--plate-base);
+  border: 1px solid var(--frame-iron);
+  color: var(--text-silver);
+  padding: 12px 22px;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-title);
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.faction-tab-btn:hover {
+  background: rgba(212, 175, 55, 0.12);
+  border-color: var(--frame-gold);
+  color: #fff;
+  transform: translateY(-2px);
+}
+
+.faction-tab-btn.active {
+  background: var(--gold-gradient);
+  color: #07090e;
+  font-weight: 800;
+  border-color: transparent;
+  box-shadow: 0 4px 20px rgba(212, 175, 55, 0.4);
+}
+
+.council-arena-card {
+  background: var(--plate-raised);
+  border: 1px solid var(--frame-gold);
+  border-radius: var(--radius-xl);
+  padding: 44px;
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 48px;
+  align-items: center;
+  box-shadow: var(--shadow-elevation), var(--shadow-gold-aura);
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(16px);
+}
+
+.council-portrait-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.council-portrait-box {
+  width: 280px;
+  height: 290px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  margin-bottom: 16px;
+}
+
+.council-portrait-img {
+  max-height: 280px;
+  width: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 15px 25px rgba(0, 0, 0, 0.85));
+  transition: all 0.35s ease;
+}
+
+.council-banner-img {
+  width: 100%;
+  max-width: 300px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--frame-gold);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
+  margin-bottom: 12px;
+}
+
+.council-faction-badge {
+  display: inline-block;
+  padding: 4px 16px;
+  border-radius: var(--radius-pill);
+  background: rgba(212, 175, 55, 0.15);
+  border: 1px solid var(--frame-gold);
+  color: var(--gold-glow);
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.council-details-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.council-header-bar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--frame-iron);
+  padding-bottom: 14px;
+}
+
+.council-tribe-name {
+  font-family: var(--font-title);
+  font-size: 32px;
+  font-weight: 900;
+  color: #fff;
+}
+
+.council-tribe-type {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--gold-glow);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+}
+
+.council-tribe-lore {
+  font-size: 15.5px;
+  color: var(--text-silver);
+  line-height: 1.7;
+  margin-bottom: 26px;
+}
+
+.council-traits-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+  margin-bottom: 26px;
+}
+
+.council-trait-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--frame-iron);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+}
+
+.council-trait-title {
+  font-family: var(--font-title);
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--gold-glow);
+  margin-bottom: 4px;
+}
+
+.council-trait-desc {
+  font-size: 12.5px;
+  color: var(--text-ash);
+  line-height: 1.45;
+}
+
+.council-roster-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px 18px;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--frame-iron);
+}
+
+.roster-label {
+  font-family: var(--font-title);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: var(--gold-glow);
+  margin-right: 6px;
+}
+
+.council-icons-strip {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* ==========================================================================
+   Live Server Chronicles & Dispatch
+   ========================================================================== */
+.chronicles-section {
+  padding: 70px 0;
+}
+
+.chronicles-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+}
+
+.chronicle-card {
+  background: var(--plate-base);
+  border: 1px solid var(--frame-iron);
+  border-radius: var(--radius-xl);
+  padding: 34px;
+  backdrop-filter: blur(14px);
+}
+
+.chronicle-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--frame-hairline);
+  padding-bottom: 16px;
+}
+
+.chronicle-title {
+  font-family: var(--font-title);
+  font-size: 21px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.server-live-dot-tag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.12);
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.specs-ledger {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ledger-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.ledger-key {
+  font-size: 14px;
+  color: var(--text-ash);
+}
+
+.ledger-val {
+  font-family: var(--font-title);
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.ledger-val.gold {
+  color: var(--gold-glow);
+}
+
+/* Dispatch News List */
+.dispatch-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.dispatch-item {
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--gold-primary);
+}
+
+.dispatch-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.dispatch-tag {
+  background: rgba(212, 175, 55, 0.18);
+  color: var(--gold-glow);
+  font-size: 10.5px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+}
+
+.dispatch-date {
+  font-size: 11.5px;
+  color: var(--text-mute);
+}
+
+.dispatch-headline {
+  font-family: var(--font-title);
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 6px;
+}
+
+.dispatch-text {
+  font-size: 13.5px;
+  color: var(--text-silver);
+  line-height: 1.55;
+}
+
+/* ==========================================================================
+   Battlefield Gallery & Lightbox
+   ========================================================================== */
+.battlefield-gallery-section {
+  padding: 70px 0;
+}
+
+.gallery-scout-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+
+.scout-shot-card {
+  position: relative;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--frame-iron);
+  cursor: pointer;
+  background: #000;
+  aspect-ratio: 16/10;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.scout-shot-card:hover {
+  transform: translateY(-4px) scale(1.02);
+  border-color: var(--frame-gold);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.8), var(--shadow-gold-aura);
+}
+
+.scout-shot-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s ease;
+}
+
+.scout-shot-card:hover .scout-shot-img {
+  transform: scale(1.08);
+}
+
+.scout-shot-caption {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(0deg, rgba(5, 7, 11, 0.95) 0%, rgba(5, 7, 11, 0.2) 60%, transparent 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 16px;
+}
+
+.caption-title {
+  font-family: var(--font-title);
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--gold-glow);
+}
+
+.caption-sub {
+  font-size: 11px;
+  color: var(--text-ash);
+}
+
+/* ==========================================================================
+   Imperial Call to Arms (Bottom Banner)
+   ========================================================================== */
+.call-to-arms-section {
+  padding: 90px 0;
+  text-align: center;
+}
+
+.throne-banner {
+  background: linear-gradient(135deg, rgba(20, 27, 42, 0.95) 0%, rgba(10, 14, 22, 0.95) 100%);
+  border: 1px solid var(--frame-gold);
+  border-radius: var(--radius-xl);
+  padding: 60px 36px;
+  max-width: 1000px;
+  margin: 0 auto;
+  box-shadow: var(--shadow-elevation), var(--shadow-gold-aura);
+  position: relative;
+  overflow: hidden;
+}
+
+.throne-banner::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle at center, rgba(212, 175, 55, 0.12) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.throne-title {
+  font-family: var(--font-decorative);
+  font-size: 40px;
+  font-weight: 900;
+  color: #fff;
+  margin-bottom: 16px;
+  line-height: 1.2;
+}
+
+.throne-sub {
+  font-size: 17px;
+  color: var(--text-silver);
+  max-width: 660px;
+  margin: 0 auto 36px;
+  line-height: 1.6;
+}
+
+/* ==========================================================================
+   Imperial Footer
+   ========================================================================== */
+.imperial-footer {
+  background: #040508;
+  border-top: 1px solid var(--frame-iron);
+  padding: 60px 0 30px;
+}
+
+.footer-heraldry-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 40px;
+  margin-bottom: 48px;
+}
+
+.footer-desc {
+  font-size: 14px;
+  color: var(--text-ash);
+  line-height: 1.7;
+  margin-top: 14px;
+  max-width: 340px;
+}
+
+.footer-nav-title {
+  font-family: var(--font-title);
+  font-size: 14.5px;
+  font-weight: 800;
+  color: var(--gold-glow);
+  letter-spacing: 1px;
+  margin-bottom: 18px;
+  text-transform: uppercase;
+}
+
+.footer-nav-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.footer-nav-list a {
+  color: var(--text-ash);
+  font-size: 13.5px;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.footer-nav-list a:hover {
+  color: #fff;
+}
+
+.footer-bottom-ledger {
+  border-top: 1px solid var(--frame-hairline);
+  padding-top: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-mute);
+}
+
+/* ==========================================================================
+   Lightbox Modal
+   ========================================================================== */
+.war-lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 6, 10, 0.9);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 1000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.war-lightbox.active {
+  display: flex;
+}
+
+.war-lightbox-panel {
+  background: var(--plate-raised);
+  border: 1px solid var(--frame-gold);
+  border-radius: var(--radius-xl);
+  max-width: 760px;
+  width: 100%;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.95), var(--shadow-gold-aura);
+  position: relative;
+  overflow: hidden;
+  animation: modalScale 0.25s ease-out;
+}
+
+@keyframes modalScale {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.lightbox-close-btn {
+  position: absolute;
+  top: 16px;
+  right: 18px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--frame-hairline);
+  color: #fff;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  z-index: 10;
+}
+
+.lightbox-close-btn:hover {
+  background: #dc2626;
+  border-color: #ef4444;
+}
+
+.lightbox-img-viewer {
+  width: 100%;
+  max-height: 480px;
+  object-fit: contain;
+  background: #000;
+  display: block;
+}
+
+.lightbox-details-box {
+  padding: 20px 28px;
+}
+
+.lightbox-details-box h4 {
+  font-family: var(--font-title);
+  font-size: 19px;
+  font-weight: 800;
+  color: var(--gold-glow);
+  margin-bottom: 6px;
+}
+
+.lightbox-details-box p {
+  font-size: 14px;
+  color: var(--text-silver);
+}
+
+/* ==========================================================================
+   Responsive Adaptations
+   ========================================================================== */
+@media (max-width: 1080px) {
+  .hero-grid {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+  
+  .hero-dispatch {
+    align-items: center;
+  }
+  
+  .hero-manifesto {
+    margin-left: auto;
+    margin-right: auto;
+  }
+  
+  .hero-cta-cluster {
+    justify-content: center;
+  }
+  
+  .intel-ribbon {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .grand-feature-card {
+    grid-template-columns: 1fr;
+  }
+  
+  .council-arena-card {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+  
+  .council-portrait-col {
+    margin: 0 auto;
+  }
+  
+  .council-header-bar {
+    justify-content: center;
+    gap: 16px;
+  }
+  
+  .council-roster-footer {
+    justify-content: center;
+  }
+  
+  .gallery-scout-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .chronicles-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .footer-heraldry-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .war-nav-menu {
+    display: none;
+  }
+  
+  .mobile-nav-toggle {
+    display: block;
+  }
+  
+  .hero-headline {
+    font-size: 34px;
+  }
+  
+  .codex-dual-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .council-traits-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .throne-title {
+    font-size: 28px;
+  }
+  
+  .footer-heraldry-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .footer-bottom-ledger {
+    flex-direction: column;
+    gap: 14px;
+    text-align: center;
+  }
+}

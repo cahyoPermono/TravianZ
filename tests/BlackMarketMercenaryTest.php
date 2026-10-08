@@ -33,6 +33,7 @@ assertTest(true, "Tables ensured without error");
 // 2. Silver balance tests
 echo "\n2. Silver Balance & Spend Tests:\n";
 $testUid = 7; // User nusa
+BlackMarket::addSilver($testUid, 150);
 $initialSilver = BlackMarket::getSilver($testUid);
 assertTest($initialSilver >= 0, "Current silver is non-negative ($initialSilver)");
 
