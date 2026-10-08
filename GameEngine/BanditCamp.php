@@ -223,7 +223,7 @@ class BanditCamp {
         $wref = (int)$tile['id'];
         $fieldtype = (int)$tile['fieldtype'];
 
-        // Camp Tier Profiles
+        // Camp Tier Profiles (Balanced for Travian 1x Server)
         $profiles = [
             self::TIER_OUTPOST => [
                 'names' => [
@@ -239,10 +239,10 @@ class BanditCamp {
                     32 => rand(15, 25), // Babi Hutan
                     34 => rand(20, 35), // Srigala
                 ],
-                'bounty' => rand(3500, 5500),
-                'exp' => 250,
-                'cp' => 60,
-                'silver' => 10,
+                'bounty' => rand(300, 600),
+                'exp' => 150,
+                'cp' => 30,
+                'silver' => 5,
             ],
             self::TIER_HIDEOUT => [
                 'names' => [
@@ -260,10 +260,10 @@ class BanditCamp {
                     36 => rand(15, 30),  // Buaya
                     37 => rand(15, 25),  // Harimau
                 ],
-                'bounty' => rand(14000, 22000),
-                'exp' => 800,
-                'cp' => 180,
-                'silver' => 25,
+                'bounty' => rand(1200, 2000),
+                'exp' => 450,
+                'cp' => 80,
+                'silver' => 12,
             ],
             self::TIER_FORTRESS => [
                 'names' => [
@@ -282,10 +282,10 @@ class BanditCamp {
                     38 => rand(30, 60),   // Gajah Liar
                     42 => rand(80, 150),  // Desertir Natar
                 ],
-                'bounty' => rand(45000, 75000),
-                'exp' => 2500,
-                'cp' => 500,
-                'silver' => 60,
+                'bounty' => rand(3500, 6000),
+                'exp' => 1200,
+                'cp' => 250,
+                'silver' => 30,
             ],
             self::TIER_WORLDBOSS => [
                 'names' => [
@@ -304,10 +304,10 @@ class BanditCamp {
                     43 => rand(300, 500),   // Natar Guard
                     46 => rand(150, 300),   // Natar Heavy Cav
                 ],
-                'bounty' => rand(250000, 450000),
-                'exp' => 12000,
-                'cp' => 2500,
-                'silver' => 250,
+                'bounty' => rand(12000, 20000),
+                'exp' => 3500,
+                'cp' => 600,
+                'silver' => 75,
             ],
         ];
 
@@ -315,7 +315,7 @@ class BanditCamp {
         $campName = $p['names'][array_rand($p['names'])];
         $pop = (int)$p['pop'];
         $bounty = (int)$p['bounty'];
-        $storage = max(80000, (int)round($bounty * 1.5));
+        $storage = max(40000, (int)round($bounty * 1.5));
 
         // 1. Create village entry in vdata
         $database->addVillage($wref, $banditUid, 'Gembong Bandit', 0, $pop, $campName);
