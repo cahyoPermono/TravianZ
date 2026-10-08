@@ -304,6 +304,14 @@ if($isOasis){
     } else {
         echo '&raquo; '.FNEWVILLAGE.' ('.$settlers.'/3 '.SETTLERSAVAIL.')';
     }
+
+    // Relokasi Pemula link if player is under protection and has not relocated yet
+    require_once __DIR__ . '/../../GameEngine/VillageRelocate.php';
+    $relocCheck = VillageRelocate::canRelocate($session->uid, $village->wid);
+    if ($relocCheck['hasProtection'] && !$relocCheck['hasUsed']) {
+        echo '</td></tr><tr><td>';
+        echo '<a href="relocate.php?target=' . $d . '" style="color: #27ae60; font-weight: bold;">&raquo; 📍 Pindahkan Desa ke Lembah Ini (Relokasi Pemula)</a>';
+    }
 }
 ?>
 </td></tr>

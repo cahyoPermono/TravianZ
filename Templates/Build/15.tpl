@@ -61,6 +61,27 @@ $nextTime      = round($bid15[$nextLevel]['attri']);
     </table>
 
     <?php
+    require_once __DIR__ . '/../../GameEngine/VillageRelocate.php';
+    $relocCheck = VillageRelocate::canRelocate($session->uid, $village->wid);
+    if ($relocCheck['hasProtection'] && !$relocCheck['hasUsed']):
+    ?>
+    <div style="margin: 15px 0; padding: 12px 14px; background: #f4fbf4; border: 1.5px solid #a9dfbf; border-radius: 6px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 26px;">📍</span>
+            <div>
+                <b style="color: #196f3d; font-size: 12px;">Hak Istimewa: Relokasi Desa Pemula (1x)</b>
+                <div style="font-size: 10px; color: #555; margin-top: 2px;">
+                    Anda dapat memindahkan desa ke lembah kosong mana pun selama perlindungan masih aktif.
+                </div>
+            </div>
+        </div>
+        <a href="relocate.php" style="display: inline-block; padding: 6px 12px; background: #27ae60; color: #fff; text-decoration: none; font-weight: bold; font-size: 11px; border-radius: 4px; white-space: nowrap;">
+            Pindahkan Desa &raquo;
+        </a>
+    </div>
+    <?php endif; ?>
+
+    <?php
     if ($currentLevel >= 10) {
         include 'Templates/Build/15_1.tpl';
     }

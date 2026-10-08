@@ -160,6 +160,19 @@ $idUser      = isset($_SESSION['id_user']) ? (int)$_SESSION['id_user'] : 0;
 		</a>
 	</p>
 
+	<!-- Beginner Village Relocation (Active while protection active & not used) -->
+	<?php
+	$uProtect = isset($session->userinfo['protect']) ? (int)$session->userinfo['protect'] : 0;
+	$uRelocated = isset($session->userinfo['village_relocated']) ? (int)$session->userinfo['village_relocated'] : 0;
+	if ($uProtect > time() && !$uRelocated) {
+	?>
+	<p>
+		<a href="relocate.php" style="color: #27ae60; font-weight: bold;">
+			📍 Relokasi Desa
+		</a>
+	</p>
+	<?php } ?>
+
     <!-- Plus / Support / Custom links -->
     <p>
 

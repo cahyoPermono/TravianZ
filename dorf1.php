@@ -81,6 +81,11 @@ else $building->procBuild($_GET);
 <div id="mid">
 <?php include("Templates/menu.tpl"); ?>
 <div id="content"  class="village1">
+<?php if(isset($_SESSION['relocate_success_flash'])): ?>
+<div style="margin: 10px 0 15px; padding: 12px 16px; background: #e8f8f0; border: 1.5px solid #27ae60; border-radius: 6px; color: #155724; font-size: 12px; line-height: 1.5; box-shadow: 0 2px 6px rgba(39,174,96,0.15);">
+    <b><?php echo $_SESSION['relocate_success_flash']; ?></b>
+</div>
+<?php unset($_SESSION['relocate_success_flash']); endif; ?>
 <h1><?php echo $village->vname; if($village->loyalty!='100'){ if($village->loyalty>'33'){ $color="gr"; }else{ $color="re"; } ?><div id="loyality" class="<?php echo $color; ?>"><?php echo LOYALTY; ?> <?php echo floor($village->loyalty); ?>%</div><?php } ?></h1>
 <div id="cap" align="left"><?php if($village->capital!='0') { echo "<font color=gray>(".CAPITAL1.")</font>"; } ?></div>
 <?php include("Templates/weather_widget.tpl"); ?>
