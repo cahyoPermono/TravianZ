@@ -92,11 +92,24 @@ class MyGenerator
 			elseif ($ref == 7) $speed = 16;
 			elseif ($ref == 8) $speed = 14;
 			elseif ($ref == 9) $speed = 18;
+			elseif ($ref == 10) $speed = 16;
 			elseif ($ref == 300) $speed = 5;
 			else $speed = 1;
 		} else {
 			$speed = $ref;
+		}
 
+		// Dynamic Weather and Plague travel modifiers
+		if (class_exists('Weather')) {
+			global $session;
+			$tribe = isset($session) && isset($session->tribe) ? (int)$session->tribe : 0;
+			$speed *= Weather::getSpeedMultiplier($tribe, !$mode);
+		}
+		if ($vid > 0 && class_exists('Plague')) {
+			$speed *= Plague::getSpeedMultiplier((int)$vid);
+		}
+
+		if ($mode) {
 			$tSquareLevel = $database->getFieldLevelInVillage($vid, 14);
 
 			if ($tSquareLevel > 0 && $distance >= TS_THRESHOLD && $speed > 0) {

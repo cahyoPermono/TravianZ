@@ -193,6 +193,16 @@ class Automation {
             require_once __DIR__ . '/BanditCamp.php';
             BanditCamp::run();
         }
+
+        // Dynamic Weather & Plague cycle processing
+        if (defined('WEATHER_SYSTEM_ENABLED') && WEATHER_SYSTEM_ENABLED) {
+            require_once __DIR__ . '/Weather.php';
+            Weather::tick();
+        }
+        if (defined('PLAGUE_SYSTEM_ENABLED') && PLAGUE_SYSTEM_ENABLED) {
+            require_once __DIR__ . '/Plague.php';
+            Plague::tick();
+        }
     }
 
     /**

@@ -31,6 +31,8 @@ include_once("Building.php");
 include_once("Market.php");
 include_once("GameEngine/Units.php");
 include_once("Technology.php");
+include_once("Weather.php");
+include_once("Plague.php");
 
 class Village {
 
@@ -316,6 +318,13 @@ class Village {
 		$amount += $this->getHeroProdFor($type);
 
 		if ($this->sess->{$cfg['sessionBonus']} == 1) $amount *= 1.25;
+
+		if (class_exists('Weather')) {
+			$amount *= Weather::getProductionMultiplier((int)$this->wid, $type);
+		}
+		if (class_exists('Plague')) {
+			$amount *= Plague::getProductionMultiplier((int)$this->wid, $type);
+		}
 
 		return round($amount * SPEED);
 	}

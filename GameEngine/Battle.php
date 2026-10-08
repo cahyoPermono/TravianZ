@@ -21,6 +21,9 @@
 #################################################################################
 
 
+include_once("Weather.php");
+include_once("Plague.php");
+
 class Battle {
 
 	/*****************************************
@@ -1350,11 +1353,14 @@ class Battle {
     if ($def_wall > 0) {
 
         // Factori de zid per trib: 1 City Wall, 2 Earth Wall, 3 Palisade,
-        // 6 Makeshift Wall, 7 Stone Wall, 8 Defensive Wall, 9 Barricade
-        $wallFactors = array(1 => 1.030, 2 => 1.020, 3 => 1.025, 6 => 1.015, 7 => 1.030, 8 => 1.028, 9 => 1.022);
+        // 6 Makeshift Wall, 7 Stone Wall, 8 Defensive Wall, 9 Barricade, 10 Benteng Bambu
+        $wallFactors = array(1 => 1.030, 2 => 1.020, 3 => 1.025, 6 => 1.015, 7 => 1.030, 8 => 1.028, 9 => 1.022, 10 => 1.025);
         $factor = isset($wallFactors[$def_tribe]) ? $wallFactors[$def_tribe] : 1.025;
 
         $wallMultiplier = round(pow($factor, $def_wall), 3);
+        if (class_exists('Weather')) {
+            $wallMultiplier *= Weather::getWallBonusMultiplier();
+        }
 
         if ($dp > 0 || $cdp > 0) {
 

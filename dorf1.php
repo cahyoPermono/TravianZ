@@ -83,6 +83,7 @@ else $building->procBuild($_GET);
 <div id="content"  class="village1">
 <h1><?php echo $village->vname; if($village->loyalty!='100'){ if($village->loyalty>'33'){ $color="gr"; }else{ $color="re"; } ?><div id="loyality" class="<?php echo $color; ?>"><?php echo LOYALTY; ?> <?php echo floor($village->loyalty); ?>%</div><?php } ?></h1>
 <div id="cap" align="left"><?php if($village->capital!='0') { echo "<font color=gray>(".CAPITAL1.")</font>"; } ?></div>
+<?php include("Templates/weather_widget.tpl"); ?>
 <?php include("Templates/field.tpl");
 $timer = 1;
 ?>

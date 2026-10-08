@@ -20,6 +20,9 @@
 ## --------------------------------------------------------------------------- ##
 #################################################################################
 
+include_once("Weather.php");
+include_once("Plague.php");
+
 class Market
 {
     public $onsale = [];
@@ -334,6 +337,17 @@ class Market
         if ($database->getvacmodexy($id)) {
             $form->addError('error', USER_ON_VACATION);
             return;
+        }
+
+        if (class_exists('Plague') && Plague::isVillageInfected($village->wid)) {
+            $plg = Plague::getVillagePlague($village->wid);
+            if (!empty($plg['quarantine'])) {
+                $targetOwner = (int) $database->getVillageField($id, 'owner');
+                if ($targetOwner !== (int) $village->infoarray['owner']) {
+                    $form->addError('error', 'Desa Anda sedang dalam status KARANTINA WABAH! Pasar ditutup sementara untuk perdagangan ke luar.');
+                    return;
+                }
+            }
         }
 
         if (!$database->checkVilExist($post['getwref'])) {
