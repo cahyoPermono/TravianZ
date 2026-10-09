@@ -113,7 +113,7 @@ if ($tab === 'history') {
 	<script src="new.js?0faab" type="text/javascript"></script>
 	<link href="<?php echo GP_LOCATE; ?>lang/en/lang.css?f4b7d" rel="stylesheet" type="text/css" />
 	<link href="<?php echo GP_LOCATE; ?>lang/en/compact.css?v=20261008d" rel="stylesheet" type="text/css" />
-	<link href="css/mobile_engine.css?v=20261009_m1" rel="stylesheet" type="text/css" />
+	<link href="css/mobile_engine.css?v=20261009_m2" rel="stylesheet" type="text/css" />
 	<link href="<?php echo GP_LOCATE; ?>travian.css?v=20261008d" rel="stylesheet" type="text/css" />
 	<script type="text/javascript">
 		window.addEvent('domready', start);

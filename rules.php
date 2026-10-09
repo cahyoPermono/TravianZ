@@ -51,7 +51,7 @@ if(isset($_GET['newdid'])) {
 	<script src="new.js?0faab" type="text/javascript"></script>
 	<link href="<?php echo GP_LOCATE; ?>lang/en/lang.css?f4b7d" rel="stylesheet" type="text/css" />
 	<link href="<?php echo GP_LOCATE; ?>lang/en/compact.css?f4b7i" rel="stylesheet" type="text/css" />
-	<link href="css/mobile_engine.css?v=20261009_m1" rel="stylesheet" type="text/css" />
+	<link href="css/mobile_engine.css?v=20261009_m2" rel="stylesheet" type="text/css" />
 	<?php
 	// GP_LOCATE contine deja pachetul efectiv: alegerea jucatorului cand
 	// e permisa si valida, altfel pachetul serverului (vezi config.php).

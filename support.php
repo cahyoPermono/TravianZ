@@ -53,7 +53,7 @@ else $building->procBuild($_GET);
 	<link href="<?php echo GP_LOCATE; ?>lang/en/lang.css?f4b7d" rel="stylesheet" type="text/css" />
 	<link href="<?php echo GP_LOCATE ?>travian.css?f4b7d" rel="stylesheet" type="text/css" />
 	<link href="<?php echo GP_LOCATE ?>lang/en/lang.css" rel="stylesheet" type="text/css" />
-	<link href="css/mobile_engine.css?v=20261009_m1" rel="stylesheet" type="text/css" />
+	<link href="css/mobile_engine.css?v=20261009_m2" rel="stylesheet" type="text/css" />
         <script type="text/javascript">
 function chkFormular () {
   if (document.Formular.Username.value == "") {

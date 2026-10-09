@@ -22,7 +22,7 @@
     -webkit-text-size-adjust: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
-    background-color: #f5f0e6 !important;
+    background-color: #ffffff !important;
   }
 
   .wrapper {
@@ -31,7 +31,22 @@
     overflow-x: hidden !important;
     position: relative !important;
     height: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    background-color: #ffffff !important;
   }
+
+  /* Flexbox display ordering ensures Resource Bar (#res) is directly under Header (#header) */
+  div#dynamic_header { order: 1 !important; }
+  div#header         { order: 2 !important; }
+  div#res,
+  body.mod1 div#res,
+  body.mod2 div#res,
+  body.mod3 div#res  { order: 3 !important; }
+  div#mid            { order: 4 !important; }
+  .footer-stopper    { order: 5 !important; }
+  div#footer         { order: 6 !important; }
+  div#stime          { order: 7 !important; }
 
   /* Hide legacy guide borders / filters */
   #guide1, #guide2, #guide3, #guide4,
@@ -57,12 +72,13 @@
     min-width: 0 !important;
     height: auto !important;
     position: relative !important;
-    background: #71d000 !important;
-    background-image: linear-gradient(180deg, #8ae018 0%, #68bf00 100%) !important;
-    border-bottom: 2px solid #4e8c00 !important;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15) !important;
+    background: #4a3421 !important;
+    background-image: linear-gradient(180deg, #593e27 0%, #3d2a19 100%) !important;
+    border-bottom: 2px solid #8e6c38 !important;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35) !important;
     box-sizing: border-box !important;
-    padding: 4px 0 !important;
+    padding: 6px 4px 8px 4px !important;
+    z-index: 50 !important;
   }
 
   /* --- 3. Top Navigation Bar (#mtop) --- */
@@ -73,126 +89,190 @@
     left: 0 !important;
     margin-left: 0 !important;
     width: 100% !important;
-    max-width: 100% !important;
+    max-width: 440px !important;
+    margin: 0 auto !important;
     height: auto !important;
     position: relative !important;
     top: 0 !important;
-    display: flex !important;
-    flex-wrap: wrap !important;
+    display: grid !important;
+    grid-template-columns: repeat(5, 1fr) !important;
+    grid-template-rows: auto auto !important;
     align-items: center !important;
-    justify-content: center !important;
-    padding: 4px 6px !important;
+    justify-items: center !important;
+    row-gap: 6px !important;
+    padding: 0 !important;
     box-sizing: border-box !important;
-    gap: 4px !important;
     z-index: 50 !important;
   }
 
-  /* Icon links in header */
-  div#mtop a#n1,
-  div#mtop a#n2,
-  div#mtop a#n3,
-  div#mtop a#n4 {
+  /* Row 1: Hero box on left (cols 1-2) */
+  #tzHeroBox {
+    grid-column: 1 / 3 !important;
+    grid-row: 1 !important;
+    justify-self: start !important;
+    position: relative !important;
+    left: 0 !important;
+    top: 0 !important;
+    margin: 0 0 0 2px !important;
+    width: 124px !important;
+    height: 62px !important;
+    transform: scale(0.82) !important;
+    transform-origin: left center !important;
+    z-index: 60 !important;
+  }
+
+  /* Row 1: Gold & Silver counters (cols 3-4) */
+  #goldHeader {
+    grid-column: 3 / 5 !important;
+    grid-row: 1 !important;
+    justify-self: end !important;
+    position: relative !important;
+    right: auto !important;
+    top: auto !important;
+    transform: none !important;
+    display: inline-flex !important;
+    flex-direction: column !important;
+    align-items: flex-end !important;
+    justify-content: center !important;
+    gap: 2px !important;
+    margin: 0 !important;
+    padding: 3px 8px !important;
+    background: rgba(0, 0, 0, 0.45) !important;
+    border-radius: 10px !important;
+    border: 1px solid rgba(220, 180, 80, 0.45) !important;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+    color: #fff !important;
+    font-size: 11px !important;
+    font-weight: bold !important;
+    white-space: nowrap !important;
+  }
+
+  #goldHeader .tzCoinRow {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 4px !important;
+    height: 16px !important;
+  }
+
+  #goldHeader .tzCoinStack {
+    width: 14px !important;
+    height: 14px !important;
+    flex: 0 0 14px !important;
+  }
+
+  #goldHeader .tzCoinValue {
+    font-size: 11px !important;
+    color: #ffffff !important;
+  }
+
+  #silverHeader {
+    margin-top: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    line-height: 16px !important;
+  }
+
+  /* Row 1: Plus button (col 5) */
+  div#mtop a#plus {
+    grid-column: 5 / 6 !important;
+    grid-row: 1 !important;
+    justify-self: end !important;
     float: none !important;
+    margin: 0 2px 0 0 !important;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    height: 48px !important;
-    min-width: 44px !important;
-    margin: 0 !important;
-    padding: 0 2px !important;
+    height: 32px !important;
+    padding: 2px 8px !important;
+    background: linear-gradient(180deg, #ff9e2b 0%, #db6e00 100%) !important;
+    border: 1px solid #ffd175 !important;
+    border-radius: 8px !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+    text-decoration: none !important;
     touch-action: manipulation !important;
+  }
+
+  div#mtop a#plus .plus_text {
+    display: inline-block !important;
+    font-weight: 900 !important;
+    font-size: 12px !important;
+    color: #ffffff !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6) !important;
+    letter-spacing: 1px !important;
+  }
+
+  div#mtop a#plus img#btn_plus {
+    display: none !important;
+  }
+
+  /* Hide Day / Night wrapper on mobile */
+  #wrapper > #container,
+  #container,
+  div#mtop div#wrapper {
+    display: none !important;
+  }
+
+  /* Row 2: The 5 Core Travian Navigation Tabs */
+  div#mtop a#n1 { grid-column: 1 / 2 !important; grid-row: 2 !important; }
+  div#mtop a#n2 { grid-column: 2 / 3 !important; grid-row: 2 !important; }
+  div#mtop a#n3 { grid-column: 3 / 4 !important; grid-row: 2 !important; }
+  div#mtop a#n4 { grid-column: 4 / 5 !important; grid-row: 2 !important; }
+  div#mtop div#n5 { grid-column: 5 / 6 !important; grid-row: 2 !important; }
+
+  div#mtop a#n1,
+  div#mtop a#n2,
+  div#mtop a#n3,
+  div#mtop a#n4,
+  div#mtop div#n5 {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    max-width: 66px !important;
+    height: 56px !important;
+    overflow: visible !important;
+    position: relative !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    float: none !important;
+    touch-action: manipulation !important;
+    text-decoration: none !important;
   }
 
   div#mtop a#n1 img,
   div#mtop a#n2 img,
   div#mtop a#n3 img,
   div#mtop a#n4 img {
-    height: 46px !important;
-    width: auto !important;
+    width: 70px !important;
+    height: 67px !important;
     display: block !important;
+    transform: scale(0.82) !important;
+    transform-origin: center center !important;
+    cursor: pointer !important;
   }
 
-  /* Reports & Messages (#n5) */
   div#mtop div#n5 {
-    float: none !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    height: 48px !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    gap: 2px !important;
+    width: 70px !important;
+    height: 67px !important;
+    transform: scale(0.82) !important;
+    transform-origin: center center !important;
+    display: block !important;
   }
 
   div#mtop div#n5 a {
-    display: inline-flex !important;
-    height: 48px !important;
-    width: auto !important;
-    float: none !important;
-    align-items: center !important;
-    justify-content: center !important;
+    display: block !important;
+    float: left !important;
+    width: 35px !important;
+    height: 67px !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
   div#mtop div#n5 a img {
-    height: 46px !important;
-    width: auto !important;
     display: block !important;
-  }
-
-  /* Hero Avatar in header */
-  #tzHeroBox {
-    position: static !important;
-    transform: none !important;
-    margin: 2px 4px !important;
-    display: inline-flex !important;
-    align-items: center !important;
-  }
-
-  /* Gold & Silver Badge */
-  #goldHeader {
-    position: static !important;
-    transform: none !important;
-    right: auto !important;
-    top: auto !important;
-    display: inline-flex !important;
-    flex-direction: row !important;
-    align-items: center !important;
-    justify-content: center !important;
-    gap: 8px !important;
-    margin: 2px 6px !important;
-    padding: 3px 8px !important;
-    background: rgba(0, 0, 0, 0.18) !important;
-    border-radius: 12px !important;
-    border: 1px solid rgba(255, 255, 255, 0.35) !important;
-    color: #fff !important;
-    font-size: 11px !important;
-    font-weight: bold !important;
-  }
-
-  #silverHeader {
-    margin-top: 0 !important;
-    display: inline-flex !important;
-    align-items: center !important;
-  }
-
-  /* Plus button */
-  div#mtop a#plus {
-    float: none !important;
-    margin-left: 2px !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    height: 44px !important;
-    padding: 0 4px !important;
-  }
-
-  div#mtop a#plus img {
-    height: 38px !important;
-    width: auto !important;
-  }
-
-  /* Day / Night Container */
-  #wrapper > #container,
-  #container {
-    display: none !important;
+    width: 35px !important;
+    height: 67px !important;
   }
 
   /* --- 4. Resources Ribbon (#res) --- */
@@ -208,10 +288,12 @@
     left: auto !important;
     margin: 0 !important;
     padding: 6px 4px !important;
-    background: #fcf9f2 !important;
-    border-bottom: 1px solid #d5ceb8 !important;
+    background: #ede5d5 !important;
+    background-image: linear-gradient(180deg, #f5ede1 0%, #e2d7c3 100%) !important;
+    border-bottom: 2px solid #bdae96 !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08) !important;
     box-sizing: border-box !important;
-    z-index: 20 !important;
+    z-index: 25 !important;
   }
 
   div#resWrap {
@@ -219,7 +301,7 @@
     left: auto !important;
     margin: 0 auto !important;
     width: 100% !important;
-    max-width: 100% !important;
+    max-width: 480px !important;
     overflow-x: auto !important;
     -webkit-overflow-scrolling: touch !important;
     display: flex !important;
@@ -232,23 +314,25 @@
     width: auto !important;
     max-width: 100% !important;
     border-collapse: separate !important;
-    border-spacing: 3px 0 !important;
+    border-spacing: 4px 0 !important;
   }
 
   div#res table td {
-    padding: 3px 5px !important;
+    padding: 3px 6px !important;
     font-size: 11px !important;
-    font-weight: 600 !important;
-    color: #493829 !important;
+    font-weight: 700 !important;
+    color: #3d2a17 !important;
     white-space: nowrap !important;
-    background: #ede6d4 !important;
-    border-radius: 4px !important;
-    border: 1px solid #dbd3be !important;
+    background: #ffffff !important;
+    border-radius: 6px !important;
+    border: 1px solid #d2c5b0 !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+    vertical-align: middle !important;
   }
 
   div#res table img {
     vertical-align: middle !important;
-    margin: 0 2px 0 0 !important;
+    margin: 0 3px 0 0 !important;
   }
 
   /* --- 5. Main Work Area Container (#mid) --- */
@@ -262,7 +346,7 @@
     display: flex !important;
     flex-direction: column !important;
     box-sizing: border-box !important;
-    background: transparent !important;
+    background: #ffffff !important;
   }
 
   /* Content area takes prime spot (order 1) */
@@ -277,6 +361,27 @@
     overflow-x: auto !important;
     -webkit-overflow-scrolling: touch !important;
     box-sizing: border-box !important;
+    background: #ffffff !important;
+  }
+
+  /* Village Heading and Subtitles */
+  div#content h1 {
+    font-size: 20px !important;
+    font-weight: 800 !important;
+    color: #2b1d0e !important;
+    margin: 8px 0 2px 0 !important;
+    text-align: center !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+  }
+
+  div#content div#cap {
+    text-align: center !important;
+    margin: 0 auto 8px auto !important;
+    font-size: 12px !important;
+    color: #8c7b67 !important;
   }
 
   /* Side info: village list & quests (order 2) */
@@ -284,14 +389,15 @@
     order: 2 !important;
     float: none !important;
     width: 100% !important;
-    max-width: 100% !important;
+    max-width: 360px !important;
+    margin: 0 auto 16px auto !important;
     height: auto !important;
     min-height: 0 !important;
-    margin: 0 0 16px 0 !important;
     padding: 12px 10px !important;
-    background: #f7f3e8 !important;
-    border: 1px solid #d5ceb8 !important;
-    border-radius: 8px !important;
+    background: #fbf9f4 !important;
+    border: 1px solid #dcd3be !important;
+    border-radius: 10px !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05) !important;
     box-sizing: border-box !important;
   }
 
@@ -305,14 +411,14 @@
     order: 3 !important;
     float: none !important;
     width: 100% !important;
-    max-width: 100% !important;
+    max-width: 360px !important;
+    margin: 0 auto 16px auto !important;
     height: auto !important;
     min-height: 0 !important;
-    margin: 0 0 16px 0 !important;
     padding: 10px 8px !important;
-    background: #fcfbfa !important;
+    background: #fbf9f4 !important;
     border: 1px solid #dfd8c5 !important;
-    border-radius: 8px !important;
+    border-radius: 10px !important;
     box-sizing: border-box !important;
   }
 
@@ -348,28 +454,54 @@
   div#side_navi p a:active,
   div#side_navi p a:hover {
     background: #e2d9c3 !important;
-    border-color: #71d000 !important;
+    border-color: #8e6c38 !important;
     color: #000 !important;
   }
 
   /* --- 6. Village Fields & Town Center --- */
-  div#content.village1 #village_map {
-    margin: 0 auto 16px auto !important;
+  div.village1 div#village_map,
+  div#content.village1 #village_map,
+  #village_map {
+    float: none !important;
     display: block !important;
+    width: 300px !important;
+    height: 264px !important;
+    margin: 10px auto 16px auto !important;
     position: relative !important;
-    max-width: 300px !important;
+    clear: both !important;
+    background-color: #ffffff !important;
+  }
+
+  /* Village 1 details (Production, Troops, Movements) */
+  div.village1 div#map_details,
+  div#content.village1 #map_details,
+  #map_details {
+    float: none !important;
+    width: 100% !important;
+    max-width: 360px !important;
+    margin: 0 auto 16px auto !important;
+    padding: 0 4px !important;
+    box-sizing: border-box !important;
+    clear: both !important;
+  }
+
+  div#map_details br {
+    display: none !important;
   }
 
   div#content.village2 {
     overflow-x: auto !important;
     -webkit-overflow-scrolling: touch !important;
     text-align: center !important;
+    padding-bottom: 12px !important;
   }
 
   div#content.village2 #village_map {
     display: inline-block !important;
     position: relative !important;
+    width: 540px !important;
     min-width: 540px !important;
+    height: 400px !important;
     margin: 0 auto !important;
     text-align: left !important;
   }
@@ -377,9 +509,10 @@
   /* Weather Widget Mobile Fit */
   .weather-banner-wrapper,
   .tz-weather-box {
-    max-width: 100% !important;
+    max-width: 360px !important;
+    margin: 6px auto 12px auto !important;
     box-sizing: border-box !important;
-    margin: 6px 0 12px 0 !important;
+    border-radius: 8px !important;
   }
 
   /* --- 7. Tables, Form Inputs & Buttons --- */
@@ -413,8 +546,9 @@
     box-sizing: border-box !important;
     padding: 8px 10px !important;
     font-size: 16px !important;
-    border-radius: 4px !important;
-    border: 1px solid #71d000 !important;
+    border-radius: 6px !important;
+    border: 1.5px solid #bba888 !important;
+    background: #fdfcf9 !important;
   }
 
   /* Mobile-Friendly Buttons */
@@ -454,7 +588,57 @@
 
   /* Production, Movement, Troops, & Statistics Tables */
   table#production,
-  table#troops,
+  table#troops {
+    width: 100% !important;
+    max-width: 100% !important;
+    background: #fbf9f4 !important;
+    border: 1px solid #dcd3be !important;
+    border-radius: 10px !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05) !important;
+    margin: 0 auto 14px auto !important;
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+    overflow: hidden !important;
+    font-size: 13px !important;
+  }
+
+  table#production thead th,
+  table#troops thead th,
+  table#production thead td,
+  table#troops thead td {
+    background: #eee6d3 !important;
+    padding: 8px 12px !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    color: #493522 !important;
+    border-bottom: 1px solid #dcd3be !important;
+    text-align: left !important;
+  }
+
+  table#production tbody td,
+  table#troops tbody td {
+    padding: 7px 12px !important;
+    font-size: 13px !important;
+    color: #3b2816 !important;
+    border-bottom: 1px solid #eee8dc !important;
+  }
+
+  table#production tbody tr:last-child td,
+  table#troops tbody tr:last-child td {
+    border-bottom: none !important;
+  }
+
+  table#production td.num,
+  table#troops td.num {
+    font-weight: bold !important;
+    text-align: right !important;
+  }
+
+  table#production td.per {
+    font-size: 11.5px !important;
+    color: #7d6b56 !important;
+  }
+
   table#movements,
   table.row_table_data,
   table#player,
@@ -840,7 +1024,7 @@
     min-width: 0 !important;
     width: 100% !important;
     background: none !important;
-    border-bottom: 2px solid #71d000 !important;
+    border-bottom: 2px solid #8e6c38 !important;
     margin-bottom: 15px !important;
   }
 

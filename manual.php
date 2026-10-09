@@ -43,7 +43,7 @@ tz_load_language(LANG);
 	<link href="<?php echo GP_LOCATE; ?>lang/en/lang.css?f4b7d" rel="stylesheet" type="text/css" />
 	<link href="<?php echo GP_LOCATE; ?>travian.css?f4b7d" rel="stylesheet" type="text/css" />
 	<link href="<?php echo GP_LOCATE; ?>lang/en/lang.css" rel="stylesheet" type="text/css" />
-	<link href="css/mobile_engine.css?v=20261009_m1" rel="stylesheet" type="text/css" />
+	<link href="css/mobile_engine.css?v=20261009_m2" rel="stylesheet" type="text/css" />
 	   </head>
 	<body class="manual">
 <?php
