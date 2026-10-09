@@ -99,7 +99,7 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
     <title><?php echo htmlspecialchars(SERVER_NAME); ?> &bull; Dewan Perang Nusantara & Jagat Terlarang</title>
     <link rel="shortcut icon" href="favicon.ico" />
     <meta name="description" content="Portal perang strategi kuno TravianZ dengan Suku Maritim Nusantara, Dinamika Cuaca Ekstrem, Sampar Wabah Desa, Ekspedisi PvE Sarang Bandit, Pasar Gelap Bebas Emas, dan Tentara Bayaran Netral!" />
-    <link rel="stylesheet" type="text/css" href="gpack/travian/landing_modern.css?v=20261008_v2" />
+    <link rel="stylesheet" type="text/css" href="gpack/travian/landing_modern.css?v=20261009_mobile" />
 </head>
 
 <body class="war-portal">
@@ -124,31 +124,62 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
 
             <div class="war-nav-actions">
                 <?php if ($isLoggedIn): ?>
-                    <div class="player-crest-badge">
+                    <div class="player-crest-badge desktop-only">
                         <span>Panglima:</span>
                         <strong><?php echo $loggedUser; ?></strong>
                     </div>
-                    <a href="dorf1.php" class="war-btn war-btn-gold">🏰 Ke Desa Saya</a>
-                    <a href="logout.php" class="war-btn war-btn-iron" title="Keluar">Keluar</a>
+                    <a href="dorf1.php" class="war-btn war-btn-gold desktop-only">🏰 Ke Desa Saya</a>
+                    <a href="logout.php" class="war-btn war-btn-iron desktop-only" title="Keluar">Keluar</a>
                 <?php else: ?>
-                    <a href="login.php" class="war-btn war-btn-iron">🛡️ Masuk Benteng</a>
-                    <a href="anmelden.php" class="war-btn war-btn-gold">⚔️ Rekrut Akun</a>
+                    <a href="login.php" class="war-btn war-btn-iron desktop-only">🛡️ Masuk Benteng</a>
+                    <a href="anmelden.php" class="war-btn war-btn-gold desktop-only">⚔️ Rekrut Akun</a>
                 <?php endif; ?>
-                <button class="mobile-nav-toggle" id="mobileMenuBtn" aria-label="Buka Menu">☰</button>
+                <button class="mobile-nav-toggle" id="mobileMenuBtn" aria-label="Buka Menu" type="button">☰</button>
             </div>
         </div>
     </header>
 
-    <!-- Mobile Dropdown Navigation -->
-    <div id="mobileMenuPanel" style="display:none; background:#070a10; border-bottom:1px solid var(--frame-gold); padding:20px 24px;">
-        <ul style="list-style:none; display:flex; flex-direction:column; gap:14px;">
-            <li><a href="#codex" class="war-nav-link" onclick="closeMobileMenu()">Buku Ekspansi</a></li>
-            <li><a href="#council" class="war-nav-link" onclick="closeMobileMenu()">Dewan Peradaban</a></li>
-            <li><a href="#chronicles" class="war-nav-link" onclick="closeMobileMenu()">Warta Server</a></li>
-            <li><a href="#gallery" class="war-nav-link" onclick="closeMobileMenu()">Peta Tempur</a></li>
-            <li><a href="login.php" class="war-btn war-btn-iron" style="width:100%; margin-top:10px;">🛡️ Masuk Benteng</a></li>
-            <li><a href="anmelden.php" class="war-btn war-btn-gold" style="width:100%;">⚔️ Rekrut Akun Baru</a></li>
-        </ul>
+    <!-- Mobile Drawer Backdrop & Navigation -->
+    <div class="mobile-drawer-backdrop" id="mobileDrawerBackdrop" onclick="closeMobileMenu()"></div>
+    <div class="mobile-drawer" id="mobileMenuPanel" role="dialog" aria-modal="true" aria-label="Menu Navigasi Mobile">
+        <div class="mobile-drawer-header">
+            <div class="portal-brand">
+                <img src="img/rpage/travian_logo.png" alt="Travian Logo" class="brand-crest" style="height:38px;" />
+                <div class="brand-meta">
+                    <span class="brand-name" style="font-size:18px;"><?php echo htmlspecialchars(SERVER_NAME); ?></span>
+                    <span class="brand-edition" style="font-size:9px; letter-spacing:1.5px;">EXPANSI 2026</span>
+                </div>
+            </div>
+            <button class="mobile-drawer-close" id="mobileDrawerCloseBtn" onclick="closeMobileMenu()" aria-label="Tutup Menu" type="button">✕</button>
+        </div>
+
+        <div class="mobile-drawer-body">
+            <?php if ($isLoggedIn): ?>
+                <div class="mobile-user-card">
+                    <span class="mobile-user-label">Panglima Terdaftar</span>
+                    <strong class="mobile-user-name">👑 <?php echo $loggedUser; ?></strong>
+                </div>
+                <div class="mobile-drawer-actions">
+                    <a href="dorf1.php" class="war-btn war-btn-gold" style="width:100%;">🏰 Ke Desa Saya</a>
+                    <a href="logout.php" class="war-btn war-btn-iron" style="width:100%;">Keluar</a>
+                </div>
+            <?php else: ?>
+                <div class="mobile-drawer-actions">
+                    <a href="anmelden.php" class="war-btn war-btn-gold" style="width:100%;">⚔️ Rekrut Akun Baru</a>
+                    <a href="login.php" class="war-btn war-btn-iron" style="width:100%;">🛡️ Masuk Benteng</a>
+                </div>
+            <?php endif; ?>
+
+            <div class="mobile-drawer-divider"></div>
+
+            <ul class="mobile-drawer-nav">
+                <li><a href="#codex" class="mobile-nav-link" onclick="closeMobileMenu()"><span>📜</span> Buku Ekspansi</a></li>
+                <li><a href="#council" class="mobile-nav-link" onclick="closeMobileMenu()"><span>👑</span> Dewan Peradaban</a></li>
+                <li><a href="#chronicles" class="mobile-nav-link" onclick="closeMobileMenu()"><span>📢</span> Warta Server</a></li>
+                <li><a href="#gallery" class="mobile-nav-link" onclick="closeMobileMenu()"><span>🗺️</span> Peta Tempur</a></li>
+                <li><a href="https://github.com/Shadowss/TravianZ/discussions" target="_blank" rel="noopener noreferrer" class="mobile-nav-link" onclick="closeMobileMenu()"><span>💬</span> Komunitas Forum ↗</a></li>
+            </ul>
+        </div>
     </div>
 
     <!-- Hero Stage: Asymmetric War Room -->
@@ -372,7 +403,7 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
                         <p class="codex-card-body">
                             Butuh bala bantuan garnisun instan tanpa menunggu antrean barak atau riset teknologi di akademi? Sewa serdadu bayaran berpengalaman di Tab 6 Pasar menggunakan koin Silver: <strong>Garda Zirah Besi</strong> (perisai infantri berat), <strong>Pemanah Busur Kreta</strong> (penembak runduk mematikan), <strong>Penjarah Stepa</strong> (kavaleri tombak), dan <strong>Penebas Benteng</strong> (veteran pendobrak). Otomatis memperkuat pertahanan desa dari serbuan musuh dengan sistem desersi otomatis saat kelaparan gandum!
                         </p>
-                        <div class="bullet-traits-list" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:12px;">
+                        <div class="bullet-traits-list mercenary-traits-grid">
                             <div class="bullet-item"><span class="bullet-dot" style="background:#3b82f6;"></span> Kontrak bayaran menggunakan koin Silver hasil berburu</div>
                             <div class="bullet-item"><span class="bullet-dot" style="background:#3b82f6;"></span> Menjaga garnisun desa dari serangan & serbuan lawan</div>
                             <div class="bullet-item"><span class="bullet-dot" style="background:#3b82f6;"></span> Desersi logis saat lumbung gandum desa mengalami kelaparan</div>
@@ -617,7 +648,7 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
                 <p class="throne-sub">
                     Ratusan aliansi telah berikrar setia, ribuan pedang telah diasah. Tentukan nasib peradaban Anda sekarang sebelum genderang perang berbunyi!
                 </p>
-                <div style="display:flex; justify-content:center; gap:16px; flex-wrap:wrap;">
+                <div class="throne-cta-cluster">
                     <?php if ($isLoggedIn): ?>
                         <a href="dorf1.php" class="war-btn war-btn-gold war-btn-lg">🏰 Masuk ke Desa Saya Sekarang</a>
                     <?php else: ?>
@@ -975,18 +1006,38 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
             });
         });
 
-        // Mobile Nav Toggle
-        const mobileBtn = document.getElementById('mobileMenuBtn');
-        const mobilePanel = document.getElementById('mobileMenuPanel');
-        if (mobileBtn && mobilePanel) {
-            mobileBtn.addEventListener('click', function() {
-                const isHidden = mobilePanel.style.display === 'none';
-                mobilePanel.style.display = isHidden ? 'block' : 'none';
-            });
+        // Mobile Nav Drawer Logic
+        function openMobileMenu() {
+            const drawer = document.getElementById('mobileMenuPanel');
+            const backdrop = document.getElementById('mobileDrawerBackdrop');
+            if (drawer && backdrop) {
+                drawer.classList.add('open');
+                backdrop.classList.add('open');
+                document.body.style.overflow = 'hidden';
+            }
         }
 
         function closeMobileMenu() {
-            if (mobilePanel) mobilePanel.style.display = 'none';
+            const drawer = document.getElementById('mobileMenuPanel');
+            const backdrop = document.getElementById('mobileDrawerBackdrop');
+            if (drawer && backdrop) {
+                drawer.classList.remove('open');
+                backdrop.classList.remove('open');
+                document.body.style.overflow = '';
+            }
+        }
+
+        const mobileBtn = document.getElementById('mobileMenuBtn');
+        if (mobileBtn) {
+            mobileBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const drawer = document.getElementById('mobileMenuPanel');
+                if (drawer && drawer.classList.contains('open')) {
+                    closeMobileMenu();
+                } else {
+                    openMobileMenu();
+                }
+            });
         }
 
         // Lightbox Functions
@@ -1001,13 +1052,16 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
 
         function closeLightbox(e) {
             const modal = document.getElementById('warLightboxModal');
-            modal.classList.remove('active');
+            if (modal) {
+                modal.classList.remove('active');
+            }
             document.body.style.overflow = '';
         }
 
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
                 closeLightbox();
+                closeMobileMenu();
             }
         });
 
