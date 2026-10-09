@@ -56,6 +56,7 @@ $_SESSION[ 'csrf' ] = $key;
 	<meta http-equiv="cache-control" content="max-age=0" />
 	<meta http-equiv="imagetoolbar" content="no" />
 	<meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 	<script src="mt-core.js?0faab" type="text/javascript"></script>
 	<script src="mt-more.js?0faab" type="text/javascript"></script>
 	<script src="unx.js?f4b7h" type="text/javascript"></script>
@@ -64,6 +65,7 @@ $_SESSION[ 'csrf' ] = $key;
 	<link href="<?php echo GP_LOCATE; ?>lang/en/lang.css?f4b7d" rel="stylesheet" type="text/css" />
 	<link href="<?php echo GP_LOCATE ?>travian.css?f4b7d" rel="stylesheet" type="text/css" />
 		<link href="<?php echo GP_LOCATE ?>lang/en/lang.css" rel="stylesheet" type="text/css" />
+	<link href="css/mobile_engine.css?v=20261009_m1" rel="stylesheet" type="text/css" />
 	   </head>
 
 <body class="v35 ie ie7" onload="initCounter()">

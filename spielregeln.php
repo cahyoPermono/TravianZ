@@ -25,8 +25,11 @@ AccessLogger::logRequest();
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 	<title><?php echo SERVER_NAME; ?></title>
+	<meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 	<link rel="stylesheet" type="text/css" href="img/tutorial/main.css"/>
 	<link rel="stylesheet" type="text/css" href="img/tutorial/flaggs.css"/>
+	<link rel="stylesheet" type="text/css" href="css/mobile_engine.css?v=20261009_m1"/>
 	<meta name="content-language" content="en"/>
 	<meta http-equiv="imagetoolbar" content="no"/>
 	<script src="mt-core.js" type="text/javascript"></script>

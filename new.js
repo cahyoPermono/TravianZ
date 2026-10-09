@@ -1,7 +1,19 @@
 /* Dynamic images, change class */
 
-// MooTools
+// Auto-inject mobile viewport meta tag if not present
+(function() {
+	if (typeof document !== 'undefined' && !document.querySelector('meta[name="viewport"]')) {
+		var m = document.createElement('meta');
+		m.name = 'viewport';
+		m.content = 'width=device-width, initial-scale=1.0';
+		var head = document.getElementsByTagName('head')[0];
+		if (head) {
+			head.appendChild(m);
+		}
+	}
+})();
 
+// MooTools
 window
 
 	.addEvent('domready', function()

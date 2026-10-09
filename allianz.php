@@ -118,6 +118,7 @@ if(isset($_GET['aid']) || isset($_GET['fid']) || isset($_GET['fid2']) ||
 	<meta http-equiv="expires" content="0" />
 	<meta http-equiv="imagetoolbar" content="no" />
 	<meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 	<script src="mt-full.js?0faab" type="text/javascript"></script>
 	<script src="unx.js?f4b7h" type="text/javascript"></script>
 	<script src="new.js?0faab" type="text/javascript"></script>
@@ -131,6 +132,7 @@ if(isset($_GET['aid']) || isset($_GET['fid']) || isset($_GET['fid2']) ||
 	   echo GP_LOCATE;
 
 ?>lang/en/compact.css?f4b7i" rel="stylesheet" type="text/css" />
+	<link href="css/mobile_engine.css?v=20261009_m1" rel="stylesheet" type="text/css" />
 	<?php
 
 	   // GP_LOCATE contine deja pachetul efectiv: alegerea jucatorului cand

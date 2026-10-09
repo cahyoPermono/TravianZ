@@ -37,8 +37,11 @@ AccessLogger::logRequest();
 <head>
     <title><?php echo SERVER_NAME; ?> - <?php echo PUBLIC_TERMS_TITLE; ?></title>
 
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" type="text/css" href="img/tutorial/main.css"/>
     <link rel="stylesheet" type="text/css" href="img/tutorial/flaggs.css"/>
+    <link rel="stylesheet" type="text/css" href="css/mobile_engine.css?v=20261009_m1"/>
 
     <meta name="content-language" content="en"/>
     <meta http-equiv="imagetoolbar" content="no"/>

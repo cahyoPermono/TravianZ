@@ -1,0 +1,937 @@
+/* ==========================================================================
+   TRAVIANZ RESPONSIVE MOBILE ENGINE (2026 Edition)
+   Crafted to make all in-game pages and auth pages 100% mobile friendly
+   ========================================================================== */
+
+/* Universal Viewport Meta Injector Safeguard */
+@viewport {
+  width: device-width;
+  zoom: 1.0;
+}
+
+/* ==========================================================================
+   Breakpoints: <= 860px (Tablets & Smartphones)
+   ========================================================================== */
+@media screen and (max-width: 860px) {
+
+  /* --- 1. Base Reset & Layout Containers --- */
+  html, body {
+    width: 100% !important;
+    min-width: 0 !important;
+    overflow-x: hidden !important;
+    -webkit-text-size-adjust: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background-color: #f5f0e6 !important;
+  }
+
+  .wrapper {
+    width: 100% !important;
+    min-width: 0 !important;
+    overflow-x: hidden !important;
+    position: relative !important;
+    height: auto !important;
+  }
+
+  /* Hide legacy guide borders / filters */
+  #guide1, #guide2, #guide3, #guide4,
+  #msfilter {
+    display: none !important;
+  }
+
+  /* --- 2. Dynamic Header & Main Header Bar --- */
+  div#dynamic_header {
+    height: auto !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  div#dynamic_header div.dyn1,
+  div#dynamic_header div.dyn2 {
+    display: none !important;
+  }
+
+  div#header {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: auto !important;
+    position: relative !important;
+    background: #71d000 !important;
+    background-image: linear-gradient(180deg, #8ae018 0%, #68bf00 100%) !important;
+    border-bottom: 2px solid #4e8c00 !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15) !important;
+    box-sizing: border-box !important;
+    padding: 4px 0 !important;
+  }
+
+  /* --- 3. Top Navigation Bar (#mtop) --- */
+  div#mtop,
+  body.mod1 div#mtop,
+  body.mod2 div#mtop,
+  body.mod3 div#mtop {
+    left: 0 !important;
+    margin-left: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    position: relative !important;
+    top: 0 !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 4px 6px !important;
+    box-sizing: border-box !important;
+    gap: 4px !important;
+    z-index: 50 !important;
+  }
+
+  /* Icon links in header */
+  div#mtop a#n1,
+  div#mtop a#n2,
+  div#mtop a#n3,
+  div#mtop a#n4 {
+    float: none !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    height: 48px !important;
+    min-width: 44px !important;
+    margin: 0 !important;
+    padding: 0 2px !important;
+    touch-action: manipulation !important;
+  }
+
+  div#mtop a#n1 img,
+  div#mtop a#n2 img,
+  div#mtop a#n3 img,
+  div#mtop a#n4 img {
+    height: 46px !important;
+    width: auto !important;
+    display: block !important;
+  }
+
+  /* Reports & Messages (#n5) */
+  div#mtop div#n5 {
+    float: none !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    height: 48px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    gap: 2px !important;
+  }
+
+  div#mtop div#n5 a {
+    display: inline-flex !important;
+    height: 48px !important;
+    width: auto !important;
+    float: none !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  div#mtop div#n5 a img {
+    height: 46px !important;
+    width: auto !important;
+    display: block !important;
+  }
+
+  /* Hero Avatar in header */
+  #tzHeroBox {
+    position: static !important;
+    transform: none !important;
+    margin: 2px 4px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+  }
+
+  /* Gold & Silver Badge */
+  #goldHeader {
+    position: static !important;
+    transform: none !important;
+    right: auto !important;
+    top: auto !important;
+    display: inline-flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    margin: 2px 6px !important;
+    padding: 3px 8px !important;
+    background: rgba(0, 0, 0, 0.18) !important;
+    border-radius: 12px !important;
+    border: 1px solid rgba(255, 255, 255, 0.35) !important;
+    color: #fff !important;
+    font-size: 11px !important;
+    font-weight: bold !important;
+  }
+
+  #silverHeader {
+    margin-top: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+  }
+
+  /* Plus button */
+  div#mtop a#plus {
+    float: none !important;
+    margin-left: 2px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    height: 44px !important;
+    padding: 0 4px !important;
+  }
+
+  div#mtop a#plus img {
+    height: 38px !important;
+    width: auto !important;
+  }
+
+  /* Day / Night Container */
+  #wrapper > #container,
+  #container {
+    display: none !important;
+  }
+
+  /* --- 4. Resources Ribbon (#res) --- */
+  div#res,
+  body.mod1 div#res,
+  body.mod2 div#res,
+  body.mod3 div#res {
+    position: static !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    top: auto !important;
+    left: auto !important;
+    margin: 0 !important;
+    padding: 6px 4px !important;
+    background: #fcf9f2 !important;
+    border-bottom: 1px solid #d5ceb8 !important;
+    box-sizing: border-box !important;
+    z-index: 20 !important;
+  }
+
+  div#resWrap {
+    position: static !important;
+    left: auto !important;
+    margin: 0 auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    display: flex !important;
+    justify-content: center !important;
+  }
+
+  div#res table {
+    background: transparent !important;
+    margin: 0 auto !important;
+    width: auto !important;
+    max-width: 100% !important;
+    border-collapse: separate !important;
+    border-spacing: 3px 0 !important;
+  }
+
+  div#res table td {
+    padding: 3px 5px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    color: #493829 !important;
+    white-space: nowrap !important;
+    background: #ede6d4 !important;
+    border-radius: 4px !important;
+    border: 1px solid #dbd3be !important;
+  }
+
+  div#res table img {
+    vertical-align: middle !important;
+    margin: 0 2px 0 0 !important;
+  }
+
+  /* --- 5. Main Work Area Container (#mid) --- */
+  div#mid {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    padding: 8px 10px !important;
+    float: none !important;
+    display: flex !important;
+    flex-direction: column !important;
+    box-sizing: border-box !important;
+    background: transparent !important;
+  }
+
+  /* Content area takes prime spot (order 1) */
+  div#content {
+    order: 1 !important;
+    float: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: 0 !important;
+    margin: 0 0 16px 0 !important;
+    padding: 0 !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Side info: village list & quests (order 2) */
+  div#side_info {
+    order: 2 !important;
+    float: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 0 16px 0 !important;
+    padding: 12px 10px !important;
+    background: #f7f3e8 !important;
+    border: 1px solid #d5ceb8 !important;
+    border-radius: 8px !important;
+    box-sizing: border-box !important;
+  }
+
+  div#side_info table {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Side navigation: chips at bottom (order 3) */
+  div#side_navi {
+    order: 3 !important;
+    float: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 0 16px 0 !important;
+    padding: 10px 8px !important;
+    background: #fcfbfa !important;
+    border: 1px solid #dfd8c5 !important;
+    border-radius: 8px !important;
+    box-sizing: border-box !important;
+  }
+
+  div#side_navi a#logo {
+    display: none !important;
+  }
+
+  div#side_navi p {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    margin: 0 !important;
+    line-height: normal !important;
+    justify-content: center !important;
+  }
+
+  div#side_navi p a {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 8px 14px !important;
+    background: #eee8d8 !important;
+    border: 1px solid #cec5ac !important;
+    border-radius: 6px !important;
+    color: #4a3525 !important;
+    font-weight: 700 !important;
+    font-size: 12px !important;
+    text-decoration: none !important;
+    min-height: 38px !important;
+    box-sizing: border-box !important;
+  }
+
+  div#side_navi p a:active,
+  div#side_navi p a:hover {
+    background: #e2d9c3 !important;
+    border-color: #71d000 !important;
+    color: #000 !important;
+  }
+
+  /* --- 6. Village Fields & Town Center --- */
+  div#content.village1 #village_map {
+    margin: 0 auto 16px auto !important;
+    display: block !important;
+    position: relative !important;
+    max-width: 300px !important;
+  }
+
+  div#content.village2 {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    text-align: center !important;
+  }
+
+  div#content.village2 #village_map {
+    display: inline-block !important;
+    position: relative !important;
+    min-width: 540px !important;
+    margin: 0 auto !important;
+    text-align: left !important;
+  }
+
+  /* Weather Widget Mobile Fit */
+  .weather-banner-wrapper,
+  .tz-weather-box {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    margin: 6px 0 12px 0 !important;
+  }
+
+  /* --- 7. Tables, Form Inputs & Buttons --- */
+  div.universal,
+  div.login,
+  div.logout,
+  div.signup,
+  div.activate,
+  div.banned_cn,
+  div.player,
+  div.alliance,
+  div.forum,
+  div.statistics,
+  div.reports,
+  div.messages,
+  div.build,
+  div.map {
+    padding: 8px 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Touch-friendly inputs with iOS auto-zoom prevention (>= 16px) */
+  div#content input.text,
+  div#content input[type="text"],
+  div#content input[type="password"],
+  div#content select,
+  div#content textarea {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 8px 10px !important;
+    font-size: 16px !important;
+    border-radius: 4px !important;
+    border: 1px solid #71d000 !important;
+  }
+
+  /* Mobile-Friendly Buttons */
+  div#content input[type="submit"],
+  div#content button,
+  .trav_buttons,
+  input#btn_login,
+  input#btn_signup,
+  input#btn_ok,
+  input#btn_send {
+    min-height: 44px !important;
+    min-width: 44px !important;
+    padding: 8px 18px !important;
+    font-size: 14px !important;
+    font-weight: bold !important;
+    border-radius: 6px !important;
+    touch-action: manipulation !important;
+    cursor: pointer !important;
+  }
+
+  /* Heading Images & Banners */
+  div#content h1 img,
+  div.login h1 img,
+  div.signup h1 img,
+  div.activate h1 img {
+    max-width: 100% !important;
+    height: auto !important;
+    display: block !important;
+    margin: 0 auto !important;
+  }
+
+  /* Tables Fluidity */
+  div#content table {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Production, Movement, Troops, & Statistics Tables */
+  table#production,
+  table#troops,
+  table#movements,
+  table.row_table_data,
+  table#player,
+  table#alliance,
+  table#villages,
+  table.build_resources,
+  table.under_progress,
+  table.build_details {
+    width: 100% !important;
+    max-width: 100% !important;
+    font-size: 12px !important;
+  }
+
+  table#production td,
+  table#troops td {
+    padding: 4px 6px !important;
+  }
+
+  /* Registration Wizard (anmelden.php) */
+  #regwiz {
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 auto !important;
+  }
+
+  .rw-thumbs {
+    gap: 4px !important;
+  }
+
+  .rw-thumb {
+    min-width: 44px !important;
+    min-height: 44px !important;
+  }
+
+  .rw-panel {
+    height: auto !important;
+    min-height: 200px !important;
+  }
+
+  .rw-name {
+    font-size: 20px !important;
+  }
+
+  .rw-lines li {
+    font-size: 11.5px !important;
+    line-height: 16px !important;
+    padding-left: 26px !important;
+  }
+
+  /* World Map (karte.php) */
+  div.map div#map {
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  /* Server Time / Exe Time */
+  div#stime {
+    position: static !important;
+    height: auto !important;
+    width: 100% !important;
+    display: block !important;
+  }
+
+  div#ltime {
+    position: static !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    text-align: center !important;
+    padding: 8px 0 !important;
+    font-size: 11px !important;
+    color: #797979 !important;
+  }
+
+  div#ltime div#ltimeWrap {
+    width: 100% !important;
+  }
+
+  /* --- 8. Specific Page Optimizations --- */
+
+  /* A. Building & Training Page (build.php) */
+  div#build {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  div#build table.build_details {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-bottom: 12px !important;
+  }
+
+  div#build table.build_details td.desc {
+    padding: 6px 4px !important;
+  }
+
+  div#build table.build_details td.desc div.details {
+    padding-left: 4px !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 4px 8px !important;
+  }
+
+  div#build table.build_details td.val input.text {
+    width: 58px !important;
+    min-width: 50px !important;
+    height: 36px !important;
+    font-size: 16px !important;
+    text-align: center !important;
+    box-sizing: border-box !important;
+  }
+
+  div#build table.build_details td.max a {
+    display: inline-block !important;
+    padding: 6px 8px !important;
+    background: #e4dfce !important;
+    border-radius: 4px !important;
+    text-decoration: none !important;
+    font-weight: bold !important;
+    color: #433222 !important;
+  }
+
+  div#build p#contract,
+  div#build .contract {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 8px 6px !important;
+    line-height: 1.5 !important;
+  }
+
+  /* Marketplace (build.php?gid=17) */
+  #build.gid17 form table,
+  #build.gid17 table#trading,
+  #build.gid17 table#npc {
+    width: 100% !important;
+    max-width: 100% !important;
+    display: block !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  /* B. Send Troops & Rally Point (a2b.php, build.php?gid=16) */
+  div.a2b {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  div.a2b table#troops {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    margin: 8px 0 !important;
+  }
+
+  div.a2b table#troops td {
+    padding: 4px 2px !important;
+  }
+
+  div.a2b table#troops input.text {
+    width: 50px !important;
+    min-width: 44px !important;
+    height: 34px !important;
+    font-size: 15px !important;
+    text-align: center !important;
+    box-sizing: border-box !important;
+  }
+
+  div.a2b table#coords {
+    width: 100% !important;
+    max-width: 100% !important;
+    display: block !important;
+    margin: 12px 0 !important;
+  }
+
+  div.a2b table#coords tbody,
+  div.a2b table#coords tr {
+    display: block !important;
+    width: 100% !important;
+  }
+
+  div.a2b table#coords td {
+    display: block !important;
+    width: 100% !important;
+    padding: 6px 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  div.a2b table#coords td.sel {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 10px !important;
+    align-items: center !important;
+  }
+
+  div.a2b table#coords td.sel label {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    padding: 6px 10px !important;
+    background: #eae4d2 !important;
+    border-radius: 6px !important;
+    font-weight: 600 !important;
+  }
+
+  div.a2b table.troop_details {
+    width: 100% !important;
+    max-width: 100% !important;
+    display: block !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  /* C. Battle Reports (berichte.php) */
+  div.reports table#overview,
+  div.reports table#report_surround {
+    width: 100% !important;
+    max-width: 100% !important;
+    display: block !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  div.reports table#report_surround td.report_content table {
+    min-width: 420px !important;
+    width: 100% !important;
+  }
+
+  /* D. In-Game Messages (nachrichten.php) */
+  div.messages table#overview {
+    width: 100% !important;
+    max-width: 100% !important;
+    display: block !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  div.messages div#write_content table {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  div.messages div#write_content textarea {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: 160px !important;
+    box-sizing: border-box !important;
+    font-size: 16px !important;
+  }
+
+  div.messages div#read_content {
+    width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 8px !important;
+    overflow-wrap: break-word !important;
+    word-break: break-word !important;
+  }
+
+  /* E. Hero Page & Hero T4 System (hero.php) */
+  div.hero,
+  div#content.hero {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .heroT4Nav {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding: 6px 0 !important;
+  }
+
+  .heroT4Nav a,
+  .heroT4Nav span {
+    margin-right: 4px !important;
+    font-size: 13px !important;
+  }
+
+  .t4h-panel {
+    width: 100% !important;
+    box-sizing: border-box !important;
+    overflow-x: auto !important;
+  }
+
+  .t4h-tbl {
+    width: 100% !important;
+    min-width: 320px !important;
+  }
+
+  .t4h-tbl td {
+    padding: 4px 6px !important;
+  }
+
+  .t4h-up a {
+    display: inline-block !important;
+    min-width: 36px !important;
+    min-height: 32px !important;
+    line-height: 32px !important;
+    text-align: center !important;
+    background: #e8e2d0 !important;
+    border-radius: 4px !important;
+  }
+
+  /* F. Multi-Village Overview (dorf3.php) */
+  div#content table#overview {
+    width: 100% !important;
+    max-width: 100% !important;
+    display: block !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  /* G. Statistics & Alliance & Player (statistiken.php, allianz.php, spieler.php) */
+  div.statistics table,
+  div.alliance table,
+  div.player table {
+    width: 100% !important;
+    max-width: 100% !important;
+    display: block !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  /* H. Combat Simulator (warsim.php) */
+  div.warsim table,
+  table#war_sim {
+    width: 100% !important;
+    max-width: 100% !important;
+    display: block !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  /* I. Content & Info Pages (anleitung, tutorial, spielregeln, agb, terms, impressum) */
+  body.contentPage {
+    width: 100% !important;
+    min-width: 0 !important;
+    overflow-x: hidden !important;
+  }
+
+  body.contentPage .wrapper {
+    min-width: 0 !important;
+    width: 100% !important;
+    padding: 0 10px !important;
+    box-sizing: border-box !important;
+  }
+
+  body.contentPage h1 {
+    padding-top: 20px !important;
+    margin-bottom: 20px !important;
+    font-size: 22px !important;
+    line-height: 1.3 !important;
+  }
+
+  body.contentPage #content .characteristics,
+  body.contentPage #content p,
+  body.contentPage #content table,
+  body.contentPage form,
+  body.contentPage .rules {
+    margin: 10px 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  body.contentPage table.table_data,
+  body.contentPage table.culture_points,
+  body.contentPage table.tutorial_table,
+  #tutorial_nav {
+    width: 100% !important;
+    max-width: 100% !important;
+    display: block !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  body.contentPage #header {
+    height: auto !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    background: none !important;
+    border-bottom: 2px solid #71d000 !important;
+    margin-bottom: 15px !important;
+  }
+
+  /* --- 9. Construction Queue, Quests & Popups --- */
+  table#building_contract {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    margin: 8px 0 !important;
+    font-size: 12px !important;
+  }
+
+  table#building_contract td {
+    padding: 4px 6px !important;
+  }
+
+  #qge {
+    text-align: center !important;
+    margin: 6px auto !important;
+  }
+
+  #qge img {
+    max-height: 140px !important;
+    width: auto !important;
+    cursor: pointer !important;
+  }
+
+  div.popup3 {
+    left: 4% !important;
+    right: 4% !important;
+    top: 50px !important;
+    width: 92% !important;
+    max-width: 420px !important;
+    margin: 0 auto !important;
+    box-sizing: border-box !important;
+    height: auto !important;
+    min-height: 360px !important;
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+
+  div.popup3 div#drag {
+    width: 90% !important;
+    left: 5% !important;
+  }
+
+  div.popup_map {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* --- 10. Footer --- */
+  .footer-stopper {
+    margin-bottom: 20px !important;
+  }
+
+  div#footer {
+    position: static !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    margin-top: 16px !important;
+    padding: 16px 8px !important;
+    text-align: center !important;
+    box-sizing: border-box !important;
+  }
+
+  div#footer div#mfoot {
+    width: 100% !important;
+    text-align: center !important;
+  }
+
+  div#footer div#mfoot div.copyright {
+    text-align: center !important;
+  }
+
+  div#footer ul.menu {
+    position: static !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    margin-bottom: 8px !important;
+  }
+
+  div#footer ul.menu li {
+    float: none !important;
+    margin: 0 !important;
+  }
+}
+
+

@@ -39,21 +39,7 @@ $sessionOk   = (isset($_SESSION['ok']) && $_SESSION['ok'] == 1);
 $idUser      = isset($_SESSION['id_user']) ? (int)$_SESSION['id_user'] : 0;
 ?>
 <?php if(!$isLoggedIn) { ?>
-
-<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
-
-<html>
-<head>
-    <title></title>
-
-    <style type="text/css">
-        div.c1 {
-            text-align: center;
-        }
-    </style>
-</head>
-
-<body>
+<link rel="stylesheet" type="text/css" href="css/mobile_engine.css?v=20261009_m1" />
 
 <div id="side_navi">
 
@@ -78,6 +64,7 @@ $idUser      = isset($_SESSION['id_user']) ? (int)$_SESSION['id_user'] : 0;
 </div>
 
 <?php } else { ?>
+<link rel="stylesheet" type="text/css" href="css/mobile_engine.css?v=20261009_m1" />
 
 <div id="side_navi">
 
