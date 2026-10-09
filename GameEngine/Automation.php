@@ -159,49 +159,82 @@ class Automation {
 					  "buildNatarsWonder"];
         
         foreach($methodsArrays as $method){
-        	$file = fopen($autoprefix."GameEngine/Prevention/".$method.".txt", "w");
-        	if(flock($file, LOCK_EX)) {
-        		call_user_func(array($this, $method));
-        		flock($file, LOCK_UN);     		
+        	$filePath = $autoprefix."GameEngine/Prevention/".$method.".txt";
+        	$file = @fopen($filePath, "w");
+        	if($file !== false) {
+        		if(@flock($file, LOCK_EX)) {
+        			try {
+        				call_user_func(array($this, $method));
+        			} catch (\Throwable $e) {
+        				error_log("Automation method $method error: " . $e->getMessage());
+        			}
+        			@flock($file, LOCK_UN);     		
+        		}
+        		@fclose($file);
+        	} else {
+        		try {
+        			call_user_func(array($this, $method));
+        		} catch (\Throwable $e) {
+        			error_log("Automation method $method error: " . $e->getMessage());
+        		}
         	}
-        	fclose($file);
         }
         
-        $this->MasterBuilder();
-        $this->updateGeneralAttack();
-        $this->checkInvitedPlayes();
-        $this->updateStore();
+        try {
+            $this->MasterBuilder();
+            $this->updateGeneralAttack();
+            $this->checkInvitedPlayes();
+            $this->updateStore();
 
-        // Finalizeaza upgrade-urile de bonus de alianta ajunse la termen.
-        if (class_exists('AllianceBonus') && AllianceBonus::enabled()) {
-            $allianceBonus = new AllianceBonus();
-            $allianceBonus->processUpgrades();
+            // Finalizeaza upgrade-urile de bonus de alianta ajunse la termen.
+            if (class_exists('AllianceBonus') && AllianceBonus::enabled()) {
+                $allianceBonus = new AllianceBonus();
+                $allianceBonus->processUpgrades();
+            }
+            $this->CheckBan();
+            $this->regenerateOasisTroops();
+            $this->medals();
+            $this->artefactOfTheFool();
+        } catch (\Throwable $e) {
+            error_log("Automation upkeep error: " . $e->getMessage());
         }
-        $this->CheckBan();
-        $this->regenerateOasisTroops();
-        $this->medals();
-        $this->artefactOfTheFool();
 
         // Bot AI: Automated building, training, and early-game raiding
         if (defined('BOT_AI_ENABLED') && BOT_AI_ENABLED) {
-            require_once __DIR__ . '/BotAI.php';
-            BotAI::run();
+            try {
+                require_once __DIR__ . '/BotAI.php';
+                BotAI::run();
+            } catch (\Throwable $e) {
+                error_log("BotAI error: " . $e->getMessage());
+            }
         }
 
         // PvE Bandit Camps & World Boss: Maintain active camps on map
         if (defined('BANDIT_CAMPS_ENABLED') && BANDIT_CAMPS_ENABLED) {
-            require_once __DIR__ . '/BanditCamp.php';
-            BanditCamp::run();
+            try {
+                require_once __DIR__ . '/BanditCamp.php';
+                BanditCamp::run();
+            } catch (\Throwable $e) {
+                error_log("BanditCamp error: " . $e->getMessage());
+            }
         }
 
         // Dynamic Weather & Plague cycle processing
         if (defined('WEATHER_SYSTEM_ENABLED') && WEATHER_SYSTEM_ENABLED) {
-            require_once __DIR__ . '/Weather.php';
-            Weather::tick();
+            try {
+                require_once __DIR__ . '/Weather.php';
+                Weather::tick();
+            } catch (\Throwable $e) {
+                error_log("Weather error: " . $e->getMessage());
+            }
         }
         if (defined('PLAGUE_SYSTEM_ENABLED') && PLAGUE_SYSTEM_ENABLED) {
-            require_once __DIR__ . '/Plague.php';
-            Plague::tick();
+            try {
+                require_once __DIR__ . '/Plague.php';
+                Plague::tick();
+            } catch (\Throwable $e) {
+                error_log("Plague error: " . $e->getMessage());
+            }
         }
     }
 

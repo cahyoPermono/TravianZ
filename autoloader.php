@@ -49,7 +49,7 @@
     }
 
     if (!$class_found) {
-        throw new Exception('Unable to find class ' . $clazz . '.');
+        return false;
     }
 }
 

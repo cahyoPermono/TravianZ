@@ -99,22 +99,30 @@ class Village {
 			45 => $bid45, // Waterworks (Egyptians) - used by getOasisBonusFactor()
 		];
 
-		// set village id
-		if (isset($_SESSION['wid'])) $this->wid = $_SESSION['wid'];
-		else $this->wid = $this->sess->villages[0];
+		// set village id safely
+		if (isset($_SESSION['wid']) && (int)$_SESSION['wid'] > 0) {
+			$this->wid = (int)$_SESSION['wid'];
+		} elseif (!empty($this->sess->villages)) {
+			$this->wid = (int)$this->sess->villages[0];
+		} else {
+			$this->wid = (int)$this->db->getVillageID($this->sess->uid);
+		}
 
 		// preload caches (safe warmup)
-		$this->preloadVillagesData();
+		if ($this->sess->uid > 0) {
+			$this->preloadVillagesData();
+		}
 
 		// validate existence
 		if (!$this->db->checkVilExist($this->wid)) {
-			$this->wid = $this->db->getVillageID($this->sess->uid);
+			$this->wid = (int)$this->db->getVillageID($this->sess->uid);
 			$_SESSION['wid'] = $this->wid;
 		}
 
-		$this->LoadTown();
-
-		$this->db->cacheResourceLevels($this->wid);
+		if ($this->wid > 0 && $this->db->checkVilExist($this->wid)) {
+			$this->LoadTown();
+			$this->db->cacheResourceLevels($this->wid);
+		}
 	}
 
 	/**
@@ -494,23 +502,21 @@ if (@is_file($__cronMarker)) {
 }
 
 if (!$__cronActive) {
-	// FIX #3 (Day 1): file_exists() + file_put_contents() was a classic TOCTOU - two
-	// simultaneous requests both passed the check and ran Automation twice.
-	// fopen('c') + flock(LOCK_EX|LOCK_NB) is atomic; the lock is released by itself
-	// even if the process dies. It uses the SAME file, so the internal guard in
-	// Automation.php (cron/direct path: file_exists + mtime < 60s) keeps working;
-	// touch() keeps mtime fresh while we are running.
 	$__automationLock = @fopen(AUTOMATION_LOCK_FILE_NAME, 'c');
 	if ($__automationLock !== false) {
-		if (flock($__automationLock, LOCK_EX | LOCK_NB)) {
-			define('AUTOMATION_MANUAL_RUN', true);
+		if (@flock($__automationLock, LOCK_EX | LOCK_NB)) {
+			if (!defined('AUTOMATION_MANUAL_RUN')) {
+				define('AUTOMATION_MANUAL_RUN', true);
+			}
 			@touch(AUTOMATION_LOCK_FILE_NAME);
-			include_once("Automation.php");
-			// Automation.php deletes the file itself at the end (behavior kept for the
-			// cron path); on Linux flock stays valid on the inode until fclose.
-			flock($__automationLock, LOCK_UN);
+			try {
+				include_once("Automation.php");
+			} catch (\Throwable $e) {
+				error_log("Automation error: " . $e->getMessage());
+			}
+			@flock($__automationLock, LOCK_UN);
 		}
-		fclose($__automationLock);
+		@fclose($__automationLock);
 	}
 }
 ?>

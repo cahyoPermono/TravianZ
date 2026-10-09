@@ -630,7 +630,8 @@ trait DatabaseVillageQueries {
 
 	function getVillageID($uid, $use_cache = true) {
 	    // load cached value
-	    return $this->getVillagesID($uid, $use_cache)[0];
+	    $vils = $this->getVillagesID($uid, $use_cache);
+	    return !empty($vils) ? (int)$vils[0] : 0;
 	}
 
 	function getVillagesID($uid, $use_cache = true) {

@@ -247,7 +247,8 @@ function __construct() {
                 if (!empty($selected_village)) {
                     $data = $database->getVillage($selected_village);
                 } else {
-                    $data = $database->getVillage($userFields["id"]);
+                    $userVils = $database->getVillagesID($userFields["id"]);
+                    $data = !empty($userVils) ? $database->getVillage($userVils[0]) : null;
                 }
 
                 $_SESSION['wid'] = isset($data['wref']) ? (int)$data['wref'] : 0;
@@ -492,10 +493,9 @@ function __construct() {
                     AND ' . TB_PREFIX . 'movement.sort_type = 4), 0)' . $adventureTerms . '
                 AS herocount';
 
-        $heroUnitRegisters = mysqli_fetch_array(
-            mysqli_query($database->dblink, $q),
-            MYSQLI_ASSOC
-        )['herocount'];
+        $qRes = @mysqli_query($database->dblink, $q);
+        $heroRow = $qRes ? mysqli_fetch_array($qRes, MYSQLI_ASSOC) : null;
+        $heroUnitRegisters = $heroRow ? (int)($heroRow['herocount'] ?? 0) : 0;
 
         $isHeroLivingOrRaising = $database->getHeroDeadReviveOrInTraining($this->uid);
 
