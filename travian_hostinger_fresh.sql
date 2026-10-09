@@ -598,6 +598,49 @@ COMMIT;
 SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
 
 --
+-- Table structure for table `s630d_bandit_camps`
+--
+
+DROP TABLE IF EXISTS `s630d_bandit_camps`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `s630d_bandit_camps` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `wref` int(11) NOT NULL,
+  `tier` tinyint(2) NOT NULL DEFAULT 1,
+  `name` varchar(64) NOT NULL,
+  `max_hp` int(11) NOT NULL DEFAULT 100,
+  `cur_hp` int(11) NOT NULL DEFAULT 100,
+  `bounty_wood` int(11) NOT NULL DEFAULT 2500,
+  `bounty_clay` int(11) NOT NULL DEFAULT 2500,
+  `bounty_iron` int(11) NOT NULL DEFAULT 2500,
+  `bounty_crop` int(11) NOT NULL DEFAULT 2500,
+  `reward_exp` int(11) NOT NULL DEFAULT 200,
+  `reward_cp` int(11) NOT NULL DEFAULT 50,
+  `reward_silver` int(11) NOT NULL DEFAULT 5,
+  `status` tinyint(1) NOT NULL DEFAULT 1,
+  `cleared_by` int(11) DEFAULT 0,
+  `cleared_time` int(11) DEFAULT 0,
+  `created` int(11) NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `wref` (`wref`),
+  KEY `status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `s630d_bandit_camps`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `s630d_bandit_camps` WRITE;
+/*!40000 ALTER TABLE `s630d_bandit_camps` DISABLE KEYS */;
+/*!40000 ALTER TABLE `s630d_bandit_camps` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
 -- Table structure for table `s630d_banlist`
 --
 
@@ -697,6 +740,39 @@ SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
 LOCK TABLES `s630d_bdata` WRITE;
 /*!40000 ALTER TABLE `s630d_bdata` DISABLE KEYS */;
 /*!40000 ALTER TABLE `s630d_bdata` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `s630d_blackmarket_log`
+--
+
+DROP TABLE IF EXISTS `s630d_blackmarket_log`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `s630d_blackmarket_log` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `uid` int(11) NOT NULL,
+  `vref` int(11) NOT NULL,
+  `action_type` varchar(32) NOT NULL,
+  `details` text NOT NULL,
+  `silver_cost` int(11) NOT NULL DEFAULT 0,
+  `timestamp` int(11) NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `uid` (`uid`),
+  KEY `vref` (`vref`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `s630d_blackmarket_log`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `s630d_blackmarket_log` WRITE;
+/*!40000 ALTER TABLE `s630d_blackmarket_log` DISABLE KEYS */;
+/*!40000 ALTER TABLE `s630d_blackmarket_log` ENABLE KEYS */;
 UNLOCK TABLES;
 COMMIT;
 SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
@@ -3028,6 +3104,40 @@ SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
 LOCK TABLES `s630d_medal` WRITE;
 /*!40000 ALTER TABLE `s630d_medal` DISABLE KEYS */;
 /*!40000 ALTER TABLE `s630d_medal` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `s630d_mercenaries`
+--
+
+DROP TABLE IF EXISTS `s630d_mercenaries`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `s630d_mercenaries` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `vref` int(11) NOT NULL,
+  `uid` int(11) NOT NULL,
+  `m1` int(11) NOT NULL DEFAULT 0,
+  `m2` int(11) NOT NULL DEFAULT 0,
+  `m3` int(11) NOT NULL DEFAULT 0,
+  `m4` int(11) NOT NULL DEFAULT 0,
+  `updated` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `vref` (`vref`),
+  KEY `uid` (`uid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `s630d_mercenaries`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `s630d_mercenaries` WRITE;
+/*!40000 ALTER TABLE `s630d_mercenaries` DISABLE KEYS */;
+/*!40000 ALTER TABLE `s630d_mercenaries` ENABLE KEYS */;
 UNLOCK TABLES;
 COMMIT;
 SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
@@ -12203,6 +12313,72 @@ SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
 LOCK TABLES `s630d_vdata` WRITE;
 /*!40000 ALTER TABLE `s630d_vdata` DISABLE KEYS */;
 /*!40000 ALTER TABLE `s630d_vdata` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `s630d_village_plague`
+--
+
+DROP TABLE IF EXISTS `s630d_village_plague`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `s630d_village_plague` (
+  `vref` int(11) NOT NULL,
+  `plague_type` tinyint(2) NOT NULL DEFAULT 0,
+  `severity` tinyint(2) NOT NULL DEFAULT 1,
+  `infected_at` int(11) NOT NULL DEFAULT 0,
+  `cure_time` int(11) NOT NULL DEFAULT 0,
+  `quarantine` tinyint(1) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`vref`),
+  KEY `cure_time` (`cure_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `s630d_village_plague`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `s630d_village_plague` WRITE;
+/*!40000 ALTER TABLE `s630d_village_plague` DISABLE KEYS */;
+/*!40000 ALTER TABLE `s630d_village_plague` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `s630d_village_relocation_log`
+--
+
+DROP TABLE IF EXISTS `s630d_village_relocation_log`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `s630d_village_relocation_log` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `uid` int(11) NOT NULL,
+  `old_wref` int(11) NOT NULL,
+  `new_wref` int(11) NOT NULL,
+  `old_x` int(11) NOT NULL,
+  `old_y` int(11) NOT NULL,
+  `new_x` int(11) NOT NULL,
+  `new_y` int(11) NOT NULL,
+  `time` int(11) NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_uid` (`uid`),
+  KEY `idx_time` (`time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `s630d_village_relocation_log`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `s630d_village_relocation_log` WRITE;
+/*!40000 ALTER TABLE `s630d_village_relocation_log` DISABLE KEYS */;
+/*!40000 ALTER TABLE `s630d_village_relocation_log` ENABLE KEYS */;
 UNLOCK TABLES;
 COMMIT;
 SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
@@ -52645,6 +52821,37 @@ COMMIT;
 SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
 
 --
+-- Table structure for table `s630d_weather`
+--
+
+DROP TABLE IF EXISTS `s630d_weather`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `s630d_weather` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `zone` varchar(20) NOT NULL DEFAULT 'global',
+  `weather_type` tinyint(2) NOT NULL DEFAULT 1,
+  `start_time` int(11) NOT NULL DEFAULT 0,
+  `end_time` int(11) NOT NULL DEFAULT 0,
+  `created_at` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `zone_end` (`zone`,`end_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `s630d_weather`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `s630d_weather` WRITE;
+/*!40000 ALTER TABLE `s630d_weather` DISABLE KEYS */;
+/*!40000 ALTER TABLE `s630d_weather` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
 -- Table structure for table `s630d_ww_attacks`
 --
 
@@ -52680,4 +52887,4 @@ SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*M!100616 SET NOTE_VERBOSITY=@OLD_NOTE_VERBOSITY */;
 
--- Dump completed on 2026-10-09  2:29:52
+-- Dump completed on 2026-10-09  7:11:54

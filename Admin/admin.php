@@ -117,6 +117,7 @@ function admin_validated_page(string $raw): string
         'heatmap',
         'goldShop',
         'questEditor',
+        'botManager',
     ];
 
     return in_array($raw, $whitelist, true) ? $raw : '';
@@ -285,6 +286,10 @@ if ($page !== '') {
 
         case 'addUsers':
             $subpage = ADMIN_CREATE_USERS;
+            break;
+
+        case 'botManager':
+            $subpage = 'Bot AI Manager';
             break;
 
         case 'users':
@@ -881,6 +886,7 @@ body.app #menu li.sub ul li a:hover{color:#d97706!important}
                             <ul>
                                 <li><a href="?p=users"><?php echo ADMIN_LIST_USERS; ?></a></li>
                                 <li><a href="?p=addUsers"><?php echo ADMIN_CREATE_USERS; ?></a></li>
+                                <li><a href="?p=botManager"><font color="#22c55e"><b>🤖 Bot AI Manager</b></font></a></li>
 								<li><a href="?p=multiacc"><font color="Red"><b><?php echo ADMIN_MULTI_ACCOUNT_DETECTION; ?></b></font></a></li>
                                 <li><a href="?p=pushprot"><font color="Red"><b><?php echo ADMIN_PUSH_PROTECTION; ?></b></font></a></li>
                                 <li><a href="?p=blockReg"><font color="Red"><b><?php echo ADMIN_REGISTRATION_BLOCKLIST; ?></b></font></a></li>
@@ -911,6 +917,7 @@ body.app #menu li.sub ul li a:hover{color:#d97706!important}
                         <li><a href="?p=message"><?php echo ADMIN_MSG_REP; ?></a></li>
                         <li><a href="?p=ban"><?php echo ADMIN_BAN; ?></a></li>
                         <li><a href="?p=multiacc"><?php echo ADMIN_MULTI_ACCOUNT_DETECTION; ?></a></li>
+                        <li><a href="?p=botManager"><font color="#22c55e"><b>🤖 Bot AI Manager</b></font></a></li>
                         <li><a href="?p=pushprot"><?php echo ADMIN_PUSH_PROTECTION; ?></a></li>
                         <li><a href="?p=heatmap"><?php echo ADMIN_WORLD_MAP_HEATMAP; ?></a></li>
                         <li><a href="?action=logout"><?php echo ADMIN_LOGOUT; ?></a></li>

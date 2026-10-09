@@ -53,7 +53,7 @@ class BotAI {
                 FROM " . TB_PREFIX . "users u
                 JOIN " . TB_PREFIX . "vdata v ON u.id = v.owner
                 WHERE u.access = 2
-                  AND (u.email LIKE '%@bot.travianz' OR u.desc1 LIKE '%[#BOT]%' OR u.desc2 LIKE '%[#BOT]%' OR u.username LIKE 'Bot_%')
+                  AND (u.is_bot = 1 OR u.email LIKE '%@bot.travianz' OR u.desc1 LIKE '%[#BOT]%' OR u.desc2 LIKE '%[#BOT]%' OR u.username LIKE 'Bot_%')
                 ORDER BY u.id ASC";
 
         $bots = $database->query_return($sql);

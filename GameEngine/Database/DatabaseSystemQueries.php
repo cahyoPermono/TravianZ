@@ -54,7 +54,12 @@ trait DatabaseSystemQueries {
             }
 
             // load the DB structure SQL file
-            $str = file_get_contents($autoprefix."var/db/struct.sql");
+            $sqlFile = !empty($autoprefix) && is_file($autoprefix."var/db/struct.sql")
+                ? $autoprefix."var/db/struct.sql"
+                : (is_file(dirname(__DIR__, 2)."/var/db/struct.sql")
+                    ? dirname(__DIR__, 2)."/var/db/struct.sql"
+                    : "../var/db/struct.sql");
+            $str = file_get_contents($sqlFile);
             $str = preg_replace("'%PREFIX%'", TB_PREFIX, $str);
             $result = $this->dblink->multi_query($str);
 
@@ -128,7 +133,12 @@ trait DatabaseSystemQueries {
             }
 
             // load the data generation SQL file
-            $str = file_get_contents($autoprefix."var/db/datagen-world-data.sql");
+            $sqlFile = !empty($autoprefix) && is_file($autoprefix."var/db/datagen-world-data.sql")
+                ? $autoprefix."var/db/datagen-world-data.sql"
+                : (is_file(dirname(__DIR__, 2)."/var/db/datagen-world-data.sql")
+                    ? dirname(__DIR__, 2)."/var/db/datagen-world-data.sql"
+                    : "../var/db/datagen-world-data.sql");
+            $str = file_get_contents($sqlFile);
             $str = preg_replace(["'%PREFIX%'", "'%WORLDSIZE%'"], [TB_PREFIX, WORLD_MAX], $str);
             $result = $this->dblink->multi_query($str);
 

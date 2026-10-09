@@ -21,7 +21,12 @@
 
 include_once('../GameEngine/config.php');
 if(isset($_GET['c']) && $_GET['c'] == 1) {
-    echo '<div class="card" style="border-color:#fecaca;background:#fef2f2;color:#991b1b;"><b>Error importing database. Check configuration.</b></div>';
+    echo '<div class="card" style="border-color:#fecaca;background:#fef2f2;color:#991b1b;"><b>Error importing database. Check configuration.</b>';
+    if (!empty($_SESSION['struc_error'])) {
+        echo '<br><span style="font-size:12px;font-family:monospace;">' . htmlspecialchars($_SESSION['struc_error']) . '</span>';
+        unset($_SESSION['struc_error']);
+    }
+    echo '</div>';
 }
 if(isset($_GET['err']) && $_GET['err'] == 1) {
     echo '<div class="card" style="border-color:#fecaca;background:#fef2f2;color:#991b1b;">Existing structure found! Please remove tables with prefix <b>'.TB_PREFIX.'</b> from database <b>'.SQL_DB.'</b>.</div>';

@@ -81,6 +81,7 @@ trait DatabaseConnectionCore {
                 // silentios la INSERT in chat_global.msg (acum utf8mb4). utf8mb4 e superset
                 // peste utf8, deci restul tabelelor (ramase utf8) nu sunt afectate negativ.
                 @mysqli_set_charset($this->dblink, 'utf8mb4');
+                @mysqli_report(MYSQLI_REPORT_OFF);
                 return true;
             }
 

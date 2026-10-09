@@ -69,7 +69,7 @@ if(file_exists($envPath)) {
 $dbHost = $envDefaults['DB_HOST']?? 'localhost';
 $dbPort = $envDefaults['DB_PORT']?? '3306';
 $dbUser = $envDefaults['MARIADB_USER']?? ($envDefaults['MYSQL_USER']?? 'u247410417_travian');
-$dbPass = $envDefaults['MARIADB_PASSWORD']?? ($envDefaults['MYSQL_PASSWORD']?? 'Ji5>SFBvW&7');
+$dbPass = $envDefaults['MARIADB_PASSWORD']?? ($envDefaults['MYSQL_PASSWORD']?? 'Nuhik7876');
 $dbName = $envDefaults['MARIADB_DATABASE']?? ($envDefaults['MYSQL_DATABASE']?? 'u247410417_travian');
 
 if(empty($_SESSION['install_random_prefix'])) {

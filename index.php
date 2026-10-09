@@ -46,26 +46,46 @@ tz_load_language(LANG);
 AccessLogger::logRequest();
 
 $link = $database->return_link();
+@mysqli_report(MYSQLI_REPORT_OFF);
 
 // Real-Time World Intelligence
 // Player Tribes: 1=Romans, 2=Teutons, 3=Gauls, 6=Egyptians, 7=Huns, 8=Spartans, 9=Vikings, 10=Nusantara
-$resUsers = mysqli_query($link, "SELECT Count(*) as Total FROM " . TB_PREFIX . "users WHERE tribe IN(1, 2, 3, 6, 7, 8, 9, 10)");
-$totalUsers = $resUsers ? (int)mysqli_fetch_assoc($resUsers)['Total'] : 0;
+$totalUsers = 0;
+$activeUsers = 0;
+$onlineUsers = 0;
+$totalVillages = 0;
+$activeBandits = 0;
+$totalMercGarrisons = 0;
 
-$resActive = mysqli_query($link, "SELECT Count(*) as Total FROM " . TB_PREFIX . "users WHERE timestamp > " . (time() - 86400) . " AND tribe IN(1, 2, 3, 6, 7, 8, 9, 10)");
-$activeUsers = $resActive ? (int)mysqli_fetch_assoc($resActive)['Total'] : 0;
+try {
+    $resUsers = @mysqli_query($link, "SELECT Count(*) as Total FROM " . TB_PREFIX . "users WHERE tribe IN(1, 2, 3, 6, 7, 8, 9, 10)");
+    $totalUsers = $resUsers ? (int)mysqli_fetch_assoc($resUsers)['Total'] : 0;
+} catch (\Throwable $e) {}
 
-$resOnline = mysqli_query($link, "SELECT Count(*) as Total FROM " . TB_PREFIX . "users WHERE timestamp > " . (time() - 600) . " AND tribe IN(1, 2, 3, 6, 7, 8, 9, 10)");
-$onlineUsers = $resOnline ? (int)mysqli_fetch_assoc($resOnline)['Total'] : 0;
+try {
+    $resActive = @mysqli_query($link, "SELECT Count(*) as Total FROM " . TB_PREFIX . "users WHERE timestamp > " . (time() - 86400) . " AND tribe IN(1, 2, 3, 6, 7, 8, 9, 10)");
+    $activeUsers = $resActive ? (int)mysqli_fetch_assoc($resActive)['Total'] : 0;
+} catch (\Throwable $e) {}
 
-$resVillages = mysqli_query($link, "SELECT Count(*) as Total FROM " . TB_PREFIX . "vdata");
-$totalVillages = $resVillages ? (int)mysqli_fetch_assoc($resVillages)['Total'] : 0;
+try {
+    $resOnline = @mysqli_query($link, "SELECT Count(*) as Total FROM " . TB_PREFIX . "users WHERE timestamp > " . (time() - 600) . " AND tribe IN(1, 2, 3, 6, 7, 8, 9, 10)");
+    $onlineUsers = $resOnline ? (int)mysqli_fetch_assoc($resOnline)['Total'] : 0;
+} catch (\Throwable $e) {}
 
-$resBandits = mysqli_query($link, "SELECT Count(*) as Total FROM " . TB_PREFIX . "bandit_camps WHERE status = 1");
-$activeBandits = $resBandits ? (int)mysqli_fetch_assoc($resBandits)['Total'] : 0;
+try {
+    $resVillages = @mysqli_query($link, "SELECT Count(*) as Total FROM " . TB_PREFIX . "vdata");
+    $totalVillages = $resVillages ? (int)mysqli_fetch_assoc($resVillages)['Total'] : 0;
+} catch (\Throwable $e) {}
 
-$resMercs = mysqli_query($link, "SELECT Count(*) as Total FROM " . TB_PREFIX . "mercenaries");
-$totalMercGarrisons = $resMercs ? (int)mysqli_fetch_assoc($resMercs)['Total'] : 0;
+try {
+    $resBandits = @mysqli_query($link, "SELECT Count(*) as Total FROM " . TB_PREFIX . "bandit_camps WHERE status = 1");
+    $activeBandits = $resBandits ? (int)mysqli_fetch_assoc($resBandits)['Total'] : 0;
+} catch (\Throwable $e) {}
+
+try {
+    $resMercs = @mysqli_query($link, "SELECT Count(*) as Total FROM " . TB_PREFIX . "mercenaries");
+    $totalMercGarrisons = $resMercs ? (int)mysqli_fetch_assoc($resMercs)['Total'] : 0;
+} catch (\Throwable $e) {}
 
 // Logged-in session detection
 $isLoggedIn = !empty($_SESSION['username']);
