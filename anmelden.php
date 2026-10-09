@@ -127,7 +127,7 @@ $regTribes = array(
     ),
     10 => array( /* Nusantara */
         'name'  => defined('TRIBE10') ? TRIBE10 : 'Nusantara',
-        'flag'  => (defined('NEW_FUNCTION_TRIBE_NUSANTARA') && NEW_FUNCTION_TRIBE_NUSANTARA),
+        'flag'  => (!defined('NEW_FUNCTION_TRIBE_NUSANTARA') || NEW_FUNCTION_TRIBE_NUSANTARA),
         'best'  => false,
         'lines' => array(
             regText('TRIBE10_L1', 'Moderate time requirements'),

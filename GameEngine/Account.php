@@ -137,7 +137,7 @@ class Account {
     if (defined('NEW_FUNCTION_TRIBE_EGIPTEANS') && NEW_FUNCTION_TRIBE_EGIPTEANS) $allowedTribes[] = 7;
     if (defined('NEW_FUNCTION_TRIBE_SPARTANS') && NEW_FUNCTION_TRIBE_SPARTANS) $allowedTribes[] = 8;
     if (defined('NEW_FUNCTION_TRIBE_VIKINGS') && NEW_FUNCTION_TRIBE_VIKINGS) $allowedTribes[] = 9;
-    if (defined('NEW_FUNCTION_TRIBE_NUSANTARA') && NEW_FUNCTION_TRIBE_NUSANTARA) $allowedTribes[] = 10;
+    if (!defined('NEW_FUNCTION_TRIBE_NUSANTARA') || NEW_FUNCTION_TRIBE_NUSANTARA) $allowedTribes[] = 10;
     if (!isset($_POST['vid']) || !in_array((int)$_POST['vid'], $allowedTribes, true)) {
         $form->addError("tribe", TRIBE_EMPTY);
     }
