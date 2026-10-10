@@ -905,7 +905,7 @@ class HeroItems
             $heals = array();
             $total = 0;
 
-            for ($i = 1; $i <= 90; $i++) {
+            for ($i = 1; $i <= 100; $i++) {
                 $have = isset($wounded['u' . $i]) ? (int) $wounded['u' . $i] : 0;
 
                 if ($have <= 0) {

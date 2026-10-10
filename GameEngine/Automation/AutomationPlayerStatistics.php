@@ -165,7 +165,7 @@ trait AutomationPlayerStatistics
         // consumul fiecarei unitati, din datele de joc
         $upkeep = array();
 
-        for ($i = 1; $i <= 90; $i++) {
+        for ($i = 1; $i <= 100; $i++) {
             $name = 'u' . $i;
 
             if (isset($GLOBALS[$name]) && isset($GLOBALS[$name]['pop'])) {

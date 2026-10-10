@@ -656,10 +656,12 @@ if ($barrack==0){ ?>
 
 // Checking 2 warrior trained or no
 $units = $village->unitall;
-$unarray=array(1=>U1,2=>U11,3=>U21,6=>U51,7=>U61,8=>U71,9=>U81,10=>U91);
-$unarray2=array(1=>"u1",2=>"u11",3=>"u21",6=>"u51",7=>"u61",8=>"u71",9=>"u81",10=>"u91");
-if ($units[$unarray2[$session->userinfo['tribe']]]<2){ ?>
-{"markup":"\n\t\t<div id=\"qstd\"><h1> <img class=\"point\" src=\"img\/x.gif\" alt=\"\" title=\"\"\/> <?php echo Q20; ?><\/h1><br \/><i>&rdquo;<?php echo Q20_DESC; ?> <?php echo $unarray[$session->userinfo['tribe']];?>.&rdquo;<\/i><br \/><br \/><div class=\"rew\"><p class=\"ta_aw\"><?php echo Q20_ORDER; ?> <?php echo $unarray[$session->userinfo['tribe']];?>.<\/div><br \/><span id=\"qst_accpt\"><\/span><\/div>\n\t\t<div id=\"qstbg\" class=\"units\"><\/div>\n\t\t","number":"-20","reward":false,"qgsrc":"q_l<?php echo $session->userinfo['tribe'];?>","msrc":"<?php echo $messagelol; ?>","altstep":99}
+$unarray=array(1=>U1,2=>U11,3=>U21,4=>(defined('U31')?U31:'Nature'),5=>(defined('U41')?U41:'Natar'),6=>U51,7=>U61,8=>U71,9=>U81,10=>U91);
+$unarray2=array(1=>"u1",2=>"u11",3=>"u21",4=>"u31",5=>"u41",6=>"u51",7=>"u61",8=>"u71",9=>"u81",10=>"u91");
+$uKey = $unarray2[$session->userinfo['tribe']] ?? 'u1';
+$uName = $unarray[$session->userinfo['tribe']] ?? 'warrior';
+if (($units[$uKey] ?? 0)<2){ ?>
+{"markup":"\n\t\t<div id=\"qstd\"><h1> <img class=\"point\" src=\"img\/x.gif\" alt=\"\" title=\"\"\/> <?php echo Q20; ?><\/h1><br \/><i>&rdquo;<?php echo Q20_DESC; ?> <?php echo $uName;?>.&rdquo;<\/i><br \/><br \/><div class=\"rew\"><p class=\"ta_aw\"><?php echo Q20_ORDER; ?> <?php echo $uName;?>.<\/div><br \/><span id=\"qst_accpt\"><\/span><\/div>\n\t\t<div id=\"qstbg\" class=\"units\"><\/div>\n\t\t","number":"-20","reward":false,"qgsrc":"q_l<?php echo $session->userinfo['tribe'];?>","msrc":"<?php echo $messagelol; ?>","altstep":99}
 <?php $_SESSION['qstnew']='0'; }else{ $_SESSION['qstnew']='1'; ?>
 {"markup":"\n\t\t<div id=\"qstd\"><h1> <img class=\"point\" src=\"img\/x.gif\" alt=\"\" title=\"\"\/> <?php echo Q20; ?><\/h1><br \/><i>&rdquo;<?php echo Q20_RESP; ?> <a href=\"warsim.php\"><?php echo Q20_RESP1; ?><\/a>  <?php echo Q20_RESP2; ?> &rdquo;<\/i><br \/><br \/><div class=\"rew\"><p class=\"ta_aw\"><input type=\"hidden\" id=\"qst_val\" value=\"2\" \/><?php echo Q_REWARD; ?><\/p><img src=\"img\/x.gif\" class=\"r1\" alt=\"Lumber\" title=\"Lumber\" \/>300&nbsp;&nbsp;<img src=\"img\/x.gif\" class=\"r2\" alt=\"Clay\" title=\"Clay\" \/>320&nbsp;&nbsp;<img src=\"img\/x.gif\" class=\"r3\" alt=\"Iron\" title=\"Iron\" \/>360&nbsp;&nbsp;<img src=\"img\/x.gif\" class=\"r4\" alt=\"Crop\" title=\"Crop\" \/>570&nbsp;&nbsp;<\/div><br \/><span id=\"qst_accpt\"><a href=\"javascript: qst_next('','24');\"><?php echo Q_CONTINUE; ?><\/a><\/span><\/div>\n\t\t<div id=\"qstbg\" class=\"units\"><\/div>\n\t\t","number":20,"reward":{"wood":300,"clay":320,"iron":360,"crop":570},"qgsrc":"q_l<?php echo $session->userinfo['tribe'];?>g","msrc":"<?php echo $messagelol; ?>","altstep":99}
 <?php } ?>
@@ -1100,10 +1102,12 @@ if ($barrack==0){ ?>
 
 // Checking 2 warrior trained or no
 $units = $village->unitall;
-$unarray=array(1=>U1,2=>U11,3=>U21,6=>U51,7=>U61,8=>U71,9=>U81,10=>U91);
-$unarray2=array(1=>"u1",2=>"u11",3=>"u21",6=>"u51",7=>"u61",8=>"u71",9=>"u81",10=>"u91");
-if ($units[$unarray2[$session->userinfo['tribe']]]<2){ ?>
-{"markup":"\n\t\t<div id=\"qstd\"><h1> <img class=\"point\" src=\"img\/x.gif\" alt=\"\" title=\"\"\/> <?php echo TZ_TASK_18_TRAIN; ?><\/h1><br \/><i>&rdquo;Now that you have barracks you can start training troops. Train two <?php echo $unarray[$session->userinfo['tribe']];?>.&rdquo;<\/i><br \/><br \/><div class=\"rew\"><p class=\"ta_aw\"><?php echo TZ_ORDER; ?><\/p>Please train 2 <?php echo $unarray[$session->userinfo['tribe']];?>.<\/div><br \/><span id=\"qst_accpt\"><\/span><\/div>\n\t\t<div id=\"qstbg\" class=\"units\"><\/div>\n\t\t","number":"-21","reward":false,"qgsrc":"q_l<?php echo $session->userinfo['tribe'];?>","msrc":"<?php echo $messagelol; ?>","altstep":0}
+$unarray=array(1=>U1,2=>U11,3=>U21,4=>(defined('U31')?U31:'Nature'),5=>(defined('U41')?U41:'Natar'),6=>U51,7=>U61,8=>U71,9=>U81,10=>U91);
+$unarray2=array(1=>"u1",2=>"u11",3=>"u21",4=>"u31",5=>"u41",6=>"u51",7=>"u61",8=>"u71",9=>"u81",10=>"u91");
+$uKey = $unarray2[$session->userinfo['tribe']] ?? 'u1';
+$uName = $unarray[$session->userinfo['tribe']] ?? 'warrior';
+if (($units[$uKey] ?? 0)<2){ ?>
+{"markup":"\n\t\t<div id=\"qstd\"><h1> <img class=\"point\" src=\"img\/x.gif\" alt=\"\" title=\"\"\/> <?php echo TZ_TASK_18_TRAIN; ?><\/h1><br \/><i>&rdquo;Now that you have barracks you can start training troops. Train two <?php echo $uName;?>.&rdquo;<\/i><br \/><br \/><div class=\"rew\"><p class=\"ta_aw\"><?php echo TZ_ORDER; ?><\/p>Please train 2 <?php echo $uName;?>.<\/div><br \/><span id=\"qst_accpt\"><\/span><\/div>\n\t\t<div id=\"qstbg\" class=\"units\"><\/div>\n\t\t","number":"-21","reward":false,"qgsrc":"q_l<?php echo $session->userinfo['tribe'];?>","msrc":"<?php echo $messagelol; ?>","altstep":0}
 <?php $_SESSION['qstnew']='0'; }else{ $_SESSION['qstnew']='1'; ?>
 {"markup":"\n\t\t<div id=\"qstd\"><h1> <img class=\"point\" src=\"img\/x.gif\" alt=\"\" title=\"\"\/> <?php echo TZ_TASK_18_TRAIN; ?><\/h1><br \/><i>&rdquo;The foundation for your glorious army has been laid.<br \/><br \/>\r\nBefore sending your army off to plunder you should check with the <a href=\"banned.php\"><?php echo TZ_COMBAT_SIMULATOR; ?><\/a> to see how many troops you need to successfully fight one rat without losses.&rdquo;<\/i><br \/><br \/><div class=\"rew\"><p class=\"ta_aw\"><input type=\"hidden\" id=\"qst_val\" value=\"2\" \/>Your reward:<\/p><img src=\"img\/x.gif\" class=\"r1\" alt=\"Lumber\" title=\"Lumber\" \/>300&nbsp;&nbsp;<img src=\"img\/x.gif\" class=\"r2\" alt=\"Clay\" title=\"Clay\" \/>320&nbsp;&nbsp;<img src=\"img\/x.gif\" class=\"r3\" alt=\"Iron\" title=\"Iron\" \/>360&nbsp;&nbsp;<img src=\"img\/x.gif\" class=\"r4\" alt=\"Crop\" title=\"Crop\" \/>570&nbsp;&nbsp;<\/div><br \/><span id=\"qst_accpt\"><a href=\"banned.php\"><?php echo TZ_CONTINUE_WITH_THE_NEXT_TASK; ?><\/a><\/span><\/div>\n\t\t<div id=\"qstbg\" class=\"units\"><\/div>\n\t\t","number":21,"reward":{"wood":300,"clay":320,"iron":360,"crop":570},"qgsrc":"q_l<?php echo $session->userinfo['tribe'];?>g","msrc":"<?php echo $messagelol; ?>","altstep":0}
 <?php } ?>

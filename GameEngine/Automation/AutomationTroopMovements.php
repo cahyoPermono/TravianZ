@@ -95,7 +95,7 @@ trait AutomationTroopMovements {
 
                 //check empty reinforcement in rally point
                 $e_units = '';
-                for ($i = 1; $i <= 90; $i++) $e_units.= 'u'.$i.'= 0 AND ';
+                for ($i = 1; $i <= 100; $i++) $e_units.= 'u'.$i.'= 0 AND ';
 
                 $e_units.= 'hero = 0';
                 $q = "DELETE FROM ".TB_PREFIX."enforcement WHERE ".$e_units." AND (vref=".(int) $data['to']." OR `from`=".(int) $data['to'].")";

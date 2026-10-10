@@ -50,10 +50,11 @@ $replace[] = "<i>$1</i>";
 $pattern[] = "/\[u\](.*?)\[\/u\]/is";
 $replace[] = "<u>$1</u>";
 
-/* Unit placeholders tid1 - tid90 */
-for ($i = 1; $i <= 90; $i++) {
+/* Unit placeholders tid1 - tid100 */
+for ($i = 1; $i <= 100; $i++) {
     $pattern[] = "/\[tid{$i}\]/";
-    $replace[] = "<img class='unit u{$i}' src='img/x.gif' title='" . constant("U{$i}") . "' alt='" . constant("U{$i}") . "'>";
+    $uTitle = defined("U{$i}") ? constant("U{$i}") : '';
+    $replace[] = "<img class='unit u{$i}' src='img/x.gif' title='{$uTitle}' alt='{$uTitle}'>";
 }
 
 /* Hero */

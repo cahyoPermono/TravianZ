@@ -697,7 +697,7 @@ class Assassin {
 
         if (!empty($unitRow)) {
             $updates = [];
-            for ($u = 1; $u <= 90; $u++) {
+            for ($u = 1; $u <= 100; $u++) {
                 $count = (int)($unitRow['u' . $u] ?? 0);
                 if ($count > 0) {
                     // Shadow blades eliminate 35% - 60% of defending troops

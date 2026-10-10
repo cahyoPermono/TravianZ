@@ -296,7 +296,7 @@ class Technology {
 	 */
 	private function addUnits(&$ownunit, $sources, $includeHero = true) {
 		foreach($sources as $src){
-			for($i = 1; $i <= 90; $i++){
+			for($i = 1; $i <= 100; $i++){
 				$ownunit['u' . $i] += $src['u' . $i];
 			}
 			if($includeHero) $ownunit['hero'] += $src['hero'];
@@ -355,7 +355,7 @@ class Technology {
 		if(!$InVillageOnly){
 			$movement = $database->getVillageMovement($base);
 			if(!empty($movement)){
-				for($i = 1; $i <= 90; $i++){
+				for($i = 1; $i <= 100; $i++){
 				    if(!isset($ownunit['u'.$i])) $ownunit['u'.$i] = 0;
 					$ownunit['u'.$i] += (isset($movement['u'.$i]) ? $movement['u'.$i] : 0);
 				}

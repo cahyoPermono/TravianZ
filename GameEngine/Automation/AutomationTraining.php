@@ -40,7 +40,7 @@ trait AutomationTraining {
         $stored = 0;
         $current = $database->getWounded($vref);
         if(!empty($current)) {
-            for($i = 1; $i <= 90; $i++) $stored += isset($current['u'.$i]) ? (int)$current['u'.$i] : 0;
+            for($i = 1; $i <= 100; $i++) $stored += isset($current['u'.$i]) ? (int)$current['u'.$i] : 0;
         }
         $free = $capacity - $stored;
         if($free <= 0) return;

@@ -302,7 +302,7 @@ class Battle {
      ******************************************************************/
     $attacker = [];
 
-    for ($i = 1; $i <= 90; $i++) {
+    for ($i = 1; $i <= 100; $i++) {
         $attacker['u'.$i] = 0;
     }
 
@@ -333,14 +333,14 @@ class Battle {
     $def_ab   = [];
     $defscout = 0;
 
-    for ($i = 1; $i <= 90; $i++) {
+    for ($i = 1; $i <= 100; $i++) {
         $units = (int)($post['a2_'.$i] ?? 0);
         $ab    = (int)($post['f2_'.$i] ?? 0);
 
         $defender['u'.$i] = $units;
         $def_ab[$i]       = $units > 0 ? $ab : 0;
 
-        if ($units > 0 && in_array($i, [4, 14, 23, 44, 52, 64, 74, 82])) {
+        if ($units > 0 && in_array($i, [4, 14, 23, 44, 52, 64, 74, 82, 94])) {
             $defscout += $units;
         }
     }
@@ -1988,7 +1988,7 @@ class Battle {
     $cdp = 0;
     $invol = 0;
 
-    for ($y = 1; $y <= 90; $y++) {
+    for ($y = 1; $y <= 100; $y++) {
         $unitAmount = isset($defenders['u'.$y])
             ? (int)$defenders['u'.$y]
             : 0;
