@@ -100,7 +100,6 @@ if ($hour > 1759 || $hour < 500) {
 ?>
 
 <!-- ===================== HEADER ===================== -->
-
 <div id="header">
 
     <div id="mtop">
@@ -109,7 +108,6 @@ if ($hour > 1759 || $hour < 500) {
         <a href="<?php echo $dorf1Link; ?>"
            id="n1"
            accesskey="1">
-
             <img src="img/x.gif"
                  title="<?php echo TZ_VILLAGE_OVERVIEW; ?>"
                  alt="<?php echo TZ_VILLAGE_OVERVIEW; ?>" />
@@ -119,7 +117,6 @@ if ($hour > 1759 || $hour < 500) {
         <a href="<?php echo $dorf2Link; ?>"
            id="n2"
            accesskey="2">
-
             <img src="img/x.gif"
                  title="<?php echo VILLAGE_CENTER; ?>"
                  alt="<?php echo VILLAGE_CENTER; ?>" />
@@ -129,7 +126,6 @@ if ($hour > 1759 || $hour < 500) {
         <a href="karte.php"
            id="n3"
            accesskey="3">
-
             <img src="img/x.gif"
                  title="<?php echo MAP; ?>"
                  alt="<?php echo MAP; ?>" />
@@ -139,7 +135,6 @@ if ($hour > 1759 || $hour < 500) {
         <a href="statistiken.php"
            id="n4"
            accesskey="4">
-
             <img src="img/x.gif"
                  title="<?php echo STATISTICS; ?>"
                  alt="<?php echo STATISTICS; ?>" />
@@ -147,11 +142,9 @@ if ($hour > 1759 || $hour < 500) {
 
         <!-- Reports / Messages -->
         <div id="n5" class="<?php echo safeHTML($class); ?>">
-
             <!-- Reports -->
             <a href="<?php echo $reportsLink; ?>"
                accesskey="5">
-
                 <img src="img/x.gif"
                      class="l"
                      title="<?php echo REPORTS; ?>"
@@ -161,13 +154,11 @@ if ($hour > 1759 || $hour < 500) {
             <!-- Messages -->
             <a href="nachrichten.php"
                accesskey="6">
-
                 <img src="img/x.gif"
                      class="r"
                      title="<?php echo MESSAGES; ?>"
                      alt="<?php echo MESSAGES; ?>" />
             </a>
-
         </div>
 
         <!-- ===================== HERO (CERCUL ROSU) ===================== -->
@@ -176,9 +167,6 @@ if ($hour > 1759 || $hour < 500) {
          * Componenta Hero: casa/craniu + inelul Health/Experience + aventuri
          * + argint. Traieste in Templates/hero_header.tpl si se pozitioneaza
          * absolut in interiorul lui #mtop (vezi css/hero_header.css).
-         *
-         * Cautam fisierul si relativ la Templates/, ca sa mearga si daca
-         * header.tpl ajunge sa fie inclus din alt director.
          */
         $tzHeroTplPath = '';
 
@@ -194,34 +182,15 @@ if ($hour > 1759 || $hour < 500) {
         ?>
         <!-- ===================== END HERO ===================== -->
 
-        <!-- ===================== GOLD (MUTAT IN DREPTUNGHIUL ALBASTRU) ===================== -->
+        <!-- ===================== GOLD ===================== -->
         <?php
-        /**
-         * Gold display - mutat din res.tpl
-         * Afisare intre Messages si Plus
-         */
         if (!$isRestrictedUser && isset($session->gold)) {
         ?>
         <div id="goldHeader">
             <?php
-            /**
-             * FORMAT COMPACT: iconita + valoare, fara cuvintele "Aur"/"Argint".
-             * Cuvintele au ramas in title/alt, deci se vad la mouseover.
-             *
-             * ICONITE SVG, nu gif-uri din graphic pack: gold.gif si gold_g.gif
-             * aveau alt contur si alta dimensiune decat silver.png, asa ca cele
-             * doua randuri nu se aliniau. Acum ambele sunt desenate la fel -
-             * acelasi cerc, aceeasi rama, aceeasi marime - si difera doar
-             * culoarea monedelor. Aceleasi clase ca iconita de argint din
-             * componenta Hero (css/hero_header.css), deci se potrivesc intre ele.
-             */
             $goldLabel = defined('GOLD') ? GOLD : 'Gold';
             $goldValue = (int) $session->gold;
 
-            /**
-             * Un teanc de monede, desenat o singura data si refolosit.
-             * $tone alege paleta: aur, aur stins (fara aur) sau argint.
-             */
             if (!function_exists('tzCoinIcon')) {
             function tzCoinIcon($tone, $title)
             {
@@ -238,7 +207,6 @@ if ($hour > 1759 || $hour < 500) {
             }
             }
 
-            // sub 2 monede aurul era deja afisat stins in interfata veche
             $goldTone = ($goldValue <= 1) ? 'goldOff' : 'gold';
 
             echo '<div id="goldHeaderRow" class="tzCoinRow tzCoinRow-' . $goldTone . '">'
@@ -246,12 +214,6 @@ if ($hour > 1759 || $hour < 500) {
                . '<span class="tzCoinValue">' . $goldValue . '</span>'
                . '</div>';
 
-            /**
-             * Argintul eroului, afisat sub aur (doar cu functiile T4 pornite).
-             * Valoarea sta pe randul eroului, in hero.silver. O tinem in
-             * $GLOBALS, nu intr-o variabila "static": intr-un fisier inclus,
-             * "static" nu persista intre includeri, deci nu ar fi un cache real.
-             */
             if (defined('NEW_FUNCTIONS_HERO_T4') && NEW_FUNCTIONS_HERO_T4 && class_exists('HeroItems')) {
 
                 if (!isset($GLOBALS['t4SilverValue'])) {
@@ -272,33 +234,23 @@ if ($hour > 1759 || $hour < 500) {
         <?php } ?>
         <!-- ===================== END GOLD ===================== -->
 
+        <!-- ===================== PLUS BUTTON ===================== -->
         <?php
-        /**
-         * PLUS button
-         * Guest/admin special nu vede Plus
-         */
         if (!$isRestrictedUser) {
         ?>
-
         <a href="plus.php" id="plus">
-
             <span class="plus_text">
-
                 <span class="plus_g">P</span>
                 <span class="plus_o">l</span>
                 <span class="plus_g">u</span>
                 <span class="plus_o">s</span>
-
             </span>
-
             <img src="img/x.gif"
                  id="btn_plus"
                  class="<?php echo safeHTML($plusClass); ?>"
                  title="<?php echo PLUS_MENU; ?>"
                  alt="<?php echo PLUS_MENU; ?>" />
-
         </a>
-
         <?php } ?>
 
         <!-- ===================== DAY/NIGHT CSS ===================== -->

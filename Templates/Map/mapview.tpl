@@ -449,21 +449,23 @@ while ($donnees = mysqli_fetch_assoc($result2)) {
 			text_x.r3 = '<?php echo IRON;?>';
 			text_x.r4 = '<?php echo CROP;?>';
 		</script>
-		<div id="map_content"><?php echo $map_content;?></div>
-		<div id="map_rulers"><?php
-			for($i=0;$i<=6;$i++) {
-				echo "<div id=\"mx".$i."\">".$xarray[$i]."</div>\n";
-				echo "<div id=\"my".$i."\">".$yarray[$i]."</div>\n";
-			}?>
+		<div id="map_canvas_wrap">
+			<div id="map_content"><?php echo $map_content;?></div>
+			<div id="map_rulers"><?php
+				for($i=0;$i<=6;$i++) {
+					echo "<div id=\"mx".$i."\">".$xarray[$i]."</div>\n";
+					echo "<div id=\"my".$i."\">".$yarray[$i]."</div>\n";
+				}?>
+			</div>
+			<map id="map_overlay" name="map_overlay">
+				<?php echo $map_gen;?>
+				<area id="ma_n1" href="karte.php?z=<?php echo $generator->getBaseID($x,$yp1);?>" coords="422,67,25" shape="circle" title="<?php echo NORTH;?>"/>
+				<area id="ma_n2" href="karte.php?z=<?php echo $generator->getBaseID($xp1,$y);?>" coords="427,254,25" shape="circle" title="<?php echo EAST;?>"/>
+				<area id="ma_n3" href="karte.php?z=<?php echo $generator->getBaseID($x,$ym1);?>" coords="119,255,25" shape="circle" title="<?php echo SOUTH;?>"/>
+				<area id="ma_n4" href="karte.php?z=<?php echo $generator->getBaseID($xm1,$y);?>" coords="114,63,25" shape="circle" title="<?php echo WEST;?>"/>
+			</map>
+			<img id="map_links" src="img/x.gif" usemap="#map_overlay" />
 		</div>
-		<map id="map_overlay" name="map_overlay">
-			<?php echo $map_gen;?>
-			<area id="ma_n1" href="karte.php?z=<?php echo $generator->getBaseID($x,$yp1);?>" coords="422,67,25" shape="circle" title="<?php echo NORTH;?>"/>
-			<area id="ma_n2" href="karte.php?z=<?php echo $generator->getBaseID($xp1,$y);?>" coords="427,254,25" shape="circle" title="<?php echo EAST;?>"/>
-			<area id="ma_n3" href="karte.php?z=<?php echo $generator->getBaseID($x,$ym1);?>" coords="119,255,25" shape="circle" title="<?php echo SOUTH;?>"/>
-			<area id="ma_n4" href="karte.php?z=<?php echo $generator->getBaseID($xm1,$y);?>" coords="114,63,25" shape="circle" title="<?php echo WEST;?>"/>
-		</map>
-		<img id="map_links" src="img/x.gif" usemap="#map_overlay" />
 		<script type="text/javascript">
 			m_c.az = {<?php echo '"n1":'.$generator->getBaseID($x,$yp1).',"n1p7":'.$generator->getBaseID($x,$yp7).',"n2":'.$generator->getBaseID($xp1,$y).',"n2p7":'.$generator->getBaseID($xm7,$y).',"n3":'.$generator->getBaseID($x,$ym1).',"n3p7":'.$generator->getBaseID($x,$ym7).',"n4":'.$generator->getBaseID($xm1,$y).',"n4p7":'.$generator->getBaseID($xp7,$y); ?>};
 			m_c.ad = [<?php echo '['.$map_js;?>];
@@ -484,21 +486,143 @@ while ($donnees = mysqli_fetch_assoc($result2)) {
 				echo '<a id="map_makelarge" href="#" onclick="PopupMap('.$bigmid.');" ><img class="ml" src="img/x.gif" alt="'.LARGE_MAP.'" title="'.LARGE_MAP.'"/></a>';
 			}
 		}?>
-		<img id="map_navibox" src="img/x.gif" usemap="#map_navibox"/>
-		<map name="map_navibox">
-			<area id="ma_n1p7" href="karte.php?z=<?php echo $generator->getBaseID($x,$yp7) ?>" coords="51,15,73,3,95,15,73,27" shape="poly" title="<?php echo NORTH;?>"/>
-			<area id="ma_n2p7" href="karte.php?z=<?php echo $generator->getBaseID($xm7,$y) ?>" coords="51,41,73,29,95,41,73,53" shape="poly" title="<?php echo EAST;?>"/>
-			<area id="ma_n3p7" href="karte.php?z=<?php echo $generator->getBaseID($x,$ym7) ?>" coords="4,41,26,29,48,41,26,53" shape="poly" title="<?php echo SOUTH;?>"/>
-			<area id="ma_n4p7" href="karte.php?z=<?php echo $generator->getBaseID($xp7,$y) ?>" coords="4,15,26,3,48,15,26,27" shape="poly" title="<?php echo WEST;?>"/>
-		</map>
-		<div id="map_coords">
-			<form name="map_coords" method="post" action="karte.php">
-				<span>x </span><input id="mcx" class="text" name="xp" value="<?php echo $x ?>" maxlength="4"/>
-				<span>y </span><input id="mcy" class="text" name="yp" value="<?php echo $y ?>" maxlength="4"/>
-				<input type="image" id="btn_ok" class="dynamic_img" value="ok" name="s1" src="img/x.gif" alt="OK" /><br /><br />
-				<?php if($session->goldclub != 0){echo "<a href=\"crop_finder.php\"><img src=\"".GP_LOCATE."img/misc/cropfinder.gif\" /> ".CROPFINDER."</a>";}?>
-			</form>
+		<div id="map_controls_row">
+			<div id="map_coords">
+				<form name="map_coords" method="post" action="karte.php">
+					<span>x </span><input id="mcx" class="text" name="xp" value="<?php echo $x ?>" maxlength="4"/>
+					<span>y </span><input id="mcy" class="text" name="yp" value="<?php echo $y ?>" maxlength="4"/>
+					<input type="image" id="btn_ok" class="dynamic_img" value="ok" name="s1" src="img/x.gif" alt="OK" />
+					<?php if($session->goldclub != 0){echo "<a href=\"crop_finder.php\"><img src=\"".GP_LOCATE."img/misc/cropfinder.gif\" /> ".CROPFINDER."</a>";}?>
+				</form>
+			</div>
+			<div id="map_navibox_wrap">
+				<img id="map_navibox" src="img/x.gif" usemap="#map_navibox"/>
+				<map name="map_navibox">
+					<area id="ma_n1p7" href="karte.php?z=<?php echo $generator->getBaseID($x,$yp7) ?>" coords="51,15,73,3,95,15,73,27" shape="poly" title="<?php echo NORTH;?>"/>
+					<area id="ma_n2p7" href="karte.php?z=<?php echo $generator->getBaseID($xm7,$y) ?>" coords="51,41,73,29,95,41,73,53" shape="poly" title="<?php echo EAST;?>"/>
+					<area id="ma_n3p7" href="karte.php?z=<?php echo $generator->getBaseID($x,$ym7) ?>" coords="4,41,26,29,48,41,26,53" shape="poly" title="<?php echo SOUTH;?>"/>
+					<area id="ma_n4p7" href="karte.php?z=<?php echo $generator->getBaseID($xp7,$y) ?>" coords="4,15,26,3,48,15,26,27" shape="poly" title="<?php echo WEST;?>"/>
+				</map>
+			</div>
 		</div>
 		<table cellpadding="1" cellspacing="1" id="map_infobox" class="default"><thead><tr><th colspan="2"><?php echo DETAIL;?></th></tr></thead><tbody><tr><th><?php echo PLAYER;?></th><td>-</td></tr><tr><th><?php echo POP;?></th><td>-</td></tr><tr><th><?php echo ALLIANCE;?></th><td></td></tr></tbody></table>
+		<script type="text/javascript">
+		(function() {
+			function initMobileMapEnhancements() {
+				var canvasWrap = document.getElementById('map_canvas_wrap');
+				var infoBox = document.getElementById('map_infobox');
+				if (!canvasWrap || !infoBox) return;
+
+				// Center map scroll horizontally on load
+				if (canvasWrap.scrollWidth > canvasWrap.clientWidth) {
+					canvasWrap.scrollLeft = Math.round((canvasWrap.scrollWidth - canvasWrap.clientWidth) / 2);
+				}
+
+				var activeArea = null;
+				var touchStartX = 0, touchStartY = 0, isTouchDragging = false;
+
+				function updateTileAction(area) {
+					if (!area || !infoBox) return;
+					var tbody = infoBox.querySelector('tbody');
+					if (!tbody) return;
+					var actionRow = document.getElementById('map_action_row');
+					if (!actionRow) {
+						actionRow = document.createElement('tr');
+						actionRow.id = 'map_action_row';
+						actionRow.innerHTML = '<td colspan="2" style="text-align:center; padding: 7px 4px; background: #fdf8eb;"><a id="map_open_btn" href="#" style="display:inline-block; padding: 5px 16px; background: linear-gradient(180deg, #df9b28 0%, #aa6308 100%); color:#fff; font-weight:bold; font-size:12px; border-radius:5px; text-decoration:none; border:1px solid #ffd875; box-shadow:0 1px 3px rgba(0,0,0,0.25);">Buka Tile &#x2794;</a></td>';
+						tbody.appendChild(actionRow);
+					}
+					var btn = document.getElementById('map_open_btn');
+					if (btn && area.href) {
+						var coords = (area.details && area.details.x !== undefined) ? '(' + area.details.x + '|' + area.details.y + ')' : '';
+						btn.href = area.href;
+						btn.innerHTML = 'Buka Tile ' + coords + ' &#x2794;';
+					}
+				}
+
+				// Select center tile (#a_3_3) on load
+				var centerTile = document.getElementById('a_3_3');
+				if (centerTile && typeof qe === 'function') {
+					try {
+						qe.call(centerTile);
+						activeArea = centerTile;
+						updateTileAction(centerTile);
+					} catch(e) {}
+				}
+
+				canvasWrap.addEventListener('touchstart', function(e) {
+					if (e.touches && e.touches.length > 0) {
+						touchStartX = e.touches[0].clientX;
+						touchStartY = e.touches[0].clientY;
+						isTouchDragging = false;
+					}
+				}, { passive: true });
+
+				canvasWrap.addEventListener('touchmove', function(e) {
+					if (e.touches && e.touches.length > 0) {
+						var dx = Math.abs(e.touches[0].clientX - touchStartX);
+						var dy = Math.abs(e.touches[0].clientY - touchStartY);
+						if (dx > 8 || dy > 8) isTouchDragging = true;
+					}
+				}, { passive: true });
+
+				var mapOverlay = document.getElementById('map_overlay');
+				if (mapOverlay) {
+					var areas = mapOverlay.getElementsByTagName('area');
+					for (var i = 0; i < areas.length; i++) {
+						(function(area) {
+							if (!area.id || area.id.indexOf('a_') !== 0) return;
+
+							area.addEventListener('click', function(e) {
+								if (window.innerWidth <= 860 || ('ontouchstart' in window)) {
+									if (isTouchDragging) {
+										e.preventDefault();
+										return;
+									}
+									if (activeArea === area) {
+										// Second tap on same tile -> follow link
+										return;
+									} else {
+										// First tap on tile -> select and inspect
+										e.preventDefault();
+										activeArea = area;
+										if (typeof qe === 'function') {
+											try { qe.call(area); } catch(err) {}
+										}
+										updateTileAction(area);
+									}
+								}
+							});
+
+							var origMouseOver = area.onmouseover;
+							area.onmouseover = function(e) {
+								if (origMouseOver) origMouseOver.call(this, e);
+								activeArea = area;
+								updateTileAction(area);
+							};
+						})(areas[i]);
+					}
+				}
+
+				// Prevent 50ms reset on mobile touch
+				var origRe = window.re;
+				if (typeof origRe === 'function') {
+					window.re = function() {
+						if (window.innerWidth <= 860 || ('ontouchstart' in window)) {
+							return;
+						}
+						origRe.apply(this, arguments);
+					};
+				}
+			}
+
+			if (document.readyState === 'loading') {
+				window.addEventListener('DOMContentLoaded', initMobileMapEnhancements);
+			} else {
+				setTimeout(initMobileMapEnhancements, 100);
+			}
+			window.addEventListener('load', function() { setTimeout(initMobileMapEnhancements, 200); });
+		})();
+		</script>
 	</div>            
 </div>

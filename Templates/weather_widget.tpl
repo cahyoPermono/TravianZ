@@ -33,6 +33,9 @@ $herbCost = ($userTribe === 10) ? 75 : 150;
 ?>
 
 <style>
+div.village2 h1 {
+    position: static !important;
+}
 .weather-plague-panel {
     margin: 8px 0 14px 0;
     font-family: Arial, sans-serif;

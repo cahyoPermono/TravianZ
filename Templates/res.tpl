@@ -57,58 +57,35 @@ if (!empty($village)) {
     <!-- ================= RESOURCES ================= -->
     <table cellpadding="1" cellspacing="1">
         <tr>
-
             <!-- Wood -->
-            <td>
+            <td class="res-cell res-wood" title="<?php echo LUMBER; ?>: <?php echo $wood; ?>/h">
                 <img src="img/x.gif" class="r1" alt="<?php echo LUMBER; ?>" title="<?php echo LUMBER; ?>" />
-            </td>
-
-            <td id="l4" title="<?php echo $wood; ?>">
-                <?php echo $woodStore . "/" . $maxStore; ?>
+                <span id="l4" title="<?php echo $wood; ?>"><?php echo $woodStore . "/" . $maxStore; ?></span>
             </td>
 
             <!-- Clay -->
-            <td>
+            <td class="res-cell res-clay" title="<?php echo CLAY; ?>: <?php echo $clay; ?>/h">
                 <img src="img/x.gif" class="r2" alt="<?php echo CLAY; ?>" title="<?php echo CLAY; ?>" />
-            </td>
-
-            <td id="l3" title="<?php echo $clay; ?>">
-                <?php echo $clayStore . "/" . $maxStore; ?>
+                <span id="l3" title="<?php echo $clay; ?>"><?php echo $clayStore . "/" . $maxStore; ?></span>
             </td>
 
             <!-- Iron -->
-            <td>
+            <td class="res-cell res-iron" title="<?php echo IRON; ?>: <?php echo $iron; ?>/h">
                 <img src="img/x.gif" class="r3" alt="<?php echo IRON; ?>" title="<?php echo IRON; ?>" />
-            </td>
-
-            <td id="l2" title="<?php echo $iron; ?>">
-                <?php echo $ironStore . "/" . $maxStore; ?>
+                <span id="l2" title="<?php echo $iron; ?>"><?php echo $ironStore . "/" . $maxStore; ?></span>
             </td>
 
             <!-- Crop -->
-            <td>
+            <td class="res-cell res-crop" title="<?php echo CROP; ?>: <?php echo $crop; ?>/h">
                 <img src="img/x.gif" class="r4" alt="<?php echo CROP; ?>" title="<?php echo CROP; ?>" />
+                <span id="l1" title="<?php echo $crop; ?>"><?php echo ($village->acrop > 0 ? $cropStore : '0') . "/" . $maxCrop; ?></span>
             </td>
-
-            <?php if ($village->acrop > 0) { ?>
-                <td id="l1" title="<?php echo $crop; ?>">
-                    <?php echo $cropStore . "/" . $maxCrop; ?>
-                </td>
-            <?php } else { ?>
-                <td title="<?php echo $crop; ?>">
-                    0/<?php echo $maxCrop; ?>
-                </td>
-            <?php } ?>
 
             <!-- Crop consumption -->
-            <td>
+            <td class="res-cell res-pop" title="<?php echo CROP_COM; ?>">
                 <img src="img/x.gif" class="r5" alt="<?php echo CROP_COM; ?>" title="<?php echo CROP_COM; ?>" />
+                <span><?php echo ($village->pop + $technology->getUpkeep($village->unitall, 0)) . "/" . $totalproduction; ?></span>
             </td>
-
-            <td>
-                <?php echo ($village->pop + $technology->getUpkeep($village->unitall, 0)) . "/" . $totalproduction; ?>
-            </td>
-
         </tr>
     </table>
 
