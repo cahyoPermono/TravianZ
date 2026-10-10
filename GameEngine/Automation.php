@@ -200,7 +200,7 @@ class Automation {
         }
 
         // Bot AI: Automated building, training, and early-game raiding
-        if (defined('BOT_AI_ENABLED') && BOT_AI_ENABLED) {
+        if (!defined('BOT_AI_ENABLED') || BOT_AI_ENABLED) {
             try {
                 require_once __DIR__ . '/BotAI.php';
                 BotAI::run();

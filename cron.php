@@ -105,25 +105,20 @@ include_once($autoprefix . 'GameEngine/config.php');
 // 3. Verify the access key for HTTP requests (not applicable in CLI mode)
 // -----------------------------------------------------------------------------
 if (!$isCli) {
-    $providedKey = isset($_GET['key']) ? (string)$_GET['key'] : '';
+    $providedKey = (string)($_GET['key'] ?? $_GET['k'] ?? '');
 
     if (!defined('CRON_KEY') || CRON_KEY === '' || !hash_equals(CRON_KEY, $providedKey)) {
         header('HTTP/1.1 403 Forbidden');
         exit('Forbidden');
     }
-	// Do not keep the client connection open - send the response immediately and continue processing in the background.
-    ignore_user_abort(true);
-    @set_time_limit(0);
-    header('Content-Type: text/plain');
-    echo "OK\n";
 
-    if (function_exists('fastcgi_finish_request')) {
-        fastcgi_finish_request();
-    }
+    ignore_user_abort(true);
+    @set_time_limit(120);
+    header('Content-Type: text/plain');
 
 	// When executed via HTTP, we do not keep the process running for 5 minutes
 	// (PHP-FPM has its own execution timeouts).
-	// An HTTP request performs only a single tick.
+	// An HTTP request performs a single tick synchronously.
 	// The internal loop is intended for CLI execution only.
     $forceSingleTick = true;
 }
@@ -155,7 +150,11 @@ if ($runLockHandle === false) {
 
 if (!flock($runLockHandle, LOCK_EX | LOCK_NB)) {
     fclose($runLockHandle);
-    if ($isCli) { echo "cron: A previous invocation is still running. Exiting.\n"; }
+    if ($isCli) {
+        echo "cron: A previous invocation is still running. Exiting.\n";
+    } else {
+        echo "BUSY: A previous invocation is still running.\n";
+    }
     exit(0);
 }
 
@@ -287,6 +286,9 @@ while ($loopSeconds > 0) {
 flock($runLockHandle, LOCK_UN);
 fclose($runLockHandle);
 
+$elapsed = time() - $startedAt;
 if ($isCli) {
-    echo "cron: " . $ticks . " tick(uri) in " . (time() - $startedAt) . "s, terminat la " . date('Y-m-d H:i:s') . "\n";
+    echo "cron: " . $ticks . " tick(uri) in " . $elapsed . "s, terminat la " . date('Y-m-d H:i:s') . "\n";
+} else {
+    echo "OK: " . $ticks . " tick executed in " . $elapsed . "s at " . date('Y-m-d H:i:s') . "\n";
 }
