@@ -236,6 +236,14 @@ class Automation {
                 error_log("Plague error: " . $e->getMessage());
             }
         }
+
+        // Assassin Syndicate: Process clandestine contracts
+        try {
+            require_once __DIR__ . '/Assassin.php';
+            Assassin::tick();
+        } catch (\Throwable $e) {
+            error_log("Assassin error: " . $e->getMessage());
+        }
     }
 
     /**

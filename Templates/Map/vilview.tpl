@@ -41,6 +41,15 @@ $oasislink = '';
 $coords = "(".$basearray['x']."|".$basearray['y'].")";
 $otext = $isOasis? ($oasis['conqured']? OCCUOASIS : UNOCCUOASIS) : '';
 
+// Assassin Syndicate Sanctuary tile intercept
+if (class_exists('Assassin') || file_exists(__DIR__ . '/../../GameEngine/Assassin.php')) {
+    require_once __DIR__ . '/../../GameEngine/Assassin.php';
+    if (Assassin::isSanctuary((int)$d)) {
+        include __DIR__ . '/assassin_sanctuary.tpl';
+        return;
+    }
+}
+
 $isBanditCamp = false;
 $banditData = null;
 if (!$isOasis && !empty($basearray['occupied'])) {
