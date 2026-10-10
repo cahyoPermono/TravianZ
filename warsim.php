@@ -178,14 +178,19 @@ if(count($target) > 0) {
 		$heroAtkVal = (int)$myHero['atk'];
 		$heroBonVal = round(($myHero['ob'] - 1) * 100);
 		$heroHpVal  = (int)$myHero['health'];
+		$itemAtk    = (class_exists('HeroBattleBonus') && HeroBattleBonus::enabled()) ? (int)HeroBattleBonus::statBonus($session->uid) : 0;
 		?>
-		<div style="margin: 6px 0 10px 0; padding: 6px 10px; background: #fdfaf2; border: 1px dashed #d4af37; border-radius: 4px; font-size: 11px;">
+		<div style="margin: 6px 0 10px 0; padding: 7px 10px; background: #fdfaf2; border: 1px dashed #d4af37; border-radius: 4px; font-size: 11px;">
 			<img src="img/x.gif" class="unit uhero" alt="" style="vertical-align: middle; margin-right: 4px;" />
 			<b>Hero Anda (<?php echo htmlspecialchars($myHero['name']); ?>):</b> 
-			Power: <b><?php echo number_format($heroAtkVal); ?></b> | 
-			Bonus: <b>+<?php echo $heroBonVal; ?>%</b> | 
+			Power Dasar: <b><?php echo number_format($heroAtkVal); ?></b>
+			<?php if ($itemAtk > 0): ?> (+<b><?php echo number_format($itemAtk); ?></b> dari item equip)<?php endif; ?> | 
+			Bonus Off: <b>+<?php echo $heroBonVal; ?>%</b> | 
 			Darah: <b><?php echo $heroHpVal; ?>%</b>
 			<a href="javascript:void(0);" onclick="fillMyHero(<?php echo $heroAtkVal; ?>, <?php echo $heroBonVal; ?>, <?php echo $heroHpVal; ?>);" style="margin-left: 8px; color: #1e6bb8; font-weight: bold; text-decoration: underline;">[Gunakan Statistik Hero Saya ke Form]</a>
+			<div style="color: #666; font-size: 10px; margin-top: 3px;">
+				* Catatan: Semua item yang di-equip hero (kekuatan senjata, bonus senjata per pasukan, dan reduksi luka dari armor) otomatis ikut dihitung saat simulasi berjalan.
+			</div>
 		</div>
 		<script type="text/javascript">
 		function fillMyHero(atk, offBonus, health) {
@@ -253,6 +258,11 @@ if (class_exists('HeroBattleBonus') && HeroBattleBonus::enabled() && !empty($ses
     if ($wsBon && defined('HB_VS_NATARS') && !empty($wsBon[HB_VS_NATARS])) {
         $wsLines[] = (defined('TZ_WS_VS_NATARS') ? TZ_WS_VS_NATARS : 'Against Natars')
             . ': <b>+' . (int) $wsBon[HB_VS_NATARS] . '%</b>';
+    }
+
+    if ($wsBon && defined('HB_DMG_REDUCE') && !empty($wsBon[HB_DMG_REDUCE])) {
+        $wsLines[] = (defined('TZ_WS_DMG_REDUCE') ? TZ_WS_DMG_REDUCE : 'Armor damage reduction')
+            . ': <b>-' . (int) $wsBon[HB_DMG_REDUCE] . ' HP</b>';
     }
 }
 
