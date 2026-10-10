@@ -145,4 +145,46 @@ assertTrue(isset($h96_full) && count($h96_full) >= 60, "h96_full must have >= 60
 assertTrue(file_exists(dirname(__DIR__) . '/Templates/Build/22_10.tpl'), "22_10.tpl must exist");
 assertTrue(file_exists(dirname(__DIR__) . '/Templates/a2b/units_10.tpl'), "units_10.tpl must exist");
 
+// 11. Technology getTrainingList check
+global $database, $village;
+$village = new stdClass();
+$village->wid = 12345;
+
+$fakeDb = new class {
+    public $sampleTraining = [];
+    public function getTraining($wid) {
+        return $this->sampleTraining;
+    }
+    public function getVillageField($wid, $field) {
+        return 1;
+    }
+    public function getUserField($uid, $field, $mode) {
+        return 10;
+    }
+};
+$database = $fakeDb;
+
+$session->tribe = 10;
+$fakeDb->sampleTraining = [
+    ['id' => 1, 'vref' => 12345, 'unit' => 91, 'amt' => 10, 'pop' => 1, 'timestamp' => time() + 300, 'eachtime' => 30, 'timestamp2' => time() + 30],
+    ['id' => 2, 'vref' => 12345, 'unit' => 92, 'amt' => 5, 'pop' => 1, 'timestamp' => time() + 500, 'eachtime' => 40, 'timestamp2' => time() + 340],
+];
+$barracksList = $tech->getTrainingList(1);
+assertEqual(2, count($barracksList), "Barracks training list must contain Nusantara units 91 and 92");
+assertEqual('Pendekar Keris', $barracksList[0]['name'], "Unit 91 name in training list must be Pendekar Keris");
+
+$fakeDb->sampleTraining = [
+    ['id' => 3, 'vref' => 12345, 'unit' => 95, 'amt' => 2, 'pop' => 2, 'timestamp' => time() + 600, 'eachtime' => 300, 'timestamp2' => time() + 300],
+];
+$stablesList = $tech->getTrainingList(2);
+assertEqual(1, count($stablesList), "Stables training list must contain Nusantara unit 95");
+
+$fakeDb->sampleTraining = [
+    ['id' => 4, 'vref' => 12345, 'unit' => 99, 'amt' => 1, 'pop' => 4, 'timestamp' => time() + 1000, 'eachtime' => 1000, 'timestamp2' => time() + 1000],
+    ['id' => 5, 'vref' => 12345, 'unit' => 100, 'amt' => 3, 'pop' => 1, 'timestamp' => time() + 2000, 'eachtime' => 600, 'timestamp2' => time() + 600],
+];
+$residenceList = $tech->getTrainingList(4);
+assertEqual(2, count($residenceList), "Residence training list for Tribe 10 must contain unit 99 and 100");
+assertEqual('Senapati Palapa', $residenceList[0]['name'], "Unit 99 in residence must be Senapati Palapa");
+
 echo "PASS: All Suku Nusantara (Tribe 10) integration tests passed successfully!" . PHP_EOL;

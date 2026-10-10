@@ -181,18 +181,28 @@ class Technology {
 	}
 
 	public function getTrainingList($type) {
-		global $database,$village;
-		$trainingarray = $database->getTraining($village->wid);
+		global $database, $village, $session;
+		$trainingarray = !empty($village->wid) ? $database->getTraining($village->wid) : [];
 		$listarray = [];
-		$barracks = [1, 2, 3, 11, 12, 13, 14, 21, 22, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 51, 52, 61, 62, 63, 71, 72, 73, 74, 81, 82, 83, 84];
-		$stables = [4, 5, 6, 15, 16, 23, 24, 25, 26, 45, 46, 53, 54, 55, 56, 64, 65, 66, 75, 76, 85, 86];
-		$workshop = [7, 8, 17, 18, 27, 28, 47, 48, 57, 58, 67, 68, 77, 78, 87, 88];
-		$residence = [9, 10, 19, 20, 29, 30, 49, 50, 59, 60, 69, 70, 79, 80, 89, 90];
+
+		$ownerTribe = (int)($session->tribe ?? 0);
+		if ($ownerTribe === 0 && !empty($village->wid) && isset($database)) {
+			$uid = $database->getVillageField($village->wid, "owner");
+			$ownerTribe = (int)$database->getUserField($uid, "tribe", 0);
+		}
+
+		$barracks = [1, 2, 3, 11, 12, 13, 14, 21, 22, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 51, 52, 61, 62, 63, 71, 72, 73, 74, 81, 82, 83, 84, 91, 92, 93];
+		$stables = [4, 5, 6, 15, 16, 23, 24, 25, 26, 35, 36, 45, 46, 53, 54, 55, 56, 64, 65, 66, 75, 76, 85, 86, 94, 95, 96];
+		$workshop = [7, 8, 17, 18, 27, 28, 37, 38, 47, 48, 57, 58, 67, 68, 77, 78, 87, 88, 97, 98];
+		$residence = [9, 10, 19, 20, 29, 30, 39, 40, 49, 50, 59, 60, 69, 70, 79, 80, 89, 90, 100];
+		if ($ownerTribe !== 3) {
+			$residence[] = 99;
+		}
 		// great buildings: offset +1000 (vechiul +60 intra in coliziune cu unitatile reale 51-90)
 		$greatbarracks = array_map(function($u){ return $u + 1000; }, $barracks);
 		$greatstables = array_map(function($u){ return $u + 1000; }, $stables);
 		$greatworkshop = array_map(function($u){ return $u + 1000; }, $workshop);
-		$trapper = [99];
+		$trapper = ($ownerTribe === 3) ? [99] : [];
 		
 		$categories = [
 			1 => [$barracks, 0, null],
@@ -202,7 +212,7 @@ class Technology {
 			5 => [$greatbarracks, 1000, null],
 			6 => [$greatstables, 1000, null],
 			7 => [$greatworkshop, 1000, null],
-			8 => [$trapper, 0, 'Trap'],
+			8 => [$trapper, 0, defined('U99_TRAP') ? U99_TRAP : 'Trap'],
 		];
 		
 		if(count($trainingarray) > 0 && isset($categories[$type])) {
@@ -210,7 +220,7 @@ class Technology {
 			foreach($trainingarray as $train) {
 				if(in_array($train['unit'], $units)) {
 					$train['unit'] -= $offset;
-					$train['name'] = $fallback === null ? $this->unarray[$train['unit']] : ($this->unarray[$train['unit']] ?? $fallback);
+					$train['name'] = ($type == 8 && defined('U99_TRAP')) ? U99_TRAP : $this->getUnitName($train['unit']);
 					array_push($listarray, $train);
 				}
 			}
