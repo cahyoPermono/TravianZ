@@ -202,9 +202,9 @@ class BlackMarket
         global $database;
 
         $shipments = [
-            1 => ['name' => 'Paket Pasokan Kroco', 'silver' => 10, 'amount' => 2000],
-            2 => ['name' => 'Kargo Selundupan Pedagang', 'silver' => 25, 'amount' => 6000],
-            3 => ['name' => 'Peti Harta Saudagar Gelap', 'silver' => 60, 'amount' => 16000],
+            1 => ['name' => 'Paket Pasokan Kroco', 'silver' => 35, 'amount' => 500],
+            2 => ['name' => 'Kargo Selundupan Pedagang', 'silver' => 80, 'amount' => 1500],
+            3 => ['name' => 'Peti Harta Saudagar Gelap', 'silver' => 200, 'amount' => 4000],
         ];
 
         if (!isset($shipments[$tier])) {
@@ -247,18 +247,18 @@ class BlackMarket
         $items = [
             'antidote' => [
                 'name' => 'Obat Penawar Wabah Selundupan',
-                'silver' => 15,
+                'silver' => 65,
                 'desc' => 'Menyembuhkan wabah di desa seketika.'
             ],
             'grain_reserve' => [
                 'name' => 'Lumbung Darurat Ransum',
-                'silver' => 12,
-                'desc' => 'Menyuplai +4.000 gandum darurat ke lumbung desa.'
+                'silver' => 50,
+                'desc' => 'Menyuplai +2.000 gandum darurat ke lumbung desa.'
             ],
             'merchant_pass' => [
                 'name' => 'Surat Jalan Pedagang Palsu',
-                'silver' => 8,
-                'desc' => 'Penyelundup mempercepat pedagang desa.'
+                'silver' => 45,
+                'desc' => 'Penyelundup memberikan logistik darurat +500 tiap res.'
             ],
         ];
 
@@ -299,7 +299,7 @@ class BlackMarket
                 return ['success' => false, 'message' => 'Gagal memproses transaksi Silver.'];
             }
 
-            $bonusCrop = 4000;
+            $bonusCrop = 2000;
             $database->modifyResource($vref, 0, 0, 0, $bonusCrop, 1, true);
             self::logAction($uid, $vref, 'grain_reserve', "Injected $bonusCrop emergency grain", $cost);
 
@@ -315,12 +315,12 @@ class BlackMarket
             }
 
             // Reward bonus merchant supply bonus
-            $database->modifyResource($vref, 1500, 1500, 1500, 1500, 1, true);
+            $database->modifyResource($vref, 500, 500, 500, 500, 1, true);
             self::logAction($uid, $vref, 'merchant_pass', 'Used forged merchant pass for bonus cargo', $cost);
 
             return [
                 'success' => true,
-                'message' => "📜 Surat jalan pedagang palsu berhasil digunakan! Penyelundup memberikan muatan logistik tambahan 1.500 masing-masing sumber daya ke desa."
+                'message' => "📜 Surat jalan pedagang palsu berhasil digunakan! Penyelundup memberikan muatan logistik tambahan 500 masing-masing sumber daya ke desa."
             ];
         }
 

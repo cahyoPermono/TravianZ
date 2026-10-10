@@ -139,16 +139,16 @@ if (!empty($_SESSION['bm_flash'])) {
             <!-- TIER 1 -->
             <div style="flex: 1; min-width: 140px; background: #fff; border: 1px solid #dcd1be; border-radius: 5px; padding: 10px; text-align: center;">
                 <div style="font-weight: bold; color: #493322; font-size: 12px;">Paket Kroco</div>
-                <div style="color: #666; font-size: 10px; margin: 2px 0 6px 0;">+2.000 Tiap Sumber Daya</div>
+                <div style="color: #666; font-size: 10px; margin: 2px 0 6px 0;">+500 Tiap Sumber Daya</div>
                 <div style="background: #f4eee2; padding: 4px; border-radius: 3px; font-size: 11px; margin-bottom: 8px;">
-                    Total: <b>8.000</b> res
+                    Total: <b>2.000</b> res
                 </div>
                 <form method="POST" action="build.php" style="margin: 0;">
                     <input type="hidden" name="ft" value="bm_shipment">
                     <input type="hidden" name="id" value="<?php echo (int)$id; ?>">
                     <input type="hidden" name="tier" value="1">
-                    <button type="submit" <?php if($silver < 10) echo 'disabled'; ?> style="width: 100%; padding: 5px; font-weight: bold; background: <?php echo $silver >= 10 ? '#386b2e' : '#ccc'; ?>; color: #fff; border: none; border-radius: 3px; cursor: <?php echo $silver >= 10 ? 'pointer' : 'not-allowed'; ?>;">
-                        10 Silver
+                    <button type="submit" <?php if($silver < 35) echo 'disabled'; ?> style="width: 100%; padding: 5px; font-weight: bold; background: <?php echo $silver >= 35 ? '#386b2e' : '#ccc'; ?>; color: #fff; border: none; border-radius: 3px; cursor: <?php echo $silver >= 35 ? 'pointer' : 'not-allowed'; ?>;">
+                        35 Silver
                     </button>
                 </form>
             </div>
@@ -156,16 +156,16 @@ if (!empty($_SESSION['bm_flash'])) {
             <!-- TIER 2 -->
             <div style="flex: 1; min-width: 140px; background: #fff; border: 1px solid #d4af37; border-radius: 5px; padding: 10px; text-align: center; box-shadow: 0 0 4px rgba(212,175,55,0.2);">
                 <div style="font-weight: bold; color: #8a6d3b; font-size: 12px;">Kargo Pedagang ⭐</div>
-                <div style="color: #666; font-size: 10px; margin: 2px 0 6px 0;">+6.000 Tiap Sumber Daya</div>
+                <div style="color: #666; font-size: 10px; margin: 2px 0 6px 0;">+1.500 Tiap Sumber Daya</div>
                 <div style="background: #fdfaf2; padding: 4px; border-radius: 3px; font-size: 11px; margin-bottom: 8px;">
-                    Total: <b>24.000</b> res
+                    Total: <b>6.000</b> res
                 </div>
                 <form method="POST" action="build.php" style="margin: 0;">
                     <input type="hidden" name="ft" value="bm_shipment">
                     <input type="hidden" name="id" value="<?php echo (int)$id; ?>">
                     <input type="hidden" name="tier" value="2">
-                    <button type="submit" <?php if($silver < 25) echo 'disabled'; ?> style="width: 100%; padding: 5px; font-weight: bold; background: <?php echo $silver >= 25 ? '#386b2e' : '#ccc'; ?>; color: #fff; border: none; border-radius: 3px; cursor: <?php echo $silver >= 25 ? 'pointer' : 'not-allowed'; ?>;">
-                        25 Silver
+                    <button type="submit" <?php if($silver < 80) echo 'disabled'; ?> style="width: 100%; padding: 5px; font-weight: bold; background: <?php echo $silver >= 80 ? '#386b2e' : '#ccc'; ?>; color: #fff; border: none; border-radius: 3px; cursor: <?php echo $silver >= 80 ? 'pointer' : 'not-allowed'; ?>;">
+                        80 Silver
                     </button>
                 </form>
             </div>
@@ -173,16 +173,16 @@ if (!empty($_SESSION['bm_flash'])) {
             <!-- TIER 3 -->
             <div style="flex: 1; min-width: 140px; background: #fff; border: 1px solid #993300; border-radius: 5px; padding: 10px; text-align: center;">
                 <div style="font-weight: bold; color: #993300; font-size: 12px;">Peti Saudagar Gelap 👑</div>
-                <div style="color: #666; font-size: 10px; margin: 2px 0 6px 0;">+16.000 Tiap Sumber Daya</div>
+                <div style="color: #666; font-size: 10px; margin: 2px 0 6px 0;">+4.000 Tiap Sumber Daya</div>
                 <div style="background: #fdf4ee; padding: 4px; border-radius: 3px; font-size: 11px; margin-bottom: 8px;">
-                    Total: <b>64.000</b> res
+                    Total: <b>16.000</b> res
                 </div>
                 <form method="POST" action="build.php" style="margin: 0;">
                     <input type="hidden" name="ft" value="bm_shipment">
                     <input type="hidden" name="id" value="<?php echo (int)$id; ?>">
                     <input type="hidden" name="tier" value="3">
-                    <button type="submit" <?php if($silver < 60) echo 'disabled'; ?> style="width: 100%; padding: 5px; font-weight: bold; background: <?php echo $silver >= 60 ? '#386b2e' : '#ccc'; ?>; color: #fff; border: none; border-radius: 3px; cursor: <?php echo $silver >= 60 ? 'pointer' : 'not-allowed'; ?>;">
-                        60 Silver
+                    <button type="submit" <?php if($silver < 200) echo 'disabled'; ?> style="width: 100%; padding: 5px; font-weight: bold; background: <?php echo $silver >= 200 ? '#386b2e' : '#ccc'; ?>; color: #fff; border: none; border-radius: 3px; cursor: <?php echo $silver >= 200 ? 'pointer' : 'not-allowed'; ?>;">
+                        200 Silver
                     </button>
                 </form>
             </div>
@@ -224,14 +224,14 @@ if (!empty($_SESSION['bm_flash'])) {
                     <?php endif; ?>
                 </td>
                 <td style="text-align: center; font-weight: bold; color: #996600;">
-                    15 Silver
+                    65 Silver
                 </td>
                 <td style="text-align: right;">
                     <form method="POST" action="build.php" style="margin: 0;">
                         <input type="hidden" name="ft" value="bm_contraband">
                         <input type="hidden" name="id" value="<?php echo (int)$id; ?>">
                         <input type="hidden" name="item_key" value="antidote">
-                        <button type="submit" <?php if(!$isPlagued || $silver < 15) echo 'disabled'; ?> style="padding: 4px 8px; font-size: 11px; font-weight: bold; background: <?php echo ($isPlagued && $silver >= 15) ? '#b02a37' : '#ccc'; ?>; color: #fff; border: none; border-radius: 3px; cursor: <?php echo ($isPlagued && $silver >= 15) ? 'pointer' : 'not-allowed'; ?>;">
+                        <button type="submit" <?php if(!$isPlagued || $silver < 65) echo 'disabled'; ?> style="padding: 4px 8px; font-size: 11px; font-weight: bold; background: <?php echo ($isPlagued && $silver >= 65) ? '#b02a37' : '#ccc'; ?>; color: #fff; border: none; border-radius: 3px; cursor: <?php echo ($isPlagued && $silver >= 65) ? 'pointer' : 'not-allowed'; ?>;">
                             Sembuhkan
                         </button>
                     </form>
@@ -242,20 +242,20 @@ if (!empty($_SESSION['bm_flash'])) {
             <tr style="background: #faf7f2;">
                 <td>
                     <b>🌾 Lumbung Darurat Ransum</b><br />
-                    <span style="font-size: 10px; color: #666;">Menyuplai +4.000 gandum instan untuk menyelamatkan desa dari krisis kelaparan pasukan.</span>
+                    <span style="font-size: 10px; color: #666;">Menyuplai +2.000 gandum instan untuk menyelamatkan desa dari krisis kelaparan pasukan.</span>
                 </td>
                 <td style="text-align: center; font-size: 11px; color: #444;">
                     Lumbung: <b><?php echo number_format($acrop); ?></b> Gandum
                 </td>
                 <td style="text-align: center; font-weight: bold; color: #996600;">
-                    12 Silver
+                    50 Silver
                 </td>
                 <td style="text-align: right;">
                     <form method="POST" action="build.php" style="margin: 0;">
                         <input type="hidden" name="ft" value="bm_contraband">
                         <input type="hidden" name="id" value="<?php echo (int)$id; ?>">
                         <input type="hidden" name="item_key" value="grain_reserve">
-                        <button type="submit" <?php if($silver < 12) echo 'disabled'; ?> style="padding: 4px 8px; font-size: 11px; font-weight: bold; background: <?php echo ($silver >= 12) ? '#386b2e' : '#ccc'; ?>; color: #fff; border: none; border-radius: 3px; cursor: <?php echo ($silver >= 12) ? 'pointer' : 'not-allowed'; ?>;">
+                        <button type="submit" <?php if($silver < 50) echo 'disabled'; ?> style="padding: 4px 8px; font-size: 11px; font-weight: bold; background: <?php echo ($silver >= 50) ? '#386b2e' : '#ccc'; ?>; color: #fff; border: none; border-radius: 3px; cursor: <?php echo ($silver >= 50) ? 'pointer' : 'not-allowed'; ?>;">
                             Beli Ransum
                         </button>
                     </form>
@@ -266,20 +266,20 @@ if (!empty($_SESSION['bm_flash'])) {
             <tr>
                 <td>
                     <b>📜 Surat Jalan Pedagang Palsu</b><br />
-                    <span style="font-size: 10px; color: #666;">Izin jalan bebas pajak yang memberi pasokan logistik selundupan ekstra +1.500 tiap res.</span>
+                    <span style="font-size: 10px; color: #666;">Izin jalan bebas pajak yang memberi pasokan logistik selundupan ekstra +500 tiap res.</span>
                 </td>
                 <td style="text-align: center; font-size: 11px; color: #444;">
                     Siap Pakai
                 </td>
                 <td style="text-align: center; font-weight: bold; color: #996600;">
-                    8 Silver
+                    45 Silver
                 </td>
                 <td style="text-align: right;">
                     <form method="POST" action="build.php" style="margin: 0;">
                         <input type="hidden" name="ft" value="bm_contraband">
                         <input type="hidden" name="id" value="<?php echo (int)$id; ?>">
                         <input type="hidden" name="item_key" value="merchant_pass">
-                        <button type="submit" <?php if($silver < 8) echo 'disabled'; ?> style="padding: 4px 8px; font-size: 11px; font-weight: bold; background: <?php echo ($silver >= 8) ? '#386b2e' : '#ccc'; ?>; color: #fff; border: none; border-radius: 3px; cursor: <?php echo ($silver >= 8) ? 'pointer' : 'not-allowed'; ?>;">
+                        <button type="submit" <?php if($silver < 45) echo 'disabled'; ?> style="padding: 4px 8px; font-size: 11px; font-weight: bold; background: <?php echo ($silver >= 45) ? '#386b2e' : '#ccc'; ?>; color: #fff; border: none; border-radius: 3px; cursor: <?php echo ($silver >= 45) ? 'pointer' : 'not-allowed'; ?>;">
                             Beli Surat
                         </button>
                     </form>

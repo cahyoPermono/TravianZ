@@ -33,7 +33,7 @@ assertTest(true, "Tables ensured without error");
 // 2. Silver balance tests
 echo "\n2. Silver Balance & Spend Tests:\n";
 $testUid = 7; // User nusa
-BlackMarket::addSilver($testUid, 150);
+BlackMarket::addSilver($testUid, 500);
 $initialSilver = BlackMarket::getSilver($testUid);
 assertTest($initialSilver >= 0, "Current silver is non-negative ($initialSilver)");
 
@@ -49,8 +49,8 @@ $overspend = BlackMarket::spendSilver($testUid, 99999999, 'Overspend Test');
 assertTest(!$overspend, "Cannot spend more silver than available (overspend blocked)");
 
 // 3. Resource Laundering Tests (15% Cut)
-echo "\n3. Resource Laundering Tests:\n";
-$testVref = 20004;
+$userVills = $database->getProfileVillages($testUid);
+$testVref  = !empty($userVills) ? (int)$userVills[0]['wref'] : 23421;
 
 // Ensure test village has clean test resources and capacity
 $database->setVillageField($testVref, 'maxstore', 60000);
@@ -78,24 +78,28 @@ $silverBefore = BlackMarket::getSilver($testUid);
 $shipRes = BlackMarket::buyResourceShipment($testUid, $testVref, 1);
 assertTest($shipRes['success'], "Shipment tier 1 bought: " . $shipRes['message']);
 $silverAfter = BlackMarket::getSilver($testUid);
-assertTest($silverAfter === $silverBefore - 10, "10 Silver deducted for tier 1 shipment");
+assertTest($silverAfter === $silverBefore - 35, "35 Silver deducted for tier 1 shipment");
 
 // 5. Contraband Tests
 echo "\n5. Contraband Bazaar Tests:\n";
 // Grain reserve
 $cropBefore = (int)$database->getCropAvailable($testVref, false);
+$silverBeforeGrain = BlackMarket::getSilver($testUid);
 $grainRes = BlackMarket::buyContraband($testUid, $testVref, 'grain_reserve');
 assertTest($grainRes['success'], "Emergency Grain Reserve bought: " . $grainRes['message']);
+assertTest(BlackMarket::getSilver($testUid) === $silverBeforeGrain - 50, "50 Silver deducted for grain reserve");
 $cropAfter = (int)$database->getCropAvailable($testVref, false);
-assertTest(abs($cropAfter - ($cropBefore + 4000)) <= 5, "+4000 Crop added via emergency reserve (approx within 5 for live production)");
+assertTest(abs($cropAfter - ($cropBefore + 2000)) <= 5, "+2000 Crop added via emergency reserve (approx within 5 for live production)");
 
 // Antidote test
 // First infect village for test
 Plague::infectVillage($testVref, Plague::PLAGUE_CHOLERA, 2, 7200);
 assertTest(Plague::isVillageInfected($testVref), "Village is infected with plague for test");
 
+$silverBeforeAntidote = BlackMarket::getSilver($testUid);
 $antidoteRes = BlackMarket::buyContraband($testUid, $testVref, 'antidote');
 assertTest($antidoteRes['success'], "Antidote bought and cured village: " . $antidoteRes['message']);
+assertTest(BlackMarket::getSilver($testUid) === $silverBeforeAntidote - 65, "65 Silver deducted for antidote");
 assertTest(!Plague::isVillageInfected($testVref), "Village is now completely cured of plague");
 
 // 6. Mercenary Enclave Unit Definitions & Hiring
