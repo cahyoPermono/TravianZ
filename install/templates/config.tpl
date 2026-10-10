@@ -211,11 +211,13 @@ $mechs = [
 	'new_functions_medal_reset' 		  => 'Medal Reset',
 	'new_functions_milestones'            => 'Server Milestones',
 	'new_functions_hero_t4'               => 'T4 Hero (items, adventures, auction)',
+	'hero_from_start'                     => 'Starter Hero (all tribes)',
+	'hero_mansion_optional'               => 'Hero\'s Mansion Optional',
 	'new_function_tribe_huns'             => 'New Tribe: Huns',
 	'new_function_tribe_egipteans'        => 'New Tribe: Egyptians',
 	'new_function_tribe_spartans'         => 'New Tribe: Spartans',
 	'new_function_tribe_vikings'          => 'New Tribe: Vikings',
-	'new_function_tribe_vikings'          => 'New Tribe: Vikings',
+	'new_function_tribe_nusantara'        => 'New Tribe: Nusantara',
 	'new_function_registration_gold'      => 'Registration Bonus Gold'
 ];
 

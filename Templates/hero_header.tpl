@@ -406,6 +406,8 @@ if ($tzHeroExists && $tzHeroUnit > 0) {
             $tzTribe = 8;
         } elseif ($tzHeroUnit >= 81 && $tzHeroUnit <= 90) {
             $tzTribe = 9;
+        } elseif ($tzHeroUnit >= 91 && $tzHeroUnit <= 100) {
+            $tzTribe = 10;
         }
     }
 

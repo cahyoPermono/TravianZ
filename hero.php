@@ -23,7 +23,7 @@ if (!isset($session) || !is_object($session) || $session->uid <= 0) {
 }
 
 // Auto-provision starter hero if enabled and player does not have one yet
-if (defined('HERO_FROM_START') && HERO_FROM_START && class_exists('Units')) {
+if ((!defined('HERO_FROM_START') || HERO_FROM_START) && class_exists('Units')) {
     Units::createStarterHero($session->uid, (int)$village->wid, (int)$session->tribe, $session->username);
 }
 
@@ -71,6 +71,7 @@ $heroUnitNames = [
     61 => U61, 62 => U62, 63 => U63, 65 => U65, 66 => U66,
     71 => U71, 72 => U72, 73 => U73, 75 => U75, 76 => U76,
     81 => U81, 83 => U83, 84 => U84, 85 => U85, 86 => U86,
+    91 => U91, 92 => U92, 93 => U93, 95 => U95, 96 => U96,
 ];
 
 if ($hero_info) {

@@ -245,6 +245,26 @@ if($_SESSION['access'] < 9) die(ACCESS_DENIED_ADMIN);
                     </td>
                 </tr>
                 <tr>
+                    <td class="b"><?php echo defined('ADM_HERO_FROM_START') ? ADM_HERO_FROM_START : 'Starter Hero (all tribes)'; ?><em class="tooltip">?<span class="classic"><?php echo defined('ADM_HERO_FROM_START_DESC') ? ADM_HERO_FROM_START_DESC : 'Enable (Disable) granting each new player a starter hero from registration'; ?></span></em>
+                    </td>
+                    <td>
+                        <select name="hero_from_start">
+                            <option value="True" <?php if(!defined('HERO_FROM_START') || HERO_FROM_START == true) echo "selected";?>><?php echo ADM_TRUE; ?></option>
+                            <option value="False" <?php if(defined('HERO_FROM_START') && HERO_FROM_START == false) echo "selected";?>><?php echo ADM_FALSE; ?></option>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="b"><?php echo defined('ADM_HERO_MANSION_OPTIONAL') ? ADM_HERO_MANSION_OPTIONAL : "Hero's Mansion Optional"; ?><em class="tooltip">?<span class="classic"><?php echo defined('ADM_HERO_MANSION_OPTIONAL_DESC') ? ADM_HERO_MANSION_OPTIONAL_DESC : "Allow hero management and revival without requiring Hero's Mansion level 1+"; ?></span></em>
+                    </td>
+                    <td>
+                        <select name="hero_mansion_optional">
+                            <option value="True" <?php if(!defined('HERO_MANSION_OPTIONAL') || HERO_MANSION_OPTIONAL == true) echo "selected";?>><?php echo ADM_TRUE; ?></option>
+                            <option value="False" <?php if(defined('HERO_MANSION_OPTIONAL') && HERO_MANSION_OPTIONAL == false) echo "selected";?>><?php echo ADM_FALSE; ?></option>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
                     <td class="b"><?php echo ADM_ALLIANCE_BONUSES; ?><em class="tooltip">?<span class="classic"><?php echo ADM_ALLIANCE_BONUSES_TIP; ?></span></em>
                     <?php if (!defined('NEW_FUNCTIONS_ALLIANCE_BONUSES')): ?><br><span style="color:#c0392b;font-size:11px;font-weight:normal;text-transform:none;"><?php echo ADM_NOT_PRESENT_IN_CONFIG_PHP_YET_SAVING_THIS_FO; ?></span><?php endif; ?>
                     </td>
@@ -330,6 +350,17 @@ if($_SESSION['access'] < 9) die(ACCESS_DENIED_ADMIN);
                         <select name="new_function_tribe_vikings">
                             <option value="True" <?php if(defined('NEW_FUNCTION_TRIBE_VIKINGS') && NEW_FUNCTION_TRIBE_VIKINGS == true) echo "selected";?>><?php echo ADM_TRUE; ?></option>
                             <option value="False" <?php if(!defined('NEW_FUNCTION_TRIBE_VIKINGS') || NEW_FUNCTION_TRIBE_VIKINGS == false) echo "selected";?>><?php echo ADM_FALSE; ?></option>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="b"><?php echo defined('ADM_NEW_TRIBE_NUSANTARA') ? ADM_NEW_TRIBE_NUSANTARA : 'New Tribe: Nusantara'; ?><em class="tooltip">?<span class="classic"><?php echo defined('ADM_ENABLE_DISABLE_TRIBE_NUSANTARA') ? ADM_ENABLE_DISABLE_TRIBE_NUSANTARA : 'Enable (Disable) tribe Nusantara'; ?></span></em>
+                    <?php if (!defined('NEW_FUNCTION_TRIBE_NUSANTARA')): ?><br><span style="color:#c0392b;font-size:11px;font-weight:normal;text-transform:none;"><?php echo ADM_NOT_PRESENT_IN_CONFIG_PHP_YET_SAVING_THIS_FO; ?></span><?php endif; ?>
+                    </td>
+                    <td>
+                        <select name="new_function_tribe_nusantara">
+                            <option value="True" <?php if(!defined('NEW_FUNCTION_TRIBE_NUSANTARA') || NEW_FUNCTION_TRIBE_NUSANTARA == true) echo "selected";?>><?php echo ADM_TRUE; ?></option>
+                            <option value="False" <?php if(defined('NEW_FUNCTION_TRIBE_NUSANTARA') && NEW_FUNCTION_TRIBE_NUSANTARA == false) echo "selected";?>><?php echo ADM_FALSE; ?></option>
                         </select>
                     </td>
                 </tr>

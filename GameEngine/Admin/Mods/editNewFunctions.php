@@ -153,11 +153,16 @@ $myFile = "../../config.php";
 		tz_config_set($text, '%NEW_FUNCTIONS_SPECIAL_MEDALS_SYSTEM%', $_POST['new_functions_special_medals_system'] ?? '');
 		tz_config_set($text, '%NEW_FUNCTIONS_MILESTONES%', $_POST['new_functions_milestones'] ?? '');
 		tz_config_set($text, '%NEW_FUNCTIONS_MEDAL_RESET%', $_POST['new_functions_medal_reset'] ?? '');
-		tz_config_set($text, '%NEW_FUNCTIONS_HERO_T4%', $_POST['new_functions_hero_t4'] ?? '');	
+		tz_config_set($text, '%NEW_FUNCTIONS_HERO_T4%', $_POST['new_functions_hero_t4'] ?? '');
+		tz_config_set($text, '%HERO_FROM_START%', (isset($_POST['hero_from_start']) && strtolower((string)$_POST['hero_from_start']) === 'false') ? 'false' : 'true');
+		tz_config_set($text, '%HERO_MANSION_OPTIONAL%', (isset($_POST['hero_mansion_optional']) && strtolower((string)$_POST['hero_mansion_optional']) === 'false') ? 'false' : 'true');
+		tz_config_set($text, '%HERO_MANSION_REGEN_PER_LEVEL%', (defined('HERO_MANSION_REGEN_PER_LEVEL') ? HERO_MANSION_REGEN_PER_LEVEL : 3));
+		tz_config_set($text, '%HERO_MANSION_REVIVE_DISCOUNT%', (defined('HERO_MANSION_REVIVE_DISCOUNT') ? HERO_MANSION_REVIVE_DISCOUNT : 0.025));
 		tz_config_set($text, '%NEW_FUNCTION_TRIBE_HUNS%', $_POST['new_function_tribe_huns'] ?? '');
 		tz_config_set($text, '%NEW_FUNCTION_TRIBE_EGIPTEANS%', $_POST['new_function_tribe_egipteans'] ?? '');
 		tz_config_set($text, '%NEW_FUNCTION_TRIBE_SPARTANS%', $_POST['new_function_tribe_spartans'] ?? '');
 		tz_config_set($text, '%NEW_FUNCTION_TRIBE_VIKINGS%', $_POST['new_function_tribe_vikings'] ?? '');
+		tz_config_set($text, '%NEW_FUNCTION_TRIBE_NUSANTARA%', $_POST['new_function_tribe_nusantara'] ?? 'true');
 		// Registration bonus gold: owned by THIS Mod (edited from the New Functions form).
 		$__reg_gold_on  = (isset($_POST['new_function_registration_gold']) && strtolower((string)$_POST['new_function_registration_gold']) === 'true') ? 'true' : 'false';
 		$__reg_gold_val = (int) ($_POST['new_function_registration_gold_value'] ?? 200);

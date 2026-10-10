@@ -96,6 +96,18 @@ define('HERO_SILVER_TO_GOLD', %HEROSILVERTOGOLD%);
 define('HERO_RES_PER_POINT_ALL', %HERORESALL%);
 define('HERO_RES_PER_POINT_ONE', %HERORESONE%);
 
+// Starter Hero (T4 style): each player receives a hero from registration
+define('HERO_FROM_START', %HERO_FROM_START%);
+
+// Hero's Mansion optional for hero recruitment and revival
+define('HERO_MANSION_OPTIONAL', %HERO_MANSION_OPTIONAL%);
+
+// Passive HP regen bonus per Hero's Mansion level (% per day per level)
+define('HERO_MANSION_REGEN_PER_LEVEL', %HERO_MANSION_REGEN_PER_LEVEL%);
+
+// Hero revival training time discount per Hero's Mansion level (e.g. 0.025 = 2.5% per level)
+define('HERO_MANSION_REVIVE_DISCOUNT', %HERO_MANSION_REVIVE_DISCOUNT%);
+
 //////////////////////////////////
 // *****  SERVER SETTINGS  *****//
 //////////////////////////////////
@@ -515,7 +527,7 @@ define("NEW_FUNCTION_TRIBE_HUNS", %NEW_FUNCTION_TRIBE_HUNS%);
 define("NEW_FUNCTION_TRIBE_EGIPTEANS", %NEW_FUNCTION_TRIBE_EGIPTEANS%);
 define("NEW_FUNCTION_TRIBE_SPARTANS", %NEW_FUNCTION_TRIBE_SPARTANS%);
 define("NEW_FUNCTION_TRIBE_VIKINGS", %NEW_FUNCTION_TRIBE_VIKINGS%);
-define("NEW_FUNCTION_TRIBE_NUSANTARA", true);
+define("NEW_FUNCTION_TRIBE_NUSANTARA", %NEW_FUNCTION_TRIBE_NUSANTARA%);
 define("NEW_FUNCTION_REGISTRATION_GOLD", %NEW_FUNCTION_REGISTRATION_GOLD%);
 define("NEW_FUNCTION_REGISTRATION_GOLD_VALUE", %NEW_FUNCTION_REGISTRATION_GOLD_VALUE%);
 

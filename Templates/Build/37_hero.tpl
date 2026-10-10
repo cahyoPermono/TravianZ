@@ -123,6 +123,7 @@ $renderAddLink = function ($action) use ($hero_info, $id, $heroStatColumns, $her
         elseif ($u >= 61 && $u <= 70) $t4HeroTribe = 7;
         elseif ($u >= 71 && $u <= 80) $t4HeroTribe = 8;
         elseif ($u >= 81 && $u <= 90) $t4HeroTribe = 9;
+        elseif ($u >= 91 && $u <= 100) $t4HeroTribe = 10;
     }
     $t4HeroAvatar = 'img/hero/avatars/hero_tribe_' . $t4HeroTribe . '.png';
     $hasHeroAvatar = @file_exists($t4HeroAvatar);

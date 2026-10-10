@@ -288,13 +288,18 @@ class Process {
 		$findReplace["%NEW_FUNCTIONS_SPECIAL_MEDALS_SYSTEM%"] = $_POST['new_functions_special_medals_system'];
 		$findReplace["%NEW_FUNCTIONS_MILESTONES%"] = $_POST['new_functions_milestones'];
 		$findReplace["%NEW_FUNCTIONS_MEDAL_RESET%"] = $_POST['new_functions_medal_reset'];
-		$findReplace["%NEW_FUNCTIONS_HERO_T4%"] = $_POST['new_functions_hero_t4'];
-		$findReplace["%NEW_FUNCTION_TRIBE_HUNS%"] = $_POST['new_function_tribe_huns'];
-		$findReplace["%NEW_FUNCTION_TRIBE_EGIPTEANS%"] = $_POST['new_function_tribe_egipteans'];
-		$findReplace["%NEW_FUNCTION_TRIBE_SPARTANS%"] = $_POST['new_function_tribe_spartans'];
-		$findReplace["%NEW_FUNCTION_TRIBE_VIKINGS%"] = $_POST['new_function_tribe_vikings'];
-		$findReplace["%NEW_FUNCTION_REGISTRATION_GOLD%"] = $_POST['new_function_registration_gold'];
-		$findReplace["%NEW_FUNCTION_REGISTRATION_GOLD_VALUE%"] = $_POST['new_function_registration_gold_value'];
+		$findReplace["%NEW_FUNCTIONS_HERO_T4%"] = $_POST['new_functions_hero_t4'] ?? 'true';
+		$findReplace["%HERO_FROM_START%"] = (isset($_POST['hero_from_start']) && $_POST['hero_from_start'] === 'false') ? 'false' : 'true';
+		$findReplace["%HERO_MANSION_OPTIONAL%"] = (isset($_POST['hero_mansion_optional']) && $_POST['hero_mansion_optional'] === 'false') ? 'false' : 'true';
+		$findReplace["%HERO_MANSION_REGEN_PER_LEVEL%"] = 3;
+		$findReplace["%HERO_MANSION_REVIVE_DISCOUNT%"] = 0.025;
+		$findReplace["%NEW_FUNCTION_TRIBE_HUNS%"] = $_POST['new_function_tribe_huns'] ?? 'true';
+		$findReplace["%NEW_FUNCTION_TRIBE_EGIPTEANS%"] = $_POST['new_function_tribe_egipteans'] ?? 'true';
+		$findReplace["%NEW_FUNCTION_TRIBE_SPARTANS%"] = $_POST['new_function_tribe_spartans'] ?? 'true';
+		$findReplace["%NEW_FUNCTION_TRIBE_VIKINGS%"] = $_POST['new_function_tribe_vikings'] ?? 'true';
+		$findReplace["%NEW_FUNCTION_TRIBE_NUSANTARA%"] = (isset($_POST['new_function_tribe_nusantara']) && $_POST['new_function_tribe_nusantara'] === 'false') ? 'false' : 'true';
+		$findReplace["%NEW_FUNCTION_REGISTRATION_GOLD%"] = $_POST['new_function_registration_gold'] ?? 'false';
+		$findReplace["%NEW_FUNCTION_REGISTRATION_GOLD_VALUE%"] = $_POST['new_function_registration_gold_value'] ?? 200;
 
 		fwrite($gameConfig, str_replace(array_keys($findReplace), array_values($findReplace), $text));
 

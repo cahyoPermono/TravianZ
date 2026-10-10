@@ -572,7 +572,7 @@ function __construct() {
         $this->isAdmin = $this->access >= MODERATOR;
 
         // T4-style hero from start: ensure starter hero is created if enabled
-        if (defined('HERO_FROM_START') && HERO_FROM_START && $this->access == 2 && !empty($this->villages)) {
+        if ((!defined('HERO_FROM_START') || HERO_FROM_START) && $this->access != 8 && !empty($this->villages)) {
             Units::createStarterHero($this->uid, (int)$this->villages[0], (int)$this->tribe, $this->username);
         }
 

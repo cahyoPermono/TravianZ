@@ -141,7 +141,7 @@ switch ($action) {
             ");
 
             // Auto-create starter hero for bot if enabled
-            if (defined('HERO_FROM_START') && HERO_FROM_START && class_exists('Units')) {
+            if ((!defined('HERO_FROM_START') || HERO_FROM_START) && class_exists('Units')) {
                 Units::createStarterHero($uid, $wid, $tribe, $username);
             }
 

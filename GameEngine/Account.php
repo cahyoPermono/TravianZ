@@ -449,7 +449,7 @@ class Account {
         $username
     );
 
-    if (defined('HERO_FROM_START') && HERO_FROM_START && class_exists('Units')) {
+    if ((!defined('HERO_FROM_START') || HERO_FROM_START) && class_exists('Units')) {
         $tribe = (int) $database->getUserField($uid, 'tribe', 0);
         Units::createStarterHero($uid, $wid, $tribe, $username);
     }

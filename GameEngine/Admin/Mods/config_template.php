@@ -229,6 +229,8 @@ if (!function_exists('admin_config_template_path')) {
         $cleanupDefaults['%HEROSILVERTOGOLD%']  = array('HERO_SILVER_TO_GOLD', 25);
         $cleanupDefaults['%HERORESALL%'] = array('HERO_RES_PER_POINT_ALL', 3);
         $cleanupDefaults['%HERORESONE%'] = array('HERO_RES_PER_POINT_ONE', 10);
+        $cleanupDefaults['%HERO_MANSION_REGEN_PER_LEVEL%'] = array('HERO_MANSION_REGEN_PER_LEVEL', 3);
+        $cleanupDefaults['%HERO_MANSION_REVIVE_DISCOUNT%'] = array('HERO_MANSION_REVIVE_DISCOUNT', 0.025);
 
         foreach ($overrides as $ovPlaceholder => $ovValue) {
             if (strpos($text, $ovPlaceholder) !== false) {
@@ -237,24 +239,13 @@ if (!function_exists('admin_config_template_path')) {
         }
 
         // Comutatoare adaugate dupa modelul lui %GP%: bonusurile de alianta si
-        // statisticile grafice Plus.
-        //
-        // BUG REPARAT: aceste placeholdere erau rezolvate DOAR de
-        // editNewFunctions. Orice alta pagina din panou (Server Configuration,
-        // Log Settings, PLUS Settings, NewsBox, Admin Info, Extra Settings)
-        // regenereaza si ea config.php din acelasi sablon, dar le lasa
-        // neinlocuite - deci in config ajungea
-        //     define("NEW_FUNCTIONS_ALLIANCE_BONUSES", %ALLIANCEBONUSES%);
-        // adica eroare de parsare si server cazut cu 500 pana la reparare
-        // manuala a fisierului.
-        //
-        // Ca si la %GP%, blocul de aici e doar REZERVA: pastreaza valoarea
-        // curenta pentru modulele care nu trimit nimic. Modulul care chiar
-        // detine setarea o trimite prin $overrides, iar bucla de mai sus
-        // ruleaza INAINTE, deci alegerea adminului are intaietate.
+        // statisticile grafice Plus, eroul de la inceput si tribul Nusantara.
         $boolFallbacks = array(
-            '%ALLIANCEBONUSES%' => 'NEW_FUNCTIONS_ALLIANCE_BONUSES',
-            '%PLUSSTATS%'       => 'NEW_FUNCTIONS_PLUS_STATISTICS',
+            '%ALLIANCEBONUSES%'             => 'NEW_FUNCTIONS_ALLIANCE_BONUSES',
+            '%PLUSSTATS%'                   => 'NEW_FUNCTIONS_PLUS_STATISTICS',
+            '%HERO_FROM_START%'             => 'HERO_FROM_START',
+            '%HERO_MANSION_OPTIONAL%'       => 'HERO_MANSION_OPTIONAL',
+            '%NEW_FUNCTION_TRIBE_NUSANTARA%' => 'NEW_FUNCTION_TRIBE_NUSANTARA',
         );
 
         foreach ($boolFallbacks as $ovPlaceholder => $constant) {
@@ -262,7 +253,11 @@ if (!function_exists('admin_config_template_path')) {
                 continue;
             }
 
-            $value = (defined($constant) && constant($constant)) ? 'true' : 'false';
+            if (defined($constant)) {
+                $value = constant($constant) ? 'true' : 'false';
+            } else {
+                $value = 'true';
+            }
             $text  = str_replace($ovPlaceholder, $value, $text);
         }
 
@@ -352,14 +347,19 @@ if (!function_exists('tz_config_finalize')) {
         }
 
         $defaults = array(
-            'PROTECTED_PLAYERS'         => '',
-            'NATARS_WW_START_DELAY'     => 10,
-            'USRNM_MIN_LENGTH'          => 3,
-            'USRNM_MAX_LENGTH'          => 15,
-            'PW_MIN_LENGTH'             => 4,
-            'USRNM_SPECIAL'             => true,
-            'PLUS_STATS_INTERVAL_HOURS' => 6,
-            'PLUS_STATS_KEEP_DAYS'      => 0,
+            'PROTECTED_PLAYERS'             => '',
+            'NATARS_WW_START_DELAY'         => 10,
+            'USRNM_MIN_LENGTH'              => 3,
+            'USRNM_MAX_LENGTH'              => 15,
+            'PW_MIN_LENGTH'                 => 4,
+            'USRNM_SPECIAL'                 => true,
+            'PLUS_STATS_INTERVAL_HOURS'     => 6,
+            'PLUS_STATS_KEEP_DAYS'          => 0,
+            'HERO_FROM_START'               => true,
+            'HERO_MANSION_OPTIONAL'         => true,
+            'HERO_MANSION_REGEN_PER_LEVEL'  => 3,
+            'HERO_MANSION_REVIVE_DISCOUNT'  => 0.025,
+            'NEW_FUNCTION_TRIBE_NUSANTARA'  => true,
         );
 
         foreach ($leftovers as $row) {
