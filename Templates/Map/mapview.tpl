@@ -25,6 +25,11 @@
 ========================= */
 $W = WORLD_MAX;
 
+if (class_exists('Assassin') || file_exists(__DIR__ . '/../../GameEngine/Assassin.php')) {
+    require_once __DIR__ . '/../../GameEngine/Assassin.php';
+    Assassin::getSanctuary();
+}
+
 /* =========================
    COORDINATE INPUT HANDLING
 ========================= */
@@ -449,8 +454,7 @@ while ($donnees = mysqli_fetch_assoc($result2)) {
 }
 /* Assassin Sanctuary isometric map tile */
 #map_content .assassin_sanctuary, div#map div#map_content div.assassin_sanctuary {
-    background-image: url('img/assassin/sanctuary_tile.jpg?v=<?= file_exists(__DIR__ . "/../../img/assassin/sanctuary_tile.jpg") ? filemtime(__DIR__ . "/../../img/assassin/sanctuary_tile.jpg") : time() ?>') !important;
-    background-size: 100% 100% !important;
+    background-image: url('img/assassin/sanctuary_tile.png?v=<?= file_exists(__DIR__ . "/../../img/assassin/sanctuary_tile.png") ? filemtime(__DIR__ . "/../../img/assassin/sanctuary_tile.png") : time() ?>') !important;
 }
 </style>
 <div id="content"  class="map">

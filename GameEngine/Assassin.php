@@ -524,7 +524,102 @@ class Assassin {
      * Main tick / automation cycle to execute completed contracts.
      */
     public static function tick(): array {
+        self::ensureTables();
+        self::getSanctuary();
         return self::processContracts();
+    }
+
+    /**
+     * Relocate or set Sanctuary to specific or random coordinates.
+     */
+    public static function relocateSanctuary(?int $targetX = null, ?int $targetY = null): array {
+        global $database, $generator;
+        self::ensureTables();
+
+        $user = self::getAssassinUser();
+        $uid = (int)$user['id'];
+
+        // Remove old sanctuary village if exists
+        $old = $database->query_return("SELECT * FROM " . TB_PREFIX . "assassin_sanctuary WHERE status = 1");
+        if (!empty($old)) {
+            foreach ($old as $o) {
+                $oldWref = (int)$o['wref'];
+                $database->query("DELETE FROM " . TB_PREFIX . "vdata WHERE wref = $oldWref");
+                $database->query("DELETE FROM " . TB_PREFIX . "fdata WHERE vref = $oldWref");
+                $database->query("DELETE FROM " . TB_PREFIX . "units WHERE vref = $oldWref");
+                $database->query("UPDATE " . TB_PREFIX . "wdata SET occupied = 0 WHERE id = $oldWref");
+            }
+            $database->query("DELETE FROM " . TB_PREFIX . "assassin_sanctuary");
+        }
+
+        // If targetX and targetY are specified, validate tile
+        $tile = null;
+        if ($targetX !== null && $targetY !== null) {
+            $wref = $generator->getBaseID($targetX, $targetY);
+            $tCheck = $database->query_return("SELECT id, x, y, fieldtype, occupied, oasistype FROM " . TB_PREFIX . "wdata WHERE id = $wref LIMIT 1");
+            if (!empty($tCheck[0])) {
+                if ($tCheck[0]['occupied'] != 0 || $tCheck[0]['oasistype'] != 0 || $tCheck[0]['fieldtype'] <= 0) {
+                    throw new \InvalidArgumentException("Koordinat ($targetX|$targetY) bukan petak lembah kosong yang dapat ditempati!");
+                }
+                $tile = $tCheck[0];
+            } else {
+                throw new \InvalidArgumentException("Koordinat ($targetX|$targetY) di luar batas peta!");
+            }
+        }
+
+        if (!$tile) {
+            // Find secluded random tile
+            $tileSql = "SELECT id, x, y, fieldtype
+                        FROM " . TB_PREFIX . "wdata
+                        WHERE occupied = 0 AND fieldtype > 0 AND oasistype = 0
+                          AND SQRT(POW(x, 2) + POW(y, 2)) BETWEEN 15 AND 45
+                        LIMIT 30";
+            $freeTiles = $database->query_return($tileSql);
+            if (empty($freeTiles)) {
+                $freeTiles = $database->query_return("SELECT id, x, y, fieldtype FROM " . TB_PREFIX . "wdata WHERE occupied = 0 AND fieldtype > 0 AND oasistype = 0 LIMIT 30");
+            }
+            $tile = $freeTiles[array_rand($freeTiles)];
+        }
+
+        $wref = (int)$tile['id'];
+        $x = (int)$tile['x'];
+        $y = (int)$tile['y'];
+        $fieldtype = (int)$tile['fieldtype'];
+        $time = time();
+        $sanctuaryName = 'Kuil Bayangan [Sanctuary]';
+
+        $database->addVillage($wref, $uid, 'Klan Assassin', 0, 120, $sanctuaryName);
+        $database->addResourceFields($wref, $fieldtype);
+        $database->addUnits($wref);
+        $database->setFieldTaken($wref);
+        $database->query("UPDATE " . TB_PREFIX . "units SET u41 = 500, u46 = 200 WHERE vref = $wref");
+        $database->query("
+            UPDATE " . TB_PREFIX . "vdata
+            SET wood = 50000, clay = 50000, iron = 50000, crop = 50000,
+                maxstore = 80000, maxcrop = 80000, lastupdate = $time
+            WHERE wref = $wref
+        ");
+
+        $db = self::db();
+        $nameEsc = mysqli_real_escape_string($db, $sanctuaryName);
+        $database->query("
+            INSERT INTO " . TB_PREFIX . "assassin_sanctuary
+            (wref, x, y, name, status, created_at)
+            VALUES
+            ($wref, $x, $y, '$nameEsc', 1, $time)
+        ");
+        $id = mysqli_insert_id($db);
+
+        return [
+            'id' => $id,
+            'wref' => $wref,
+            'x' => $x,
+            'y' => $y,
+            'name' => $sanctuaryName,
+            'status' => 1,
+            'created_at' => $time,
+            'fieldtype' => $fieldtype
+        ];
     }
 
     /**

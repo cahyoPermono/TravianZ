@@ -63,28 +63,6 @@ if (!empty($_SESSION['merc_flash'])) {
         </div>
     </div>
 
-    <!-- RUMOR PERKUMPULAN ASSASSIN -->
-    <?php
-    require_once __DIR__ . '/../../GameEngine/Assassin.php';
-    $sanctuary = Assassin::getSanctuary();
-    $sanctuaryHint = Assassin::getRumorDirection((int)$village->wid);
-    $sWref = (int)($sanctuary['wref'] ?? 0);
-    $sCheck = $sWref ? $generator->getMapCheck($sWref) : '';
-    ?>
-    <div style="background: linear-gradient(135deg, #181216 0%, #291a1d 100%); border: 1px solid #632b2b; border-radius: 6px; padding: 10px 14px; margin: 10px 0 16px 0; color: #eed8d8; font-size: 11px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-            <div>
-                <b style="color: #e74c3c;">📜 Bisikan Gelap: Perkumpulan Assassin (Kuil Bayangan)</b><br />
-                Para pengelana membisikkan bahwa markas rahasia pembunuh bayaran tersembunyi di <b><?php echo $sanctuaryHint; ?></b>. Mereka menerima kontrak penyerangan, racun hero &amp; sabotase tanpa meninggalkan jejak identitas pemesan.
-            </div>
-            <div>
-                <a href="karte.php?d=<?php echo $sWref; ?>&c=<?php echo $sCheck; ?>" style="background: #7a1d1d; color: #fff; text-decoration: none; padding: 5px 12px; border-radius: 4px; font-weight: bold; border: 1px solid #a93226; display: inline-block;">
-                    🗺️ Kunjungi Kuil (<?php echo $sanctuary['x'] . '|' . $sanctuary['y']; ?>) &raquo;
-                </a>
-            </div>
-        </div>
-    </div>
-
     <!-- FLASH NOTIFICATION -->
     <?php if ($flash): ?>
         <div style="margin: 10px 0; padding: 10px 14px; border-radius: 4px; font-size: 12px; <?php echo $flash['type'] === 'success' ? 'background: #d4edda; color: #155724; border: 1px solid #c3e6cb;' : 'background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb;'; ?>">

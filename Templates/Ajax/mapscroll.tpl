@@ -137,9 +137,11 @@ SELECT
     ". TB_PREFIX. "alidata.tag AS aliance_name,
 
     ". TB_PREFIX. "bandit_camps.tier AS bandit_tier,
-    ". TB_PREFIX. "bandit_camps.name AS bandit_camp_name
+    ". TB_PREFIX. "bandit_camps.name AS bandit_camp_name,
+    ". TB_PREFIX. "assassin_sanctuary.id AS assassin_sanctuary_id,
+    ". TB_PREFIX. "assassin_sanctuary.name AS assassin_sanctuary_name
 
-FROM (((((((". TB_PREFIX. "wdata
+FROM ((((((((". TB_PREFIX. "wdata
     LEFT JOIN ". TB_PREFIX. "vdata ON ". TB_PREFIX. "vdata.wref = ". TB_PREFIX. "wdata.id)
     LEFT JOIN ". TB_PREFIX. "odata ON ". TB_PREFIX. "odata.wref = ". TB_PREFIX. "wdata.id)
     LEFT JOIN ". TB_PREFIX. "users AS info_user_oasis ON info_user_oasis.id = ". TB_PREFIX. "odata.owner)
@@ -147,6 +149,7 @@ FROM (((((((". TB_PREFIX. "wdata
     LEFT JOIN ". TB_PREFIX. "users ON ". TB_PREFIX. "users.id = ". TB_PREFIX. "vdata.owner)
     LEFT JOIN ". TB_PREFIX. "alidata ON ". TB_PREFIX. "alidata.id = ". TB_PREFIX. "users.alliance)
     LEFT JOIN ". TB_PREFIX. "bandit_camps ON (". TB_PREFIX. "bandit_camps.wref = ". TB_PREFIX. "wdata.id AND ". TB_PREFIX. "bandit_camps.status = 1))
+    LEFT JOIN ". TB_PREFIX. "assassin_sanctuary ON (". TB_PREFIX. "assassin_sanctuary.wref = ". TB_PREFIX. "wdata.id AND ". TB_PREFIX. "assassin_sanctuary.status = 1))
 
 WHERE ". TB_PREFIX. "wdata.id IN ($maparray)
 ORDER BY FIND_IN_SET(". TB_PREFIX. "wdata.id,'$maparray2')
@@ -186,7 +189,9 @@ while ($donnees = mysqli_fetch_assoc($result2)) {
     /* =========================
        IMAGE DECISION
     ========================= */
-    if (!empty($donnees['bandit_tier'])) {
+    if (!empty($donnees['assassin_sanctuary_id'])) {
+        $image = 'assassin_sanctuary';
+    } elseif (!empty($donnees['bandit_tier'])) {
         $bTier = max(1, min(4, (int)$donnees['bandit_tier']));
         $image = 'bandit_t' . $bTier;
     } else {
@@ -262,7 +267,13 @@ while ($donnees = mysqli_fetch_assoc($result2)) {
 
         if ($donnees['map_occupied']) {
             if ($donnees['map_fieldtype']!= 0) {
-                $jsVillageName = !empty($donnees['bandit_camp_name']) ? addslashes($donnees['bandit_camp_name']) : addslashes($donnees['ville_name']);
+                if (!empty($donnees['assassin_sanctuary_id'])) {
+                    $jsVillageName = addslashes($donnees['assassin_sanctuary_name'] ?: 'Kuil Bayangan [Sanctuary]');
+                } elseif (!empty($donnees['bandit_camp_name'])) {
+                    $jsVillageName = addslashes($donnees['bandit_camp_name']);
+                } else {
+                    $jsVillageName = addslashes($donnees['ville_name']);
+                }
                 $map_js.= ",\"". $jsVillageName. "\",\"". addslashes($donnees['user_username']). "\",\"". $donnees['ville_pop']. "\",\"". addslashes($donnees['aliance_name']). "\",\"". $donnees['user_tribe']. "\"]\n";
             }
         } elseif ($donnees['map_oasis']!= 0) {

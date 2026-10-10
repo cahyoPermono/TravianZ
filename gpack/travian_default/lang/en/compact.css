@@ -9047,6 +9047,9 @@ div#map div#map_content div.bandit_t3 {
 div#map div#map_content div.bandit_t4 {
     background-image: url("../../img/m/bandit_t4.png");
 }
+div#map div#map_content div.assassin_sanctuary {
+    background-image: url("../../img/m/assassin_sanctuary.png");
+}
 div#map div#map_content div.t0 {
     background-image: url("../../img/m/t0.gif");
 }
