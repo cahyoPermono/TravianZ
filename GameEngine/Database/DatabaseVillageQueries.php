@@ -551,11 +551,23 @@ trait DatabaseVillageQueries {
 
 	    // load the oasis regeneration (in-game) and units generation (during install) SQL file
 	    // and replace village IDs for the given $wid
-	    $sqlFile = !empty($autoprefix) && is_file($autoprefix."var/db/datagen-oasis-troops-regen.sql")
-	        ? $autoprefix."var/db/datagen-oasis-troops-regen.sql"
-	        : (is_file(dirname(__DIR__, 2)."/var/db/datagen-oasis-troops-regen.sql")
-	            ? dirname(__DIR__, 2)."/var/db/datagen-oasis-troops-regen.sql"
-	            : "../var/db/datagen-oasis-troops-regen.sql");
+	    $candidates = [
+	        dirname(__DIR__, 2) . "/var/db/datagen-oasis-troops-regen.sql",
+	        (!empty($autoprefix) ? $autoprefix : "") . "var/db/datagen-oasis-troops-regen.sql",
+	        __DIR__ . "/../../var/db/datagen-oasis-troops-regen.sql",
+	        "../var/db/datagen-oasis-troops-regen.sql"
+	    ];
+	    $sqlFile = null;
+	    foreach ($candidates as $cand) {
+	        if (!empty($cand) && is_file($cand)) {
+	            $sqlFile = $cand;
+	            break;
+	        }
+	    }
+	    if (!$sqlFile) {
+	        error_log("DatabaseVillageQueries::regenerateOasisUnits: SQL template var/db/datagen-oasis-troops-regen.sql not found");
+	        return false;
+	    }
 	    $str = file_get_contents($sqlFile);
 	    $str = preg_replace(["'%PREFIX%'", "'%VILLAGEID%'", "'%NATURE_REG_TIME%'"], [TB_PREFIX, $wid, ($automation ? NATURE_REGTIME : -1)], $str);
 	    $result = $this->dblink->multi_query($str);

@@ -54,11 +54,23 @@ trait DatabaseSystemQueries {
             }
 
             // load the DB structure SQL file
-            $sqlFile = !empty($autoprefix) && is_file($autoprefix."var/db/struct.sql")
-                ? $autoprefix."var/db/struct.sql"
-                : (is_file(dirname(__DIR__, 2)."/var/db/struct.sql")
-                    ? dirname(__DIR__, 2)."/var/db/struct.sql"
-                    : "../var/db/struct.sql");
+            $candidates = [
+                dirname(__DIR__, 2) . "/var/db/struct.sql",
+                (!empty($autoprefix) ? $autoprefix : "") . "var/db/struct.sql",
+                __DIR__ . "/../../var/db/struct.sql",
+                "../var/db/struct.sql"
+            ];
+            $sqlFile = null;
+            foreach ($candidates as $cand) {
+                if (!empty($cand) && is_file($cand)) {
+                    $sqlFile = $cand;
+                    break;
+                }
+            }
+            if (!$sqlFile) {
+                error_log("DatabaseSystemQueries::createTables: SQL template var/db/struct.sql not found");
+                return false;
+            }
             $str = file_get_contents($sqlFile);
             $str = preg_replace("'%PREFIX%'", TB_PREFIX, $str);
             $result = $this->dblink->multi_query($str);
@@ -133,11 +145,23 @@ trait DatabaseSystemQueries {
             }
 
             // load the data generation SQL file
-            $sqlFile = !empty($autoprefix) && is_file($autoprefix."var/db/datagen-world-data.sql")
-                ? $autoprefix."var/db/datagen-world-data.sql"
-                : (is_file(dirname(__DIR__, 2)."/var/db/datagen-world-data.sql")
-                    ? dirname(__DIR__, 2)."/var/db/datagen-world-data.sql"
-                    : "../var/db/datagen-world-data.sql");
+            $candidates = [
+                dirname(__DIR__, 2) . "/var/db/datagen-world-data.sql",
+                (!empty($autoprefix) ? $autoprefix : "") . "var/db/datagen-world-data.sql",
+                __DIR__ . "/../../var/db/datagen-world-data.sql",
+                "../var/db/datagen-world-data.sql"
+            ];
+            $sqlFile = null;
+            foreach ($candidates as $cand) {
+                if (!empty($cand) && is_file($cand)) {
+                    $sqlFile = $cand;
+                    break;
+                }
+            }
+            if (!$sqlFile) {
+                error_log("DatabaseSystemQueries::populateWorldData: SQL template var/db/datagen-world-data.sql not found");
+                return -1;
+            }
             $str = file_get_contents($sqlFile);
             $str = preg_replace(["'%PREFIX%'", "'%WORLDSIZE%'"], [TB_PREFIX, WORLD_MAX], $str);
             $result = $this->dblink->multi_query($str);
