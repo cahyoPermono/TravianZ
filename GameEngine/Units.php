@@ -1340,7 +1340,11 @@ class Units {
         
         if(isset($unitArray[10]) && $unitArray[10] > 0){
             $heroUnit = $database->getHeroField($owner, 'unit');
-            $speeds[]  = $GLOBALS['u'.$heroUnit]['speed'];
+            if (!empty($heroUnit) && isset($GLOBALS['u'.$heroUnit]['speed'])) {
+                $speeds[]  = $GLOBALS['u'.$heroUnit]['speed'];
+            } else {
+                $speeds[] = ($tribe == 2) ? 14 : 7;
+            }
         }
 
         // Defensive: the tribe-offset loop above only inspects the owner's

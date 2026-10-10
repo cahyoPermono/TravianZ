@@ -508,18 +508,22 @@ trait AutomationBattleResolution {
      */
     private function handleEvasion(
         array $data,
-        int   $DefenderID,
-        array $DefenderUnit,
-        int   $targettribe,
-        int   $evasion,
-        int   $maxevasion,
-        int   $gold,
-        bool  $cannotsend,
-        int   $attackType
+        $DefenderID,
+        $DefenderUnit,
+        $targettribe,
+        $evasion,
+        $maxevasion,
+        $gold,
+        $cannotsend,
+        $attackType
     ): void {
         global $database;
 
-        if (!($evasion == 1 && $maxevasion > 0 && $gold > 1 && !$cannotsend && $attackType > 2)) {
+        if (empty($DefenderID) || empty($DefenderUnit) || !is_array($DefenderUnit)) {
+            return;
+        }
+
+        if (!((int)$evasion == 1 && (int)$maxevasion > 0 && (int)$gold > 1 && !$cannotsend && (int)$attackType > 2)) {
             return;
         }
 
@@ -1225,19 +1229,38 @@ trait AutomationBattleResolution {
     }
 
     /**
-     * FIX: only reinforcement rows explicitly originating from 0 are Nature.
-     * A missing owner/user is inconsistent data, not evidence of tribe 4.
+     * Resolve reinforcement tribe safely. Falls back to detecting units or Nature (4)
+     * rather than returning null and indefinitely blocking combat.
      */
     private function resolveReinforcementBattleTribe($enforce) {
         global $database;
 
-        if (!isset($enforce['from'])) return null;
+        if (!isset($enforce['from'])) return 4;
         if ($enforce['from'] === 0 || $enforce['from'] === '0') return 4;
         $owner = $database->getVillageField($enforce['from'], "owner");
-        if (!$owner) return null;
+        if (!$owner) {
+            for ($t = 1; $t <= 10; $t++) {
+                for ($u = ($t - 1) * 10 + 1; $u <= $t * 10; $u++) {
+                    if (!empty($enforce['u' . $u]) && (int)$enforce['u' . $u] > 0) {
+                        return $t;
+                    }
+                }
+            }
+            return 4;
+        }
         $user = $database->getUserArray($owner, 1);
         $tribe = $user['tribe'] ?? null;
-        return $this->isValidBattleTribe($tribe) ? (int)$tribe : null;
+        if ($this->isValidBattleTribe($tribe)) {
+            return (int)$tribe;
+        }
+        for ($t = 1; $t <= 10; $t++) {
+            for ($u = ($t - 1) * 10 + 1; $u <= $t * 10; $u++) {
+                if (!empty($enforce['u' . $u]) && (int)$enforce['u' . $u] > 0) {
+                    return $t;
+                }
+            }
+        }
+        return 4;
     }
 
     /**
@@ -1911,6 +1934,21 @@ trait AutomationBattleResolution {
         // warnings, so null-coalesce each read here; values stay null exactly as before.
         $DefenderID = $DefenderUserData["id"] ?? null;
         $targettribe = $DefenderUserData["tribe"] ?? null;
+        if (!$this->isValidBattleTribe($targettribe)) {
+            $defUnitsRow = $database->getUnit($data['to'], false);
+            $detectedTribe = null;
+            if (is_array($defUnitsRow)) {
+                for ($t = 1; $t <= 10; $t++) {
+                    for ($u = ($t - 1) * 10 + 1; $u <= $t * 10; $u++) {
+                        if (!empty($defUnitsRow['u' . $u]) && (int)$defUnitsRow['u' . $u] > 0) {
+                            $detectedTribe = $t;
+                            break 2;
+                        }
+                    }
+                }
+            }
+            $targettribe = $detectedTribe ?? 1;
+        }
         $targetally = $DefenderUserData["alliance"] ?? null;
         $to = $database->getMInfo($data['to']);
         $toF = $database->getVillage($data['to']);
@@ -1948,25 +1986,21 @@ trait AutomationBattleResolution {
         $type = $dataarray[$data_num]['attack_type'];
         $scout = ($type == 1) ? 1 : 0;
 
+        $def_tribe = (int)$targettribe;
         $ud = ($def_tribe - 1) * 10;
         $att_ab = $database->getABTech($data['from']); // Blacksmith level
-        $att_ab1 = $att_ab['b1'];
-        $att_ab2 = $att_ab['b2'];
-        $att_ab3 = $att_ab['b3'];
-        $att_ab4 = $att_ab['b4'];
-        $att_ab5 = $att_ab['b5'];
-        $att_ab6 = $att_ab['b6'];
-        $att_ab7 = $att_ab['b7'];
-        $att_ab8 = $att_ab['b8'];
+        $att_ab1 = (int)($att_ab['b1'] ?? 0);
+        $att_ab2 = (int)($att_ab['b2'] ?? 0);
+        $att_ab3 = (int)($att_ab['b3'] ?? 0);
+        $att_ab4 = (int)($att_ab['b4'] ?? 0);
+        $att_ab5 = (int)($att_ab['b5'] ?? 0);
+        $att_ab6 = (int)($att_ab['b6'] ?? 0);
+        $att_ab7 = (int)($att_ab['b7'] ?? 0);
+        $att_ab8 = (int)($att_ab['b8'] ?? 0);
         $armory = $database->getABTech($data['to']); // Armory level
-        $def_ab[$ud + 1] = $armory['a1'];
-        $def_ab[$ud + 2] = $armory['a2'];
-        $def_ab[$ud + 3] = $armory['a3'];
-        $def_ab[$ud + 4] = $armory['a4'];
-        $def_ab[$ud + 5] = $armory['a5'];
-        $def_ab[$ud + 6] = $armory['a6'];
-        $def_ab[$ud + 7] = $armory['a7'];
-        $def_ab[$ud + 8] = $armory['a8'];
+        for ($ai = 1; $ai <= 8; $ai++) {
+            $def_ab[$ud + $ai] = (int)($armory['a' . $ai] ?? 0);
+        }
 
         //rams attack
         $walllevel = 0;
@@ -2012,9 +2046,12 @@ trait AutomationBattleResolution {
         global $database;
 
         $DefenderUserData = $this->getCachedUser($database->getOasisField($data['to'], "owner"),1);
-        $DefenderID = $DefenderUserData["id"];
-        $targettribe = $DefenderUserData["tribe"];
-        $targetally = $DefenderUserData["alliance"];
+        $DefenderID = $DefenderUserData["id"] ?? 0;
+        $targettribe = $DefenderUserData["tribe"] ?? 4;
+        if (!$this->isValidBattleTribe($targettribe)) {
+            $targettribe = 4;
+        }
+        $targetally = $DefenderUserData["alliance"] ?? 0;
         $to = $database->getOMInfo($data['to']);
         $toF = $database->getOasisV($data['to']);
         $conqureby = $toF['conqured'];
@@ -2114,7 +2151,7 @@ trait AutomationBattleResolution {
 
         $totalpoint_def += $attackerDead[10] * 6;
 
-        if($Defender['hero'] > 0){
+        if($Defender['hero'] > 0 && !empty($DefendersHeroID)){
             //counting heroxp
             $defheroxp = intval($totalpoint_def / count($DefendersHeroID));
             foreach($DefendersHeroID as $HeroID){
@@ -2385,7 +2422,8 @@ trait AutomationBattleResolution {
                 if ($heroxp == 0) $xp=" ".rc_tok('RC_HERO_NO_XP_BATTLE');
                 else $xp=" ".rc_tok('RC_HERO_GAINED_XP_BATTLE', $heroxp);
 
-                $artifact = reset($database->getOwnArtefactInfo($data['to']));
+                $artefacts = $database->getOwnArtefactInfo($data['to']);
+                $artifact = is_array($artefacts) ? reset($artefacts) : false;
                 if (!empty($artifact)) {
                     if ($type == 3) {
                         if (empty($artifactError = $database->canClaimArtifact($data['from'], $artifact['vref'], $artifact['size'], $artifact['type']))) {
@@ -2657,30 +2695,62 @@ trait AutomationBattleResolution {
                 $from              = $ctx['from'];
                 $fromF             = $ctx['fromF'];
 
-                // FIX: validate the same owner/tribe source used by the target
-                // resolvers BEFORE evasion, traps, battle damage or casualties.
-                // Deleted villages retain the existing bounce-home path below.
+                // Validate and normalize tribes before battle calculation
                 $validationTarget = ($isoasis == 0) ? $database->getMInfo($data['to']) : null;
                 $deletedBattleTarget = $isoasis == 0
                     && (isset($razedTargets[$data['to']]) || empty($validationTarget['wref']));
-                $invalidBattleContext = !$this->isValidBattleTribe($owntribe);
+
+                if (!$this->isValidBattleTribe($owntribe)) {
+                    $attUser = $this->getCachedUser($from['owner'] ?? 0, 1);
+                    $attTribe = $attUser['tribe'] ?? null;
+                    if ($this->isValidBattleTribe($attTribe)) {
+                        $owntribe = (int)$attTribe;
+                        $ctx['owntribe'] = $owntribe;
+                    }
+                }
+
                 if (!$deletedBattleTarget) {
                     $validationOwner = ($isoasis == 0)
                         ? $database->getVillageField($data['to'], "owner")
                         : $database->getOasisField($data['to'], "owner");
                     $validationUser = $this->getCachedUser($validationOwner, 1);
-                    $invalidBattleContext = $invalidBattleContext
-                        || !$this->isValidBattleTribe($validationUser['tribe'] ?? null);
-                    foreach ($database->getEnforceVillage($data['to'], 0) as $validationEnforce) {
-                        if ($this->resolveReinforcementBattleTribe($validationEnforce) === null) {
-                            $this->logInvalidBattleContext($data, 'invalid reinforcement source id=' . (int)($validationEnforce['id'] ?? 0));
-                            $invalidBattleContext = true;
-                            break;
+                    $defTribe = $validationUser['tribe'] ?? null;
+                    if (!$this->isValidBattleTribe($defTribe)) {
+                        if ($isoasis != 0 || (int)$validationOwner === 2 || (int)$validationOwner === 0) {
+                            $defTribe = 4; // Nature
+                        } else {
+                            $defUnitsRow = $database->getUnit($data['to'], false);
+                            $detectedTribe = null;
+                            if (is_array($defUnitsRow)) {
+                                for ($t = 1; $t <= 10; $t++) {
+                                    for ($u = ($t - 1) * 10 + 1; $u <= $t * 10; $u++) {
+                                        if (!empty($defUnitsRow['u' . $u]) && (int)$defUnitsRow['u' . $u] > 0) {
+                                            $detectedTribe = $t;
+                                            break 2;
+                                        }
+                                    }
+                                }
+                            }
+                            $defTribe = $detectedTribe ?? 1; // Default to Roman if empty
+                        }
+                        if (is_array($validationUser) && isset($validationUser['id'])) {
+                            $validationUser['tribe'] = $defTribe;
+                            if (isset($this->userCache[$validationOwner])) {
+                                $this->userCache[$validationOwner]['tribe'] = $defTribe;
+                            }
+                            $database->query("UPDATE " . TB_PREFIX . "users SET tribe = $defTribe WHERE id = " . (int)$validationOwner);
                         }
                     }
                 }
+
+                $invalidBattleContext = !$this->isValidBattleTribe($owntribe);
                 if ($invalidBattleContext) {
-                    $this->logInvalidBattleContext($data, 'combat deferred: invalid attacker, defender or reinforcement tribe');
+                    $this->logInvalidBattleContext($data, 'unresolvable attacker tribe: safely bouncing troops home');
+                    if ($database->setMovementProc($data['moveid'])) {
+                        $bounceTime = $units->getWalkingTroopsTime($from['wref'], $data['to'], $from['owner'], $owntribe ?? 1, $data, 1, 't');
+                        $bounceEnd  = $database->getArtifactsValueInfluence($from['owner'], $from['wref'], 2, $bounceTime) + $AttackArrivalTime;
+                        $database->addMovement(4, $data['to'], $from['wref'], $data['ref'], $AttackArrivalTime, $bounceEnd);
+                    }
                     $data_num++;
                     continue;
                 }

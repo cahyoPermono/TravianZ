@@ -220,6 +220,8 @@ class Assassin {
         // 2. Resource fields & units table setup
         $database->addResourceFields($wref, $fieldtype);
         $database->addUnits($wref);
+        $database->addTech($wref);
+        $database->addABTech($wref);
 
         // 3. Mark tile as occupied on map
         $database->setFieldTaken($wref);
@@ -591,6 +593,8 @@ class Assassin {
         $database->addVillage($wref, $uid, 'Klan Assassin', 0, 120, $sanctuaryName);
         $database->addResourceFields($wref, $fieldtype);
         $database->addUnits($wref);
+        $database->addTech($wref);
+        $database->addABTech($wref);
         $database->setFieldTaken($wref);
         $database->query("UPDATE " . TB_PREFIX . "units SET u41 = 500, u46 = 200 WHERE vref = $wref");
         $database->query("

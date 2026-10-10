@@ -323,6 +323,8 @@ class BanditCamp {
         // 2. Resource fields & units table setup
         $database->addResourceFields($wref, $fieldtype);
         $database->addUnits($wref);
+        $database->addTech($wref);
+        $database->addABTech($wref);
 
         // 3. Mark tile as occupied on map
         $database->setFieldTaken($wref);

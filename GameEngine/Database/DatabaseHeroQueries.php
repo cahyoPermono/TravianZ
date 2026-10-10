@@ -88,9 +88,10 @@ trait DatabaseHeroQueries {
 
         $q = "SELECT * FROM ".TB_PREFIX."hero WHERE uid = $uid AND dead = 0";
         $result = mysqli_query($this->dblink,$q);
+        $res = $this->mysqli_fetch_all($result);
 
-        self::$heroFieldCache[$uid.$field] = $this->mysqli_fetch_all($result)[0];
-        return self::$heroFieldCache[$uid.$field][$field];
+        self::$heroFieldCache[$uid.$field] = $res[0] ?? null;
+        return self::$heroFieldCache[$uid.$field][$field] ?? null;
 	}
 
 	function modifyHero($column,$value,$heroid,$mode=null) {

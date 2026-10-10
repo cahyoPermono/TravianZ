@@ -400,6 +400,14 @@ trait DatabaseTroopQueries {
 
         // return a single value
         if (!$array_passed) {
+            if (empty($result[0])) {
+                $this->addABTech($vid[0]);
+                $result[0] = [
+                    'vref' => $vid[0],
+                    'b1' => 0, 'b2' => 0, 'b3' => 0, 'b4' => 0, 'b5' => 0, 'b6' => 0, 'b7' => 0, 'b8' => 0,
+                    'a1' => 0, 'a2' => 0, 'a3' => 0, 'a4' => 0, 'a5' => 0, 'a6' => 0, 'a7' => 0, 'a8' => 0
+                ];
+            }
             self::$abTechCache[$vid[0]] = $result[0];
         } else {
             if ($result && count($result)) {
@@ -476,6 +484,13 @@ trait DatabaseTroopQueries {
 		$q = "SELECT * from " . TB_PREFIX . "tdata where vref = $vid";
 		$result = mysqli_query($this->dblink,$q);
         $cachedData[$vid] = mysqli_fetch_assoc($result);
+        if (empty($cachedData[$vid])) {
+            $this->addTech($vid);
+            $cachedData[$vid] = ['vref' => $vid];
+            for ($i = 1; $i <= 80; $i++) {
+                $cachedData[$vid]['t' . $i] = 0;
+            }
+        }
 
         return $cachedData[$vid];
 	}
