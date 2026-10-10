@@ -20,7 +20,7 @@ if ($session->goldclub == 1) {
     $cost = '<span class="gold-cost">(costs: <img src="'.$goldIcon.'" alt="'.GOLD.'" title="'.GOLD.'"/>1)</span>';
 
     $masterBuilderHtml = $canUse
-       ? '<br><a class="build" href="'.htmlspecialchars($url, ENT_QUOTES, 'UTF-8').'">'.$label.'</a> '.$cost
+       ? '<br><a class="build" href="'.htmlspecialchars($url, ENT_QUOTES, 'UTF-8').'" onclick="return confirm(\'Gunakan 1 Gold untuk antrean Master Builder?\');">'.$label.'</a> '.$cost
         : '<br><span class="none">'.$label.'</span> '.$cost;
 }
 

@@ -96,7 +96,7 @@ if (in_array($bindicate, [2,3,7]) && $session->goldclub == 1) {
     echo '<br/>';
     $masterHref = ($id <= 18? 'dorf1.php' : 'dorf2.php'). "?master=$bid&id=$id&c=$session->checker";
     if ($session->gold >= 1 && $village->master == 0) {
-        echo '<a class="build" href="'.$masterHref.'">'.CONSTRUCTING_MASTER_BUILDER.'</a>';
+        echo '<a class="build" href="'.$masterHref.'" onclick="return confirm(\'Gunakan 1 Gold untuk antrean Master Builder?\');">'.CONSTRUCTING_MASTER_BUILDER.'</a>';
     } else {
         echo '<span class="none">'.CONSTRUCTING_MASTER_BUILDER.'</span>';
     }

@@ -71,6 +71,13 @@ if (isset($_POST['t4action'])) {
             (int) $_POST['qty'], (int) $_POST['price'], (int) $_POST['duration']
         );
         $t4Msg = ($t4Result > 0) ? HERO_AUC_SELL_OK : HERO_AUC_SELL_FAIL;
+    } elseif ($_POST['t4action'] === 'cancel_sale' && isset($_POST['aucid'])) {
+        $t4Cancel = $t4Auction->cancelAuction($session->uid, (int) $_POST['aucid']);
+        if ($t4Cancel) {
+            $t4Msg = defined('HERO_AUC_CANCEL_OK') ? HERO_AUC_CANCEL_OK : 'Barang berhasil ditarik dari lelang dan dikembalikan ke inventory.';
+        } else {
+            $t4Msg = defined('HERO_AUC_CANCEL_FAIL') ? HERO_AUC_CANCEL_FAIL : 'Gagal membatalkan lelang barang.';
+        }
     }
 }
 
@@ -568,7 +575,7 @@ $t4LblPrice = defined('HERO_AUC_PRICE_SHORT') ? HERO_AUC_PRICE_SHORT : HERO_AUC_
 <?php if (count($t4MySales)) { ?>
 <table id="distribution" class="t4auc-mini" cellpadding="1" cellspacing="1" style="margin-top:10px;">
     <thead>
-        <tr><th colspan="3"><?php echo HERO_AUC_MY_SALES; ?></th></tr>
+        <tr><th colspan="4"><?php echo HERO_AUC_MY_SALES; ?></th></tr>
     </thead>
     <tbody>
     <?php foreach ($t4MySales as $t4A) { ?>
@@ -584,6 +591,15 @@ $t4LblPrice = defined('HERO_AUC_PRICE_SHORT') ? HERO_AUC_PRICE_SHORT : HERO_AUC_
                 <span class="t4auc-value"><?php echo number_format((int) $t4A['silver_current']); ?></span>
             </td>
             <td class="t4auc-time"><span id="timer<?php echo ++$session->timer; ?>"><?php echo $generator->getTimeFormat(max(0, $t4A['time_end'] - $t4Now)); ?></span></td>
+            <td style="text-align:center; width:65px;">
+                <form action="" method="POST" style="margin:0;" onsubmit="return confirm('Apakah Anda yakin ingin membatalkan lelang barang ini? Barang akan langsung dikembalikan ke tas / inventory Anda.');">
+                    <input type="hidden" name="t4action" value="cancel_sale">
+                    <input type="hidden" name="aucid" value="<?php echo (int) $t4A['id']; ?>">
+                    <button type="submit" style="background:#b3261e; color:#fff; border:1px solid #7c1a14; padding:2px 8px; border-radius:3px; cursor:pointer; font-size:11px; font-weight:bold;">
+                        ✖ Batal
+                    </button>
+                </form>
+            </td>
         </tr>
     <?php } ?>
     </tbody>
@@ -605,7 +621,7 @@ $t4LblPrice = defined('HERO_AUC_PRICE_SHORT') ? HERO_AUC_PRICE_SHORT : HERO_AUC_
              * intentionat, ca sa nu se schimbe alinierea pe coloane.
              */
             ?>
-            <form action="" method="POST" style="margin:0;">
+            <form action="" method="POST" style="margin:0;" onsubmit="return confirm('Apakah harga awal dan jumlah barang lelang sudah benar?');">
             <input type="hidden" name="t4action" value="sell">
             <td>
                 <span class="t4auc-lbl"><?php echo HERO_AUC_ITEM; ?></span>

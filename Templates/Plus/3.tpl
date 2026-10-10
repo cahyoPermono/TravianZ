@@ -102,21 +102,23 @@ if (!function_exists('formatRemainingTime')) {
  * @param bool $banned  contul e blocat
  */
 if (!function_exists('plusActionCell')) {
-    function plusActionCell($gold, $cost, $until, $linkId, $banned = false)
+    function plusActionCell($gold, $cost, $until, $linkId, $banned = false, $featureName = '')
     {
-        $guard = 'onclick="if(this.dataset.c) return false; this.dataset.c=1;'
+        $cost = (int)$cost;
+        $label = ((int) $until > time()) ? EXTEND : ACTIVATE;
+        $nameStr = $featureName ? " $featureName" : "";
+        $confirmMsg = addslashes("Apakah Anda yakin ingin menggunakan {$cost} Gold untuk " . strtolower($label) . " fitur{$nameStr}?");
+        $guard = 'onclick="if(!confirm(\'' . $confirmMsg . '\')) return false;'
+               . ' if(this.dataset.c) return false; this.dataset.c=1;'
                . ' this.style.pointerEvents=\'none\'; this.style.opacity=\'0.5\';"';
 
         if ($banned) {
             return '<a href="banned.php"><span class="none">' . TOO_LITTLE_GOLD . '</span></a>';
         }
 
-        if ((int) $gold < (int) $cost) {
+        if ((int) $gold < $cost) {
             return '<a href="plus.php?s=1"><span class="none">' . TOO_LITTLE_GOLD . '</span></a>';
         }
-
-        // activ inca -> prelungeste; altfel -> activeaza
-        $label = ((int) $until > time()) ? EXTEND : ACTIVATE;
 
         return '<a href="plus.php?id=' . (int) $linkId . '" ' . $guard . '><span>' . $label . '</span></a>';
     }
@@ -178,7 +180,7 @@ if ((int) $golds['gold'] === 0) {
             ?></td>
             <td class="cost"><img src="img/x.gif" class="gold" />10</td>
             <td class="act"><?php
-                echo plusActionCell($golds['gold'], 10, $golds['plus'], 8, false);
+                echo plusActionCell($golds['gold'], 10, $golds['plus'], 8, false, 'Travian Plus');
             ?></td>
         </tr>
 
@@ -202,7 +204,7 @@ if ((int) $golds['gold'] === 0) {
             <td class="dur"><?php echo $plusDuration; ?></td>
             <td class="cost"><img src="img/x.gif" class="gold" />5</td>
             <td class="act"><span class="none"><?php
-                echo plusActionCell($golds['gold'], 5, $until, $plusBonus['id'], $plusIsBanned);
+                echo plusActionCell($golds['gold'], 5, $until, $plusBonus['id'], $plusIsBanned, '+25% ' . $plusBonus['label']);
             ?></span></td>
         </tr>
         <?php } ?>
@@ -215,7 +217,7 @@ if ((int) $golds['gold'] === 0) {
             <td class="cost"><img src="img/x.gif" class="gold" />2</td>
             <td class="act"><span class="none"><?php
                 if ((int) $golds['gold'] > 1) {
-                    echo '<a href="plus.php?id=7" onclick="if(this.dataset.c) return false;'
+                    echo '<a href="plus.php?id=7" onclick="if(!confirm(\'Gunakan 2 Gold untuk menyelesaikan semua pembangunan sekarang?\')) return false; if(this.dataset.c) return false;'
                        . ' this.dataset.c=1; this.style.pointerEvents=\'none\';"><span>'
                        . GOLD_ON . '</span></a>';
                 } else {
@@ -286,7 +288,7 @@ if (class_exists('GoldShop')):
             <td class="cost"><img src="img/x.gif" class="gold" />100</td>
             <td class="act"><?php
                 if ((int) $golds['goldclub'] === 0) {
-                    echo plusActionCell($golds['gold'], 100, 0, 15, false);
+                    echo plusActionCell($golds['gold'], 100, 0, 15, false, 'Club Gold');
                 } else {
                     echo '<a href="plus.php?id=3"><span class="none">' . GOLD_ON . '</span></a>';
                 }

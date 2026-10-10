@@ -177,7 +177,7 @@ $completed = isset($_GET['c']);
 
             <p id="submitButton">
                 <?php if ($session->userinfo['gold'] >= 3):?>
-                    <a href="javascript:document.snd.submit();"><?php echo TRADE_RESOURCES;?></a>
+                    <a href="javascript:if(confirm('Gunakan 3 Gold untuk menukar sumber daya dengan Pedagang NPC?')) document.snd.submit();"><?php echo TRADE_RESOURCES;?></a>
                     <span class="none">(<?php echo COSTS;?>: <img src="img/x.gif" class="gold_g" alt="<?php echo GOLD;?>" title="<?php echo GOLD;?>" /><b>3</b>)</span>
                 <?php else:?>
                     <span class="none"><?php echo TRADE_RESOURCES;?></span> (<?php echo COSTS;?>: <img src='img/x.gif' class='gold' alt='<?php echo GOLD;?>' title='<?php echo GOLD;?>' /><b>3</b>)

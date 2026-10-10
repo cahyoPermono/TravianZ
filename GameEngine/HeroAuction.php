@@ -230,6 +230,64 @@ class HeroAuction
         return $auctionId;
     }
 
+    /**
+     * Seller-facing cancellation:
+     * A player can cancel their own open auction (e.g. if mispriced).
+     * If someone has already placed a bid, their escrowed silver (bid_max) is refunded.
+     * The item is returned to the seller's inventory.
+     * The auction row is set to status = ST_EXPIRED.
+     * Returns true on success, false on failure.
+     */
+    public function cancelAuction($uid, $auctionId)
+    {
+        $uid = (int) $uid;
+        $auctionId = (int) $auctionId;
+
+        // Snapshot before claiming so we verify ownership and know what to restore
+        $stmt = $this->db->prepare(
+            "SELECT seller, itemid, stat_value, quantity, bidder, bid_max
+               FROM " . TB_PREFIX . "auction
+              WHERE id = ? AND seller = ? AND status = " . self::ST_OPEN . " LIMIT 1"
+        );
+        $stmt->bind_param('ii', $auctionId, $uid);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $a   = $res->fetch_assoc();
+        $stmt->close();
+        if (!$a) {
+            return false;
+        }
+
+        // Race-safe claim straight to EXPIRED so processFinished cannot touch it
+        $stmt = $this->db->prepare(
+            "UPDATE " . TB_PREFIX . "auction SET status = " . self::ST_EXPIRED . "
+              WHERE id = ? AND seller = ? AND status = " . self::ST_OPEN . " LIMIT 1"
+        );
+        $stmt->bind_param('ii', $auctionId, $uid);
+        $stmt->execute();
+        $claimed = $stmt->affected_rows > 0;
+        $stmt->close();
+        if (!$claimed) {
+            return false;
+        }
+
+        $heroItems = new HeroItems();
+        // If there was an active bidder, refund their full bid_max escrow
+        if ((int) $a['bidder'] > 0 && (int) $a['bid_max'] > 0) {
+            $heroItems->addSilver((int) $a['bidder'], (int) $a['bid_max']);
+            global $database;
+            if (isset($database) && method_exists($database, 'addNotice')) {
+                $database->addNotice((int) $a['bidder'], 0, 0, NTYPE_AUCTION_REPORT,
+                    'Auction cancelled',
+                    'role=bidder&cancelled=1&itemid=' . (int) $a['itemid'] . '&qty=' . (int) $a['quantity'], time());
+            }
+        }
+
+        // Return the item back to the seller's inventory
+        $heroItems->addItem($uid, (int) $a['itemid'], (int) $a['quantity'], (int) $a['stat_value']);
+        return true;
+    }
+
     /* =========================================================================
      *  BIDDING (proxy model)
      * ===================================================================== */
