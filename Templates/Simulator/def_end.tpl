@@ -113,6 +113,19 @@
 						    <td class=\"research\"></td>
 				    	</tr>";
                     }
+                    if(in_array(10,$target)) {
+					if(isset($_POST['wall10']) && $_POST['wall10'] != 0){
+					$wall10 = (int)$_POST['wall10'];
+					}else{
+					$wall10 = 0;
+					}
+                    echo "<tr>
+						    <td class=\"ico\"><img src=\"img/x.gif\" class=\"unit ubarr\" alt=\"Benteng Kedaton\" title=\"Benteng Kedaton\" /></td>
+						    <td class=\"desc\">Benteng Kedaton</td>
+						    <td class=\"value\"><input class=\"text\" type=\"text\" name=\"wall10\" value=\"$wall10\" maxlength=\"2\" title=\"level Benteng Kedaton\" /></td>
+						    <td class=\"research\"></td>
+					    </tr>";
+                    }
                     ?>
                         <tr>
 					    <td class="ico"><img src="img/x.gif" class="unit upal" alt="<?php echo PALACE; ?>" title="<?php echo PALACE; ?>" /></td>

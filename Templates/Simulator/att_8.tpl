@@ -165,6 +165,12 @@
                             <td class="desc"><?php echo TZ_HERO_FIGHTING_STRENGTH; ?></td>
                             <td class="value"><input class="text" type="text" name="h_off" value="<?php echo $form->getValue('h_off')==""? 0 : $form->getValue('h_off'); ?>" maxlength="5" title="<?php echo TZ_HERO_FIGHTING_STRENGTH; ?>" /></td>
                             <td class="research"></td>
+                    </tr>
+                    <tr>
+                            <td class="ico"><img src="img/x.gif" class="unit uhero" title="<?php echo U0; ?>" alt="<?php echo U0; ?>" /></td>
+                            <td class="desc">Hero Health (HP) %</td>
+                            <td class="value"><input class="text" type="text" name="h_hp" value="<?php echo $form->getValue('h_hp')==""? 100 : $form->getValue('h_hp'); ?>" maxlength="3" title="Hero Health (HP) %" /></td>
+                            <td class="research"></td>
                     </tr></table>
 			</td>
 		</tr>

@@ -23,6 +23,7 @@
 
 include_once("Weather.php");
 include_once("Plague.php");
+include_once(__DIR__ . "/Data/unitdata.php");
 
 class Battle {
 
@@ -55,17 +56,15 @@ class Battle {
             isset($post['a2_v6']) ||
             isset($post['a2_v7']) ||
             isset($post['a2_v8']) ||
-            isset($post['a2_v9'])
+            isset($post['a2_v9']) ||
+            isset($post['a2_v10'])
         )
     ) {
         return;
     }
 
-    // [Phase 3] a1_v intra in aritmetica de sloturi ((trib-1)*10+1) din simulate();
-    // in afara 1..9 producea chei u<negative>/inexistente. Invalid => iesire,
-    // exact ca celelalte validari de mai sus. (Schimbare de comportament DOAR
-    // pentru input invalid.)
-    if ((int)$post['a1_v'] < 1 || (int)$post['a1_v'] > 9) {
+    // Support tribes 1 to 10 (including Nusantara)
+    if ((int)$post['a1_v'] < 1 || (int)$post['a1_v'] > 10) {
         return;
     }
 
@@ -75,7 +74,7 @@ class Battle {
      * TARGET BUILD
      ******************************************************************/
     $target = [];
-    for ($i = 1; $i <= 9; $i++) {
+    for ($i = 1; $i <= 10; $i++) {
         if (!empty($post['a2_v'.$i])) {
             $target[] = $i;
         }
@@ -96,13 +95,17 @@ class Battle {
         : 0;
 
     /******************************************************************
-     * UNIT SUM CHECK
+     * UNIT SUM CHECK + HERO CHECK
      ******************************************************************/
     $sum = 0;
     for ($i = 1; $i <= 10; $i++) {
         $sum += isset($post['a1_'.$i]) ? (int)$post['a1_'.$i] : 0;
     }
-    if ($sum <= 0) {
+    $hasHero = (!empty($post['h_off']) && (int)$post['h_off'] > 0) || (!empty($post['h_off_bonus']) && (int)$post['h_off_bonus'] > 0);
+    if ($sum <= 0 && !$hasHero) {
+        if (is_object($form)) {
+            $form->valuearray = $post;
+        }
         return;
     }
 
@@ -117,7 +120,7 @@ class Battle {
      * WALL LEVELS (OPTIMIZED LOOP)
      ******************************************************************/
     $post['walllevel'] = 0;
-    for ($i = 1; $i <= 9; $i++) {
+    for ($i = 1; $i <= 10; $i++) {
         if (!isset($post['wall'.$i])) {
             continue;
         }
@@ -152,7 +155,51 @@ class Battle {
         $_POST['result'][8] = $oldWallLevel;
         $post['walllevel'] = $oldWallLevel;
     }
-    $form->valuearray = $post;
+
+    // Hero battle simulation outcome
+    if (!empty($post['h_off']) || !empty($post['h_off_bonus'])) {
+        $lossRatio = (float)($_POST['result'][1] ?? 0);
+        $rawDamage = min(100, (int)round(100 * $lossRatio));
+
+        // T4 hero item damage reduction
+        global $session;
+        $simUid = isset($session->uid) ? (int)$session->uid : 0;
+        $reducedDamage = $rawDamage;
+        if ($simUid > 0 && class_exists('HeroBattleBonus') && HeroBattleBonus::enabled()) {
+            $reducedDamage = HeroBattleBonus::reduceDamage($simUid, $rawDamage);
+        }
+
+        // Army wiped out or extreme casualty triggers death
+        $sentTotal = 0;
+        $deadTotal = 0;
+        for ($i = 1; $i <= 10; $i++) {
+            $uSent = isset($post['a1_'.$i]) ? (int)$post['a1_'.$i] : 0;
+            $sentTotal += $uSent;
+            $deadTotal += isset($_POST['result']['casualties_attacker'][$i]) ? (int)$_POST['result']['casualties_attacker'][$i] : (int)round($uSent * $lossRatio);
+        }
+
+        $startHp = isset($post['h_hp']) && is_numeric($post['h_hp']) ? max(1, min(100, (int)$post['h_hp'])) : 100;
+        $armyWipedOut = ($sentTotal > 0 && $deadTotal >= $sentTotal) || ($sentTotal == 0 && $lossRatio >= 1.0);
+        $heroDead = ($armyWipedOut || $startHp <= $reducedDamage || $rawDamage > 90);
+        $finalDamage = $heroDead ? $startHp : $reducedDamage;
+        $remainHp = max(0, $startHp - $finalDamage);
+
+        $_POST['result']['hero'] = [
+            'sent' => true,
+            'start_hp' => $startHp,
+            'raw_damage' => $rawDamage,
+            'damage' => $finalDamage,
+            'remain_hp' => $remainHp,
+            'dead' => $heroDead ? 1 : 0,
+            'loss_ratio' => $lossRatio,
+            'h_off' => (int)($post['h_off'] ?? 0),
+            'h_off_bonus' => (int)($post['h_off_bonus'] ?? 0),
+        ];
+    }
+
+    if (is_object($form)) {
+        $form->valuearray = $post;
+    }
 }
 		
 	/*****************************************
@@ -349,10 +396,12 @@ class Battle {
      * SCOUT CHECK 
      ******************************************************************/
     $scout = 1;
+    $allScoutUnits = [4, 14, 23, 44, 52, 64, 74, 82, 94];
+    $scoutCount = 0;
 
     for ($i = $start; $i <= $start + 9; $i++) {
-
-        if (in_array($i, [4, 14, 23, 44, 52, 64, 74, 82])) {
+        if (in_array($i, $allScoutUnits)) {
+            $scoutCount += $attacker['u'.$i];
             continue;
         }
 
@@ -360,6 +409,12 @@ class Battle {
             $scout = 0;
             break;
         }
+    }
+
+    // A battle is ONLY a scout mission if scouts were actually sent,
+    // no regular troops were sent, and no hero with offensive strength was sent.
+    if ($scout == 1 && ($scoutCount <= 0 || $hero_strenght > 0)) {
+        $scout = 0;
     }
 
     /******************************************************************
@@ -516,6 +571,9 @@ class Battle {
     /******************************************************************
      * UNIT GROUP DEFINITIONS
      ******************************************************************/
+    if (empty($unitsbytype) || !isset($unitsbytype['cavalry'])) {
+        require_once __DIR__ . '/Data/unitdata.php';
+    }
     $calvaryLookup  = array_flip($unitsbytype['cavalry']);
     $catapultLookup = array_flip($unitsbytype['catapult']);
     $ramsLookup     = array_flip($unitsbytype['ram']);
@@ -1919,7 +1977,10 @@ class Battle {
             (int)$Attacker['u'.$i]
             - (int)$casualties[$y];
 
-        $max_bounty += $aliveUnits * (int)${'u'.$i}['cap'];
+        if ($aliveUnits > 0) {
+            global ${'u'.$i};
+            $max_bounty += $aliveUnits * (int)(${'u'.$i}['cap'] ?? 0);
+        }
     }
 
     return $max_bounty;
@@ -1996,7 +2057,10 @@ class Battle {
             continue;
         }
         global ${'u'.$y};
-        $unitData = ${'u'.$y};
+        if (empty(${'u'.$y})) {
+            require_once __DIR__ . '/Data/unitdata.php';
+        }
+        $unitData = ${'u'.$y} ?? ['di' => 0, 'dc' => 0, 'pop' => 1];
         $abLevel = isset($def_ab[$y])
             ? (int)$def_ab[$y]
             : 0;

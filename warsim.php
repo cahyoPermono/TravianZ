@@ -25,6 +25,7 @@ $start_timer = $generator->pageLoadTimeStart();
 use App\Utils\AccessLogger;
 
 include_once("GameEngine/Village.php");
+include_once("GameEngine/Data/unitdata.php");
 AccessLogger::logRequest();
 
 $battle->procSim($_POST);
@@ -106,6 +107,47 @@ if(isset($_POST['result'])) {
 			echo "Damage done by catapult: from level <b>".$form->getValue('kata')."</b> to level <b>".(int)$_POST['result'][3]."</b></p>";
 		}
 	}
+
+	if (!empty($_POST['result']['hero']) && !empty($_POST['result']['hero']['sent'])) {
+		$heroRes = $_POST['result']['hero'];
+		$heroDead = !empty($heroRes['dead']);
+		$heroDmg = (int)$heroRes['damage'];
+		$startHp = (int)$heroRes['start_hp'];
+		$remainHp = (int)$heroRes['remain_hp'];
+		?>
+		<div id="hero_sim_result" style="margin: 10px 0 14px 0; padding: 10px 14px; border: 1px solid <?php echo $heroDead ? '#d9534f' : '#7db72f'; ?>; background: <?php echo $heroDead ? '#fff5f5' : '#f4faec'; ?>; border-radius: 4px; max-width: 650px;">
+			<div style="font-size: 13px; font-weight: bold; color: <?php echo $heroDead ? '#c0392b' : '#27ae60'; ?>; margin-bottom: 6px;">
+				<img src="img/x.gif" class="unit uhero" alt="" style="vertical-align: middle; margin-right: 4px;" />
+				Hasil Simulasi Hero: <?php echo $heroDead ? '<span style="color:#c0392b;">GUGUR (Meninggal di Pertempuran)</span>' : '<span style="color:#27ae60;">SELAMAT (Bertahan Hidup)</span>'; ?>
+			</div>
+			<table style="width: 100%; font-size: 11px; border-collapse: collapse;">
+				<tr>
+					<td style="padding: 2px 4px; width: 45%;">Kekuatan Serang Hero:</td>
+					<td style="padding: 2px 4px;"><b><?php echo number_format($heroRes['h_off']); ?></b> (+<?php echo (int)$heroRes['h_off_bonus']; ?>% off bonus)</td>
+				</tr>
+				<tr>
+					<td style="padding: 2px 4px;">Pengurangan Darah (Damage):</td>
+					<td style="padding: 2px 4px;">
+						<b style="color: <?php echo $heroDead ? '#c0392b' : '#d35400'; ?>;">-<?php echo $heroDmg; ?>% HP</b>
+						<?php if (!empty($heroRes['raw_damage']) && $heroRes['raw_damage'] > $heroDmg): ?>
+							<span style="color: #666;">(Armor meredam <?php echo (int)($heroRes['raw_damage'] - $heroDmg); ?>% damage)</span>
+						<?php endif; ?>
+					</td>
+				</tr>
+				<tr>
+					<td style="padding: 2px 4px;">Estimasi Sisa Darah (Health):</td>
+					<td style="padding: 2px 4px;">
+						<?php echo $startHp; ?>% HP &rarr; 
+						<b style="color: <?php echo $heroDead ? '#c0392b' : ($remainHp < 30 ? '#d35400' : '#27ae60'); ?>;"><?php echo $remainHp; ?>% HP</b>
+						<?php if ($heroDead): ?>
+							<span style="color: #c0392b; font-size: 10px; margin-left: 4px;">(Hero gugur karena luka melebihi darah atau seluruh pasukan terbunuh)</span>
+						<?php endif; ?>
+					</td>
+				</tr>
+			</table>
+		</div>
+		<?php
+	}
 }
 
 if (!empty($_GET['target'])) {
@@ -127,6 +169,36 @@ if (!empty($_GET['target'])) {
 $target = isset($_POST['target'])? $_POST['target'] : (!empty($_GET['target']) ? array((int) $_GET['target']) : array());
 $tribe = isset($_POST['mytribe'])? $_POST['mytribe'] : $session->tribe;
 if(count($target) > 0) {
+	$myHero = null;
+	if (!empty($session->uid) && class_exists('Units')) {
+		$unitsObj = isset($GLOBALS['units']) && is_object($GLOBALS['units']) ? $GLOBALS['units'] : new Units();
+		$myHero = $unitsObj->Hero($session->uid);
+	}
+	if ($myHero && !empty($myHero['name'])) {
+		$heroAtkVal = (int)$myHero['atk'];
+		$heroBonVal = round(($myHero['ob'] - 1) * 100);
+		$heroHpVal  = (int)$myHero['health'];
+		?>
+		<div style="margin: 6px 0 10px 0; padding: 6px 10px; background: #fdfaf2; border: 1px dashed #d4af37; border-radius: 4px; font-size: 11px;">
+			<img src="img/x.gif" class="unit uhero" alt="" style="vertical-align: middle; margin-right: 4px;" />
+			<b>Hero Anda (<?php echo htmlspecialchars($myHero['name']); ?>):</b> 
+			Power: <b><?php echo number_format($heroAtkVal); ?></b> | 
+			Bonus: <b>+<?php echo $heroBonVal; ?>%</b> | 
+			Darah: <b><?php echo $heroHpVal; ?>%</b>
+			<a href="javascript:void(0);" onclick="fillMyHero(<?php echo $heroAtkVal; ?>, <?php echo $heroBonVal; ?>, <?php echo $heroHpVal; ?>);" style="margin-left: 8px; color: #1e6bb8; font-weight: bold; text-decoration: underline;">[Gunakan Statistik Hero Saya ke Form]</a>
+		</div>
+		<script type="text/javascript">
+		function fillMyHero(atk, offBonus, health) {
+			var hOff = document.getElementsByName('h_off')[0];
+			var hBonus = document.getElementsByName('h_off_bonus')[0];
+			var hHp = document.getElementsByName('h_hp')[0];
+			if (hOff) hOff.value = atk;
+			if (hBonus) hBonus.value = offBonus;
+			if (hHp) hHp.value = health;
+		}
+		</script>
+		<?php
+	}
 	include("Templates/Simulator/att_".(int)$tribe.".tpl");
 	echo "<table id=\"defender\" class=\"fill_in\" cellpadding=\"1\" cellspacing=\"1\">
 
@@ -226,6 +298,7 @@ if ($wsLines) {
 		<?php if (defined('NEW_FUNCTION_TRIBE_EGIPTEANS') && NEW_FUNCTION_TRIBE_EGIPTEANS) { ?><label><input class="radio" type="radio" name="a1_v" value="7" <?php if($tribe == 7) { echo "checked"; } ?>/> Egyptians</label><br/><?php } ?>
 		<?php if (defined('NEW_FUNCTION_TRIBE_SPARTANS') && NEW_FUNCTION_TRIBE_SPARTANS) { ?><label><input class="radio" type="radio" name="a1_v" value="8" <?php if($tribe == 8) { echo "checked"; } ?>/> Spartans</label><br/><?php } ?>
 		<?php if (defined('NEW_FUNCTION_TRIBE_VIKINGS') && NEW_FUNCTION_TRIBE_VIKINGS) { ?><label><input class="radio" type="radio" name="a1_v" value="9" <?php if($tribe == 9) { echo "checked"; } ?>/> Vikings</label><br/><?php } ?>
+		<?php if (!defined('NEW_FUNCTION_TRIBE_NUSANTARA') || NEW_FUNCTION_TRIBE_NUSANTARA) { ?><label><input class="radio" type="radio" name="a1_v" value="10" <?php if($tribe == 10) { echo "checked"; } ?>/> <?php echo defined('TRIBE10') ? TRIBE10 : 'Nusantara'; ?></label><br/><?php } ?>
 		<label><input class="radio" type="radio" name="a1_v" value="5" <?php if($tribe == 5) { echo "checked"; } ?>/> Natars</label>
 	</td><td>
 		<label><input class="check" type="checkbox" name="a2_v1" value="1" <?php if(in_array(1,$target)) { echo "checked"; } ?>/> Romans</label><br/>
@@ -233,10 +306,11 @@ if ($wsLines) {
 		<label><input class="check" type="checkbox" name="a2_v3" value="1" <?php if(in_array(3,$target)) { echo "checked"; } ?>/> Gauls</label><br/>
 		<label><input class="check" type="checkbox" name="a2_v4" value="1" <?php if(in_array(4,$target)) { echo "checked"; } ?>/> Nature</label><br/>
 		<label><input class="check" type="checkbox" name="a2_v5" value="1" <?php if(in_array(5,$target)) { echo "checked"; } ?>/> Natars</label><br/>
-		<?php if (defined('NEW_FUNCTION_TRIBE_HUNS') && NEW_FUNCTION_TRIBE_HUNS) { ?><label><input class="check" type="checkbox" name="a2_v6" value="1" <?php if(in_array(6,$target)) { echo "checked"; } ?>/> Huns</label><?php } ?><br/>
-		<?php if (defined('NEW_FUNCTION_TRIBE_EGIPTEANS') && NEW_FUNCTION_TRIBE_EGIPTEANS) { ?><label><input class="check" type="checkbox" name="a2_v7" value="1" <?php if(in_array(7,$target)) { echo "checked"; } ?>/> Egyptians</label><?php } ?><br/>
-		<?php if (defined('NEW_FUNCTION_TRIBE_SPARTANS') && NEW_FUNCTION_TRIBE_SPARTANS) { ?><label><input class="check" type="checkbox" name="a2_v8" value="1" <?php if(in_array(8,$target)) { echo "checked"; } ?>/> Spartans</label><?php } ?><br/>
-		<?php if (defined('NEW_FUNCTION_TRIBE_VIKINGS') && NEW_FUNCTION_TRIBE_VIKINGS) { ?><label><input class="check" type="checkbox" name="a2_v9" value="1" <?php if(in_array(9,$target)) { echo "checked"; } ?>/> Vikings</label><?php } ?>
+		<?php if (defined('NEW_FUNCTION_TRIBE_HUNS') && NEW_FUNCTION_TRIBE_HUNS) { ?><label><input class="check" type="checkbox" name="a2_v6" value="1" <?php if(in_array(6,$target)) { echo "checked"; } ?>/> Huns</label><br/><?php } ?>
+		<?php if (defined('NEW_FUNCTION_TRIBE_EGIPTEANS') && NEW_FUNCTION_TRIBE_EGIPTEANS) { ?><label><input class="check" type="checkbox" name="a2_v7" value="1" <?php if(in_array(7,$target)) { echo "checked"; } ?>/> Egyptians</label><br/><?php } ?>
+		<?php if (defined('NEW_FUNCTION_TRIBE_SPARTANS') && NEW_FUNCTION_TRIBE_SPARTANS) { ?><label><input class="check" type="checkbox" name="a2_v8" value="1" <?php if(in_array(8,$target)) { echo "checked"; } ?>/> Spartans</label><br/><?php } ?>
+		<?php if (defined('NEW_FUNCTION_TRIBE_VIKINGS') && NEW_FUNCTION_TRIBE_VIKINGS) { ?><label><input class="check" type="checkbox" name="a2_v9" value="1" <?php if(in_array(9,$target)) { echo "checked"; } ?>/> Vikings</label><br/><?php } ?>
+		<?php if (!defined('NEW_FUNCTION_TRIBE_NUSANTARA') || NEW_FUNCTION_TRIBE_NUSANTARA) { ?><label><input class="check" type="checkbox" name="a2_v10" value="1" <?php if(in_array(10,$target)) { echo "checked"; } ?>/> <?php echo defined('TRIBE10') ? TRIBE10 : 'Nusantara'; ?></label><?php } ?>
 		</td><td>
 		<label><input class="radio" type="radio" name="ktyp" value="0" <?php if($form->getValue('ktyp') == 0 || $form->getValue('ktyp') == "") { echo "checked"; } ?>/> normal</label><br/>
 
