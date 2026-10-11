@@ -34,6 +34,8 @@
 ##                                                                             ##
 #################################################################################
 
+require_once __DIR__ . '/HeroItems.php';
+
 class HeroBattleBonus
 {
     /** @var array per-request bonus cache: uid => bonuses array */
@@ -256,6 +258,23 @@ class HeroBattleBonus
         }
 
         return max(1, (int) round($seconds));
+    }
+
+    /**
+     * Hero speed in fields/hour honoring equipped horse and spurs.
+     * When a horse is equipped, it overrides the on-foot base speed.
+     * When no horse is equipped, returns the base unit speed.
+     */
+    public static function heroSpeed($uid, $baseSpeed = 7)
+    {
+        if (!self::enabled()) {
+            return (int) $baseSpeed;
+        }
+        $b = self::bonuses($uid);
+        if ($b && !empty($b[HB_HORSE_SPEED])) {
+            return (int) $b[HB_HORSE_SPEED] + (int) ($b[HB_MOUNT_SPEED] ?? 0);
+        }
+        return (int) $baseSpeed;
     }
 
     /**

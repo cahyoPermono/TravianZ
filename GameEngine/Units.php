@@ -1340,10 +1340,14 @@ class Units {
         
         if(isset($unitArray[10]) && $unitArray[10] > 0){
             $heroUnit = $database->getHeroField($owner, 'unit');
-            if (!empty($heroUnit) && isset($GLOBALS['u'.$heroUnit]['speed'])) {
-                $speeds[]  = $GLOBALS['u'.$heroUnit]['speed'];
+            $baseSpeed = (!empty($heroUnit) && isset($GLOBALS['u'.$heroUnit]['speed']))
+                ? $GLOBALS['u'.$heroUnit]['speed']
+                : (($tribe == 2) ? 14 : 7);
+
+            if (class_exists('HeroBattleBonus') && HeroBattleBonus::enabled()) {
+                $speeds[] = HeroBattleBonus::heroSpeed($owner, $baseSpeed);
             } else {
-                $speeds[] = ($tribe == 2) ? 14 : 7;
+                $speeds[] = $baseSpeed;
             }
         }
 
