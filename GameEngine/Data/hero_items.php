@@ -464,8 +464,9 @@ if (!function_exists('heroItemBonusText')) {
         }
         if (isset($def['unit'])) {
             $u = (int) $def['unit'];
-            $uname = defined('U' . $u) ? constant('U' . $u) : 'unit ' . $u;
-            $out .= ' (' . $txt('HB_TXT_ONLY', 'only for a') . ' ' . $uname . ' ' . $txt('HB_TXT_HERO', 'hero') . ')';
+            $t = intdiv($u - 1, 10) + 1;
+            $tname = defined('TRIBE' . $t) ? constant('TRIBE' . $t) : ('Tribe ' . $t);
+            $out .= ' (' . $txt('HB_TXT_ONLY', 'only for a') . ' ' . $tname . ' ' . $txt('HB_TXT_HERO', 'hero') . ')';
         }
         return $out;
     }

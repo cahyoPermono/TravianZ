@@ -664,16 +664,27 @@ class HeroItems
             return false;
         }
 
-        // Weapon unit restriction.
+        // Weapon tribe restriction: in T4, heroes are avatars of their tribe,
+        // so any hero of a tribe can equip any weapon belonging to that tribe.
         if (isset($row['def']['unit'])) {
-            $hero = $database->getHero($uid);
-            $heroUnit = 0;
-            if (is_array($hero)) {
-                foreach ($hero as $h) {
-                    if ($h['dead'] != 1) { $heroUnit = (int) $h['unit']; break; }
+            $itemTribe = function_exists('heroItemTribe')
+                ? heroItemTribe((int) $row['itemid'])
+                : (intdiv((int) $row['def']['unit'] - 1, 10) + 1);
+
+            $userTribe = (int) $database->getUserField($uid, 'tribe', 0);
+            if ($userTribe <= 0) {
+                $hero = $database->getHero($uid, 0, true);
+                if (is_array($hero)) {
+                    foreach ($hero as $h) {
+                        if (isset($h['unit']) && (int) $h['unit'] > 0) {
+                            $userTribe = intdiv((int) $h['unit'] - 1, 10) + 1;
+                            break;
+                        }
+                    }
                 }
             }
-            if ($heroUnit !== (int) $row['def']['unit']) {
+
+            if ($itemTribe !== 0 && $userTribe > 0 && $itemTribe !== $userTribe) {
                 return false;
             }
         }
