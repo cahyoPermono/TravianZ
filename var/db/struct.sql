@@ -1920,6 +1920,16 @@ CREATE TABLE IF NOT EXISTS `%PREFIX%tdata` (
  `t88` tinyint(1) NULL DEFAULT '0',
  `t89` tinyint(1) NULL DEFAULT '0',
  `t90` tinyint(1) NULL DEFAULT '0',
+ `t91` tinyint(1) NULL DEFAULT '0',
+ `t92` tinyint(1) NULL DEFAULT '0',
+ `t93` tinyint(1) NULL DEFAULT '0',
+ `t94` tinyint(1) NULL DEFAULT '0',
+ `t95` tinyint(1) NULL DEFAULT '0',
+ `t96` tinyint(1) NULL DEFAULT '0',
+ `t97` tinyint(1) NULL DEFAULT '0',
+ `t98` tinyint(1) NULL DEFAULT '0',
+ `t99` tinyint(1) NULL DEFAULT '0',
+ `t100` tinyint(1) NULL DEFAULT '0',
  PRIMARY KEY (`vref`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 

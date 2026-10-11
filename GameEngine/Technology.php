@@ -473,6 +473,18 @@ class Technology {
 
 			case 81:
 			case 90: return $session->tribe == 9;
+
+			case 92:
+			case 93:
+			case 94:
+			case 95:
+			case 96:
+			case 97:
+			case 98:
+			case 99: return $session->tribe == 10 && $this->getTech($unit);
+
+			case 91:
+			case 100: return $session->tribe == 10;
 		}
 	}
 
@@ -498,7 +510,8 @@ class Technology {
 		        (!empty($post['t59']) && !empty($post['t60'])) ||
 		        (!empty($post['t69']) && !empty($post['t70'])) ||
 		        (!empty($post['t79']) && !empty($post['t80'])) ||
-		        (!empty($post['t89']) && !empty($post['t90']))
+		        (!empty($post['t89']) && !empty($post['t90'])) ||
+		        (!empty($post['t99']) && !empty($post['t100']))
 		        )
 		    ) {
 		        $start = ($session->tribe - 1) * 10 + 1;
@@ -534,7 +547,7 @@ class Technology {
         
         if(!$type){
             $start = 1;
-            $end = 90;
+            $end = 100;
         }else{
             $start = ($type - 1) * 10 + 1;
             $end = $type * 10;
@@ -551,7 +564,7 @@ class Technology {
 
             // Horse Drinking Trough lets a number of cavalry units drink for free (1 crop less each).
             $freeDrinker = $horsedrinking > 0 && (($i == 4 && $horsedrinking >= 10) || ($i == 5 && $horsedrinking >= 15) || ($i == 6 && $horsedrinking == 20));
-            // Bucla trece prin toate cele 90 de unitati, dar tabloul primit are
+            // Bucla trece prin toate cele 100 de unitati, dar tabloul primit are
             // doar unitatile care exista efectiv. O cheie lipsa inseamna zero
             // unitati din tipul acela.
             $unitCount = isset($array[$index]) ? $array[$index] : 0;
@@ -579,11 +592,11 @@ class Technology {
 	}
 
     private function trainUnit($unit, $amt, $great = false) {
-		global $database, ${'u'.$unit}, $village;
+		global $database, ${'u'.$unit}, $village, $session;
 		
 		if (!$database->getTrainingLock($village->wid)) return;
 		try {
-		if($this->getTech($unit) || $unit % 10 <= 1 || $unit == 99) {
+		if($this->getTech($unit) || $unit % 10 <= 1 || ($unit == 99 && isset($session->tribe) && $session->tribe == 3)) {
 			if(!$this->checkTrainingBuilding($unit)) return;
 			
 			$each = $this->getTrainingTime($unit, $great);

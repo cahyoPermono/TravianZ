@@ -487,7 +487,7 @@ trait DatabaseTroopQueries {
         if (empty($cachedData[$vid])) {
             $this->addTech($vid);
             $cachedData[$vid] = ['vref' => $vid];
-            for ($i = 1; $i <= 80; $i++) {
+            for ($i = 1; $i <= 100; $i++) {
                 $cachedData[$vid]['t' . $i] = 0;
             }
         }
