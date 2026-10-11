@@ -581,21 +581,21 @@ trait AutomationBattleResolution {
      * @return array{info_chief:string, chiefing_village:int, village_destroyed:int}
      */
     private function handleConquest(
-        array $data,
-        int   $type,
-        int   $dead9,
-        int   $traped9,
-        int   $targettribe,
-        array $from,
-        array $to,
-        array $toF,
-        int   $owntribe,
-        array $varray,
-        array $varray1,
-        array $battlepart,
-        int   $isoasis,
-        int   $village_destroyed,
-        int   $chief_pic
+        $data,
+        $type,
+        $dead9,
+        $traped9,
+        $targettribe,
+        $from,
+        $to,
+        $toF,
+        $owntribe,
+        $varray,
+        $varray1,
+        $battlepart,
+        $isoasis,
+        $village_destroyed,
+        $chief_pic = null
     ): array {
         global $database, $units;
 
@@ -607,7 +607,7 @@ trait AutomationBattleResolution {
         }
 
         if ($type != 3) {
-            $info_chief = $chief_pic . ',' . rc_tok('RC_NO_REDUCE_CP_RAID');
+            $info_chief = ($chief_pic ?? '') . ',' . rc_tok('RC_NO_REDUCE_CP_RAID');
             return ['info_chief' => $info_chief, 'chiefing_village' => $chiefing_village, 'village_destroyed' => $village_destroyed];
         }
 
