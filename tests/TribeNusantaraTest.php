@@ -187,4 +187,11 @@ $residenceList = $tech->getTrainingList(4);
 assertEqual(2, count($residenceList), "Residence training list for Tribe 10 must contain unit 99 and 100");
 assertEqual('Senapati Palapa', $residenceList[0]['name'], "Unit 99 in residence must be Senapati Palapa");
 
+// 12. Manual templates check
+assertTrue(file_exists(dirname(__DIR__) . '/Templates/Manual/210.tpl'), "210.tpl must exist");
+for ($u = 91; $u <= 100; $u++) {
+    assertTrue(file_exists(dirname(__DIR__) . "/Templates/Manual/1{$u}.tpl"), "1{$u}.tpl must exist");
+    assertTrue(defined("MANUAL_UDESC_{$u}"), "MANUAL_UDESC_{$u} must be defined");
+}
+
 echo "PASS: All Suku Nusantara (Tribe 10) integration tests passed successfully!" . PHP_EOL;

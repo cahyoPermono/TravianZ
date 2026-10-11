@@ -16,6 +16,6 @@
 <map id="nav" name="nav">
     <area href="manual.php?typ=2&amp;s=8" title="<?php echo BACK; ?>" coords="0,0,45,18" shape="rect" alt="" />
     <area href="manual.php?s=1" title="<?php echo OVERVIEW; ?>" coords="46,0,70,18" shape="rect" alt="" />
-    <area href="manual.php?typ=3&amp;s=1" title="forward" coords="71,0,116,18" shape="rect" alt="" />
+    <area href="<?php echo (defined('NEW_FUNCTION_TRIBE_NUSANTARA') && NEW_FUNCTION_TRIBE_NUSANTARA) ? 'manual.php?typ=2&amp;s=10' : 'manual.php?typ=3&amp;s=1'; ?>" title="forward" coords="71,0,116,18" shape="rect" alt="" />
 </map>
 <img usemap="#nav" src="img/x.gif" class="navi" alt="" />

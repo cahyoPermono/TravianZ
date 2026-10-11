@@ -48,10 +48,10 @@ tz_load_language(LANG);
 	<body class="manual">
 <?php
 
-if (isset($_GET['s']) && !ctype_digit($_GET['s'])) {
+if (isset($_GET['s']) && !ctype_digit((string)$_GET['s'])) {
 	$_GET['s'] = "0";
 }
-if (isset($_GET['typ']) && !ctype_digit($_GET['typ'])) {
+if (isset($_GET['typ']) && !ctype_digit((string)$_GET['typ'])) {
 	$_GET['typ'] = null;
 }
 if(!isset($_GET['typ']) && !isset($_GET['s'])) {
@@ -68,13 +68,27 @@ else if (isset($_GET['typ']) && $_GET['typ'] == 5 && $_GET['s'] == 3) {
 }
 else {
 	if(isset($_GET['gid'])) {
-		include("Templates/Manual/".$_GET['typ'].(preg_replace("/[^a-zA-Z0-9_-]/","",$_GET['gid'])).".tpl");
+		$gidFile = "Templates/Manual/".$_GET['typ'].(preg_replace("/[^a-zA-Z0-9_-]/","",$_GET['gid'])).".tpl";
+		if (file_exists($gidFile)) {
+			include($gidFile);
+		} else {
+			include("Templates/Manual/00.tpl");
+		}
 	}
 	else {
 		if($_GET['typ'] == 4 && $_GET['s'] == 0) {
 			$_GET['s'] = 1;
 		}
-		include("Templates/Manual/".$_GET['typ'].preg_replace("/[^a-zA-Z0-9_-]/","",(isset($_GET['s']) ? $_GET['s'] : '')).".tpl");
+		$cleanS = preg_replace("/[^a-zA-Z0-9_-]/","",(isset($_GET['s']) ? $_GET['s'] : ''));
+		$target1 = "Templates/Manual/".$_GET['typ'].$cleanS.".tpl";
+		$target2 = "Templates/Manual/".$cleanS.$_GET['typ'].".tpl";
+		if (file_exists($target1)) {
+			include($target1);
+		} elseif (file_exists($target2)) {
+			include($target2);
+		} else {
+			include("Templates/Manual/00.tpl");
+		}
 	}
 }
 ?>

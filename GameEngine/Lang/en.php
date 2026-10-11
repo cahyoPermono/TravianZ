@@ -1444,6 +1444,17 @@ tz_def('MANUAL_UDESC_87', "The Ram is a heavy war machine that batters enemy wal
 tz_def('MANUAL_UDESC_88', "The Catapult hurls stones over great distances to destroy enemy buildings and fields. It must be well protected by other troops.");
 tz_def('MANUAL_UDESC_89', "The Jarl bends enemy villages to his will, lowering their loyalty until they swear allegiance to the North.");
 tz_def('MANUAL_UDESC_90', "Settlers are brave subjects who move out to found a new village for the Vikings. Three of them are needed, with supplies.");
+// NUSANTARA (TRIBE 10)
+tz_def('MANUAL_UDESC_91', "The Pendekar Keris is the agile vanguard infantry of Nusantara. Armed with mystical wavy blades, they are cheap and swift to train, serving as versatile raiders and early skirmishers.");
+tz_def('MANUAL_UDESC_92', "The Prajurit Tombak forms an impenetrable spear wall. Expertly trained in defensive formations, their long spears make them exceptionally potent against charging enemy cavalry.");
+tz_def('MANUAL_UDESC_93', "The Pemanah Busur Gendewa unleashes lethal volleys from long range. With their devastating attack power, they form the offensive infantry core of Nusantara armies.");
+tz_def('MANUAL_UDESC_94', "The Telik Sandi is an elite mounted spy moving with ghostlike speed. They can scout enemy villages undetected unless the defender has their own scouts present.");
+tz_def('MANUAL_UDESC_95', "The Kavaleri Berkuda is a fast, hard-hitting light cavalry unit. Equipped with great movement speed and large carry capacity, they excel at lightning raids and sweeping maneuvers.");
+tz_def('MANUAL_UDESC_96', "The Gajah Perang Bhayangkara is the majestic war elephant of Nusantara. Heavily armored and unstoppable, these titan shock troops trample enemy defenses and crush fortified armies.");
+tz_def('MANUAL_UDESC_97', "The Cetbang Pemecah Benteng is an ancient bronze swivel cannon repurposed for siege warfare. Its concussive blasts batter down enemy walls to open the way for invaders.");
+tz_def('MANUAL_UDESC_98', "The Meriam Kalantaka is a heavy siege cannon capable of bombarding buildings and fields into rubble from afar. It requires strong military escort due to its vulnerability.");
+tz_def('MANUAL_UDESC_99', "The Senapati Palapa is a legendary commander whose stirring speeches and oath of unity undermine the loyalty of foreign villages until they willingly submit to Nusantara rule.");
+tz_def('MANUAL_UDESC_100', "Settlers are intrepid pioneers and navigators who set sail across the seas to establish new thriving settlements. Three settlers and sufficient resources are required to found a new village.");
 tz_def('HEALING_TIME_LEVEL', 'Healing time at level');
 tz_def('BARRICADE_DESC', 'The Barricade protects your village against the attacks of other players. Its layered wooden construction grants a solid defence bonus.<br>Tribe-specific: Vikings only');
 

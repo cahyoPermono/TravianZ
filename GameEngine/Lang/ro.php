@@ -1395,6 +1395,17 @@ tz_def('MANUAL_UDESC_87', "Berbecul este o mașină grea de război folosită pe
 tz_def('MANUAL_UDESC_88', "Catapulta aruncă bolovani la distanțe mari pentru a distruge clădirile și câmpurile inamice. Trebuie protejată de alte trupe.");
 tz_def('MANUAL_UDESC_89', "Jarlul supune satele inamice voinței sale, reducându-le loialitatea până când jură credință Nordului.");
 tz_def('MANUAL_UDESC_90', "Coloniștii sunt supuși curajoși care pleacă pentru a întemeia un nou sat al vikingilor. Sunt necesari trei, împreună cu proviziile.");
+// NUSANTARA (TRIBE 10)
+tz_def('MANUAL_UDESC_91', "Pendekar Keris este infanteria de avangardă a arhipelagului Nusantara. Înarmați cu keris-uri mistice, sunt ieftini și rapizi de antrenat.");
+tz_def('MANUAL_UDESC_92', "Prajurit Tombak formează un zid impenetrabil de sulițe împotriva cavaleriei inamice.");
+tz_def('MANUAL_UDESC_93', "Pemanah Busur Gendewa lansează salve nimicitoare de la distanță mare, fiind coloana vertebrală ofensivă a infanteriei.");
+tz_def('MANUAL_UDESC_94', "Telik Sandi este iscoada călare de elită care se mișcă cu o viteză uluitoare pentru a spiona satele inamice.");
+tz_def('MANUAL_UDESC_95', "Kavaleri Berkuda este cavaleria rapidă cu forță de atac mare și capacitate excelentă de transport pradă.");
+tz_def('MANUAL_UDESC_96', "Gajah Perang Bhayangkara este elefantul de război maiestuos, o forță masivă capabilă să zdrobească armatele inamice.");
+tz_def('MANUAL_UDESC_97', "Cetbang Pemecah Benteng este un tun pivotant de bronz folosit pentru distrugerea zidurilor inamice.");
+tz_def('MANUAL_UDESC_98', "Meriam Kalantaka este un tun greu capabil să distrugă clădirile și câmpurile inamice de la distanță.");
+tz_def('MANUAL_UDESC_99', "Senapati Palapa este marele comandant ce reduce loialitatea satelor inamice prin jurământul unității.");
+tz_def('MANUAL_UDESC_100', "Pemukim Bahari sunt coloniștii curajoși ce pornesc peste mări pentru a întemeia un nou sat.");
 
 tz_def('HEALING_TIME_LEVEL', 'Timp de vindecare la nivelul');
 tz_def('BARRICADE_DESC', 'Baricada protejează satul împotriva atacurilor altor jucători. Construcția sa stratificată din lemn oferă un bonus solid de apărare.<br>Specific tribului: doar Vechingi');

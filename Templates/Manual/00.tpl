@@ -25,6 +25,9 @@
 	<?php if(defined('NEW_FUNCTION_TRIBE_VIKINGS') && NEW_FUNCTION_TRIBE_VIKINGS){ ?>
 	<li><a href="manual.php?typ=2&amp;s=9"><?php echo TRIBE9; ?></a></li>
 	<?php } ?>
+	<?php if(defined('NEW_FUNCTION_TRIBE_NUSANTARA') && NEW_FUNCTION_TRIBE_NUSANTARA){ ?>
+	<li><a href="manual.php?typ=2&amp;s=10"><?php echo defined('TRIBE10') ? TRIBE10 : 'Nusantara'; ?></a></li>
+	<?php } ?>
 </ul>
 
 <br>
