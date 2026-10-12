@@ -26,6 +26,11 @@ $woodProd = isset($village) ? $village->getProd("wood") : 0;
 $clayProd = isset($village) ? $village->getProd("clay") : 0;
 $ironProd = isset($village) ? $village->getProd("iron") : 0;
 $cropProd = isset($village) ? $village->getProd("crop") : 0;
+
+$cropGross  = isset($village->allcrop) ? (int)$village->allcrop : 0;
+$cropPop    = isset($village->pop) ? (int)$village->pop : 0;
+$cropUpkeep = (isset($technology) && isset($village->unitall)) ? (int)$technology->getUpkeep($village->unitall, 0) : 0;
+$cropTitle  = "Produksi Bersih: {$cropProd}/jam (Ladang Kotor: +{$cropGross} | Populasi: -{$cropPop} | Upkeep Pasukan: -{$cropUpkeep})";
 ?>
 
 <table id="production" cellpadding="1" cellspacing="1">
@@ -98,17 +103,21 @@ $cropProd = isset($village) ? $village->getProd("crop") : 0;
         </tr>
 
         <!-- Crop -->
-        <tr>
+        <tr title="<?php echo htmlspecialchars($cropTitle); ?>">
             <td class="ico">
-                <img class="r4" src="img/x.gif" alt="<?php echo CROP; ?>" title="<?php echo CROP; ?>" />
+                <img class="r4" src="img/x.gif" alt="<?php echo CROP; ?>" title="<?php echo htmlspecialchars($cropTitle); ?>" />
             </td>
 
             <td class="res">
                 <?php echo CROP; ?>:
             </td>
 
-            <td class="num">
-                <?php echo $cropProd; ?>
+            <td class="num" title="<?php echo htmlspecialchars($cropTitle); ?>">
+                <?php if ($cropProd < 0): ?>
+                    <span style="color:#d9534f; font-weight:bold;"><?php echo $cropProd; ?></span>
+                <?php else: ?>
+                    <?php echo $cropProd; ?>
+                <?php endif; ?>
             </td>
 
             <td class="per">
