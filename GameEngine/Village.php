@@ -33,6 +33,7 @@ include_once("GameEngine/Units.php");
 include_once("Technology.php");
 include_once("Weather.php");
 include_once("Plague.php");
+include_once("Ormas.php");
 
 class Village {
 
@@ -238,6 +239,9 @@ class Village {
 	 */
 	private function calculateProduction(): void {
 		$upkeep = $this->tech->getUpkeep($this->unitall, 0, $this->wid);
+		if (class_exists('Ormas')) {
+			$upkeep += Ormas::getExtraCropUpkeep((int)$this->wid);
+		}
 
 		$this->production['wood'] = $this->getProdFor('wood');
 		$this->production['clay'] = $this->getProdFor('clay');
@@ -332,6 +336,9 @@ class Village {
 		}
 		if (class_exists('Plague')) {
 			$amount *= Plague::getProductionMultiplier((int)$this->wid, $type);
+		}
+		if (class_exists('Ormas')) {
+			$amount *= Ormas::getProductionMultiplier((int)$this->wid, $type);
 		}
 
 		return round($amount * SPEED);

@@ -159,14 +159,19 @@ trait DatabaseBuildingQueries {
 		//Check if we've the main building or not
 		$mainBuilding = $this->getFieldLevelInVillage($wref, 15);
 		if($tid == 15){
-			if($mainBuilding == 0) return round($dataArray[$level]['time'] / SPEED * 5);
-			else return round($dataArray[$level]['time'] / SPEED);
+			if($mainBuilding == 0) $time = round($dataArray[$level]['time'] / SPEED * 5);
+			else $time = round($dataArray[$level]['time'] / SPEED);
 		}else{
 			if($mainBuilding > 0) {
-				return round($dataArray[$level]['time'] * ($bid15[$mainBuilding]['attri'] / 100)  / SPEED);
+				$time = round($dataArray[$level]['time'] * ($bid15[$mainBuilding]['attri'] / 100)  / SPEED);
 			}
-			else return round($dataArray[$level]['time'] * 5 / SPEED);
+			else $time = round($dataArray[$level]['time'] * 5 / SPEED);
 		}
+
+		if ($wref > 0 && class_exists('Ormas')) {
+			$time = (int)round($time * Ormas::getBuildTimeMultiplier((int)$wref));
+		}
+		return $time;
 	}
 	
 	/**

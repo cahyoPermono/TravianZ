@@ -108,6 +108,9 @@ class MyGenerator
 		if ($vid > 0 && class_exists('Plague')) {
 			$speed *= Plague::getSpeedMultiplier((int)$vid);
 		}
+		if ($vid > 0 && class_exists('Ormas') && !$mode) {
+			$speed *= Ormas::getMerchantSpeedMultiplier((int)$vid);
+		}
 
 		if ($mode) {
 			$tSquareLevel = $database->getFieldLevelInVillage($vid, 14);
