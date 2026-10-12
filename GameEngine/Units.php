@@ -1480,7 +1480,7 @@ class Units {
 			return false;
 		}
 
-		$existing = $database->getHero($uid);
+		$existing = $database->getHero($uid, 0, true);
 		if (!empty($existing)) {
 			return false;
 		}
