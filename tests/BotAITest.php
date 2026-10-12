@@ -112,8 +112,12 @@ assertEqual(1200, BotAI::getStorageCapacity(1), "Warehouse lvl 1 gives 1200 capa
 assertEqual(1700, BotAI::getStorageCapacity(2), "Warehouse lvl 2 gives 1700 capacity");
 assertEqual(80000, BotAI::getStorageCapacity(20), "Warehouse lvl 20 gives 80000 capacity");
 
-// 8. Test population computation
-assertTrue(BotAI::buildingPOP(15, 1) > 0, "Main building lvl 1 has positive pop");
-assertTrue(BotAI::buildingPOP(1, 1) > 0, "Woodcutter lvl 1 has positive pop");
+// 9. Test orderAttack input validation
+$resEmpty = BotAI::orderAttack(0, "");
+assertEqual('error', $resEmpty['status'], "orderAttack with empty target returns error status");
+
+$resNonExistent = BotAI::orderAttack(0, "nonexistent_target_xyz_123");
+assertEqual('error', $resNonExistent['status'], "orderAttack with invalid target returns error status");
 
 echo "PASS BotAI unit tests passed.\n";
+

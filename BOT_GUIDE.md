@@ -65,7 +65,7 @@ define("BOT_AI_INTERVAL", 120);              // Jeda waktu antar aksi bot dalam 
 define("BOT_AI_MAX_TROOPS", 45);             // Batas maksimum pasukan infanteri per desa bot
 define("BOT_AI_MIN_RAID_TROOPS", 6);         // Jumlah minimal pasukan sebelum bot boleh mengirim raid
 define("BOT_AI_ATTACK_CHANCE", 35);          // Persentase peluang bot melancarkan raid per tick (1-100%)
-define("BOT_AI_MAX_DISTANCE", 35.0);         // Jarak maksimum (radius kotak) target raid bot
+define("BOT_AI_MAX_DISTANCE", 70.0);         // Jarak maksimum (radius kotak) target raid bot (2x lipat lebih luas)
 define("BOT_AI_MAX_CONCURRENT_ATTACKS", 1);  // Jumlah serangan keluar maksimal dari 1 desa bot bersamaan
 define("BOT_MAX_FIELD_LEVEL", 6);            // Batas level ladang sumber daya pada fase awal
 ```

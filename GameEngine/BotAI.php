@@ -472,7 +472,7 @@ class BotAI {
 
         $minTroops = defined('BOT_AI_MIN_RAID_TROOPS') ? (int)BOT_AI_MIN_RAID_TROOPS : 6;
         $attackChance = defined('BOT_AI_ATTACK_CHANCE') ? (int)BOT_AI_ATTACK_CHANCE : 35;
-        $maxDistance = defined('BOT_AI_MAX_DISTANCE') ? (float)BOT_AI_MAX_DISTANCE : 35.0;
+        $maxDistance = defined('BOT_AI_MAX_DISTANCE') ? (float)BOT_AI_MAX_DISTANCE : 70.0;
         $maxConcurrent = defined('BOT_AI_MAX_CONCURRENT_ATTACKS') ? (int)BOT_AI_MAX_CONCURRENT_ATTACKS : 1;
         $dynamicScaling = defined('BOT_AI_DYNAMIC_SCALING') && BOT_AI_DYNAMIC_SCALING;
 
@@ -682,6 +682,220 @@ class BotAI {
         $summaryStr = implode(', ', $summaryParts);
 
         return "Raid dispatched! {$totalDispatched} troops [{$summaryStr}] marched towards {$target['vname']} ({$target['username']}) - distance: " . round($target['dist'], 1) . " tiles, arrival in {$duration}s";
+    }
+
+    /**
+     * Dispatch an admin-commanded AI attack/raid against a specific player or village.
+     *
+     * @param int|string $botUid 0 for closest bot, 'all' for all available bots, or specific bot UID.
+     * @param string|int $targetInput Target username, "x|y" coordinate, or village wref.
+     * @param int $attackType 4 = Raid, 3 = Normal Attack.
+     * @param int $troopCount Minimum / custom troop count to dispatch (0 = auto 30-50% army).
+     * @return array Result array with status, message, and details.
+     */
+    public static function orderAttack($botUid, $targetInput, $attackType = 4, $troopCount = 0) {
+        global $database;
+        if (!isset($database) || $database === null) {
+            require_once __DIR__ . '/Database.php';
+        }
+
+        $targetInput = trim((string)$targetInput);
+        if (empty($targetInput)) {
+            return ['status' => 'error', 'message' => 'Target tidak boleh kosong (masukkan username atau koordinat X|Y).'];
+        }
+
+        // 1. Resolve Target Village
+        $targetVillage = null;
+        if (preg_match('/^(-?\d+)\s*\|\s*(-?\d+)$/', $targetInput, $matches)) {
+            $tx = (int)$matches[1];
+            $ty = (int)$matches[2];
+            $tWref = $database->getBaseID($tx, $ty);
+            if ($tWref) {
+                $targetVillage = $database->getMInfo($tWref);
+            }
+        } elseif (is_numeric($targetInput)) {
+            $targetVillage = $database->getMInfo((int)$targetInput);
+        } else {
+            // Treat as username
+            $tUser = $database->getUserField($database->escape($targetInput), 'id', 1);
+            if ($tUser) {
+                $tVillages = $database->getProfileVillages($tUser);
+                if (!empty($tVillages)) {
+                    $targetVillage = $database->getMInfo((int)$tVillages[0]['wref']);
+                }
+            }
+        }
+
+        if (empty($targetVillage) || empty($targetVillage['wref']) || empty($targetVillage['owner'])) {
+            return ['status' => 'error', 'message' => "Target '{$targetInput}' tidak ditemukan atau bukan desa yang dihuni."];
+        }
+
+        $targetWref = (int)$targetVillage['wref'];
+        $targetOwner = (int)$targetVillage['owner'];
+        $targetUser = $database->getUserField($targetOwner, 'username', 0);
+        $targetVname = $targetVillage['name'] ?? 'Desa';
+        $targetCoor = ['x' => (int)$targetVillage['x'], 'y' => (int)$targetVillage['y']];
+
+        // 2. Fetch Eligible Bots
+        $sql = "SELECT u.id as uid, u.username, u.tribe, v.wref, v.name as vname, w.x, w.y
+                FROM " . TB_PREFIX . "users u
+                JOIN " . TB_PREFIX . "vdata v ON u.id = v.owner
+                JOIN " . TB_PREFIX . "wdata w ON v.wref = w.id
+                WHERE u.access = 2
+                  AND (u.is_bot = 1 OR u.email LIKE '%@bot.travianz' OR u.desc1 LIKE '%[#BOT]%' OR u.desc2 LIKE '%[#BOT]%' OR u.username LIKE 'Bot_%')
+                  AND v.wref != $targetWref
+                  AND u.id != $targetOwner";
+
+        if (is_numeric($botUid) && (int)$botUid > 0) {
+            $sql .= " AND u.id = " . (int)$botUid;
+        }
+
+        $bots = $database->query_return($sql);
+        if (empty($bots)) {
+            return ['status' => 'error', 'message' => 'Tidak ada bot aktif yang tersedia untuk melakukan serangan.'];
+        }
+
+        // Calculate distance for all bots
+        foreach ($bots as &$b) {
+            $b['dist'] = self::getDistance($b['x'], $b['y'], $targetCoor['x'], $targetCoor['y']);
+        }
+        unset($b);
+
+        // Sort by distance ascending
+        usort($bots, function($a, $b) {
+            return $a['dist'] <=> $b['dist'];
+        });
+
+        // Filter bots to dispatch
+        $selectedBots = [];
+        if ($botUid === 'all') {
+            $selectedBots = $bots;
+        } elseif (is_numeric($botUid) && (int)$botUid > 0) {
+            $selectedBots = $bots;
+        } else {
+            // Closest single bot
+            $selectedBots = [ $bots[0] ];
+        }
+
+        $attackType = in_array((int)$attackType, [3, 4], true) ? (int)$attackType : 4;
+        $attackTypeName = ($attackType === 3) ? 'Normal Attack' : 'Raid';
+        $dispatchedReports = [];
+
+        foreach ($selectedBots as $bot) {
+            $bWid = (int)$bot['wref'];
+            $bUid = (int)$bot['uid'];
+            $bTribe = (int)$bot['tribe'];
+            $tribeUnits = self::getTribeUnits($bTribe);
+
+            // Fetch available units at home
+            $unitCols = array_map(function($u) { return 'u' . $u; }, $tribeUnits['all']);
+            $colsSql = implode(', ', $unitCols);
+            $res = $database->query_return("SELECT {$colsSql} FROM " . TB_PREFIX . "units WHERE vref = $bWid");
+            $homeUnits = !empty($res[0]) ? $res[0] : [];
+
+            // Identify available combat troops
+            $combatRoles = ['basic', 'inf_adv', 'cav_light', 'cav_heavy'];
+            $availableCombat = [];
+            $totalCombatAvailable = 0;
+
+            foreach ($combatRoles as $role) {
+                if (isset($tribeUnits[$role])) {
+                    $uNum = $tribeUnits[$role];
+                    $cnt = (int)($homeUnits['u' . $uNum] ?? 0);
+                    if ($cnt > 0) {
+                        $availableCombat[$uNum] = $cnt;
+                        $totalCombatAvailable += $cnt;
+                    }
+                }
+            }
+
+            // Provision emergency combat troops if bot has 0 troops
+            if ($totalCombatAvailable <= 0) {
+                $basicU = $tribeUnits['basic'];
+                $provisionCount = max(20, $troopCount > 0 ? (int)$troopCount : 30);
+                $database->modifyUnit($bWid, [$basicU], [$provisionCount], [1]);
+                $availableCombat[$basicU] = $provisionCount;
+                $totalCombatAvailable = $provisionCount;
+            }
+
+            // Determine party size
+            $desiredSize = ($troopCount > 0) ? (int)$troopCount : max(15, (int)floor($totalCombatAvailable * 0.40));
+            $desiredSize = min($totalCombatAvailable, max(1, $desiredSize));
+
+            // Allocate dispatched troops
+            $dispatched = [];
+            $dispatchedSpeeds = [];
+            $sumDispatched = 0;
+
+            foreach ($availableCombat as $uNum => $avail) {
+                $portion = (int)round(($avail / $totalCombatAvailable) * $desiredSize);
+                $send = min($avail, max(0, $portion));
+                if ($send > 0) {
+                    $dispatched[$uNum] = $send;
+                    $dispatchedSpeeds[] = self::getUnitSpeed($uNum);
+                    $sumDispatched += $send;
+                }
+            }
+
+            if ($sumDispatched <= 0) {
+                $firstU = key($availableCombat);
+                $dispatched[$firstU] = min($availableCombat[$firstU], $desiredSize);
+                $dispatchedSpeeds[] = self::getUnitSpeed($firstU);
+                $sumDispatched = $dispatched[$firstU];
+            }
+
+            // Deduct units from bot
+            $unitNums = array_keys($dispatched);
+            $amounts = array_values($dispatched);
+            $modes = array_fill(0, count($amounts), 0);
+            $database->modifyUnit($bWid, $unitNums, $amounts, $modes);
+
+            // Travel time
+            $marchSpeed = !empty($dispatchedSpeeds) ? min($dispatchedSpeeds) : 6;
+            $incSpeed = defined('INCREASE_SPEED') ? max(1, (int)INCREASE_SPEED) : 1;
+            $duration = max(30, (int)round(($bot['dist'] / $marchSpeed) * 3600 / $incSpeed));
+
+            // Map dispatched units to tribe slots t1..t10
+            $t = array_fill(1, 10, 0);
+            $baseUnit = ($bTribe - 1) * 10;
+            foreach ($dispatched as $uNum => $cnt) {
+                $slot = $uNum - $baseUnit;
+                if ($slot >= 1 && $slot <= 10) {
+                    $t[$slot] = $cnt;
+                }
+            }
+
+            $attackId = $database->addAttack(
+                $bWid,
+                $t[1], $t[2], $t[3], $t[4], $t[5], $t[6], $t[7], $t[8], $t[9], $t[10], 0,
+                $attackType,
+                0, 0, 0
+            );
+
+            if ($attackId) {
+                $database->addMovement(
+                    3, // Attack/Raid
+                    $bWid,
+                    $targetWref,
+                    $attackId,
+                    time(),
+                    time() + $duration
+                );
+
+                $troopBreakdown = [];
+                foreach ($dispatched as $uNum => $c) {
+                    $troopBreakdown[] = "u{$uNum}: {$c}";
+                }
+                $dispatchedReports[] = "<b>{$bot['username']}</b> [{$bot['vname']}] mengirim {$sumDispatched} pasukan (" . implode(', ', $troopBreakdown) . ") via {$attackTypeName} ke <b>{$targetUser}</b> [{$targetVname} ({$targetCoor['x']}|{$targetCoor['y']})], tiba dalam " . round($duration / 60, 1) . " menit (Jarak: " . round($bot['dist'], 1) . " kotak).";
+            }
+        }
+
+        return [
+            'status' => 'success',
+            'count' => count($dispatchedReports),
+            'reports' => $dispatchedReports,
+            'message' => "Berhasil memerintahkan " . count($dispatchedReports) . " bot untuk menyerang {$targetUser}!"
+        ];
     }
 
     /**

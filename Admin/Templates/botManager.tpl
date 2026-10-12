@@ -279,6 +279,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
             $flashSuccess = "Tidak ada akun bot yang perlu dibersihkan.";
         }
     }
+    // 5. ORDER ATTACK
+    elseif ($action === 'order_attack') {
+        $selectedBot = $_POST['target_bot'] ?? '0';
+        $targetInput = trim((string)($_POST['target_input'] ?? ''));
+        $attackType  = (int)($_POST['attack_type'] ?? 4);
+        $troopCount  = (int)($_POST['troop_count'] ?? 0);
+
+        $res = BotAI::orderAttack($selectedBot, $targetInput, $attackType, $troopCount);
+        if ($res['status'] === 'success') {
+            $reportHtml = "<ul style='margin:6px 0 0 16px; padding:0;'>";
+            foreach ($res['reports'] as $rep) {
+                $reportHtml .= "<li>$rep</li>";
+            }
+            $reportHtml .= "</ul>";
+            $flashSuccess = "🎯 <b>Operasi Militer Bot AI Diluncurkan!</b> " . $res['message'] . $reportHtml;
+        } else {
+            $flashError = "❌ Gagal meluncurkan serangan bot: " . htmlspecialchars($res['message']);
+        }
+    }
 }
 
 // ==============================================================================
@@ -643,6 +662,60 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
             </div>
         </div>
 
+    </div>
+
+    <!-- Panel 3: Order Attack / Air Strike -->
+    <div class="botm-panel" style="border-color:#b91c1c; background:linear-gradient(135deg, #130a10 0%, #0b1220 100%); margin-bottom:20px;">
+        <h3 style="color:#f87171;">🎯 Perintahkan Bot AI Menyerang Target (Order AI Attack)</h3>
+        <p class="desc">Perintahkan bot untuk meluncurkan serangan/raid militer nyata ke pemain tertentu atau koordinat desa target. Target akan menerima notifikasi pedang merah di Titik Temu (Rally Point) secara real-time!</p>
+
+        <form method="post" action="admin.php?p=botManager">
+            <?php echo csrf_field(); ?>
+            <input type="hidden" name="bot_action" value="order_attack">
+
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:14px; margin-bottom:14px;">
+                <div class="botm-form-group">
+                    <label>Pilih Bot Penyerang:</label>
+                    <select name="target_bot" class="botm-form-control">
+                        <option value="0">⚡ Otomatis: Bot Terdekat dari Target</option>
+                        <option value="all">🔥 SEMUA BOT AKTIF (Serangan Massal / Air Strike)</option>
+                        <?php if (!empty($botsList)): ?>
+                            <optgroup label="Pilih Bot Spesifik:">
+                                <?php foreach ($botsList as $b): ?>
+                                    <option value="<?php echo $b['id']; ?>">
+                                        <?php echo htmlspecialchars($b['username']); ?> [<?php echo htmlspecialchars($b['vname']); ?> (<?php echo $b['x']; ?>|<?php echo $b['y']; ?>)]
+                                    </option>
+                                <?php endforeach; ?>
+                            </optgroup>
+                        <?php endif; ?>
+                    </select>
+                </div>
+
+                <div class="botm-form-group">
+                    <label>Target Pemain / Koordinat Desa:</label>
+                    <input type="text" name="target_input" class="botm-form-control" placeholder="Contoh: Player1 atau 15|-24" required>
+                    <span style="font-size:10px; color:#64748b;">Masukkan username pemain atau koordinat X|Y.</span>
+                </div>
+
+                <div class="botm-form-group">
+                    <label>Tipe Serangan:</label>
+                    <select name="attack_type" class="botm-form-control">
+                        <option value="4">⚔️ Raid (Penjarahan Sumber Daya)</option>
+                        <option value="3">💀 Normal Attack (Serangan Penuh)</option>
+                    </select>
+                </div>
+
+                <div class="botm-form-group">
+                    <label>Jumlah Pasukan Tiap Bot:</label>
+                    <input type="number" name="troop_count" class="botm-form-control" value="0" min="0" max="5000">
+                    <span style="font-size:10px; color:#64748b;">0 = Otomatis (30-50% garnisun bot).</span>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-primary" style="background:#dc2626; border-color:#ef4444; width:auto; padding:10px 20px;">
+                🚀 Luncurkan Serangan Bot Sekarang
+            </button>
+        </form>
     </div>
 
     <!-- Active Bots Table Directory -->
