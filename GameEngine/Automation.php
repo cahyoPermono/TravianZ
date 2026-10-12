@@ -244,6 +244,16 @@ class Automation {
         } catch (\Throwable $e) {
             error_log("Assassin error: " . $e->getMessage());
         }
+
+        // Ormas & Thug Nuisance: Process dynamic village visits
+        if (!defined('ORMAS_SYSTEM_ENABLED') || ORMAS_SYSTEM_ENABLED) {
+            try {
+                require_once __DIR__ . '/Ormas.php';
+                Ormas::processSpawns();
+            } catch (\Throwable $e) {
+                error_log("Ormas error: " . $e->getMessage());
+            }
+        }
     }
 
     /**
