@@ -1219,6 +1219,9 @@ class Battle {
         // de spionaj (tip 1), nu si la atacurile normale - comportament
         // original pastrat 1:1; de verificat separat daca e intentionat
         $ap *= $attacker_artefact;
+        if (class_exists('Weather')) {
+            $ap *= Weather::getScoutBonusMultiplier();
+        }
 
     } else {
 

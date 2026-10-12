@@ -127,18 +127,45 @@ if (!empty($movement20_0) || !empty($movement21_1)) {
 
 /**
  * ---------------------------------------------------------
+ * Tactical Weather Filter: Karhutla (Wildfire Smoke Haze)
+ * Low visibility (-90%): incoming hostile attacks only appear
+ * when arrival time is <= 10 minutes (600 seconds) away.
+ * ---------------------------------------------------------
+ */
+$visibleMovement3_1 = array();
+foreach ($movement3_1 as $receive) {
+    if ($receive['attack_type'] != 2 && $receive['attack_type'] != 1) {
+        if (class_exists('Weather') && !Weather::isAttackVisibleUnderWeather((int)$receive['endtime'], (int)$receive['attack_type'])) {
+            continue; // Masked by Karhutla smoke haze
+        }
+    }
+    $visibleMovement3_1[] = $receive;
+}
+
+$visibleOasisMovements = array();
+foreach ($oasisMovements as $receive) {
+    if ($receive['attack_type'] != 2 && $receive['attack_type'] != 1) {
+        if (class_exists('Weather') && !Weather::isAttackVisibleUnderWeather((int)$receive['endtime'], (int)$receive['attack_type'])) {
+            continue; // Masked by Karhutla smoke haze
+        }
+    }
+    $visibleOasisMovements[] = $receive;
+}
+
+/**
+ * ---------------------------------------------------------
  * Total movement count
  * ---------------------------------------------------------
  */
 $totalMovements =
     count($movement4_1) +
-    count($movement3_1) +
+    count($visibleMovement3_1) +
     count($movement3_0) +
     count($movement7_1) +
     count($movement5_0) +
     count($movement20_0) +
     count($movement21_1) +
-    $oases -
+    count($visibleOasisMovements) -
     count($movement8_1) -
     count($movement9_0);
 
@@ -189,7 +216,7 @@ foreach ($movement7_1 as $receive) {
 /**
  * Incoming support from movement type 3
  */
-foreach ($movement3_1 as $receive) {
+foreach ($visibleMovement3_1 as $receive) {
 
     if ($receive['attack_type'] == 2) {
 
@@ -218,7 +245,7 @@ renderMovementRow(
 $attackCount = 0;
 $attackArrival = array();
 
-foreach ($movement3_1 as $receive) {
+foreach ($visibleMovement3_1 as $receive) {
 
     if (
         $receive['attack_type'] != 2 &&
@@ -366,7 +393,7 @@ renderMovementRow(
  * =========================================================
  */
 
-$oasisCount = count($oasisMovements);
+$oasisCount = count($visibleOasisMovements);
 $oasisArrival = array();
 
 $oasisAction = 'att3';
@@ -374,7 +401,7 @@ $oasisClass  = 'a3';
 $oasisTitle  = OASISATTACK;
 $oasisShort  = OASISATTACKS;
 
-foreach ($oasisMovements as $receive) {
+foreach ($visibleOasisMovements as $receive) {
 
     /**
      * Reinforcement to oasis

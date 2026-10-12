@@ -15,11 +15,12 @@
 
 class Weather {
 
-    const TYPE_CLEAR   = 1; // Musim Subur / Cuaca Cerah (Sunny / Harvest Bloom)
-    const TYPE_MONSOON = 2; // Hujan Badai Muson (Monsoon / Heavy Storm)
-    const TYPE_DROUGHT = 3; // Kemarau Panjang / Panas Terik (Severe Drought)
-    const TYPE_FOG     = 4; // Kabut Tebal Nusantara / Asap Mistis (Dense Fog)
-    const TYPE_AURORA  = 5; // Cahaya Dewa / Purnama Agung (Celestial Blessing)
+    const TYPE_CLEAR    = 1; // Musim Subur / Cuaca Cerah (Sunny / Harvest Bloom)
+    const TYPE_MONSOON  = 2; // Hujan Badai Muson (Monsoon / Heavy Storm)
+    const TYPE_DROUGHT  = 3; // Kemarau Panjang / Panas Terik (Severe Drought)
+    const TYPE_FOG      = 4; // Kabut Tebal Nusantara / Asap Mistis (Dense Fog)
+    const TYPE_AURORA   = 5; // Cahaya Dewa / Purnama Agung (Celestial Blessing)
+    const TYPE_KARHUTLA = 6; // Badai Asap Karhutla (Kebakaran Hutan & Lahan / Wildfire Smoke Haze)
 
     /**
      * Database connection resolution.
@@ -77,26 +78,32 @@ class Weather {
     /**
      * Generate and persist a new weather event.
      */
-    public static function generateNextWeather(string $zone = 'global', ?int $forcedType = null): array {
+    public static function generateNextWeather(string $zone = 'global', ?int $forcedType = null, ?int $customDuration = null): array {
         self::ensureTable();
         $db = self::db();
         $now = time();
 
-        // Duration: default 6 hours (21600 seconds) or from config
-        $cycleDuration = defined('WEATHER_CYCLE_SECONDS') ? (int)WEATHER_CYCLE_SECONDS : 21600;
+        // Duration: default 6 hours (21600 seconds) or from config or custom parameter
+        if ($customDuration !== null && $customDuration > 0) {
+            $cycleDuration = $customDuration;
+        } else {
+            $cycleDuration = defined('WEATHER_CYCLE_SECONDS') ? (int)WEATHER_CYCLE_SECONDS : 21600;
+        }
 
         if ($forcedType !== null) {
             $type = $forcedType;
         } else {
             // Weighted random selection:
-            // Clear: 35%, Monsoon: 25%, Drought: 20%, Fog: 15%, Aurora: 5%
+            // Clear: 30%, Monsoon: 20%, Drought: 20%, Karhutla: 15%, Fog: 10%, Aurora: 5%
             $roll = mt_rand(1, 100);
-            if ($roll <= 35) {
+            if ($roll <= 30) {
                 $type = self::TYPE_CLEAR;
-            } elseif ($roll <= 60) {
+            } elseif ($roll <= 50) {
                 $type = self::TYPE_MONSOON;
-            } elseif ($roll <= 80) {
+            } elseif ($roll <= 70) {
                 $type = self::TYPE_DROUGHT;
+            } elseif ($roll <= 85) {
+                $type = self::TYPE_KARHUTLA;
             } elseif ($roll <= 95) {
                 $type = self::TYPE_FOG;
             } else {
@@ -214,6 +221,24 @@ class Weather {
                     '🌾 Semua Produksi +5%'
                 ]
             ],
+            self::TYPE_KARHUTLA => [
+                'name' => 'Badai Asap Karhutla (Kebakaran Hutan & Lahan)',
+                'name_en' => 'Wildfire Smoke Haze (Karhutla)',
+                'icon' => '🔥',
+                'color' => '#c0392b',
+                'bg_gradient' => 'linear-gradient(135deg, #fff3e0 0%, #ffccbc 50%, #e0d0c0 100%)',
+                'border_color' => '#d35400',
+                'desc' => 'Kabut asap pekat akibat kebakaran hutan dan lahan (Karhutla) menyelimuti daratan. Jarak pandang turun drastis hingga 90% sehingga pergerakan serangan musuh tersembunyi pekat dan hanya terdeteksi saat sisa waktu 10 menit sebelum tiba di gerbang desa! Pasukan terbatuk sesak napas, hutan kayu terbakar, dan sinar matahari terhalang kabut tebal.',
+                'effects' => [
+                    '👁️ Jarak Pandang -90%: Serangan musuh baru terdeteksi saat sisa waktu ≤ 10 Menit!',
+                    '🪵 Produksi Kayu -25% (Hutan & pepohonan terbakar)',
+                    '🌾 Produksi Gandum -15% (Fotosintesis terhalang kabut asap pekat)',
+                    '🧱 Produksi Tanah Liat +10% (Endapan abu gambut terbakar)',
+                    '🚶 Kecepatan Pasukan -15% (ISPA & kabut asap tebal, Suku Nusantara hanya -5%)',
+                    '🐎 Kecepatan Pedagang -15% (Jalur jalan tertutup kabut asap)',
+                    '🎯 Efektivitas Telik Sandi / Scout -30% (Pengintaian terhalang kepulan asap)'
+                ]
+            ],
         ];
 
         if ($type !== null) {
@@ -252,6 +277,13 @@ class Weather {
                 if ($resType === 'iron') return 1.10;
                 return 1.00;
 
+            case self::TYPE_KARHUTLA:
+                if ($resType === 'wood') return 0.75; // -25% (hutan terbakar)
+                if ($resType === 'crop') return 0.85; // -15% (asap pekat menutup matahari)
+                if ($resType === 'clay') return 1.10; // +10% (abu gambut)
+                if ($resType === 'iron') return 1.00; // Besi tidak terpengaruh
+                return 1.00;
+
             case self::TYPE_AURORA:
                 return 1.05;
 
@@ -274,10 +306,11 @@ class Weather {
 
         if ($isMerchant) {
             switch ($type) {
-                case self::TYPE_CLEAR:   return 1.20;
-                case self::TYPE_MONSOON: return 0.85;
-                case self::TYPE_DROUGHT: return 1.10;
-                default:                 return 1.00;
+                case self::TYPE_CLEAR:    return 1.20;
+                case self::TYPE_MONSOON:  return 0.85;
+                case self::TYPE_DROUGHT:  return 1.10;
+                case self::TYPE_KARHUTLA: return 0.85; // Pedagang terhambat kabut asap tebal
+                default:                  return 1.00;
             }
         }
 
@@ -295,6 +328,13 @@ class Weather {
 
             case self::TYPE_DROUGHT:
                 return 1.10; // Hard dry roads
+
+            case self::TYPE_KARHUTLA:
+                // Tribe 10 (Nusantara) is accustomed to tropical peatland/forests!
+                if ($tribe === 10) {
+                    return 0.95; // Only -5%
+                }
+                return 0.85; // Other tribes slowed by 15% due to thick smoke / ISPA
 
             default:
                 return 1.00;
@@ -332,7 +372,41 @@ class Weather {
         if ($type === self::TYPE_FOG) {
             return 1.30; // 30% bonus in dense fog
         }
+        if ($type === self::TYPE_KARHUTLA) {
+            return 0.70; // 30% penalty in dense wildfire smoke (low visibility)
+        }
         return 1.0;
+    }
+
+    /**
+     * Check whether an incoming movement is visible under current weather conditions.
+     * Under Karhutla (Wildfire Haze), visibility is reduced by 90%:
+     * Hostile attacks/raids only become visible when arrival time <= 10 minutes (600s).
+     *
+     * @param int $arrivalTime End timestamp of movement
+     * @param int $attackType 1=settle/return, 2=reinforce, 3=attack, 4=raid
+     * @return bool
+     */
+    public static function isAttackVisibleUnderWeather(int $arrivalTime, int $attackType = 3): bool {
+        // Friendly reinforcements (2) and settler/returns (1) are always visible
+        if ($attackType === 1 || $attackType === 2) {
+            return true;
+        }
+
+        if (defined('WEATHER_SYSTEM_ENABLED') && !WEATHER_SYSTEM_ENABLED) {
+            return true;
+        }
+
+        $weather = self::getCurrentWeather();
+        $type = (int)($weather['weather_type'] ?? self::TYPE_CLEAR);
+
+        if ($type === self::TYPE_KARHUTLA) {
+            $remainingSeconds = (int)$arrivalTime - time();
+            // Visible only when remaining arrival time is 10 minutes (600 seconds) or less
+            return $remainingSeconds <= 600;
+        }
+
+        return true;
     }
 
     /**

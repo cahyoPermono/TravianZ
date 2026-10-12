@@ -76,11 +76,12 @@ foreach ($varray as $vil) {
 		$total_attacks = count($incoming_attacks);
 		$inc_atts = $total_attacks;
 
-		// filtrare atacuri ignorate (logică originală păstrată)
+		// filtrare atacuri ignorate sau ascunse de Karhutla
 		for ($i = 0; $i < $total_attacks; $i++) {
 			if (
 				$incoming_attacks[$i]['attack_type'] == 1 ||
-				$incoming_attacks[$i]['attack_type'] == 2
+				$incoming_attacks[$i]['attack_type'] == 2 ||
+				(class_exists('Weather') && !Weather::isAttackVisibleUnderWeather((int)$incoming_attacks[$i]['endtime'], (int)$incoming_attacks[$i]['attack_type']))
 			) {
 				$inc_atts -= 1;
 			}
@@ -89,8 +90,8 @@ foreach ($varray as $vil) {
 		if ($inc_atts > 0) {
 			$att = '<a href="build.php?newdid='.$vid.'&id=39">
 						<img class="att1" src="img/x.gif"
-						title="'.$total_attacks.' incoming attack'.($total_attacks > 1 ? 's' : '').'"
-						alt="'.$total_attacks.' incoming attack'.($total_attacks > 1 ? 's' : '').'">
+						title="'.$inc_atts.' incoming attack'.($inc_atts > 1 ? 's' : '').'"
+						alt="'.$inc_atts.' incoming attack'.($inc_atts > 1 ? 's' : '').'">
 					</a>';
 		}
 	}

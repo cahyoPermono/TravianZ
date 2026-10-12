@@ -35,15 +35,37 @@ $hasRally = $village->resarray['f39'] > 0;
     <?php include_once '16_menu.tpl'; ?>
 
     <?php
+    $curWeather = class_exists('Weather') ? Weather::getCurrentWeather() : null;
+    $isKarhutla = ($curWeather && (int)($curWeather['weather_type'] ?? 0) === Weather::TYPE_KARHUTLA);
+    if ($isKarhutla):
+    ?>
+    <div style="background:#fff3e0; border-left:4px solid #d35400; padding:8px 12px; margin:8px 0 12px 0; border-radius:4px; font-size:11px; color:#a04000; line-height:1.45; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+        <b>🔥 Peringatan Cuaca: Badai Asap Karhutla Aktif!</b><br>
+        Jarak pandang berkurang <b>90%</b> akibat kabut asap kebakaran hutan &amp; lahan. Pasukan musuh yang bergerak menyerang diselimuti kabut asap pekat dan baru terdeteksi di Titik Temu saat sisa waktu tiba <b>&le; 10 menit</b>!
+    </div>
+    <?php endif; ?>
+
+    <?php
     // --- INCOMING ---
     $units_type = $database->getMovement(34, $village->wid, 1);
     $settlers = $database->getMovement(7, $village->wid, 1);
     $oasis_incoming = 0;
     foreach ($database->getOasis($village->wid) as $o) {
-        $oasis_incoming += count($database->getMovement(6, $o['wref'], 0));
+        foreach ($database->getMovement(6, $o['wref'], 0) as $om) {
+            if ($om['attack_type'] != 2 && $om['attack_type'] != 1 && class_exists('Weather') && !Weather::isAttackVisibleUnderWeather((int)$om['endtime'], (int)$om['attack_type'])) {
+                continue; // Masked by Karhutla
+            }
+            $oasis_incoming++;
+        }
     }
-    $units_incoming = count($units_type);
-    foreach ($units_type as $u) if ($u['attack_type'] == 1 && $u['sort_type'] == 3) $units_incoming--;
+    $units_incoming = 0;
+    foreach ($units_type as $u) {
+        if ($u['attack_type'] == 1 && $u['sort_type'] == 3) continue;
+        if (($u['attack_type'] == 3 || $u['attack_type'] == 4) && class_exists('Weather') && !Weather::isAttackVisibleUnderWeather((int)$u['endtime'], (int)$u['attack_type'])) {
+            continue; // Masked by Karhutla
+        }
+        $units_incoming++;
+    }
     $totalIncoming = $units_incoming + count($settlers) + $oasis_incoming;
     ?>
 

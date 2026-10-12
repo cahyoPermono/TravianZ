@@ -159,6 +159,9 @@ function cycleMarker(moveid, el){
     $atk = (int)$u['attack_type'];
 
     if ($sort === 3 && $atk!= 1):
+        if (($atk == 3 || $atk == 4) && class_exists('Weather') && !Weather::isAttackVisibleUnderWeather((int)$u['endtime'], $atk)) {
+            continue;
+        }
         $action = ($atk == 2? REINFORCEMENTFOR : ($atk == 3? ATTACK_ON : RAID_ON));
         $from = (int)$u['from'];
         $isElders = ($from === 0);
@@ -402,6 +405,9 @@ function cycleMarker(moveid, el){
 
 <?php foreach ($database->getOasis($village->wid) as $o):
     foreach ($database->getMovement(6,$o['wref'],0) as $m):
+        if (($m['attack_type'] == 3 || $m['attack_type'] == 4) && class_exists('Weather') && !Weather::isAttackVisibleUnderWeather((int)$m['endtime'], (int)$m['attack_type'])) {
+            continue;
+        }
         $session->timer++; $owner=$database->getVillageField($m['from'],'owner'); $isMine=($owner==$session->uid);
         $colspan=($m['t11'])?11:10; $tribe=$database->getUserField($owner,'tribe',0); $start=($tribe-1)*10+1; // #267: show hero column for incoming attacks too
         $action=($m['attack_type']==2?REINFORCEMENTFOR:($m['attack_type']==3?ATTACK_ON:RAID_ON)); $dt=$generator->procMtime($m['endtime']);
