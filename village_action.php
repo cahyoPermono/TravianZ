@@ -16,6 +16,7 @@ include_once("GameEngine/Session.php");
 include_once("GameEngine/Village.php");
 include_once("GameEngine/Weather.php");
 include_once("GameEngine/Plague.php");
+include_once("GameEngine/Ormas.php");
 
 if (!$session->logged_in) {
     header("Location: login.php");
@@ -40,6 +41,14 @@ if ($wid > 0 && $owner === (int)$session->uid) {
             ? 'Desa berhasil dikarantina! Pasar dan gerbang desa ditutup sementara untuk mencegah penularan wabah.' 
             : 'Karantina telah dicabut! Warga dan pedagang kembali leluasa beraktivitas.';
         $_SESSION['weather_plague_type'] = 'info';
+    } elseif ($action === 'ormas_bribe') {
+        $res = Ormas::bribeOrmas($wid, (int)$session->uid);
+        $_SESSION['ormas_msg'] = $res['message'];
+        $_SESSION['ormas_msg_type'] = $res['success'] ? 'success' : 'error';
+    } elseif ($action === 'ormas_fight') {
+        $res = Ormas::fightOrmas($wid, (int)$session->uid);
+        $_SESSION['ormas_msg'] = $res['message'];
+        $_SESSION['ormas_msg_type'] = $res['success'] ? 'success' : 'error';
     }
 }
 

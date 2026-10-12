@@ -371,6 +371,81 @@ class Ormas {
     }
 
     /**
+     * Player pays bribe demands to dismiss the Ormas.
+     */
+    public static function bribeOrmas(int $vref, int $uid): array {
+        global $database;
+        $ormas = self::getVillageOrmas($vref);
+        if (!$ormas) {
+            return ['success' => false, 'message' => 'Tidak ada Ormas di desa ini.'];
+        }
+
+        $type = (int)$ormas['ormas_type'];
+        $info = self::getOrmasInfo($type);
+        $bribe = $info['bribe'];
+
+        // Check resources in village
+        $res = $database->query_return("SELECT wood, clay, iron, crop FROM " . TB_PREFIX . "vdata WHERE wref = $vref");
+        if (empty($res) || !isset($res[0])) {
+            return ['success' => false, 'message' => 'Desa tidak ditemukan.'];
+        }
+        $vRes = $res[0];
+
+        if ($vRes['wood'] < $bribe['wood'] || $vRes['clay'] < $bribe['clay'] ||
+            $vRes['iron'] < $bribe['iron'] || $vRes['crop'] < $bribe['crop']) {
+            return ['success' => false, 'message' => 'Sumber daya desa tidak cukup untuk memenuhi tuntutan ' . $info['name'] . '!'];
+        }
+
+        // Deduct resources
+        $database->modifyResource($vref, -$bribe['wood'], -$bribe['clay'], -$bribe['iron'], -$bribe['crop'], 0);
+        self::dismissOrmas($vref);
+
+        return [
+            'success' => true,
+            'message' => 'Uang damai/sumbangan proposal berhasil diserahkan. ' . $info['name'] . ' telah membubarkan diri dan meninggalkan desa!'
+        ];
+    }
+
+    /**
+     * Player mobilizes standing village troops to fight and expel the Ormas.
+     */
+    public static function fightOrmas(int $vref, int $uid): array {
+        global $database;
+        $ormas = self::getVillageOrmas($vref);
+        if (!$ormas) {
+            return ['success' => false, 'message' => 'Tidak ada Ormas di desa ini.'];
+        }
+
+        $type = (int)$ormas['ormas_type'];
+        $info = self::getOrmasInfo($type);
+        $minTroops = (int)$info['min_troops_fight'];
+
+        // Calculate total combat troops in village
+        $unitCols = [];
+        for ($i = 1; $i <= 100; $i++) {
+            $unitCols[] = "u" . $i;
+        }
+        $colsSum = implode(' + ', $unitCols);
+        $res = $database->query_return("SELECT ($colsSum) AS total_troops FROM " . TB_PREFIX . "units WHERE vref = $vref");
+        $totalTroops = (!empty($res) && isset($res[0]['total_troops'])) ? (int)$res[0]['total_troops'] : 0;
+
+        if ($totalTroops < $minTroops) {
+            return [
+                'success' => false,
+                'message' => 'Pasukan Anda terlalu sedikit! Anda memiliki ' . $totalTroops . ' prajurit, dibutuhkan minimal ' . $minTroops . ' prajurit siaga untuk mengusir ' . $info['name'] . '.'
+            ];
+        }
+
+        // Victory! Dismiss ormas
+        self::dismissOrmas($vref);
+
+        return [
+            'success' => true,
+            'message' => 'HEBAT! Pasukan siaga Anda berhasil menggerebek dan memukul mundur ' . $info['name'] . ' kocar-kacir keluar desa!'
+        ];
+    }
+
+    /**
      * Automated periodic spawning hook for Automation engine.
      */
     public static function processSpawns(): void {

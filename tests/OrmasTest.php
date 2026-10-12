@@ -104,4 +104,17 @@ assertTrue(!Ormas::isVillageAfflicted($testVid), "Village is no longer afflicted
 assertEqual(1.0, Ormas::getProductionMultiplier($testVid, 'wood'), "Production multiplier reverts to 1.0x");
 assertEqual(0, Ormas::getExtraCropUpkeep($testVid), "Extra crop upkeep reverts to 0");
 
+// 8. Test bribe and fight mechanics
+echo "8. Testing Bribe and Fight Mechanics...\n";
+Ormas::dispatchOrmas($testVid, Ormas::TYPE_SETEMPAT, 7200);
+$resBribeNonExistent = Ormas::bribeOrmas(99999999, 1);
+assertEqual(false, $resBribeNonExistent['success'], "Bribe on non-existent village fails gracefully");
+
+$resFightNonExistent = Ormas::fightOrmas(99999999, 1);
+assertEqual(false, $resFightNonExistent['success'], "Fight on non-existent village fails gracefully");
+
+// Clean up
+Ormas::dismissOrmas($testVid);
+
 echo "\nAll Ormas Unit Tests Passed Successfully!\n";
+
