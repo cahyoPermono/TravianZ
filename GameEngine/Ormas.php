@@ -447,40 +447,93 @@ class Ormas {
 
     /**
      * Automated periodic spawning hook for Automation engine.
+     * @param bool $force If true, bypasses chance and system config (for admin manual trigger)
+     * @return int Number of villages newly afflicted
      */
-    public static function processSpawns(): void {
-        if (defined('ORMAS_SYSTEM_ENABLED') && !ORMAS_SYSTEM_ENABLED) {
-            return;
+    public static function processSpawns(bool $force = false): int {
+        if (!$force && defined('ORMAS_SYSTEM_ENABLED') && !ORMAS_SYSTEM_ENABLED) {
+            return 0;
         }
 
         self::ensureTable();
         $db = self::db();
-        if (!$db) return;
+        if (!$db) return 0;
 
-        // Roll spawn chance (default 25% chance per automation tick)
-        $chance = defined('ORMAS_SPAWN_CHANCE') ? (int)ORMAS_SPAWN_CHANCE : 25;
-        if (mt_rand(1, 100) > $chance) {
-            return;
+        if (!$force) {
+            // Roll spawn chance (default 25% chance per automation tick)
+            $chance = defined('ORMAS_SPAWN_CHANCE') ? (int)ORMAS_SPAWN_CHANCE : 25;
+            if (mt_rand(1, 100) > $chance) {
+                return 0;
+            }
         }
 
         $minPop = defined('ORMAS_MIN_POP') ? (int)ORMAS_MIN_POP : 40;
         $now = time();
 
-        // Pick 1 candidate player village (non-admin, not protected, pop >= minPop, no active ormas)
+        // Pick up to 2 candidate player villages (non-admin, not protected, pop >= minPop, no active ormas)
+        $limit = $force ? 1 : mt_rand(1, 2);
         $q = "SELECT v.wref FROM " . TB_PREFIX . "vdata v
               JOIN " . TB_PREFIX . "users u ON v.owner = u.id
               LEFT JOIN " . TB_PREFIX . "village_ormas o ON v.wref = o.vref AND o.end_time > $now AND o.ormas_type > 0
               WHERE u.access < 8
                 AND u.protect < $now
                 AND v.pop >= $minPop
-                AND o.vref IS NULL
-              ORDER BY RAND() LIMIT 1";
+                AND (o.vref IS NULL OR o.ormas_type = 0)
+              ORDER BY RAND() LIMIT $limit";
 
         $res = @mysqli_query($db, $q);
-        if ($res && ($row = mysqli_fetch_assoc($res))) {
-            $targetWid = (int)$row['wref'];
-            $randomType = mt_rand(1, 4);
-            self::dispatchOrmas($targetWid, $randomType);
+        $dispatched = 0;
+        if ($res) {
+            while ($row = mysqli_fetch_assoc($res)) {
+                $targetWid = (int)$row['wref'];
+                $randomType = mt_rand(1, 4);
+                if (self::dispatchOrmas($targetWid, $randomType)) {
+                    $dispatched++;
+                }
+            }
         }
+        return $dispatched;
+    }
+
+    /**
+     * Get all currently active ormas afflictions across the server.
+     * Returns village details, player details, coords, and expiration info.
+     */
+    public static function getAllActiveOrmas(): array {
+        self::ensureTable();
+        $db = self::db();
+        if (!$db) return [];
+
+        $now = time();
+        $q = "SELECT o.*, v.name AS vname, v.owner, u.username, w.x, w.y
+              FROM `" . TB_PREFIX . "village_ormas` o
+              JOIN `" . TB_PREFIX . "vdata` v ON o.vref = v.wref
+              JOIN `" . TB_PREFIX . "users` u ON v.owner = u.id
+              LEFT JOIN `" . TB_PREFIX . "wdata` w ON v.wref = w.id
+              WHERE o.ormas_type > 0 AND o.end_time > $now
+              ORDER BY o.end_time ASC";
+
+        $res = @mysqli_query($db, $q);
+        $list = [];
+        if ($res) {
+            while ($row = mysqli_fetch_assoc($res)) {
+                $list[] = $row;
+            }
+        }
+        return $list;
+    }
+
+    /**
+     * Dismiss all active Ormas from all villages on the server.
+     * @return int Number of villages cleared
+     */
+    public static function dismissAll(): int {
+        self::ensureTable();
+        $db = self::db();
+        if (!$db) return 0;
+
+        $q = "UPDATE `" . TB_PREFIX . "village_ormas` SET `ormas_type` = 0, `end_time` = 0 WHERE `ormas_type` > 0";
+        @mysqli_query($db, $q);
+        return mysqli_affected_rows($db);
     }
 }
