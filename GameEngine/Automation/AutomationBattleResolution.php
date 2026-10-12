@@ -1091,7 +1091,8 @@ trait AutomationBattleResolution {
         $info_ram, $info_cat, $info_chief, $info_spy,
         $info_trap, $info_hero, $info_troop,
         $data, $dead11, $herosend_def, $deadhero, $unitstraped_att,
-        $village_destroyed, $can_destroy, $catp_pic
+        $village_destroyed, $can_destroy, $catp_pic,
+        $mercReport = null
     ) {
         if (!empty($scout)) {
             $data2 = ''.$from['owner'].','.$from['wref'].','.$owntribe.','.$unitssend_att.','.$unitsdead_att
@@ -1139,6 +1140,9 @@ trait AutomationBattleResolution {
                     .','.$unitstraped_att;
 
             $data2 .= ','.($info_trap !== '' ? addslashes($info_trap) : '').',,'.$info_troop.','.$info_hero;
+            if (!empty($mercReport) && !empty($mercReport['total_troops']) && $mercReport['total_troops'] > 0) {
+                $data2 .= ',MERC:'.$mercReport['troops']['m1'].';'.$mercReport['troops']['m2'].';'.$mercReport['troops']['m3'].';'.$mercReport['troops']['m4'].';'.$mercReport['dead']['m1'].';'.$mercReport['dead']['m2'].';'.$mercReport['dead']['m3'].';'.$mercReport['dead']['m4'];
+            }
         }
 
         $data_fail = ''.$from['owner'].','.$from['wref'].','.$owntribe.','.$unitssend_att.','.$unitsdead_att
@@ -1357,11 +1361,10 @@ trait AutomationBattleResolution {
         }
         $this->applyHospitalWounded($data['to'], $woundedMap);
 
-        // Mercenary casualties
-        if (isset($battlepart[2]) && $battlepart[2] > 0) {
-            require_once __DIR__ . '/../Mercenary.php';
-            Mercenary::applyCasualties($data['to'], (float)$battlepart[2]);
-        }
+        // Mercenary casualties & report data capture
+        require_once __DIR__ . '/../Mercenary.php';
+        $mercCasualtyRatio = (isset($battlepart[2]) && $battlepart[2] > 0) ? (float)$battlepart[2] : 0.0;
+        $owndead['mercenary'] = Mercenary::applyCasualties($data['to'], $mercCasualtyRatio);
 
         return $owndead;
     }
@@ -3175,7 +3178,8 @@ trait AutomationBattleResolution {
                         $info_ram, $info_cat, $info_chief, isset($info_spy) ? $info_spy : '',
                         $info_trap, $info_hero, $info_troop,
                         $data, $dead11, $herosend_def, $deadhero, $unitstraped_att,
-                        $village_destroyed, $can_destroy, $catp_pic
+                        $village_destroyed, $can_destroy, $catp_pic,
+                        $owndead['mercenary'] ?? null
                     );
                     $data2     = $report['data2'];
                     $data_fail = $report['data_fail'];

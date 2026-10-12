@@ -182,34 +182,57 @@ class Mercenary
     }
 
     /**
-     * Apply battle casualty loss to mercenary garrison.
+     * Apply battle casualty loss to mercenary garrison and return casualty details.
+     * @return array ['troops' => [...], 'dead' => [...], 'total_troops' => int, 'total_dead' => int]
      */
-    public static function applyCasualties(int $vref, float $casualtyRatio): void
+    public static function applyCasualties(int $vref, float $casualtyRatio): array
     {
-        if ($casualtyRatio <= 0 || $vref <= 0) return;
-        $casualtyRatio = min(1.0, max(0.0, $casualtyRatio));
+        $res = [
+            'troops' => ['m1' => 0, 'm2' => 0, 'm3' => 0, 'm4' => 0],
+            'dead'   => ['m1' => 0, 'm2' => 0, 'm3' => 0, 'm4' => 0],
+            'total_troops' => 0,
+            'total_dead'   => 0
+        ];
+
+        if ($vref <= 0) return $res;
+        $casualtyRatio = min(1.0, max(0.0, (float)$casualtyRatio));
 
         $db = self::db();
-        if (!$db) return;
+        if (!$db) return $res;
 
         $g = self::getGarrison($vref);
-        if ($g['total_troops'] <= 0) return;
+        if ($g['total_troops'] <= 0) return $res;
 
-        $dead1 = (int)round($g['m1'] * $casualtyRatio);
-        $dead2 = (int)round($g['m2'] * $casualtyRatio);
-        $dead3 = (int)round($g['m3'] * $casualtyRatio);
-        $dead4 = (int)round($g['m4'] * $casualtyRatio);
+        $res['troops'] = [
+            'm1' => $g['m1'],
+            'm2' => $g['m2'],
+            'm3' => $g['m3'],
+            'm4' => $g['m4']
+        ];
+        $res['total_troops'] = $g['total_troops'];
 
-        $new1 = max(0, $g['m1'] - $dead1);
-        $new2 = max(0, $g['m2'] - $dead2);
-        $new3 = max(0, $g['m3'] - $dead3);
-        $new4 = max(0, $g['m4'] - $dead4);
+        if ($casualtyRatio > 0) {
+            $dead1 = (int)round($g['m1'] * $casualtyRatio);
+            $dead2 = (int)round($g['m2'] * $casualtyRatio);
+            $dead3 = (int)round($g['m3'] * $casualtyRatio);
+            $dead4 = (int)round($g['m4'] * $casualtyRatio);
 
-        $now = time();
-        $q = "UPDATE `" . TB_PREFIX . "mercenaries`
-              SET m1 = $new1, m2 = $new2, m3 = $new3, m4 = $new4, updated = $now
-              WHERE vref = " . (int)$vref;
-        @mysqli_query($db, $q);
+            $res['dead'] = ['m1' => $dead1, 'm2' => $dead2, 'm3' => $dead3, 'm4' => $dead4];
+            $res['total_dead'] = $dead1 + $dead2 + $dead3 + $dead4;
+
+            $new1 = max(0, $g['m1'] - $dead1);
+            $new2 = max(0, $g['m2'] - $dead2);
+            $new3 = max(0, $g['m3'] - $dead3);
+            $new4 = max(0, $g['m4'] - $dead4);
+
+            $now = time();
+            $q = "UPDATE `" . TB_PREFIX . "mercenaries`
+                  SET m1 = $new1, m2 = $new2, m3 = $new3, m4 = $new4, updated = $now
+                  WHERE vref = " . (int)$vref;
+            @mysqli_query($db, $q);
+        }
+
+        return $res;
     }
 
     /**

@@ -356,4 +356,129 @@ if (!empty($dataarray[$heroIndex])) {
 </table>
 <?php } ?>
 
+<?php
+// ======================== MERCENARY GARRISON ========================
+$mercData = null;
+foreach ($dataarray as $item) {
+    if (is_string($item) && strpos($item, 'MERC:') === 0) {
+        $parts = explode(';', substr($item, 5));
+        if (count($parts) >= 8) {
+            $mTroops = [
+                1 => (int)$parts[0],
+                2 => (int)$parts[1],
+                3 => (int)$parts[2],
+                4 => (int)$parts[3]
+            ];
+            $mDead = [
+                1 => (int)$parts[4],
+                2 => (int)$parts[5],
+                3 => (int)$parts[6],
+                4 => (int)$parts[7]
+            ];
+            $totT = array_sum($mTroops);
+            if ($totT > 0) {
+                $mercData = [
+                    'troops' => $mTroops,
+                    'dead'   => $mDead,
+                    'total_troops' => $totT,
+                    'total_dead'   => array_sum($mDead)
+                ];
+            }
+        }
+        break;
+    }
+}
+
+// Fallback for older reports without MERC: tag in CSV payload
+if ($mercData === null && !empty($dataarray[29])) {
+    $defWid = (int)$dataarray[29];
+    if (file_exists(dirname(__DIR__, 2) . '/GameEngine/Mercenary.php')) {
+        require_once dirname(__DIR__, 2) . '/GameEngine/Mercenary.php';
+        $curGarrison = Mercenary::getGarrison($defWid);
+        if (!empty($curGarrison['total_troops']) && $curGarrison['total_troops'] > 0) {
+            // Estimate casualties based on defender regular losses ratio
+            $defSendTot = 0;
+            $defDeadTot = 0;
+            for ($k = 35; $k <= 44; $k++) {
+                $defSendTot += (int)($dataarray[$k] ?? 0);
+            }
+            for ($k = 45; $k <= 54; $k++) {
+                $defDeadTot += (int)($dataarray[$k] ?? 0);
+            }
+            $ratio = ($defSendTot > 0) ? min(1.0, max(0.0, $defDeadTot / $defSendTot)) : 0.0;
+
+            $d1 = (int)round($curGarrison['m1'] * $ratio);
+            $d2 = (int)round($curGarrison['m2'] * $ratio);
+            $d3 = (int)round($curGarrison['m3'] * $ratio);
+            $d4 = (int)round($curGarrison['m4'] * $ratio);
+
+            $mTroops = [
+                1 => $curGarrison['m1'] + $d1,
+                2 => $curGarrison['m2'] + $d2,
+                3 => $curGarrison['m3'] + $d3,
+                4 => $curGarrison['m4'] + $d4
+            ];
+            $mDead = [
+                1 => $d1,
+                2 => $d2,
+                3 => $d3,
+                4 => $d4
+            ];
+            $mercData = [
+                'troops' => $mTroops,
+                'dead'   => $mDead,
+                'total_troops' => array_sum($mTroops),
+                'total_dead'   => array_sum($mDead)
+            ];
+        }
+    }
+}
+
+if (!empty($mercData) && $mercData['total_troops'] > 0):
+?>
+<table cellpadding="1" cellspacing="1" class="defender" style="margin-top: 10px; border: 1.5px solid #38bdf8;">
+<thead>
+<tr>
+<td class="role" style="font-weight: bold; background: #e0f2fe; color: #0369a1; border-color: #bae6fd;">
+    🛡️ <?php echo defined('MERCENARY') ? MERCENARY : 'Mercenary'; ?>
+</td>
+<td colspan="<?php echo $colspan; ?>" style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); color: #0369a1; font-weight: bold; padding: 5px 8px; border-color: #bae6fd;">
+    ⚔️ Tentara Bayaran (Mercenary Garrison) <?php echo FROM_THE_VILL . ' ' . $deffrom_url; ?>
+</td>
+</tr>
+</thead>
+
+<tbody class="units">
+<tr>
+<td>&nbsp;</td>
+<td style="text-align:center; padding: 4px 2px;"><span style="font-size:16px;">🛡️</span><br/><span style="font-size:9.5px; font-weight:bold; color:#1e293b;">Garda Zirah</span></td>
+<td style="text-align:center; padding: 4px 2px;"><span style="font-size:16px;">🏹</span><br/><span style="font-size:9.5px; font-weight:bold; color:#1e293b;">Pemanah Kreta</span></td>
+<td style="text-align:center; padding: 4px 2px;"><span style="font-size:16px;">🐎</span><br/><span style="font-size:9.5px; font-weight:bold; color:#1e293b;">Penjarah Stepa</span></td>
+<td style="text-align:center; padding: 4px 2px;"><span style="font-size:16px;">🔨</span><br/><span style="font-size:9.5px; font-weight:bold; color:#1e293b;">Penebas Benteng</span></td>
+<?php for ($e = 5; $e <= ($colspan - 1); $e++): ?>
+<td class="none" style="opacity: 0.25;">?</td>
+<?php endfor; ?>
+</tr>
+<tr>
+<th><?php echo TROOPS; ?></th>
+<?php for ($m = 1; $m <= 4; $m++): ?>
+    <?php echo ($mercData['troops'][$m] == 0) ? '<td class="none">0</td>' : '<td><b>'.$mercData['troops'][$m].'</b></td>'; ?>
+<?php endfor; ?>
+<?php for ($e = 5; $e <= ($colspan - 1); $e++): ?>
+<td class="none">0</td>
+<?php endfor; ?>
+</tr>
+<tr>
+<th><?php echo CASUALTIES; ?></th>
+<?php for ($m = 1; $m <= 4; $m++): ?>
+    <?php echo ($mercData['dead'][$m] == 0) ? '<td class="none">0</td>' : '<td style="color:#dc2626; font-weight:bold;">'.$mercData['dead'][$m].'</td>'; ?>
+<?php endfor; ?>
+<?php for ($e = 5; $e <= ($colspan - 1); $e++): ?>
+<td class="none">0</td>
+<?php endfor; ?>
+</tr>
+</tbody>
+</table>
+<?php endif; ?>
+
 </td></tr></tbody></table>
