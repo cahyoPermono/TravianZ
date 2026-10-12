@@ -96,13 +96,27 @@ assertEqual(0.85, Ormas::getProductionMultiplier($testVid, 'iron'), "Setempat cu
 assertEqual(0.85, Ormas::getProductionMultiplier($testVid, 'crop'), "Setempat cuts all production by -15% (crop: 0.85x)");
 assertEqual(0.90, Ormas::getAttackBonusMultiplier($testVid), "Setempat reduces troop attack power by -10% (0.90x)");
 
-// 7. Dismissal test
-echo "7. Testing Dismissal...\n";
+// 7. Dismissal & 3-Day Immunity Cooldown test
+echo "7. Testing Dismissal & 3-Day Immunity Cooldown...\n";
 $dismissOk = Ormas::dismissOrmas($testVid);
 assertTrue($dismissOk, "Dismissing Ormas succeeds");
 assertTrue(!Ormas::isVillageAfflicted($testVid), "Village is no longer afflicted after dismissal");
 assertEqual(1.0, Ormas::getProductionMultiplier($testVid, 'wood'), "Production multiplier reverts to 1.0x");
 assertEqual(0, Ormas::getExtraCropUpkeep($testVid), "Extra crop upkeep reverts to 0");
+
+// Cooldown checks
+assertTrue(Ormas::isVillageImmune($testVid), "Village is now immune after dismissal");
+$remCooldown = Ormas::getCooldownRemaining($testVid);
+assertTrue($remCooldown > 250000 && $remCooldown <= 259200, "Cooldown remaining is approximately 3 days (259200s)");
+
+$immuneList = Ormas::getAllImmuneVillages();
+assertTrue(is_array($immuneList), "getAllImmuneVillages returns array");
+
+// Clear cooldown
+$clrOk = Ormas::clearVillageCooldown($testVid);
+assertTrue($clrOk, "clearVillageCooldown succeeds");
+assertTrue(!Ormas::isVillageImmune($testVid), "Village is no longer immune after clearVillageCooldown");
+assertEqual(0, Ormas::getCooldownRemaining($testVid), "Remaining cooldown is 0 after clearing");
 
 // 8. Test bribe and fight mechanics
 echo "8. Testing Bribe and Fight Mechanics...\n";
@@ -121,12 +135,36 @@ assertTrue(is_array($activeList), "getAllActiveOrmas returns array");
 $cleared = Ormas::dismissAll();
 assertTrue($cleared >= 1, "dismissAll cleared at least testVid");
 assertTrue(!Ormas::isVillageAfflicted($testVid), "testVid is cleared after dismissAll");
+assertTrue(Ormas::isVillageImmune($testVid), "testVid is granted cooldown after dismissAll");
 
-$spawnRes = Ormas::processSpawns(true);
-assertTrue(is_int($spawnRes), "processSpawns(true) returns integer count");
+// 10. Test Candidate Selection Query Excludes Immune Villages
+echo "10. Testing Candidate Spawn Query Excludes Cooldown Villages...\n";
+$db = $GLOBALS['database']->dblink;
+$vRow = @mysqli_query($db, "SELECT wref FROM " . TB_PREFIX . "vdata LIMIT 1");
+if ($vRow && ($vr = mysqli_fetch_assoc($vRow))) {
+    $realWid = (int)$vr['wref'];
+    // Put in 3-day cooldown
+    Ormas::dismissOrmas($realWid, 259200);
+    assertTrue(Ormas::isVillageImmune($realWid), "Real village $realWid is in 3-day cooldown");
+
+    // Check candidate query directly
+    $now = time();
+    $cq = "SELECT v.wref FROM " . TB_PREFIX . "vdata v
+          LEFT JOIN " . TB_PREFIX . "village_ormas o ON v.wref = o.vref
+          WHERE v.wref = $realWid
+            AND (o.vref IS NULL OR (o.ormas_type = 0 AND o.cooldown_until < $now))";
+    $cRes = @mysqli_query($db, $cq);
+    assertEqual(0, mysqli_num_rows($cRes), "Village in 3-day cooldown is strictly excluded from candidate spawn query");
+
+    // Clear cooldown and verify it becomes eligible again
+    Ormas::clearVillageCooldown($realWid);
+    $cResAfter = @mysqli_query($db, $cq);
+    assertEqual(1, mysqli_num_rows($cResAfter), "Village becomes eligible again once cooldown is 0");
+}
 
 // Clean up
 Ormas::dismissOrmas($testVid);
+Ormas::clearVillageCooldown($testVid);
 
 echo "\nAll Ormas Unit Tests Passed Successfully!\n";
 

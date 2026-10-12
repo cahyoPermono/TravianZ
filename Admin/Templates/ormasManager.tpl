@@ -88,13 +88,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } elseif ($action === 'dismiss_all') {
         $cleared = Ormas::dismissAll();
-        $flashSuccess = "Seluruh Ormas di server berhasil dibubarkan! <b>$cleared desa</b> telah kembali aman dan tenteram.";
+        $flashSuccess = "Seluruh Ormas di server berhasil dibubarkan! <b>$cleared desa</b> telah kembali aman dan mendapatkan perlindungan kebal ormas 3 hari.";
+    } elseif ($action === 'clear_cooldown') {
+        $vref = (int)($_POST['vref'] ?? 0);
+        if ($vref > 0) {
+            Ormas::clearVillageCooldown($vref);
+            $flashSuccess = "Perlindungan cooldown pada desa ID #$vref berhasil direset!";
+        }
     }
 }
 
 // ─── QUERY DATA ─────────────────────────────────────────────────────────────
 $activeList = Ormas::getAllActiveOrmas();
 $totalAfflicted = count($activeList);
+
+$immuneList = Ormas::getAllImmuneVillages();
+$totalImmune = count($immuneList);
 
 // Statistik per tipe
 $typeCounts = [1 => 0, 2 => 0, 3 => 0, 4 => 0];
@@ -183,6 +192,11 @@ $typesMeta = [
             <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #ea580c; font-weight: 700;">☕ Ormas Setempat</div>
             <div style="font-size: 26px; font-weight: 800; color: #ea580c; margin-top: 4px;"><?php echo $typeCounts[4]; ?></div>
             <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">Uang rokok & penalti rata</div>
+        </div>
+        <div style="background: #fff; padding: 14px 18px; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #0284c7; font-weight: 700;">🛡️ Kebal Cooldown (3 Hari)</div>
+            <div style="font-size: 26px; font-weight: 800; color: #0284c7; margin-top: 4px;"><?php echo $totalImmune; ?></div>
+            <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">Desa dalam proteksi damai</div>
         </div>
     </div>
 
@@ -329,6 +343,72 @@ $typesMeta = [
                                             <input type="hidden" name="vref" value="<?php echo (int)$row['vref']; ?>" />
                                             <button type="submit" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer;">
                                                 ❌ Usir / Bubarkan
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php endif; ?>
+        </div>
+
+        <!-- IMMUNE VILLAGES TABLE (COOLDOWN 3 HARI) -->
+        <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; margin-bottom: 15px;">
+                <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+                    <span>🛡️</span> Daftar Desa dalam Masa Perlindungan Kebal Ormas (Cooldown 3 Hari) (<?php echo $totalImmune; ?>)
+                </h3>
+            </div>
+
+            <?php if (empty($immuneList)): ?>
+                <div style="text-align: center; padding: 24px 20px; background: #f8fafc; border-radius: 8px; border: 1px dashed #cbd5e1;">
+                    <div style="color: #64748b; font-size: 12px;">Tidak ada desa yang sedang dalam masa cooldown kekebalan ormas saat ini.</div>
+                </div>
+            <?php else: ?>
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left;">
+                        <thead>
+                            <tr style="background: #f1f5f9; color: #475569; font-weight: 700; border-bottom: 2px solid #e2e8f0;">
+                                <th style="padding: 10px 12px;">ID Desa</th>
+                                <th style="padding: 10px 12px;">Nama Desa & Posisi</th>
+                                <th style="padding: 10px 12px;">Pemilik</th>
+                                <th style="padding: 10px 12px;">Sisa Masa Kebal (3 Hari)</th>
+                                <th style="padding: 10px 12px; text-align: center;">Aksi Admin</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($immuneList as $row):
+                                $remImmune = max(0, (int)$row['cooldown_until'] - time());
+                                $days = floor($remImmune / 86400);
+                                $hours = floor(($remImmune % 86400) / 3600);
+                                $mins = floor(($remImmune % 3600) / 60);
+                                $remImmuneStr = "{$days} hari {$hours} jam {$mins} mnt";
+                            ?>
+                                <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s ease;">
+                                    <td style="padding: 10px 12px; font-weight: 600;">
+                                        #<?php echo (int)$row['vref']; ?>
+                                    </td>
+                                    <td style="padding: 10px 12px;">
+                                        <b><?php echo htmlspecialchars($row['vname']); ?></b>
+                                        <span style="color: #64748b; font-size: 11px;">(<?php echo (int)($row['x'] ?? 0); ?>|<?php echo (int)($row['y'] ?? 0); ?>)</span>
+                                    </td>
+                                    <td style="padding: 10px 12px;">
+                                        <a href="admin.php?p=player&uid=<?php echo (int)$row['owner']; ?>" style="color: #2563eb; text-decoration: none; font-weight: 600;">
+                                            <?php echo htmlspecialchars($row['username']); ?>
+                                        </a>
+                                    </td>
+                                    <td style="padding: 10px 12px; font-family: monospace; font-weight: 700; color: #0284c7;">
+                                        🛡️ <?php echo $remImmuneStr; ?>
+                                    </td>
+                                    <td style="padding: 10px 12px; text-align: center;">
+                                        <form method="post" action="admin.php?p=ormasManager" style="margin: 0; display: inline;" onsubmit="return confirm('Reset perlindungan cooldown desa ini agar dapat dikunjungi ormas kembali?');">
+                                            <?php echo csrf_field(); ?>
+                                            <input type="hidden" name="action" value="clear_cooldown" />
+                                            <input type="hidden" name="vref" value="<?php echo (int)$row['vref']; ?>" />
+                                            <button type="submit" style="background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer;">
+                                                🔄 Reset Cooldown
                                             </button>
                                         </form>
                                     </td>

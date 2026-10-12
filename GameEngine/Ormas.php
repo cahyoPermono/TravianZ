@@ -48,12 +48,20 @@ class Ormas {
             `severity` tinyint(2) NOT NULL DEFAULT 1,
             `start_time` int(11) NOT NULL DEFAULT 0,
             `end_time` int(11) NOT NULL DEFAULT 0,
+            `cooldown_until` int(11) NOT NULL DEFAULT 0,
             `demands` varchar(255) NOT NULL DEFAULT '',
             `created_at` int(11) NOT NULL DEFAULT 0,
             PRIMARY KEY (`vref`),
-            KEY `end_time` (`end_time`)
+            KEY `end_time` (`end_time`),
+            KEY `cooldown_until` (`cooldown_until`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
         @mysqli_query($db, $q);
+
+        // Self-healing migration if table was created previously without cooldown_until
+        $chk = @mysqli_query($db, "SHOW COLUMNS FROM `" . TB_PREFIX . "village_ormas` LIKE 'cooldown_until'");
+        if ($chk && mysqli_num_rows($chk) == 0) {
+            @mysqli_query($db, "ALTER TABLE `" . TB_PREFIX . "village_ormas` ADD COLUMN `cooldown_until` int(11) NOT NULL DEFAULT 0 AFTER `end_time`, ADD INDEX `cooldown_until` (`cooldown_until`);");
+        }
     }
 
     /**
@@ -71,7 +79,7 @@ class Ormas {
         $res = @mysqli_query($db, "SELECT * FROM `" . TB_PREFIX . "village_ormas` WHERE `vref` = " . (int)$vref . " LIMIT 1");
         if ($res && ($row = mysqli_fetch_assoc($res))) {
             if ((int)$row['ormas_type'] > 0) {
-                // If end_time has passed, auto-dismiss
+                // If end_time has passed, auto-dismiss and start 3-day cooldown
                 if ((int)$row['end_time'] > 0 && (int)$row['end_time'] <= time()) {
                     self::dismissOrmas($vref);
                     return null;
@@ -88,6 +96,71 @@ class Ormas {
     public static function isVillageAfflicted(int $vref): bool {
         $data = self::getVillageOrmas($vref);
         return !empty($data) && (int)($data['ormas_type'] ?? 0) > 0;
+    }
+
+    /**
+     * Check if a village is currently immune from Ormas visits (in cooldown period).
+     */
+    public static function isVillageImmune(int $vref): bool {
+        return self::getCooldownRemaining($vref) > 0;
+    }
+
+    /**
+     * Get remaining cooldown seconds for a village.
+     */
+    public static function getCooldownRemaining(int $vref): int {
+        self::ensureTable();
+        $db = self::db();
+        if (!$db || $vref <= 0) return 0;
+
+        $res = @mysqli_query($db, "SELECT `cooldown_until` FROM `" . TB_PREFIX . "village_ormas` WHERE `vref` = " . (int)$vref . " LIMIT 1");
+        if ($res && ($row = mysqli_fetch_assoc($res))) {
+            $until = (int)($row['cooldown_until'] ?? 0);
+            $now = time();
+            if ($until > $now) {
+                return $until - $now;
+            }
+        }
+        return 0;
+    }
+
+    /**
+     * Manually clear cooldown for a village (e.g. for testing or admin reset).
+     */
+    public static function clearVillageCooldown(int $vref): bool {
+        self::ensureTable();
+        $db = self::db();
+        if (!$db || $vref <= 0) return false;
+
+        $q = "UPDATE `" . TB_PREFIX . "village_ormas` SET `cooldown_until` = 0 WHERE `vref` = " . (int)$vref;
+        return (bool)@mysqli_query($db, $q);
+    }
+
+    /**
+     * Get all villages currently under cooldown immunity.
+     */
+    public static function getAllImmuneVillages(): array {
+        self::ensureTable();
+        $db = self::db();
+        if (!$db) return [];
+
+        $now = time();
+        $q = "SELECT o.*, v.name AS vname, v.owner, u.username, w.x, w.y
+              FROM `" . TB_PREFIX . "village_ormas` o
+              JOIN `" . TB_PREFIX . "vdata` v ON o.vref = v.wref
+              JOIN `" . TB_PREFIX . "users` u ON v.owner = u.id
+              LEFT JOIN `" . TB_PREFIX . "wdata` w ON v.wref = w.id
+              WHERE o.ormas_type = 0 AND o.cooldown_until > $now
+              ORDER BY o.cooldown_until DESC";
+
+        $res = @mysqli_query($db, $q);
+        $list = [];
+        if ($res) {
+            while ($row = mysqli_fetch_assoc($res)) {
+                $list[] = $row;
+            }
+        }
+        return $list;
     }
 
     /**
@@ -114,21 +187,31 @@ class Ormas {
         }
 
         $endTime = $now + $duration;
-        $q = "INSERT INTO `" . TB_PREFIX . "village_ormas` (`vref`, `ormas_type`, `severity`, `start_time`, `end_time`, `demands`, `created_at`)
-              VALUES ($vref, $ormasType, 1, $now, $endTime, '', $now)
-              ON DUPLICATE KEY UPDATE `ormas_type` = $ormasType, `severity` = 1, `start_time` = $now, `end_time` = $endTime;";
+        $q = "INSERT INTO `" . TB_PREFIX . "village_ormas` (`vref`, `ormas_type`, `severity`, `start_time`, `end_time`, `cooldown_until`, `demands`, `created_at`)
+              VALUES ($vref, $ormasType, 1, $now, $endTime, 0, '', $now)
+              ON DUPLICATE KEY UPDATE `ormas_type` = $ormasType, `severity` = 1, `start_time` = $now, `end_time` = $endTime, `cooldown_until` = 0;";
         return (bool)@mysqli_query($db, $q);
     }
 
     /**
-     * Dismiss / expel an Ormas from a village.
+     * Dismiss / expel an Ormas from a village and grant 3-day immunity cooldown.
+     * @param int $vref Village ID
+     * @param int|null $cooldown Cooldown duration in seconds (defaults to 3 days = 259200s)
      */
-    public static function dismissOrmas(int $vref): bool {
+    public static function dismissOrmas(int $vref, ?int $cooldown = null): bool {
         self::ensureTable();
         $db = self::db();
         if (!$db || $vref <= 0) return false;
 
-        $q = "UPDATE `" . TB_PREFIX . "village_ormas` SET `ormas_type` = 0, `end_time` = 0 WHERE `vref` = " . (int)$vref;
+        $now = time();
+        if ($cooldown === null) {
+            $cooldown = defined('ORMAS_COOLDOWN_DURATION') ? (int)ORMAS_COOLDOWN_DURATION : 259200; // 3 hari default (259.200s)
+        }
+        $cooldownUntil = $now + max(0, $cooldown);
+
+        $q = "UPDATE `" . TB_PREFIX . "village_ormas`
+              SET `ormas_type` = 0, `end_time` = 0, `cooldown_until` = $cooldownUntil
+              WHERE `vref` = " . (int)$vref;
         return (bool)@mysqli_query($db, $q);
     }
 
@@ -402,7 +485,7 @@ class Ormas {
 
         return [
             'success' => true,
-            'message' => 'Uang damai/sumbangan proposal berhasil diserahkan. ' . $info['name'] . ' telah membubarkan diri dan meninggalkan desa!'
+            'message' => 'Uang damai/sumbangan proposal berhasil diserahkan. ' . $info['name'] . ' telah membubarkan diri! Desa Anda kini aman dan kebal dari ormas selama 3 hari ke depan.'
         ];
     }
 
@@ -436,18 +519,18 @@ class Ormas {
             ];
         }
 
-        // Victory! Dismiss ormas
+        // Victory! Dismiss ormas and grant 3-day immunity
         self::dismissOrmas($vref);
 
         return [
             'success' => true,
-            'message' => 'HEBAT! Pasukan siaga Anda berhasil menggerebek dan memukul mundur ' . $info['name'] . ' kocar-kacir keluar desa!'
+            'message' => 'HEBAT! Pasukan siaga Anda berhasil menggerebek dan memukul mundur ' . $info['name'] . ' kocar-kacir keluar desa! Desa Anda kini aman dan kebal dari ormas selama 3 hari ke depan.'
         ];
     }
 
     /**
      * Automated periodic spawning hook for Automation engine.
-     * @param bool $force If true, bypasses chance and system config (for admin manual trigger)
+     * @param bool $force If true, bypasses chance, interval, and system config (for admin manual trigger)
      * @return int Number of villages newly afflicted
      */
     public static function processSpawns(bool $force = false): int {
@@ -459,7 +542,18 @@ class Ormas {
         $db = self::db();
         if (!$db) return 0;
 
+        $interval = defined('ORMAS_PROCESS_INTERVAL') ? (int)ORMAS_PROCESS_INTERVAL : 1800; // 30 menit
+        $lockFile = __DIR__ . '/Prevention/ormas_spawn.txt';
+
+        if (!$force && file_exists($lockFile)) {
+            $lastRun = filemtime($lockFile);
+            if ((time() - $lastRun) < $interval) {
+                return 0;
+            }
+        }
+
         if (!$force) {
+            @touch($lockFile);
             // Roll spawn chance (default 25% chance per automation tick)
             $chance = defined('ORMAS_SPAWN_CHANCE') ? (int)ORMAS_SPAWN_CHANCE : 25;
             if (mt_rand(1, 100) > $chance) {
@@ -470,15 +564,15 @@ class Ormas {
         $minPop = defined('ORMAS_MIN_POP') ? (int)ORMAS_MIN_POP : 40;
         $now = time();
 
-        // Pick up to 2 candidate player villages (non-admin, not protected, pop >= minPop, no active ormas)
+        // Pick up to 2 candidate player villages (non-admin, not protected, pop >= minPop, no active ormas, not in 3-day cooldown)
         $limit = $force ? 1 : mt_rand(1, 2);
         $q = "SELECT v.wref FROM " . TB_PREFIX . "vdata v
               JOIN " . TB_PREFIX . "users u ON v.owner = u.id
-              LEFT JOIN " . TB_PREFIX . "village_ormas o ON v.wref = o.vref AND o.end_time > $now AND o.ormas_type > 0
+              LEFT JOIN " . TB_PREFIX . "village_ormas o ON v.wref = o.vref
               WHERE u.access < 8
                 AND u.protect < $now
                 AND v.pop >= $minPop
-                AND (o.vref IS NULL OR o.ormas_type = 0)
+                AND (o.vref IS NULL OR (o.ormas_type = 0 AND o.cooldown_until < $now))
               ORDER BY RAND() LIMIT $limit";
 
         $res = @mysqli_query($db, $q);
@@ -525,14 +619,23 @@ class Ormas {
 
     /**
      * Dismiss all active Ormas from all villages on the server.
+     * @param int|null $cooldown Cooldown immunity duration granted (defaults to 3 days = 259200s)
      * @return int Number of villages cleared
      */
-    public static function dismissAll(): int {
+    public static function dismissAll(?int $cooldown = null): int {
         self::ensureTable();
         $db = self::db();
         if (!$db) return 0;
 
-        $q = "UPDATE `" . TB_PREFIX . "village_ormas` SET `ormas_type` = 0, `end_time` = 0 WHERE `ormas_type` > 0";
+        $now = time();
+        if ($cooldown === null) {
+            $cooldown = defined('ORMAS_COOLDOWN_DURATION') ? (int)ORMAS_COOLDOWN_DURATION : 259200;
+        }
+        $cooldownUntil = $now + max(0, $cooldown);
+
+        $q = "UPDATE `" . TB_PREFIX . "village_ormas`
+              SET `ormas_type` = 0, `end_time` = 0, `cooldown_until` = $cooldownUntil
+              WHERE `ormas_type` > 0";
         @mysqli_query($db, $q);
         return mysqli_affected_rows($db);
     }
