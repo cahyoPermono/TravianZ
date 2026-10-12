@@ -113,8 +113,21 @@ assertEqual(false, $resBribeNonExistent['success'], "Bribe on non-existent villa
 $resFightNonExistent = Ormas::fightOrmas(99999999, 1);
 assertEqual(false, $resFightNonExistent['success'], "Fight on non-existent village fails gracefully");
 
+// 9. Test Admin listing, bulk dismiss, and forced spawn
+echo "9. Testing Admin Listing & Bulk Dismiss...\n";
+$activeList = Ormas::getAllActiveOrmas();
+assertTrue(is_array($activeList), "getAllActiveOrmas returns array");
+
+$cleared = Ormas::dismissAll();
+assertTrue($cleared >= 1, "dismissAll cleared at least testVid");
+assertTrue(!Ormas::isVillageAfflicted($testVid), "testVid is cleared after dismissAll");
+
+$spawnRes = Ormas::processSpawns(true);
+assertTrue(is_int($spawnRes), "processSpawns(true) returns integer count");
+
 // Clean up
 Ormas::dismissOrmas($testVid);
 
 echo "\nAll Ormas Unit Tests Passed Successfully!\n";
+
 
