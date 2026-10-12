@@ -1,5 +1,5 @@
 <?php
-if (!defined('WEATHER_SYSTEM_ENABLED') || !WEATHER_SYSTEM_ENABLED) {
+if (defined('WEATHER_SYSTEM_ENABLED') && !WEATHER_SYSTEM_ENABLED) {
     return;
 }
 

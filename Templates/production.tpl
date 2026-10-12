@@ -31,14 +31,46 @@ $cropGross  = isset($village->allcrop) ? (int)$village->allcrop : 0;
 $cropPop    = isset($village->pop) ? (int)$village->pop : 0;
 $cropUpkeep = (isset($technology) && isset($village->unitall)) ? (int)$technology->getUpkeep($village->unitall, 0) : 0;
 $cropTitle  = "Produksi Bersih: {$cropProd}/jam (Ladang Kotor: +{$cropGross} | Populasi: -{$cropPop} | Upkeep Pasukan: -{$cropUpkeep})";
+
+$vid = isset($village->wid) ? (int)$village->wid : 0;
+$wMeta = null;
+$wRemain = 0;
+if (class_exists('Weather') && (!defined('WEATHER_SYSTEM_ENABLED') || WEATHER_SYSTEM_ENABLED)) {
+    $curW = Weather::getCurrentWeather();
+    $wType = (int)($curW['weather_type'] ?? Weather::TYPE_CLEAR);
+    $wMeta = Weather::getWeatherInfo($wType);
+    $wRemain = max(0, (int)($curW['end_time'] - time()));
+}
+
+$wMultWood = class_exists('Weather') ? Weather::getProductionMultiplier($vid, 'wood') : 1.0;
+$wMultClay = class_exists('Weather') ? Weather::getProductionMultiplier($vid, 'clay') : 1.0;
+$wMultIron = class_exists('Weather') ? Weather::getProductionMultiplier($vid, 'iron') : 1.0;
+$wMultCrop = class_exists('Weather') ? Weather::getProductionMultiplier($vid, 'crop') : 1.0;
+
+if (!function_exists('formatProdModBadge')) {
+    function formatProdModBadge(float $m): string {
+        if (abs($m - 1.0) < 0.001) return '';
+        $diff = round(($m - 1.0) * 100);
+        $color = $diff > 0 ? '#27ae60' : '#e74c3c';
+        $sign = $diff > 0 ? '+' : '';
+        return "<span style='font-size:10px; color:{$color}; margin-left:4px; font-weight:normal;'>({$sign}{$diff}% Cuaca)</span>";
+    }
+}
 ?>
 
 <table id="production" cellpadding="1" cellspacing="1">
 
     <thead>
         <tr>
-            <th colspan="4">
-                <?php echo PRODUCTION; ?>:
+            <th colspan="4" style="padding: 4px 6px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span><?php echo PRODUCTION; ?>:</span>
+                    <?php if ($wMeta): ?>
+                        <span style="font-size:11px; font-weight:normal; background:rgba(0,0,0,0.06); padding:2px 7px; border-radius:10px; cursor:help;" title="<?php echo htmlspecialchars($wMeta['name'] . ': ' . implode(', ', $wMeta['effects']) . ' | Berganti dalam: ' . gmdate('H:i:s', $wRemain)); ?>">
+                            <?php echo $wMeta['icon'] . ' ' . htmlspecialchars($wMeta['name']); ?>
+                        </span>
+                    <?php endif; ?>
+                </div>
             </th>
         </tr>
     </thead>
@@ -56,7 +88,7 @@ $cropTitle  = "Produksi Bersih: {$cropProd}/jam (Ladang Kotor: +{$cropGross} | P
             </td>
 
             <td class="num">
-                <?php echo $woodProd; ?>
+                <?php echo $woodProd . formatProdModBadge($wMultWood); ?>
             </td>
 
             <td class="per">
@@ -75,7 +107,7 @@ $cropTitle  = "Produksi Bersih: {$cropProd}/jam (Ladang Kotor: +{$cropGross} | P
             </td>
 
             <td class="num">
-                <?php echo $clayProd; ?>
+                <?php echo $clayProd . formatProdModBadge($wMultClay); ?>
             </td>
 
             <td class="per">
@@ -94,7 +126,7 @@ $cropTitle  = "Produksi Bersih: {$cropProd}/jam (Ladang Kotor: +{$cropGross} | P
             </td>
 
             <td class="num">
-                <?php echo $ironProd; ?>
+                <?php echo $ironProd . formatProdModBadge($wMultIron); ?>
             </td>
 
             <td class="per">
@@ -118,12 +150,21 @@ $cropTitle  = "Produksi Bersih: {$cropProd}/jam (Ladang Kotor: +{$cropGross} | P
                 <?php else: ?>
                     <?php echo $cropProd; ?>
                 <?php endif; ?>
+                <?php echo formatProdModBadge($wMultCrop); ?>
             </td>
 
             <td class="per">
                 <?php echo PER_HR; ?>
             </td>
         </tr>
+
+        <?php if ($cropProd < 0): ?>
+        <tr>
+            <td colspan="4" style="font-size:10px; color:#666; background:#fff8f8; padding:3px 6px; border-top:1px dashed #f5c6cb;">
+                ℹ️ <b>Gandum minus:</b> Ladang menghasilkan <b>+<?php echo $cropGross; ?></b>, tetapi dikonsumsi <b>-<?php echo ($cropPop + $cropUpkeep); ?></b> (Populasi: <?php echo $cropPop; ?> | Upkeep: <?php echo $cropUpkeep; ?>).
+            </td>
+        </tr>
+        <?php endif; ?>
 
     </tbody>
 

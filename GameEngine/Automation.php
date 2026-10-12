@@ -220,7 +220,7 @@ class Automation {
         }
 
         // Dynamic Weather & Plague cycle processing
-        if (defined('WEATHER_SYSTEM_ENABLED') && WEATHER_SYSTEM_ENABLED) {
+        if (!defined('WEATHER_SYSTEM_ENABLED') || WEATHER_SYSTEM_ENABLED) {
             try {
                 require_once __DIR__ . '/Weather.php';
                 Weather::tick();
@@ -228,7 +228,7 @@ class Automation {
                 error_log("Weather error: " . $e->getMessage());
             }
         }
-        if (defined('PLAGUE_SYSTEM_ENABLED') && PLAGUE_SYSTEM_ENABLED) {
+        if (!defined('PLAGUE_SYSTEM_ENABLED') || PLAGUE_SYSTEM_ENABLED) {
             try {
                 require_once __DIR__ . '/Plague.php';
                 Plague::tick();
