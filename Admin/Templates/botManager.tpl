@@ -314,6 +314,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
             $whereExtra = "AND alliance != $aid";
             if ($targetBot === 'all_unassigned') {
                 $whereExtra = "AND (alliance = 0 OR alliance IS NULL)";
+            } elseif (strpos($targetBot, 'tribe_') === 0) {
+                $trNum = (int)substr($targetBot, 6);
+                $whereExtra = "AND tribe = $trNum AND (alliance = 0 OR alliance IS NULL)";
             } elseif ($targetBot !== 'all' && (int)$targetBot > 0) {
                 $specUid = (int)$targetBot;
                 $whereExtra = "AND id = $specUid";
@@ -344,6 +347,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
                     ");
                     $joined++;
                 }
+                $database->procAllyPop($aid);
                 $flashSuccess = "🛡️ Berhasil memasukkan <b>$joined</b> bot ke aliansi <b>[{$aliTag}] {$aliName}</b> (#$aid)!";
             }
         }
@@ -369,13 +373,126 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
             $flashError = "Tidak ada bot dalam aliansi yang ditemukan untuk dikeluarkan.";
         } else {
             $left = 0;
+            $affectedAids = [];
             foreach ($botList as $b) {
                 $bUid = (int)$b['id'];
+                $oldAid = (int)$b['alliance'];
+                if ($oldAid > 0) $affectedAids[$oldAid] = true;
                 $database->query("UPDATE " . TB_PREFIX . "users SET alliance = 0 WHERE id = $bUid");
                 $database->query("DELETE FROM " . TB_PREFIX . "ali_permission WHERE uid = $bUid");
                 $left++;
             }
+            foreach (array_keys($affectedAids) as $aId) {
+                $database->procAllyPop($aId);
+            }
             $flashSuccess = "🛡️ Berhasil mengeluarkan <b>$left</b> bot dari aliansi!";
+        }
+    }
+    // 8. CREATE ALLIANCE FOR BOTS (ADMIN CREATION)
+    elseif ($action === 'create_alliance') {
+        $tag = trim((string)($_POST['tag'] ?? ''));
+        $name = trim((string)($_POST['name'] ?? ''));
+        $founderUid = (int)($_POST['founder_uid'] ?? 0);
+        $maxMembers = max(10, min(100, (int)($_POST['max_members'] ?? 60)));
+        $autoCount = max(0, (int)($_POST['auto_count'] ?? 0));
+        $autoTribe = (int)($_POST['auto_tribe'] ?? 0);
+
+        if (empty($tag) || empty($name)) {
+            $flashError = "Tag dan Nama Aliansi tidak boleh kosong!";
+        } elseif (strlen($tag) > 10) {
+            $flashError = "Tag Aliansi maksimal 10 karakter!";
+        } elseif (strlen($name) > 30) {
+            $flashError = "Nama Aliansi maksimal 30 karakter!";
+        } else {
+            // Check duplicate tag or name
+            $dup = $database->query_return("
+                SELECT id, tag, name FROM " . TB_PREFIX . "alidata 
+                WHERE tag = '" . $database->escape($tag) . "' OR name = '" . $database->escape($name) . "'
+                LIMIT 1
+            ");
+            if (!empty($dup)) {
+                $flashError = "Aliansi dengan Tag [{$dup[0]['tag']}] atau Nama '{$dup[0]['name']}' sudah ada di database!";
+            } else {
+                // Determine founder bot
+                if ($founderUid <= 0) {
+                    $whereTribe = ($autoTribe > 0) ? "AND tribe = $autoTribe" : "";
+                    $cand = $database->query_return("
+                        SELECT id, username FROM " . TB_PREFIX . "users
+                        WHERE access = 2
+                          AND (is_bot = 1 OR email LIKE '%@bot.travianz' OR desc1 LIKE '%[#BOT]%' OR desc2 LIKE '%[#BOT]%' OR username LIKE 'Bot_%')
+                          AND (alliance = 0 OR alliance IS NULL)
+                          $whereTribe
+                        ORDER BY id ASC LIMIT 1
+                    ");
+                    if (!empty($cand[0]['id'])) {
+                        $founderUid = (int)$cand[0]['id'];
+                    } else {
+                        // Any bot
+                        $anyBot = $database->query_return("
+                            SELECT id, username FROM " . TB_PREFIX . "users
+                            WHERE access = 2
+                              AND (is_bot = 1 OR email LIKE '%@bot.travianz' OR desc1 LIKE '%[#BOT]%' OR desc2 LIKE '%[#BOT]%' OR username LIKE 'Bot_%')
+                            ORDER BY id ASC LIMIT 1
+                        ");
+                        $founderUid = !empty($anyBot[0]['id']) ? (int)$anyBot[0]['id'] : (int)($_SESSION['id'] ?? 0);
+                    }
+                }
+
+                if ($founderUid <= 0) {
+                    $flashError = "Tidak ditemukan akun bot untuk dijadikan pendiri aliansi. Buat bot terlebih dahulu!";
+                } else {
+                    $fUser = $database->getUserArray($founderUid, 1);
+                    $fName = $fUser['username'] ?? 'BotFounder';
+
+                    $aid = $database->createAlliance($tag, $name, $founderUid, $maxMembers);
+                    if ($aid) {
+                        $database->updateUserField($founderUid, "alliance", $aid, 1);
+                        $database->updateUserField($founderUid, "alliance_joined", 0, 1);
+                        $database->createAlliPermissions($founderUid, $aid, 'Alliance founder', '1', '1', '1', '1', '1', '1', '1', '1');
+                        $database->procAllyPop($aid);
+
+                        $notice = rc_tok('MSG_ALLIANCE_FOUNDED', '<a href="spieler.php?uid=' . $founderUid . '">' . addslashes($fName) . '</a>');
+                        $database->insertAlliNotice($aid, $notice);
+
+                        $joinedCount = 1;
+
+                        // Auto join other bots if requested
+                        if ($autoCount > 0) {
+                            $whereExtra = "AND id != $founderUid AND (alliance = 0 OR alliance IS NULL)";
+                            if ($autoTribe > 0) {
+                                $whereExtra .= " AND tribe = $autoTribe";
+                            }
+                            $limitClause = "LIMIT $autoCount";
+                            $extraBots = $database->query_return("
+                                SELECT id, username FROM " . TB_PREFIX . "users
+                                WHERE access = 2
+                                  AND (is_bot = 1 OR email LIKE '%@bot.travianz' OR desc1 LIKE '%[#BOT]%' OR desc2 LIKE '%[#BOT]%' OR username LIKE 'Bot_%')
+                                  $whereExtra
+                                ORDER BY id ASC
+                                $limitClause
+                            ");
+
+                            if (!empty($extraBots)) {
+                                foreach ($extraBots as $eb) {
+                                    $ebUid = (int)$eb['id'];
+                                    $database->query("UPDATE " . TB_PREFIX . "users SET alliance = $aid WHERE id = $ebUid");
+                                    $database->query("
+                                        INSERT INTO " . TB_PREFIX . "ali_permission (uid, alliance, rank, opt1, opt2, opt3, opt4, opt5, opt6, opt7, opt8)
+                                        VALUES ($ebUid, $aid, 'Member', 0, 0, 0, 0, 0, 0, 0, 0)
+                                        ON DUPLICATE KEY UPDATE alliance = $aid, rank = 'Member'
+                                    ");
+                                    $joinedCount++;
+                                }
+                                $database->procAllyPop($aid);
+                            }
+                        }
+
+                        $flashSuccess = "👑 Aliansi baru <b>[{$tag}] {$name}</b> (#{$aid}) berhasil dibuat dengan Pendiri <b>{$fName}</b>! Total <b>{$joinedCount}</b> anggota bot telah tergabung.";
+                    } else {
+                        $flashError = "Gagal membuat aliansi di database.";
+                    }
+                }
+            }
         }
     }
 }
@@ -803,38 +920,32 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
 
     <!-- Panel 4: Alliance Management for Bots -->
     <div class="botm-panel" style="border-color:#0284c7; background:linear-gradient(135deg, #082f49 0%, #0b1220 100%); margin-bottom:20px;">
-        <h3 style="color:#38bdf8;">🛡️ Masukkan Bot ke Aliansi (Assign Bots to Alliance)</h3>
-        <p class="desc">Kelola keanggotaan aliansi untuk bot AI. Anda dapat memasukkan bot ke aliansi pemain manusia atau aliansi bot untuk kerja sama pertahanan/diplomasi.</p>
+        <h3 style="color:#38bdf8;">🛡️ Manajemen Aliansi Bot AI (Admin Alliance Center)</h3>
+        <p class="desc">Buat aliansi baru khusus bot langsung sebagai Admin, atau masukkan bot secara spesifik / per-suku ke aliansi yang Anda inginkan.</p>
 
-        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:16px;">
-            <!-- Form Join Alliance -->
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(310px, 1fr)); gap:16px;">
+            <!-- Card 1: Form Buat Aliansi Baru Langsung sebagai Admin -->
             <form method="post" action="admin.php?p=botManager" style="background:#0f172a; padding:14px; border-radius:8px; border:1px solid #1e293b;">
                 <?php echo csrf_field(); ?>
-                <input type="hidden" name="bot_action" value="join_alliance">
-                <h4 style="margin:0 0 10px 0; color:#e2e8f0; font-size:13px;">➕ Masukkan Bot ke Aliansi:</h4>
+                <input type="hidden" name="bot_action" value="create_alliance">
+                <h4 style="margin:0 0 10px 0; color:#38bdf8; font-size:13px;">👑 1. Buat Aliansi Baru (Admin):</h4>
 
                 <div class="botm-form-group">
-                    <label>Pilih Aliansi Tujuan:</label>
-                    <select name="aid" class="botm-form-control" required>
-                        <?php if (!empty($existingAlliances)): ?>
-                            <?php foreach ($existingAlliances as $al): ?>
-                                <option value="<?php echo (int)$al['id']; ?>">
-                                    [<?php echo htmlspecialchars($al['tag']); ?>] <?php echo htmlspecialchars($al['name']); ?> (#<?php echo (int)$al['id']; ?>)
-                                </option>
-                            <?php endforeach; ?>
-                        <?php else: ?>
-                            <option value="0" disabled selected>-- Belum ada aliansi terdaftar di server --</option>
-                        <?php endif; ?>
-                    </select>
+                    <label>Tag Aliansi (Singkatan, maks 8 huruf):</label>
+                    <input type="text" name="tag" class="botm-form-control" placeholder="Contoh: ROMA atau NUSAN" maxlength="8" required>
                 </div>
 
                 <div class="botm-form-group">
-                    <label>Pilih Bot:</label>
-                    <select name="target_bot" class="botm-form-control">
-                        <option value="all_unassigned">⚡ Semua Bot yang Belum Ber-aliansi</option>
-                        <option value="all">🌐 Semua Bot (Pindahkan Semuanya)</option>
+                    <label>Nama Aliansi (Maks 25 huruf):</label>
+                    <input type="text" name="name" class="botm-form-control" placeholder="Contoh: Legiun Romawi Bot" maxlength="25" required>
+                </div>
+
+                <div class="botm-form-group">
+                    <label>Pilih Pendiri (Founder Aliansi):</label>
+                    <select name="founder_uid" class="botm-form-control">
+                        <option value="0">⚡ Otomatis: Bot Pertama yang Bebas</option>
                         <?php if (!empty($botsList)): ?>
-                            <optgroup label="Pilih Bot Spesifik:">
+                            <optgroup label="Pilih Bot Tertentu:">
                                 <?php foreach ($botsList as $b): ?>
                                     <option value="<?php echo $b['id']; ?>">
                                         <?php echo htmlspecialchars($b['username']); ?> (UID: #<?php echo $b['id']; ?>)
@@ -846,28 +957,106 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
                 </div>
 
                 <div class="botm-form-group">
-                    <label>Jumlah Bot (Batas):</label>
-                    <input type="number" name="bot_count" class="botm-form-control" value="5" min="0" max="100">
-                    <span style="font-size:10px; color:#64748b;">0 = Semua bot yang terpilih tanpa batas.</span>
+                    <label>Filter Suku untuk Anggota Awal:</label>
+                    <select name="auto_tribe" class="botm-form-control">
+                        <option value="0">🌐 Semua Suku (Campuran)</option>
+                        <option value="1">🏛️ Romawi (Roman)</option>
+                        <option value="2">⚔️ Teuton</option>
+                        <option value="3">🛡️ Galia (Gaul)</option>
+                        <option value="6">🏹 Hun</option>
+                        <option value="7">🏺 Mesir (Egyptian)</option>
+                        <option value="8">🛡️ Spartan</option>
+                        <option value="9">🪓 Viking</option>
+                        <?php if (defined('NEW_FUNCTION_TRIBE_NUSANTARA') && NEW_FUNCTION_TRIBE_NUSANTARA): ?>
+                        <option value="10">👑 Nusantara</option>
+                        <?php endif; ?>
+                    </select>
                 </div>
 
-                <button type="submit" class="btn-primary" style="background:#0284c7; border-color:#38bdf8; width:100%; justify-content:center;" <?php echo empty($existingAlliances) ? 'disabled' : ''; ?>>
+                <div class="botm-form-group">
+                    <label>Langsung Masukkan N Bot Awal:</label>
+                    <input type="number" name="auto_count" class="botm-form-control" value="5" min="0" max="60">
+                    <span style="font-size:10px; color:#64748b;">0 = Hanya pendiri saja. 5 = Pendiri + 5 anggota bot.</span>
+                </div>
+
+                <button type="submit" class="btn-primary" style="background:#0284c7; border-color:#38bdf8; width:100%; justify-content:center;">
+                    👑 Buat Aliansi Sekarang
+                </button>
+            </form>
+
+            <!-- Card 2: Form Masukkan Bot ke Aliansi yang Ada -->
+            <form method="post" action="admin.php?p=botManager" style="background:#0f172a; padding:14px; border-radius:8px; border:1px solid #1e293b;">
+                <?php echo csrf_field(); ?>
+                <input type="hidden" name="bot_action" value="join_alliance">
+                <h4 style="margin:0 0 10px 0; color:#4ade80; font-size:13px;">➕ 2. Masukkan Bot ke Aliansi:</h4>
+
+                <div class="botm-form-group">
+                    <label>Pilih Aliansi Tujuan:</label>
+                    <select name="aid" class="botm-form-control" required>
+                        <?php if (!empty($existingAlliances)): ?>
+                            <?php foreach ($existingAlliances as $al): ?>
+                                <option value="<?php echo (int)$al['id']; ?>">
+                                    [<?php echo htmlspecialchars($al['tag']); ?>] <?php echo htmlspecialchars($al['name']); ?> (#<?php echo (int)$al['id']; ?>)
+                                </option>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <option value="0" disabled selected>-- Belum ada aliansi terdaftar (Buat di card 1) --</option>
+                        <?php endif; ?>
+                    </select>
+                </div>
+
+                <div class="botm-form-group">
+                    <label>Pilih Bot / Kelompok Bot:</label>
+                    <select name="target_bot" class="botm-form-control">
+                        <option value="all_unassigned">⚡ Semua Bot yang Belum Ber-aliansi</option>
+                        <option value="all">🌐 Semua Bot (Pindahkan Semuanya)</option>
+                        <optgroup label="Kelompokkan Sesuai Suku (Belum Ber-aliansi):">
+                            <option value="tribe_1">🏛️ Semua Bot Romawi</option>
+                            <option value="tribe_2">⚔️ Semua Bot Teuton</option>
+                            <option value="tribe_3">🛡️ Semua Bot Galia</option>
+                            <option value="tribe_6">🏹 Semua Bot Hun</option>
+                            <option value="tribe_7">🏺 Semua Bot Mesir</option>
+                            <option value="tribe_8">🛡️ Semua Bot Spartan</option>
+                            <option value="tribe_9">🪓 Semua Bot Viking</option>
+                            <?php if (defined('NEW_FUNCTION_TRIBE_NUSANTARA') && NEW_FUNCTION_TRIBE_NUSANTARA): ?>
+                            <option value="tribe_10">👑 Semua Bot Nusantara</option>
+                            <?php endif; ?>
+                        </optgroup>
+                        <?php if (!empty($botsList)): ?>
+                            <optgroup label="Pilih Bot Spesifik:">
+                                <?php foreach ($botsList as $b): ?>
+                                    <option value="<?php echo $b['id']; ?>">
+                                        <?php echo htmlspecialchars($b['username']); ?> (UID: #<?php echo $b['id']; ?><?php echo !empty($b['ali_tag']) ? " | [{$b['ali_tag']}]" : ''; ?>)
+                                    </option>
+                                <?php endforeach; ?>
+                            </optgroup>
+                        <?php endif; ?>
+                    </select>
+                </div>
+
+                <div class="botm-form-group">
+                    <label>Jumlah Bot (Batas Maksimal):</label>
+                    <input type="number" name="bot_count" class="botm-form-control" value="5" min="0" max="100">
+                    <span style="font-size:10px; color:#64748b;">0 = Semua bot yang cocok tanpa batas.</span>
+                </div>
+
+                <button type="submit" class="btn-primary" style="background:#16a34a; border-color:#22c55e; width:100%; justify-content:center;" <?php echo empty($existingAlliances) ? 'disabled' : ''; ?>>
                     🛡️ Masukkan Bot ke Aliansi
                 </button>
             </form>
 
-            <!-- Form Leave Alliance -->
+            <!-- Card 3: Form Keluarkan Bot dari Aliansi -->
             <form method="post" action="admin.php?p=botManager" style="background:#0f172a; padding:14px; border-radius:8px; border:1px solid #1e293b;" onsubmit="return confirm('Keluarkan bot dari aliansi?');">
                 <?php echo csrf_field(); ?>
                 <input type="hidden" name="bot_action" value="leave_alliance">
-                <h4 style="margin:0 0 10px 0; color:#e2e8f0; font-size:13px;">🚪 Keluarkan Bot dari Aliansi:</h4>
+                <h4 style="margin:0 0 10px 0; color:#f59e0b; font-size:13px;">🚪 3. Keluarkan Bot dari Aliansi:</h4>
 
                 <div class="botm-form-group">
                     <label>Pilih Bot yang Dikeluarkan:</label>
                     <select name="target_bot" class="botm-form-control">
                         <option value="all">⚡ Semua Bot yang Ada di Aliansi Mana Saja</option>
                         <?php if (!empty($botsList)): ?>
-                            <optgroup label="Pilih Bot Spesifik:">
+                            <optgroup label="Pilih Bot Tertentu:">
                                 <?php foreach ($botsList as $b): ?>
                                     <?php if (!empty($b['alliance'])): ?>
                                         <option value="<?php echo $b['id']; ?>">
@@ -881,7 +1070,7 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
                 </div>
 
                 <div style="font-size:11px; color:#94a3b8; margin-bottom:14px; line-height:1.5;">
-                    Bot yang dikeluarkan akan menjadi independen (tanpa aliansi). Izin aliansi di tabel <code>ali_permission</code> akan dibersihkan otomatis.
+                    Bot yang dikeluarkan akan menjadi independen (tanpa aliansi). Izin aliansi di tabel <code>ali_permission</code> akan dibersihkan dan populasi aliansi disinkronkan kembali.
                 </div>
 
                 <button type="submit" class="btn-secondary" style="border-color:#f59e0b; color:#f59e0b; width:100%; justify-content:center;">

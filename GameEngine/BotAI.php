@@ -649,8 +649,10 @@ class BotAI {
             ? array_map('trim', explode(',', PROTECTED_PLAYERS))
             : [];
 
+        $botAlliance = (int)($bot['alliance'] ?? 0);
+
         $targets = $database->query_return("
-            SELECT v.wref, v.owner, v.name as vname, v.pop, w.x, w.y, u.username, u.access, u.protect
+            SELECT v.wref, v.owner, v.name as vname, v.pop, w.x, w.y, u.username, u.access, u.protect, u.alliance
             FROM " . TB_PREFIX . "vdata v
             JOIN " . TB_PREFIX . "wdata w ON v.wref = w.id
             JOIN " . TB_PREFIX . "users u ON v.owner = u.id
@@ -671,19 +673,28 @@ class BotAI {
                 continue;
             }
 
+            // Do not attack fellow alliance members
+            if ($botAlliance > 0 && !empty($tgt['alliance']) && (int)$tgt['alliance'] === $botAlliance) {
+                continue;
+            }
+
             $dist = self::getDistance($botCoor['x'], $botCoor['y'], $tgt['x'], $tgt['y']);
             if ($dist > $maxDistance || $dist < 0.5) {
                 continue;
             }
 
-            // Fair play: Target must not have 2 or more incoming attacks already
-            $incoming = $database->query_return("
-                SELECT COUNT(*) as total
-                FROM " . TB_PREFIX . "movement
-                WHERE `to` = " . (int)$tgt['wref'] . " AND sort_type = 3 AND proc = 0
-            ");
-            if ((int)($incoming[0]['total'] ?? 0) >= 2) {
-                continue;
+            // GANG ATTACK (KROYOKAN) ENABLED:
+            // Restriction on incoming attack count removed so multiple bots can swarm/gang attack
+            // the same enemy village simultaneously! If explicitly disabled, respect legacy cap.
+            if (defined('BOT_AI_GANG_ATTACK_ENABLED') && !BOT_AI_GANG_ATTACK_ENABLED) {
+                $incoming = $database->query_return("
+                    SELECT COUNT(*) as total
+                    FROM " . TB_PREFIX . "movement
+                    WHERE `to` = " . (int)$tgt['wref'] . " AND sort_type = 3 AND proc = 0
+                ");
+                if ((int)($incoming[0]['total'] ?? 0) >= 2) {
+                    continue;
+                }
             }
 
             $tgt['dist'] = $dist;

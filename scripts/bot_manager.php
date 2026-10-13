@@ -327,15 +327,152 @@ switch ($action) {
         echo "Successfully removed $left bot(s) from alliances!\n";
         break;
 
+    case 'create-alliance':
+        $tag = $argv[2] ?? '';
+        $name = $argv[3] ?? '';
+        $count = isset($argv[4]) ? (int)$argv[4] : 0;
+        $tribeFilter = isset($argv[5]) ? (int)$argv[5] : 0;
+
+        if (empty($tag) || empty($name)) {
+            echo "Usage: php scripts/bot_manager.php create-alliance <tag> <name> [auto_join_count] [tribe_filter]\n";
+            exit(1);
+        }
+
+        // Check duplicate
+        $dup = $database->query_return("SELECT id FROM " . TB_PREFIX . "alidata WHERE tag = '" . $database->escape($tag) . "' OR name = '" . $database->escape($name) . "'");
+        if (!empty($dup)) {
+            echo "Error: Alliance with tag [$tag] or name '$name' already exists (ID #{$dup[0]['id']}).\n";
+            exit(1);
+        }
+
+        // Pick founder bot
+        $whereTribe = ($tribeFilter > 0) ? "AND tribe = $tribeFilter" : "";
+        $founderBot = $database->query_return("
+            SELECT id, username FROM " . TB_PREFIX . "users
+            WHERE access = 2
+              AND (is_bot = 1 OR email LIKE '%@bot.travianz' OR desc1 LIKE '%[#BOT]%' OR desc2 LIKE '%[#BOT]%' OR username LIKE 'Bot_%')
+              AND (alliance = 0 OR alliance IS NULL)
+              $whereTribe
+            ORDER BY id ASC LIMIT 1
+        ");
+
+        if (empty($founderBot)) {
+            $founderBot = $database->query_return("
+                SELECT id, username FROM " . TB_PREFIX . "users
+                WHERE access = 2
+                  AND (is_bot = 1 OR email LIKE '%@bot.travianz' OR desc1 LIKE '%[#BOT]%' OR desc2 LIKE '%[#BOT]%' OR username LIKE 'Bot_%')
+                ORDER BY id ASC LIMIT 1
+            ");
+        }
+
+        if (empty($founderBot)) {
+            echo "Error: No bot accounts found to act as founder.\n";
+            exit(1);
+        }
+
+        $fUid = (int)$founderBot[0]['id'];
+        $fName = $founderBot[0]['username'];
+
+        $aid = $database->createAlliance($tag, $name, $fUid, 60);
+        $database->updateUserField($fUid, "alliance", $aid, 1);
+        $database->updateUserField($fUid, "alliance_joined", 0, 1);
+        $database->createAlliPermissions($fUid, $aid, 'Alliance founder', '1', '1', '1', '1', '1', '1', '1', '1');
+        $database->procAllyPop($aid);
+
+        echo "[+] Successfully created Alliance [{$tag}] {$name} (#{$aid}) with Founder {$fName} (#{$fUid})!\n";
+
+        if ($count > 0) {
+            $extraWhere = ($tribeFilter > 0) ? "AND tribe = $tribeFilter" : "";
+            $extraBots = $database->query_return("
+                SELECT id, username FROM " . TB_PREFIX . "users
+                WHERE access = 2
+                  AND id != $fUid
+                  AND (is_bot = 1 OR email LIKE '%@bot.travianz' OR desc1 LIKE '%[#BOT]%' OR desc2 LIKE '%[#BOT]%' OR username LIKE 'Bot_%')
+                  AND (alliance = 0 OR alliance IS NULL)
+                  $extraWhere
+                ORDER BY id ASC
+                LIMIT $count
+            ");
+            $joined = 0;
+            foreach ($extraBots as $eb) {
+                $bUid = (int)$eb['id'];
+                $database->query("UPDATE " . TB_PREFIX . "users SET alliance = $aid WHERE id = $bUid");
+                $database->query("
+                    INSERT INTO " . TB_PREFIX . "ali_permission (uid, alliance, rank, opt1, opt2, opt3, opt4, opt5, opt6, opt7, opt8)
+                    VALUES ($bUid, $aid, 'Member', 0, 0, 0, 0, 0, 0, 0, 0)
+                    ON DUPLICATE KEY UPDATE alliance = $aid, rank = 'Member'
+                ");
+                echo "    [+] Bot {$eb['username']} joined [{$tag}] {$name}\n";
+                $joined++;
+            }
+            $database->procAllyPop($aid);
+            echo "    -> Added $joined extra bot(s) to Alliance #$aid.\n";
+        }
+        break;
+
+    case 'auto-alliances':
+        $tribes = [
+            1 => ['tag' => 'ROMA', 'name' => 'Legiun Romawi AI'],
+            2 => ['tag' => 'TEUT', 'name' => 'Klan Teuton AI'],
+            3 => ['tag' => 'GAUL', 'name' => 'Aliansi Galia AI'],
+            6 => ['tag' => 'HUN',  'name' => 'Gerombolan Hun AI'],
+            7 => ['tag' => 'EGYP', 'name' => 'Dinasti Mesir AI'],
+            8 => ['tag' => 'SPAR', 'name' => 'Phalanx Spartan AI'],
+            9 => ['tag' => 'VIK',  'name' => 'Viking Raider AI'],
+            10=> ['tag' => 'NUSA', 'name' => 'Kerajaan Nusantara AI'],
+        ];
+
+        echo "Creating dedicated tribe alliances for active bots...\n";
+        foreach ($tribes as $tId => $tData) {
+            $bots = $database->query_return("
+                SELECT id, username FROM " . TB_PREFIX . "users
+                WHERE access = 2 AND tribe = $tId
+                  AND (is_bot = 1 OR email LIKE '%@bot.travianz' OR desc1 LIKE '%[#BOT]%' OR desc2 LIKE '%[#BOT]%' OR username LIKE 'Bot_%')
+                ORDER BY id ASC
+            ");
+
+            if (empty($bots)) continue;
+
+            $existingAli = $database->query_return("SELECT id FROM " . TB_PREFIX . "alidata WHERE tag = '{$tData['tag']}' LIMIT 1");
+            if (!empty($existingAli)) {
+                $aid = (int)$existingAli[0]['id'];
+            } else {
+                $fUid = (int)$bots[0]['id'];
+                $aid = $database->createAlliance($tData['tag'], $tData['name'], $fUid, 60);
+                $database->updateUserField($fUid, "alliance", $aid, 1);
+                $database->updateUserField($fUid, "alliance_joined", 0, 1);
+                $database->createAlliPermissions($fUid, $aid, 'Alliance founder', '1', '1', '1', '1', '1', '1', '1', '1');
+                echo "[+] Created Alliance [{$tData['tag']}] {$tData['name']} (#{$aid})\n";
+            }
+
+            $c = 0;
+            foreach ($bots as $b) {
+                $bUid = (int)$b['id'];
+                $database->query("UPDATE " . TB_PREFIX . "users SET alliance = $aid WHERE id = $bUid");
+                $database->query("
+                    INSERT INTO " . TB_PREFIX . "ali_permission (uid, alliance, rank, opt1, opt2, opt3, opt4, opt5, opt6, opt7, opt8)
+                    VALUES ($bUid, $aid, 'Member', 0, 0, 0, 0, 0, 0, 0, 0)
+                    ON DUPLICATE KEY UPDATE alliance = $aid, rank = 'Member'
+                ");
+                $c++;
+            }
+            $database->procAllyPop($aid);
+            echo "    -> Assigned $c bot(s) of Tribe $tId to Alliance [{$tData['tag']}]\n";
+        }
+        echo "Done!\n";
+        break;
+
     default:
         echo "TravianZ Bot AI Manager\n";
         echo "Usage: php scripts/bot_manager.php <command> [arguments]\n\n";
         echo "Commands:\n";
-        echo "  spawn [count] [tribe]         Spawn N bot accounts with natural names (default: 5)\n";
-        echo "  run                           Manually trigger a Bot AI build/train/hero/raid tick\n";
-        echo "  list                          List all current bot accounts and coordinates\n";
-        echo "  join-alliance <aid> [count]   Assign bot(s) to join specified Alliance ID\n";
-        echo "  leave-alliance [count|all]    Remove bot(s) from their current alliance\n";
-        echo "  clean                         Remove all bot accounts\n";
+        echo "  spawn [count] [tribe]                       Spawn N bot accounts with natural names (default: 5)\n";
+        echo "  run                                         Manually trigger a Bot AI build/train/hero/raid tick\n";
+        echo "  list                                        List all current bot accounts and coordinates\n";
+        echo "  create-alliance <tag> <name> [count] [tribe] Create an alliance for bots with N auto-joined members\n";
+        echo "  auto-alliances                              Auto-create 1 alliance per tribe and group matching bots\n";
+        echo "  join-alliance <aid> [count]                 Assign bot(s) to join specified Alliance ID\n";
+        echo "  leave-alliance [count|all]                  Remove bot(s) from their current alliance\n";
+        echo "  clean                                       Remove all bot accounts\n";
         break;
 }
