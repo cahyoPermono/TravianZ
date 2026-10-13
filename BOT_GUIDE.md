@@ -67,8 +67,14 @@ define("BOT_AI_MIN_RAID_TROOPS", 6);         // Jumlah minimal pasukan sebelum b
 define("BOT_AI_ATTACK_CHANCE", 35);          // Persentase peluang bot melancarkan raid per tick (1-100%)
 define("BOT_AI_MAX_DISTANCE", 70.0);         // Jarak maksimum (radius kotak) target raid bot (2x lipat lebih luas)
 define("BOT_AI_MAX_CONCURRENT_ATTACKS", 1);  // Jumlah serangan keluar maksimal dari 1 desa bot bersamaan
+define("BOT_AI_REVENGE_ENABLED", true);       // Prioritaskan serang balik pemain yang menyerang bot / aliansi bot
 define("BOT_MAX_FIELD_LEVEL", 6);            // Batas level ladang sumber daya pada fase awal
 ```
+
+### Fitur Unggulan Balas Dendam (Global Revenge):
+- **Jangkauan Seluruh Map**: Jika ada pemain yang menyerang bot atau anggota aliansinya, bot akan membalas ke koordinat mana pun di seluruh peta tanpa dibatasi radius `BOT_AI_MAX_DISTANCE`.
+- **Prioritas Penuh (100%)**: Balas dendam langsung diluncurkan begitu bot memiliki pasukan siap tempur, mengabaikan jam tidur malam dan melewati roll peluang random 35%.
+- **Kekuatan Lebih Besar**: Serangan balik menggunakan *Normal Attack* dengan kekuatan armada hingga 50% pasukan dan mengikutsertakan Hero jika sehat.
 
 ### Tips Penyesuaian:
 - **Ingin bot lebih agresif?** Naikkan `BOT_AI_ATTACK_CHANCE` (misal ke `60` atau `80`) dan kurangi `BOT_AI_INTERVAL` (misal ke `60`).

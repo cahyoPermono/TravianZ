@@ -629,12 +629,8 @@ class BotAI {
             FROM " . TB_PREFIX . "movement
             WHERE `from` = $wid AND sort_type = 3 AND proc = 0
         ");
-        if ((int)($resActive[0]['active_attacks'] ?? 0) >= $maxConcurrent) {
-            return null;
-        }
-
-        // Probability roll
-        if (rand(1, 100) > $attackChance) {
+        $activeAttacks = (int)($resActive[0]['active_attacks'] ?? 0);
+        if ($activeAttacks >= max(2, $maxConcurrent + 1)) {
             return null;
         }
 
@@ -644,82 +640,28 @@ class BotAI {
             return null;
         }
 
-        // Query candidate target villages
         $protectedList = defined('PROTECTED_PLAYERS') && strlen(PROTECTED_PLAYERS) > 0
             ? array_map('trim', explode(',', PROTECTED_PLAYERS))
             : [];
-
         $botAlliance = (int)($bot['alliance'] ?? 0);
 
-        $targets = $database->query_return("
-            SELECT v.wref, v.owner, v.name as vname, v.pop, w.x, w.y, u.username, u.access, u.protect, u.alliance
-            FROM " . TB_PREFIX . "vdata v
-            JOIN " . TB_PREFIX . "wdata w ON v.wref = w.id
-            JOIN " . TB_PREFIX . "users u ON v.owner = u.id
-            WHERE v.wref != $wid
-              AND v.owner != $uid
-              AND u.access < 8
-              AND u.protect < " . time()
-        );
-
-        if (empty($targets)) {
-            return null;
-        }
-
-        $candidates = [];
-
-        foreach ($targets as $tgt) {
-            if (in_array($tgt['username'], $protectedList, true)) {
-                continue;
-            }
-
-            // Do not attack fellow alliance members
-            if ($botAlliance > 0 && !empty($tgt['alliance']) && (int)$tgt['alliance'] === $botAlliance) {
-                continue;
-            }
-
-            $dist = self::getDistance($botCoor['x'], $botCoor['y'], $tgt['x'], $tgt['y']);
-            if ($dist > $maxDistance || $dist < 0.5) {
-                continue;
-            }
-
-            // GANG ATTACK (KROYOKAN) ENABLED:
-            // Restriction on incoming attack count removed so multiple bots can swarm/gang attack
-            // the same enemy village simultaneously! If explicitly disabled, respect legacy cap.
-            if (defined('BOT_AI_GANG_ATTACK_ENABLED') && !BOT_AI_GANG_ATTACK_ENABLED) {
-                $incoming = $database->query_return("
-                    SELECT COUNT(*) as total
-                    FROM " . TB_PREFIX . "movement
-                    WHERE `to` = " . (int)$tgt['wref'] . " AND sort_type = 3 AND proc = 0
-                ");
-                if ((int)($incoming[0]['total'] ?? 0) >= 2) {
-                    continue;
-                }
-            }
-
-            $tgt['dist'] = $dist;
-            $candidates[] = $tgt;
-        }
-
-        if (empty($candidates)) {
-            return null;
-        }
-
-        // Revenge prioritization (Balas Dendam):
-        // Check if this bot or its alliance members were attacked recently (within 24 hours)
+        // =========================================================================
+        // PRIORITY 1: GLOBAL REVENGE (Balas Dendam Seluruh Map & Prioritas Penuh)
+        // =========================================================================
         $revengeTarget = null;
+        $isRevenge = false;
+
         if (!defined('BOT_AI_REVENGE_ENABLED') || BOT_AI_REVENGE_ENABLED) {
-            $allyId = (int)($bot['alliance'] ?? 0);
             $recentAttacks = [];
-            if ($allyId > 0) {
+            if ($botAlliance > 0) {
                 $recentAttacks = $database->query_return("
                     SELECT n.data, n.time
                     FROM " . TB_PREFIX . "ndata n
                     JOIN " . TB_PREFIX . "users u ON n.uid = u.id
-                    WHERE (n.uid = $uid OR u.alliance = $allyId)
+                    WHERE (n.uid = $uid OR u.alliance = $botAlliance)
                       AND n.ntype IN (4, 5, 6, 7)
                       AND n.time >= " . (time() - 86400) . "
-                    ORDER BY n.id DESC LIMIT 10
+                    ORDER BY n.id DESC LIMIT 15
                 ");
             } else {
                 $recentAttacks = $database->query_return("
@@ -728,32 +670,156 @@ class BotAI {
                     WHERE uid = $uid
                       AND ntype IN (4, 5, 6, 7)
                       AND time >= " . (time() - 86400) . "
-                    ORDER BY id DESC LIMIT 5
+                    ORDER BY id DESC LIMIT 10
                 ");
             }
 
             if (!empty($recentAttacks)) {
+                // Collect distinct attacker village IDs with their latest attack timestamp
                 $attackerWrefs = [];
                 foreach ($recentAttacks as $atkNotice) {
                     $parts = explode(',', $atkNotice['data']);
                     if (isset($parts[1]) && is_numeric($parts[1])) {
-                        $attackerWrefs[(int)$parts[1]] = true;
+                        $w = (int)$parts[1];
+                        if ($w > 0 && !isset($attackerWrefs[$w])) {
+                            $attackerWrefs[$w] = (int)$atkNotice['time'];
+                        }
                     }
                 }
+
                 if (!empty($attackerWrefs)) {
-                    foreach ($candidates as $cand) {
-                        if (isset($attackerWrefs[(int)$cand['wref']])) {
-                            $revengeTarget = $cand;
-                            break;
+                    $wrefList = implode(',', array_keys($attackerWrefs));
+                    $targetVillages = $database->query_return("
+                        SELECT v.wref, v.owner, v.name as vname, v.pop, w.x, w.y, u.username, u.access, u.protect, u.alliance
+                        FROM " . TB_PREFIX . "vdata v
+                        JOIN " . TB_PREFIX . "wdata w ON v.wref = w.id
+                        JOIN " . TB_PREFIX . "users u ON v.owner = u.id
+                        WHERE v.wref IN ($wrefList)
+                          AND v.wref != $wid
+                          AND v.owner != $uid
+                          AND u.access < 8
+                          AND u.protect < " . time()
+                    );
+
+                    if (!empty($targetVillages)) {
+                        foreach ($targetVillages as $tgt) {
+                            if (in_array($tgt['username'], $protectedList, true)) {
+                                continue;
+                            }
+                            if ($botAlliance > 0 && !empty($tgt['alliance']) && (int)$tgt['alliance'] === $botAlliance) {
+                                continue;
+                            }
+
+                            $w = (int)$tgt['wref'];
+                            $lastAtkTime = (int)($attackerWrefs[$w] ?? 0);
+
+                            // Check if this bot has already launched a counter-strike after this attack incident
+                            $alreadyRetaliated = $database->query_return("
+                                SELECT moveid
+                                FROM " . TB_PREFIX . "movement
+                                WHERE `from` = $wid AND `to` = $w AND sort_type = 3 AND starttime >= $lastAtkTime
+                                LIMIT 1
+                            ");
+                            if (!empty($alreadyRetaliated)) {
+                                continue; // Already counter-attacked for this incident
+                            }
+
+                            $dist = self::getDistance($botCoor['x'], $botCoor['y'], $tgt['x'], $tgt['y']);
+                            if ($dist < 0.5) {
+                                continue;
+                            }
+
+                            // JANGKAUAN GLOBAL: Jarak di seluruh map diterima tanpa dibatasi maxDistance!
+                            $tgt['dist'] = $dist;
+                            $revengeTarget = $tgt;
+                            $isRevenge = true;
+                            break; // Pilih target balas dendam pertama yang valid (terbaru)
                         }
                     }
                 }
             }
         }
 
+        // =========================================================================
+        // TARGET SELECTION & PEACEFUL HOUR CHECKS
+        // =========================================================================
+        $target = null;
+
         if ($revengeTarget !== null) {
+            // REVENGE IS ACTIVE:
+            // Mengabaikan jam damai malam hari & mengabaikan peluang random (100% pasti membalas)!
             $target = $revengeTarget;
         } else {
+            // REGULAR RANDOM RAID (FARMING):
+            // Check active attacks limit for routine farming raids
+            if ($activeAttacks >= $maxConcurrent) {
+                return null;
+            }
+
+            // Check attack window (default 08:00 - 20:00 server time)
+            $startHour = defined('BOT_AI_ATTACK_START_HOUR') ? (int)BOT_AI_ATTACK_START_HOUR : 8;
+            $endHour = defined('BOT_AI_ATTACK_END_HOUR') ? (int)BOT_AI_ATTACK_END_HOUR : 20;
+            $currentHour = (int)date('G');
+            if ($startHour < $endHour) {
+                if ($currentHour < $startHour || $currentHour >= $endHour) {
+                    return null; // Peaceful nighttime / outside attack hours
+                }
+            }
+
+            // Probability roll for regular raids (default 35%)
+            if (rand(1, 100) > $attackChance) {
+                return null;
+            }
+
+            // Query candidate target villages within local area ($maxDistance)
+            $targets = $database->query_return("
+                SELECT v.wref, v.owner, v.name as vname, v.pop, w.x, w.y, u.username, u.access, u.protect, u.alliance
+                FROM " . TB_PREFIX . "vdata v
+                JOIN " . TB_PREFIX . "wdata w ON v.wref = w.id
+                JOIN " . TB_PREFIX . "users u ON v.owner = u.id
+                WHERE v.wref != $wid
+                  AND v.owner != $uid
+                  AND u.access < 8
+                  AND u.protect < " . time()
+            );
+
+            if (empty($targets)) {
+                return null;
+            }
+
+            $candidates = [];
+            foreach ($targets as $tgt) {
+                if (in_array($tgt['username'], $protectedList, true)) {
+                    continue;
+                }
+                if ($botAlliance > 0 && !empty($tgt['alliance']) && (int)$tgt['alliance'] === $botAlliance) {
+                    continue;
+                }
+
+                $dist = self::getDistance($botCoor['x'], $botCoor['y'], $tgt['x'], $tgt['y']);
+                if ($dist > $maxDistance || $dist < 0.5) {
+                    continue;
+                }
+
+                if (defined('BOT_AI_GANG_ATTACK_ENABLED') && !BOT_AI_GANG_ATTACK_ENABLED) {
+                    $incoming = $database->query_return("
+                        SELECT COUNT(*) as total
+                        FROM " . TB_PREFIX . "movement
+                        WHERE `to` = " . (int)$tgt['wref'] . " AND sort_type = 3 AND proc = 0
+                    ");
+                    if ((int)($incoming[0]['total'] ?? 0) >= 2) {
+                        continue;
+                    }
+                }
+
+                $tgt['dist'] = $dist;
+                $candidates[] = $tgt;
+            }
+
+            if (empty($candidates)) {
+                return null;
+            }
+
             // Sort by distance ascending and pick randomly from closest 3
             usort($candidates, function($a, $b) {
                 return $a['dist'] <=> $b['dist'];
@@ -763,9 +829,14 @@ class BotAI {
             $target = $topCandidates[array_rand($topCandidates)];
         }
 
-        // Calculate raid party size
-        if ($dynamicScaling) {
-            // Under dynamic scaling: send ~25% to 35% of standing army, up to 120 troops
+        // =========================================================================
+        // TROOP DISPATCH & CALCULATION
+        // =========================================================================
+        if ($isRevenge) {
+            // Retaliation strike: Send powerful force (50% of available troops, up to 250)
+            $targetPartySize = min(250, max($minTroops, (int)floor($totalCombatAvailable * 0.50)));
+        } elseif ($dynamicScaling) {
+            // Dynamic scaling raid: ~30% of standing army, up to 120 troops
             $targetPartySize = min(120, max($minTroops, (int)floor($totalCombatAvailable * 0.30)));
         } else {
             // Legacy cap: 5 - 15 troops
@@ -834,8 +905,8 @@ class BotAI {
             }
         }
 
-        // Determine attack type: Raid (4) by default, Normal Attack (3) if revenging or 25% chance
-        $attackType = ($revengeTarget !== null || rand(1, 100) <= 25) ? 3 : 4;
+        // Determine attack type: Normal Attack (3) if revenging or 25% chance for regular raid
+        $attackType = ($isRevenge || rand(1, 100) <= 25) ? 3 : 4;
         $attackTypeName = ($attackType === 3) ? 'Normal Attack' : 'Raid';
 
         $attackId = $database->addAttack(
@@ -868,7 +939,8 @@ class BotAI {
         }
         $summaryStr = implode(', ', $summaryParts);
 
-        return "{$attackTypeName} dispatched! " . ($totalDispatched + $sendHero) . " troops [{$summaryStr}] marched towards {$target['vname']} ({$target['username']}) - distance: " . round($target['dist'], 1) . " tiles, arrival in {$duration}s";
+        $revengePrefix = $isRevenge ? "[BALAS DENDAM / RETALIATION] " : "";
+        return "{$revengePrefix}{$attackTypeName} dispatched! " . ($totalDispatched + $sendHero) . " troops [{$summaryStr}] marched towards {$target['vname']} ({$target['username']}) - distance: " . round($target['dist'], 1) . " tiles, arrival in {$duration}s";
     }
 
     /**
