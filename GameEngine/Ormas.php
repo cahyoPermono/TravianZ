@@ -217,8 +217,32 @@ class Ormas {
 
     /**
      * Get rich metadata, lore, debuffs, and dismissal requirements.
+     * If $vref is provided, scales minimum required troops with village population.
      */
-    public static function getOrmasInfo(?int $type = null): array {
+    public static function getOrmasInfo(?int $type = null, ?int $vref = null): array {
+        global $database;
+        $popBonus = 0;
+        $pop = 0;
+        if ($vref !== null && $vref > 0 && isset($database)) {
+            $vRes = $database->query_return("SELECT pop FROM " . TB_PREFIX . "vdata WHERE wref = " . (int)$vref . " LIMIT 1");
+            if (!empty($vRes[0]['pop'])) {
+                $pop = (int)$vRes[0]['pop'];
+                $popBonus = (int)floor($pop / 25);
+            }
+        }
+
+        $basePP = 15;
+        $baseBanser = 20;
+        $baseHerkules = 25;
+        $baseSetempat = 10;
+
+        $reqPP = $basePP + $popBonus;
+        $reqBanser = $baseBanser + $popBonus;
+        $reqHerkules = $baseHerkules + $popBonus;
+        $reqSetempat = $baseSetempat + $popBonus;
+
+        $popSuffix = ($pop > 0) ? " [Pop {$pop}]" : "";
+
         $info = [
             self::TYPE_PP => [
                 'id' => self::TYPE_PP,
@@ -242,8 +266,8 @@ class Ormas {
                     'crop' => 200,
                     'label' => 'Uang Proposal Posko'
                 ],
-                'min_troops_fight' => 15,
-                'fight_label' => 'Gerebek & Bubarkan Posko (Min. 15 Prajurit)'
+                'min_troops_fight' => $reqPP,
+                'fight_label' => "Gerebek & Bubarkan Posko (Min. {$reqPP} Prajurit)" . $popSuffix
             ],
             self::TYPE_BANSER => [
                 'id' => self::TYPE_BANSER,
@@ -266,8 +290,8 @@ class Ormas {
                     'crop' => 800,
                     'label' => 'Bungkuskan 10 Panci Rawon'
                 ],
-                'min_troops_fight' => 20,
-                'fight_label' => 'Bubarkan Kongkow Prasmanan (Min. 20 Prajurit)'
+                'min_troops_fight' => $reqBanser,
+                'fight_label' => "Bubarkan Kongkow Prasmanan (Min. {$reqBanser} Prajurit)" . $popSuffix
             ],
             self::TYPE_HERKULES => [
                 'id' => self::TYPE_HERKULES,
@@ -291,8 +315,8 @@ class Ormas {
                     'crop' => 300,
                     'label' => 'Uang Setoran Lapak Pasar'
                 ],
-                'min_troops_fight' => 25,
-                'fight_label' => 'Adu Mekanik Bersenjata (Min. 25 Prajurit)'
+                'min_troops_fight' => $reqHerkules,
+                'fight_label' => "Adu Mekanik Bersenjata (Min. {$reqHerkules} Prajurit)" . $popSuffix
             ],
             self::TYPE_SETEMPAT => [
                 'id' => self::TYPE_SETEMPAT,
@@ -314,8 +338,8 @@ class Ormas {
                     'crop' => 150,
                     'label' => 'Uang Kopi & Rokok Kampung'
                 ],
-                'min_troops_fight' => 10,
-                'fight_label' => 'Usir Preman Kampung (Min. 10 Prajurit)'
+                'min_troops_fight' => $reqSetempat,
+                'fight_label' => "Usir Preman Kampung (Min. {$reqSetempat} Prajurit)" . $popSuffix
             ],
         ];
 
@@ -490,7 +514,48 @@ class Ormas {
     }
 
     /**
+     * Deduct casualties from standing troops in village units table.
+     */
+    private static function deductCasualties(int $vref, int $count): int {
+        global $database;
+        if ($count <= 0) return 0;
+
+        $res = $database->query_return("SELECT * FROM " . TB_PREFIX . "units WHERE vref = $vref LIMIT 1");
+        if (empty($res[0])) return 0;
+
+        $uRow = $res[0];
+        $deductedTotal = 0;
+        $modUnits = [];
+        $modAmounts = [];
+        $modModes = [];
+
+        // Deduct from regular combat units u1..u100
+        for ($i = 1; $i <= 100; $i++) {
+            $col = "u" . $i;
+            if (isset($uRow[$col]) && (int)$uRow[$col] > 0) {
+                $avail = (int)$uRow[$col];
+                $take = min($avail, $count - $deductedTotal);
+                if ($take > 0) {
+                    $modUnits[] = (string)$i;
+                    $modAmounts[] = $take;
+                    $modModes[] = 0; // subtract
+                    $deductedTotal += $take;
+                    if ($deductedTotal >= $count) {
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (!empty($modUnits)) {
+            $database->modifyUnit($vref, $modUnits, $modAmounts, $modModes);
+        }
+        return $deductedTotal;
+    }
+
+    /**
      * Player mobilizes standing village troops to fight and expel the Ormas.
+     * Incorporates dynamic population scaling, brawl casualty risk, and retaliation if force is marginal.
      */
     public static function fightOrmas(int $vref, int $uid): array {
         global $database;
@@ -500,8 +565,13 @@ class Ormas {
         }
 
         $type = (int)$ormas['ormas_type'];
-        $info = self::getOrmasInfo($type);
+        $info = self::getOrmasInfo($type, $vref);
         $minTroops = (int)$info['min_troops_fight'];
+
+        // Get village population and current resources
+        $vRes = $database->query_return("SELECT pop, wood, clay, iron, crop FROM " . TB_PREFIX . "vdata WHERE wref = $vref LIMIT 1");
+        $vdata = !empty($vRes[0]) ? $vRes[0] : ['pop' => 0, 'wood' => 0, 'clay' => 0, 'iron' => 0, 'crop' => 0];
+        $pop = (int)($vdata['pop'] ?? 0);
 
         // Calculate total combat troops in village
         $unitCols = [];
@@ -515,17 +585,61 @@ class Ormas {
         if ($totalTroops < $minTroops) {
             return [
                 'success' => false,
-                'message' => 'Pasukan Anda terlalu sedikit! Anda memiliki ' . $totalTroops . ' prajurit, dibutuhkan minimal ' . $minTroops . ' prajurit siaga untuk mengusir ' . $info['name'] . '.'
+                'message' => 'Pasukan Anda terlalu sedikit! Rombongan massa ' . $info['name'] . ' beranggotakan sekitar ' . $minTroops . ' orang (karena populasi desa mencapai ' . $pop . ' warga). Anda hanya memiliki ' . $totalTroops . ' prajurit siaga, butuh minimal ' . $minTroops . ' prajurit bersenjata untuk berani menggerebek posko mereka.'
             ];
         }
 
-        // Victory! Dismiss ormas and grant 3-day immunity
-        self::dismissOrmas($vref);
+        // Force ratio
+        $ratio = $minTroops > 0 ? ((float)$totalTroops / (float)$minTroops) : 2.0;
 
-        return [
-            'success' => true,
-            'message' => 'HEBAT! Pasukan siaga Anda berhasil menggerebek dan memukul mundur ' . $info['name'] . ' kocar-kacir keluar desa! Desa Anda kini aman dan kebal dari ormas selama 3 hari ke depan.'
-        ];
+        // KASUS 1: OVERWHELMING FORCE (Ratio >= 1.6)
+        // Pasukan desa melimpah (>= 160% dari rombongan ormas). Kemenangan mutlak tanpa korban.
+        if ($ratio >= 1.6) {
+            self::dismissOrmas($vref);
+            return [
+                'success' => true,
+                'message' => '⚔️ KEMENANGAN TELAK! Pasukan siaga Anda (' . $totalTroops . ' prajurit) mengepung posko ' . $info['name'] . ' dengan kekuatan mutlak! Melihat rombongan prajurit Anda yang luar biasa banyak, para preman langsung kocar-kacir kabur terbirit-birit tanpa sempat melawan. Desa Anda aman dan kebal dari ormas selama 3 hari ke depan!'
+            ];
+        }
+
+        // KASUS 2: PASUKAN PAS-PASAN (1.0 <= Ratio < 1.6) -> PECAH TAWURAN SENGIT!
+        // 70% Peluang Menang (dengan sedikit korban prajurit gugur), 30% Gagal & Ormas Mengamuk
+        $roll = mt_rand(1, 100);
+
+        if ($roll <= 70) {
+            // MENANG TAWURAN (DENGAN KORBAN LUKA/GUGUR)
+            $casualties = max(1, min((int)round($totalTroops * 0.05), 5));
+            $deducted = self::deductCasualties($vref, $casualties);
+
+            self::dismissOrmas($vref);
+
+            return [
+                'success' => true,
+                'message' => '💥 TAWURAN PECAH! Terjadi bentrokan fisik sengit saat menggerebek posko ' . $info['name'] . '! Berkat kegigihan tempur, pasukan Anda akhirnya berhasil memukul mundur mereka keluar desa, namun ' . $deducted . ' prajurit Anda gugur/terluka parah dalam bentrokan. Ormas berhasil dibubarkan dan desa kebal dari ormas selama 3 hari!'
+            ];
+        } else {
+            // GAGAL & ORMAS MENGAMUK (RETALIATION)
+            // Korban prajurit gugur dalam razia yang gagal
+            $casualties = max(2, min((int)round($totalTroops * 0.08), 8));
+            $deducted = self::deductCasualties($vref, $casualties);
+
+            // Penjarahan sumber daya (denda perlawanan: 12% dari stok saat ini)
+            $stolenWood = max(30, (int)round((float)$vdata['wood'] * 0.12));
+            $stolenClay = max(30, (int)round((float)$vdata['clay'] * 0.12));
+            $stolenIron = max(30, (int)round((float)$vdata['iron'] * 0.12));
+            $stolenCrop = max(30, (int)round((float)$vdata['crop'] * 0.12));
+
+            $database->modifyResource($vref, $stolenWood, $stolenClay, $stolenIron, $stolenCrop, 0);
+            $totalStolen = $stolenWood + $stolenClay + $stolenIron + $stolenCrop;
+
+            // Perpanjang durasi keberadaan ormas +2 jam (7200s)
+            $database->query("UPDATE " . TB_PREFIX . "village_ormas SET end_time = end_time + 7200 WHERE vref = $vref");
+
+            return [
+                'success' => false,
+                'message' => '🚨 RAZIA GAGAL & ORMAS MENGAMUK! Karena jumlah prajurit Anda pas-pasan (' . $totalTroops . ' prajurit), rombongan ' . $info['name'] . ' melawan balik secara brutal dengan senjata tajam & pentungan! ' . $deducted . ' prajurit Anda gugur, dan ormas menjarah paksa total ' . number_format($totalStolen) . ' sumber daya dari lumbung sebagai "denda perlawanan"! Ormas mendirikan barikade darurat dan memperpanjang pendudukan selama 2 jam.'
+            ];
+        }
     }
 
     /**

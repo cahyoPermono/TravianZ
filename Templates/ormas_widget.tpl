@@ -20,7 +20,7 @@ if (!$isAfflicted && !$ormasMsg) {
     return;
 }
 
-$ormasMeta = $isAfflicted ? Ormas::getOrmasInfo((int)$villageOrmas['ormas_type']) : null;
+$ormasMeta = $isAfflicted ? Ormas::getOrmasInfo((int)$villageOrmas['ormas_type'], $vid) : null;
 $ormasRemain = $isAfflicted ? max(0, (int)($villageOrmas['end_time'] - time())) : 0;
 ?>
 
@@ -205,6 +205,9 @@ $ormasRemain = $isAfflicted ? max(0, (int)($villageOrmas['end_time'] - time())) 
                         ⚔️ <?php echo htmlspecialchars($ormasMeta['fight_label']); ?>
                     </button>
                 </form>
+            </div>
+            <div style="font-size:10px; color:#64748b; margin-top:8px; line-height:1.4;">
+                ⚠️ <b>Peringatan Razia:</b> Jika pasukan Anda pas-pasan, ormas akan melawan balik (terjadi tawuran berisiko korban prajurit & pemalakan lumbung!). Siagakan <b>minimal 160% pasukan</b> untuk menjamin kemenangan mutlak tanpa korban.
             </div>
         </div>
 
