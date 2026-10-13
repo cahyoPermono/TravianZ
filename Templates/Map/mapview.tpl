@@ -456,6 +456,12 @@ while ($donnees = mysqli_fetch_assoc($result2)) {
 #map_content .assassin_sanctuary, div#map div#map_content div.assassin_sanctuary {
     background-image: url('img/assassin/sanctuary_tile.png?v=<?= file_exists(__DIR__ . "/../../img/assassin/sanctuary_tile.png") ? filemtime(__DIR__ . "/../../img/assassin/sanctuary_tile.png") : time() ?>') !important;
 }
+/* Desktop Web display: hide "Buka Tile" action row so it does not block top-right map navigation arrow */
+@media (min-width: 769px) {
+    #map_action_row {
+        display: none !important;
+    }
+}
 </style>
 <div id="content"  class="map">
 	<h1><?php echo MAP;?>(<span id="x"><?php echo $x;?></span>|<span id="y"><?php echo $y;?></span>)</h1>
@@ -547,11 +553,19 @@ while ($donnees = mysqli_fetch_assoc($result2)) {
 				var activeArea = null;
 				var touchStartX = 0, touchStartY = 0, isTouchDragging = false;
 
+				function isMobileDisplay() {
+					return window.innerWidth <= 768 || ('ontouchstart' in window && window.innerWidth <= 1024);
+				}
+
 				function updateTileAction(area) {
 					if (!area || !infoBox) return;
+					var actionRow = document.getElementById('map_action_row');
+					if (!isMobileDisplay()) {
+						if (actionRow && actionRow.parentNode) actionRow.parentNode.removeChild(actionRow);
+						return;
+					}
 					var tbody = infoBox.querySelector('tbody');
 					if (!tbody) return;
-					var actionRow = document.getElementById('map_action_row');
 					if (!actionRow) {
 						actionRow = document.createElement('tr');
 						actionRow.id = 'map_action_row';

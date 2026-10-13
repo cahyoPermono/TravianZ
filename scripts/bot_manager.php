@@ -250,13 +250,92 @@ switch ($action) {
         echo "Cleaned $count bot account(s).\n";
         break;
 
+    case 'join-alliance':
+        $aid = isset($argv[2]) ? (int)$argv[2] : 0;
+        $count = isset($argv[3]) ? ($argv[3] === 'all' ? 0 : (int)$argv[3]) : 0;
+        if ($aid <= 0) {
+            echo "Error: Alliance ID is required.\n";
+            echo "Usage: php scripts/bot_manager.php join-alliance <alliance_id> [count|all]\n";
+            exit(1);
+        }
+
+        // Verify alliance exists
+        $aliRow = $database->query_return("SELECT id, name, tag FROM " . TB_PREFIX . "alidata WHERE id = $aid LIMIT 1");
+        if (empty($aliRow[0])) {
+            echo "Error: Alliance ID #$aid does not exist.\n";
+            exit(1);
+        }
+        $aliName = $aliRow[0]['name'];
+        $aliTag = $aliRow[0]['tag'];
+
+        // Find eligible bots
+        $limitClause = ($count > 0) ? "LIMIT $count" : "";
+        $eligibleBots = $database->query_return("
+            SELECT id, username FROM " . TB_PREFIX . "users
+            WHERE access = 2
+              AND (is_bot = 1 OR email LIKE '%@bot.travianz' OR desc1 LIKE '%[#BOT]%' OR desc2 LIKE '%[#BOT]%' OR username LIKE 'Bot_%')
+              AND alliance != $aid
+            ORDER BY id ASC
+            $limitClause
+        ");
+
+        if (empty($eligibleBots)) {
+            echo "No eligible bots found to join Alliance [{$aliTag}] {$aliName}.\n";
+            exit(0);
+        }
+
+        $joined = 0;
+        foreach ($eligibleBots as $b) {
+            $bUid = (int)$b['id'];
+            $database->query("UPDATE " . TB_PREFIX . "users SET alliance = $aid WHERE id = $bUid");
+            $database->query("
+                INSERT INTO " . TB_PREFIX . "ali_permission (uid, alliance, rank, opt1, opt2, opt3, opt4, opt5, opt6, opt7, opt8)
+                VALUES ($bUid, $aid, 'Member', 0, 0, 0, 0, 0, 0, 0, 0)
+                ON DUPLICATE KEY UPDATE alliance = $aid, rank = 'Member'
+            ");
+            echo "[+] Bot {$b['username']} (#{$bUid}) joined Alliance [{$aliTag}] {$aliName}\n";
+            $joined++;
+        }
+        echo "Successfully added $joined bot(s) to Alliance [{$aliTag}] {$aliName} (#{$aid})!\n";
+        break;
+
+    case 'leave-alliance':
+        $count = isset($argv[2]) ? ($argv[2] === 'all' ? 0 : (int)$argv[2]) : 0;
+        $limitClause = ($count > 0) ? "LIMIT $count" : "";
+        $botList = $database->query_return("
+            SELECT id, username, alliance FROM " . TB_PREFIX . "users
+            WHERE access = 2
+              AND (is_bot = 1 OR email LIKE '%@bot.travianz' OR desc1 LIKE '%[#BOT]%' OR desc2 LIKE '%[#BOT]%' OR username LIKE 'Bot_%')
+              AND alliance > 0
+            ORDER BY id ASC
+            $limitClause
+        ");
+
+        if (empty($botList)) {
+            echo "No bots currently in an alliance.\n";
+            exit(0);
+        }
+
+        $left = 0;
+        foreach ($botList as $b) {
+            $bUid = (int)$b['id'];
+            $database->query("UPDATE " . TB_PREFIX . "users SET alliance = 0 WHERE id = $bUid");
+            $database->query("DELETE FROM " . TB_PREFIX . "ali_permission WHERE uid = $bUid");
+            echo "[-] Bot {$b['username']} (#{$bUid}) left Alliance #{$b['alliance']}\n";
+            $left++;
+        }
+        echo "Successfully removed $left bot(s) from alliances!\n";
+        break;
+
     default:
         echo "TravianZ Bot AI Manager\n";
         echo "Usage: php scripts/bot_manager.php <command> [arguments]\n\n";
         echo "Commands:\n";
-        echo "  spawn [count] [tribe]  Spawn N bot accounts with natural names (default: 5)\n";
-        echo "  run                    Manually trigger a Bot AI build/train/raid tick\n";
-        echo "  list                   List all current bot accounts and coordinates\n";
-        echo "  clean                  Remove all bot accounts\n";
+        echo "  spawn [count] [tribe]         Spawn N bot accounts with natural names (default: 5)\n";
+        echo "  run                           Manually trigger a Bot AI build/train/hero/raid tick\n";
+        echo "  list                          List all current bot accounts and coordinates\n";
+        echo "  join-alliance <aid> [count]   Assign bot(s) to join specified Alliance ID\n";
+        echo "  leave-alliance [count|all]    Remove bot(s) from their current alliance\n";
+        echo "  clean                         Remove all bot accounts\n";
         break;
 }

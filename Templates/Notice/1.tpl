@@ -357,6 +357,128 @@ if (!empty($dataarray[$heroIndex])) {
 <?php } ?>
 
 <?php
+// ======================== DEFENDER HERO CARD ========================
+$defHeroData = null;
+foreach ($dataarray as $item) {
+    if (is_string($item) && strpos($item, 'DEFHERO:') === 0) {
+        $parts = explode(';', substr($item, 8));
+        if (count($parts) >= 9) {
+            $defHeroData = [
+                'present'   => (int)$parts[0],
+                'name'      => $parts[1],
+                'level'     => (int)$parts[2],
+                'unit'      => (int)$parts[3],
+                'lost_hp'   => (int)$parts[4],
+                'rem_hp'    => (int)$parts[5],
+                'xp_gained' => (int)$parts[6],
+                'is_dead'   => (int)$parts[7],
+                'reason'    => $parts[8]
+            ];
+        }
+        break;
+    }
+}
+
+// Fallback for older reports without DEFHERO: token in CSV payload
+if ($defHeroData === null && !empty($defUid)) {
+    $hQ = mysqli_query($database->dblink, "SELECT heroid, name, level, unit, health, dead, wref FROM " . TB_PREFIX . "hero WHERE uid = " . (int)$defUid . " LIMIT 1");
+    if ($hQ && $hRow = mysqli_fetch_assoc($hQ)) {
+        $wasDefending = !empty($dataarray[272]);
+        $wasDead = !empty($dataarray[273]);
+        if ($wasDefending) {
+            $defHeroData = [
+                'present'   => 1,
+                'name'      => $hRow['name'],
+                'level'     => (int)$hRow['level'],
+                'unit'      => (int)$hRow['unit'],
+                'lost_hp'   => $wasDead ? 100 : 0,
+                'rem_hp'    => (int)$hRow['health'],
+                'xp_gained' => 0,
+                'is_dead'   => $wasDead ? 1 : 0,
+                'reason'    => 'fought'
+            ];
+        } else {
+            $defHeroData = [
+                'present'   => 0,
+                'name'      => $hRow['name'],
+                'level'     => (int)$hRow['level'],
+                'unit'      => (int)$hRow['unit'],
+                'lost_hp'   => 0,
+                'rem_hp'    => (int)$hRow['health'],
+                'xp_gained' => 0,
+                'is_dead'   => (int)$hRow['dead'],
+                'reason'    => ((int)$hRow['dead'] == 1) ? 'dead' : 'away'
+            ];
+        }
+    }
+}
+
+if (!empty($defHeroData)):
+?>
+<table cellpadding="1" cellspacing="1" class="defender" style="margin-top: 10px; border: 1.5px solid <?= ($defHeroData['present'] ? '#10b981' : '#cbd5e1') ?>;">
+<thead>
+<tr>
+<td class="role" style="font-weight: bold; background: <?= ($defHeroData['present'] ? '#d1fae5; color: #065f46; border-color: #a7f3d0;' : '#f1f5f9; color: #475569; border-color: #e2e8f0;') ?>">
+    👑 Pahlawan
+</td>
+<td colspan="<?php echo $colspan; ?>" style="background: <?= ($defHeroData['present'] ? 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); color: #065f46; border-color: #a7f3d0;' : '#f8fafc; color: #475569; border-color: #e2e8f0;') ?>; font-weight: bold; padding: 5px 8px;">
+    <?php if ($defHeroData['present']): ?>
+        ⚔️ Pahlawan Bertahan: <b><?= htmlspecialchars($defHeroData['name']) ?></b> (Level <?= $defHeroData['level'] ?>) <?= FROM_THE_VILL . ' ' . $deffrom_url ?>
+    <?php else: ?>
+        🛡️ Pahlawan Bertahan <?= FROM_THE_VILL . ' ' . $deffrom_url ?>
+    <?php endif; ?>
+</td>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td colspan="<?php echo $colspan + 1; ?>" style="padding: 8px 12px; background: #fff;">
+    <?php if ($defHeroData['present']): ?>
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <img class="unit uhero" src="img/x.gif" title="Hero" alt="Hero" style="vertical-align: middle;" />
+                <span style="font-size: 13px; font-weight: bold; color: #1e293b;"><?= htmlspecialchars($defHeroData['name']) ?></span>
+                <span style="font-size: 11px; color: #64748b;">(Level <?= $defHeroData['level'] ?>)</span>
+            </div>
+            <div style="display: flex; gap: 10px; font-size: 11.5px; align-items: center; flex-wrap: wrap;">
+                <span style="background: #fee2e2; color: #991b1b; padding: 2px 7px; border-radius: 4px; font-weight: bold;">
+                    💔 Hilang HP: -<?= $defHeroData['lost_hp'] ?>%
+                </span>
+                <span style="background: <?= ($defHeroData['rem_hp'] > 25 ? '#dcfce7; color: #166534;' : '#fef3c7; color: #92400e;') ?>; padding: 2px 7px; border-radius: 4px; font-weight: bold;">
+                    ❤️ Sisa HP: <?= $defHeroData['rem_hp'] ?>%
+                </span>
+                <span style="background: #e0e7ff; color: #3730a3; padding: 2px 7px; border-radius: 4px; font-weight: bold;">
+                    ⭐ +<?= $defHeroData['xp_gained'] ?> EXP
+                </span>
+                <?php if ($defHeroData['is_dead']): ?>
+                    <span style="background: #ef4444; color: #fff; padding: 2px 7px; border-radius: 4px; font-weight: bold;">
+                        ☠️ Gugur
+                    </span>
+                <?php else: ?>
+                    <span style="background: #10b981; color: #fff; padding: 2px 7px; border-radius: 4px; font-weight: bold;">
+                        🛡️ Selamat
+                    </span>
+                <?php endif; ?>
+            </div>
+        </div>
+    <?php else: ?>
+        <div style="font-size: 11.5px; color: #475569;">
+            <?php if ($defHeroData['reason'] === 'dead'): ?>
+                ⚠️ <b>Pahlawan tidak ikut bertahan</b>: Pahlawan <b><?= htmlspecialchars($defHeroData['name']) ?></b> (Level <?= $defHeroData['level'] ?>) sedang <b>gugur (HP 0%)</b> saat serangan tiba dan belum dibangkitkan kembali di Rumah Pahlawan.
+            <?php elseif ($defHeroData['reason'] === 'away'): ?>
+                ℹ️ <b>Pahlawan tidak ikut bertahan</b>: Pahlawan <b><?= htmlspecialchars($defHeroData['name']) ?></b> (Level <?= $defHeroData['level'] ?>) sedang berada di luar desa / tidak ditempatkan di desa ini saat serangan terjadi.
+            <?php else: ?>
+                ℹ️ <b>Pahlawan tidak ikut bertahan</b>: Pemain belum memiliki pahlawan aktif.
+            <?php endif; ?>
+        </div>
+    <?php endif; ?>
+</td>
+</tr>
+</tbody>
+</table>
+<?php endif; ?>
+
+<?php
 // ======================== MERCENARY GARRISON ========================
 $mercData = null;
 foreach ($dataarray as $item) {

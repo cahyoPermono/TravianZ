@@ -1092,7 +1092,8 @@ trait AutomationBattleResolution {
         $info_trap, $info_hero, $info_troop,
         $data, $dead11, $herosend_def, $deadhero, $unitstraped_att,
         $village_destroyed, $can_destroy, $catp_pic,
-        $mercReport = null
+        $mercReport = null,
+        $defHeroReport = null
     ) {
         if (!empty($scout)) {
             $data2 = ''.$from['owner'].','.$from['wref'].','.$owntribe.','.$unitssend_att.','.$unitsdead_att
@@ -1162,6 +1163,21 @@ trait AutomationBattleResolution {
                     .','.$DefenderHeroesTot.','.$DefenderHeroesDead
                     .',,,'.$data['t11'].','.$dead11.','.$unitstraped_att
                     .',,'.$info_ram.','.$info_cat.','.$info_chief.','.$info_troop.','.$info_hero;
+
+        if (!empty($defHeroReport)) {
+            $hName = str_replace([';', ','], ' ', $defHeroReport['name'] ?? '');
+            $defHeroToken = ',DEFHERO:' . (int)($defHeroReport['present'] ?? 0) . ';'
+                . $hName . ';'
+                . (int)($defHeroReport['level'] ?? 0) . ';'
+                . (int)($defHeroReport['unit'] ?? 0) . ';'
+                . (int)($defHeroReport['lost_hp'] ?? 0) . ';'
+                . (int)($defHeroReport['rem_hp'] ?? 0) . ';'
+                . (int)($defHeroReport['xp_gained'] ?? 0) . ';'
+                . (int)($defHeroReport['is_dead'] ?? 0) . ';'
+                . ($defHeroReport['reason'] ?? '');
+            $data2 .= $defHeroToken;
+            $data_fail .= $defHeroToken;
+        }
 
         return ['data2' => $data2, 'data_fail' => $data_fail];
     }
@@ -2933,13 +2949,25 @@ trait AutomationBattleResolution {
                     // and the defender(s) heroid
                     $DefendersHeroID = [];
                     $herosend_def = 0;
+                    $defHeroRowPre = null;
+                    if ($DefenderID > 0) {
+                        $defHeroRes = mysqli_query($database->dblink, "SELECT heroid, name, level, unit, health, dead, wref FROM " . TB_PREFIX . "hero WHERE uid = " . (int)$DefenderID . " LIMIT 1");
+                        if ($defHeroRes && $row = mysqli_fetch_assoc($defHeroRes)) {
+                            $defHeroRowPre = $row;
+                        }
+                    }
                     
-                    // check if our hero is defending the village, if so, add it to the list
-                    if (isset($Defender['hero']) && $Defender['hero'] > 0) {                        
-                        $DefendersHeroID[] = $database->getHeroField($DefenderID, "heroid");
-                        
-                        // collecting information for the battle report
-                        $herosend_def += $Defender['hero'];
+                    // check if our hero is defending the village, if so, verify living status before adding
+                    if (isset($Defender['hero']) && $Defender['hero'] > 0) {
+                        // Guard against zombie/desynced hero: if hero record is dead or has 0 HP, do not allow defense
+                        if (empty($defHeroRowPre) || (int)($defHeroRowPre['dead'] ?? 0) === 1 || (float)($defHeroRowPre['health'] ?? 0) <= 0) {
+                            mysqli_query($database->dblink, "UPDATE " . TB_PREFIX . "units SET hero = 0 WHERE vref = " . (int)$data['to']);
+                            $Defender['hero'] = 0;
+                        } else {
+                            $DefendersHeroID[] = (int)$defHeroRowPre['heroid'];
+                            // collecting information for the battle report
+                            $herosend_def += $Defender['hero'];
+                        }
                     }
 
                     // check if there are other heroes defending the village
@@ -3167,6 +3195,59 @@ trait AutomationBattleResolution {
                     $info_trap  = empty($scout) ? $this->handlePrisoners($data, $from, $to, $ownally, $type, $totalsend_att, $totaldead_att, $totaltraped_att) : '';
                     $info_troop = ($totalsend_att - ($totaldead_att + (isset($totaltraped_att) ? $totaltraped_att : 0)) <= 0) ? rc_tok('RC_NONE_RETURNED') : "";
 
+                    // assemble defender hero outcome for report
+                    $defHeroReport = null;
+                    if ($defHeroRowPre) {
+                        $wasDefending = ($herosend_def > 0);
+                        if ($wasDefending) {
+                            $preHealth = (int)$defHeroRowPre['health'];
+                            if ($deadhero == 1) {
+                                $lostHp = $preHealth;
+                                $remHp  = 0;
+                            } else {
+                                $lossRatio = isset($battlepart[2]) ? (float)$battlepart[2] : 0.0;
+                                $damageHp = (int)round(100 * $lossRatio);
+                                $lostHp = min($preHealth, $damageHp);
+                                $remHp  = max(0, $preHealth - $damageHp);
+                            }
+                            $defHeroReport = [
+                                'present'   => 1,
+                                'name'      => $defHeroRowPre['name'],
+                                'level'     => (int)$defHeroRowPre['level'],
+                                'unit'      => (int)$defHeroRowPre['unit'],
+                                'lost_hp'   => $lostHp,
+                                'rem_hp'    => $remHp,
+                                'xp_gained' => (int)($defheroxp ?? 0),
+                                'is_dead'   => (int)$deadhero,
+                                'reason'    => 'fought'
+                            ];
+                        } else {
+                            $defHeroReport = [
+                                'present'   => 0,
+                                'name'      => $defHeroRowPre['name'],
+                                'level'     => (int)$defHeroRowPre['level'],
+                                'unit'      => (int)$defHeroRowPre['unit'],
+                                'lost_hp'   => 0,
+                                'rem_hp'    => (int)$defHeroRowPre['health'],
+                                'xp_gained' => 0,
+                                'is_dead'   => (int)$defHeroRowPre['dead'],
+                                'reason'    => ((int)$defHeroRowPre['dead'] == 1) ? 'dead' : 'away'
+                            ];
+                        }
+                    } elseif ($DefenderID > 0) {
+                        $defHeroReport = [
+                            'present'   => 0,
+                            'name'      => '',
+                            'level'     => 0,
+                            'unit'      => 0,
+                            'lost_hp'   => 0,
+                            'rem_hp'    => 0,
+                            'xp_gained' => 0,
+                            'is_dead'   => 0,
+                            'reason'    => 'none'
+                        ];
+                    }
+
                     // assemble data2 + data_fail — extracted to buildCombatReport() [#155]
                     $report    = $this->buildCombatReport(
                         $scout, $from, $to, $owntribe, $targettribe,
@@ -3179,7 +3260,8 @@ trait AutomationBattleResolution {
                         $info_trap, $info_hero, $info_troop,
                         $data, $dead11, $herosend_def, $deadhero, $unitstraped_att,
                         $village_destroyed, $can_destroy, $catp_pic,
-                        $owndead['mercenary'] ?? null
+                        $owndead['mercenary'] ?? null,
+                        $defHeroReport
                     );
                     $data2     = $report['data2'];
                     $data_fail = $report['data_fail'];

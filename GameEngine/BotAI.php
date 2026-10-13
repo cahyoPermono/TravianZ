@@ -48,7 +48,7 @@ class BotAI {
         @touch($lockFile);
 
         // Fetch all active bot accounts and their villages
-        $sql = "SELECT u.id as uid, u.username, u.tribe, u.access,
+        $sql = "SELECT u.id as uid, u.username, u.tribe, u.access, u.alliance,
                        v.wref, v.name as vname, v.pop, v.wood, v.clay, v.iron, v.crop, v.maxstore, v.maxcrop
                 FROM " . TB_PREFIX . "users u
                 JOIN " . TB_PREFIX . "vdata v ON u.id = v.owner
@@ -82,7 +82,13 @@ class BotAI {
                 $botLogs[] = "Train: " . $trainResult;
             }
 
-            // 4. Automated Raiding / Attacks
+            // 4. Automated Hero Management (Auto Revive & Auto Adventure)
+            $heroResult = self::processHero($bot);
+            if ($heroResult) {
+                $botLogs[] = "Hero: " . $heroResult;
+            }
+
+            // 5. Automated Raiding / Attacks (Hero included when available)
             $attackResult = self::processAttack($bot);
             if ($attackResult) {
                 $botLogs[] = "Attack: " . $attackResult;
@@ -456,10 +462,103 @@ class BotAI {
     }
 
     /**
+     * Automated Hero AI:
+     * 1. Auto-create starter hero if missing.
+     * 2. Auto-revive hero if dead.
+     * 3. Auto-dispatch hero on adventure if alive, healthy (>= 30% HP), and idle at home.
+     */
+    public static function processHero(array $bot): ?string {
+        global $database;
+
+        $uid = (int)($bot['uid'] ?? $bot['id'] ?? 0);
+        $wid = (int)($bot['wref'] ?? $bot['wid'] ?? 0);
+        $tribe = (int)($bot['tribe'] ?? 0);
+
+        if ($uid <= 0 || $wid <= 0) {
+            return null;
+        }
+
+        // 1. Check hero record
+        $heroRow = $database->query_return("SELECT heroid, dead, health, inrevive, trainingtime, wref FROM " . TB_PREFIX . "hero WHERE uid = $uid LIMIT 1");
+
+        if (empty($heroRow[0])) {
+            // Auto-create starter hero
+            if (class_exists('Units')) {
+                Units::createStarterHero($uid, $wid, $tribe, $bot['username']);
+                return "Starter hero auto-created";
+            }
+            return null;
+        }
+
+        $hero = $heroRow[0];
+        $isDead = (int)$hero['dead'];
+        $health = (float)$hero['health'];
+        $inRevive = (int)$hero['inrevive'];
+        $trainingTime = (int)$hero['trainingtime'];
+
+        // 2. Auto-revive if dead
+        if ($isDead === 1) {
+            if ($inRevive === 1) {
+                if ($trainingTime <= time()) {
+                    // Ready to finish revival
+                    $database->query("UPDATE " . TB_PREFIX . "hero SET dead = 0, inrevive = 0, health = 100, lastupdate = " . time() . " WHERE uid = $uid");
+                    $database->query("UPDATE " . TB_PREFIX . "units SET hero = 1 WHERE vref = $wid");
+                    return "Hero revive completed (100% HP, back in garrison)";
+                }
+                return "Hero in revival (" . max(0, $trainingTime - time()) . "s remaining)";
+            } else {
+                // Queue auto-revive (default 180s = 3 minutes)
+                $reviveDuration = defined('BOT_AI_REVIVE_DURATION') ? (int)BOT_AI_REVIVE_DURATION : 180;
+                $readyTime = time() + $reviveDuration;
+                $database->query("UPDATE " . TB_PREFIX . "hero SET inrevive = 1, trainingtime = $readyTime, wref = $wid WHERE uid = $uid");
+                return "Hero auto-revival started (ready in {$reviveDuration}s)";
+            }
+        }
+
+        // Clean up damaged/desynced hero if health is 0
+        if ($health <= 0) {
+            $database->query("UPDATE " . TB_PREFIX . "hero SET dead = 1, inrevive = 1, trainingtime = " . (time() + 180) . ", wref = $wid WHERE uid = $uid");
+            $database->query("UPDATE " . TB_PREFIX . "units SET hero = 0 WHERE vref = $wid");
+            return "Cleared wounded hero and queued revival";
+        }
+
+        // 3. Auto Adventure (if hero is at home, healthy >= 30% HP, and T4 adventure enabled)
+        if (defined('NEW_FUNCTIONS_HERO_T4') && NEW_FUNCTIONS_HERO_T4 && class_exists('HeroAdventure')) {
+            $unitsRow = $database->query_return("SELECT hero FROM " . TB_PREFIX . "units WHERE vref = $wid LIMIT 1");
+            $heroAtHome = !empty($unitsRow[0]) && (int)$unitsRow[0]['hero'] > 0;
+
+            if ($heroAtHome && $health >= 30) {
+                // Ensure hero is not currently marching in an outgoing attack or adventure
+                $activeMove = $database->query_return("SELECT COUNT(*) as c FROM " . TB_PREFIX . "movement WHERE `from` = $wid AND sort_type IN (3, 20) AND proc = 0");
+                if (empty($activeMove[0]) || (int)$activeMove[0]['c'] === 0) {
+                    $advObj = new HeroAdventure();
+                    $running = $advObj->getRunning($uid);
+                    if (!$running) {
+                        $offers = $advObj->getOffers($uid);
+                        if (empty($offers)) {
+                            $advObj->generateOffers($uid);
+                            $offers = $advObj->getOffers($uid);
+                        }
+                        if (!empty($offers)) {
+                            $targetAdv = $offers[0];
+                            $resCode = $advObj->startAdventure($uid, (int)$targetAdv['id']);
+                            if ($resCode === HeroAdventure::START_OK) {
+                                return "Hero embarked on adventure #{$targetAdv['id']} (diff: {$targetAdv['difficulty']})";
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Process automated raids to nearby villages.
      * Supports dynamic scaling:
      * - Raid party size scales with standing army (up to 120 troops under dynamic scaling)
-     * - Dispatches combined arms (infantry + cavalry)
+     * - Dispatches combined arms (infantry + cavalry + Hero)
      * - Calculates duration using the slowest marching unit
      */
     public static function processAttack(array $bot) {
@@ -469,6 +568,16 @@ class BotAI {
         $uid = (int)$bot['uid'];
         $tribe = (int)$bot['tribe'];
         $pop = max(10, (int)$bot['pop']);
+
+        // Attack window restriction (default: 08:00 - 20:00 server time)
+        $startHour = defined('BOT_AI_ATTACK_START_HOUR') ? (int)BOT_AI_ATTACK_START_HOUR : 8;
+        $endHour = defined('BOT_AI_ATTACK_END_HOUR') ? (int)BOT_AI_ATTACK_END_HOUR : 20;
+        $currentHour = (int)date('G');
+        if ($startHour < $endHour) {
+            if ($currentHour < $startHour || $currentHour >= $endHour) {
+                return null; // Peaceful nighttime / outside attack hours
+            }
+        }
 
         $minTroops = defined('BOT_AI_MIN_RAID_TROOPS') ? (int)BOT_AI_MIN_RAID_TROOPS : 6;
         $attackChance = defined('BOT_AI_ATTACK_CHANCE') ? (int)BOT_AI_ATTACK_CHANCE : 35;
@@ -483,10 +592,10 @@ class BotAI {
 
         $tribeUnits = self::getTribeUnits($tribe);
 
-        // Fetch available units at home
+        // Fetch available units at home (including hero)
         $unitCols = array_map(function($u) { return 'u' . $u; }, $tribeUnits['all']);
         $colsSql = implode(', ', $unitCols);
-        $res = $database->query_return("SELECT {$colsSql} FROM " . TB_PREFIX . "units WHERE vref = $wid");
+        $res = $database->query_return("SELECT {$colsSql}, hero FROM " . TB_PREFIX . "units WHERE vref = $wid");
 
         if (empty($res[0])) {
             return null;
@@ -585,13 +694,63 @@ class BotAI {
             return null;
         }
 
-        // Sort by distance ascending and pick randomly from closest 3
-        usort($candidates, function($a, $b) {
-            return $a['dist'] <=> $b['dist'];
-        });
+        // Revenge prioritization (Balas Dendam):
+        // Check if this bot or its alliance members were attacked recently (within 24 hours)
+        $revengeTarget = null;
+        if (!defined('BOT_AI_REVENGE_ENABLED') || BOT_AI_REVENGE_ENABLED) {
+            $allyId = (int)($bot['alliance'] ?? 0);
+            $recentAttacks = [];
+            if ($allyId > 0) {
+                $recentAttacks = $database->query_return("
+                    SELECT n.data, n.time
+                    FROM " . TB_PREFIX . "ndata n
+                    JOIN " . TB_PREFIX . "users u ON n.uid = u.id
+                    WHERE (n.uid = $uid OR u.alliance = $allyId)
+                      AND n.ntype IN (4, 5, 6, 7)
+                      AND n.time >= " . (time() - 86400) . "
+                    ORDER BY n.id DESC LIMIT 10
+                ");
+            } else {
+                $recentAttacks = $database->query_return("
+                    SELECT data, time
+                    FROM " . TB_PREFIX . "ndata
+                    WHERE uid = $uid
+                      AND ntype IN (4, 5, 6, 7)
+                      AND time >= " . (time() - 86400) . "
+                    ORDER BY id DESC LIMIT 5
+                ");
+            }
 
-        $topCandidates = array_slice($candidates, 0, 3);
-        $target = $topCandidates[array_rand($topCandidates)];
+            if (!empty($recentAttacks)) {
+                $attackerWrefs = [];
+                foreach ($recentAttacks as $atkNotice) {
+                    $parts = explode(',', $atkNotice['data']);
+                    if (isset($parts[1]) && is_numeric($parts[1])) {
+                        $attackerWrefs[(int)$parts[1]] = true;
+                    }
+                }
+                if (!empty($attackerWrefs)) {
+                    foreach ($candidates as $cand) {
+                        if (isset($attackerWrefs[(int)$cand['wref']])) {
+                            $revengeTarget = $cand;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        if ($revengeTarget !== null) {
+            $target = $revengeTarget;
+        } else {
+            // Sort by distance ascending and pick randomly from closest 3
+            usort($candidates, function($a, $b) {
+                return $a['dist'] <=> $b['dist'];
+            });
+
+            $topCandidates = array_slice($candidates, 0, 3);
+            $target = $topCandidates[array_rand($topCandidates)];
+        }
 
         // Calculate raid party size
         if ($dynamicScaling) {
@@ -654,10 +813,24 @@ class BotAI {
             }
         }
 
+        // Hero participation: if bot hero is alive and stationed at home
+        $sendHero = 0;
+        if (!empty($homeUnits['hero']) && (int)$homeUnits['hero'] > 0) {
+            $hCheck = $database->query_return("SELECT heroid, health, dead FROM " . TB_PREFIX . "hero WHERE uid = $uid AND dead = 0 LIMIT 1");
+            if (!empty($hCheck[0]) && (int)$hCheck[0]['dead'] === 0 && (float)$hCheck[0]['health'] >= 25) {
+                $sendHero = 1;
+                $database->query("UPDATE " . TB_PREFIX . "units SET hero = hero - 1 WHERE vref = $wid AND hero > 0");
+            }
+        }
+
+        // Determine attack type: Raid (4) by default, Normal Attack (3) if revenging or 25% chance
+        $attackType = ($revengeTarget !== null || rand(1, 100) <= 25) ? 3 : 4;
+        $attackTypeName = ($attackType === 3) ? 'Normal Attack' : 'Raid';
+
         $attackId = $database->addAttack(
             $wid,
-            $t[1], $t[2], $t[3], $t[4], $t[5], $t[6], $t[7], $t[8], $t[9], $t[10], 0,
-            4, // Raid
+            $t[1], $t[2], $t[3], $t[4], $t[5], $t[6], $t[7], $t[8], $t[9], $t[10], $sendHero,
+            $attackType,
             0, 0, 0
         );
 
@@ -679,9 +852,12 @@ class BotAI {
         foreach ($dispatched as $uNum => $cnt) {
             $summaryParts[] = "u{$uNum}: {$cnt}";
         }
+        if ($sendHero) {
+            $summaryParts[] = "Hero: 1";
+        }
         $summaryStr = implode(', ', $summaryParts);
 
-        return "Raid dispatched! {$totalDispatched} troops [{$summaryStr}] marched towards {$target['vname']} ({$target['username']}) - distance: " . round($target['dist'], 1) . " tiles, arrival in {$duration}s";
+        return "{$attackTypeName} dispatched! " . ($totalDispatched + $sendHero) . " troops [{$summaryStr}] marched towards {$target['vname']} ({$target['username']}) - distance: " . round($target['dist'], 1) . " tiles, arrival in {$duration}s";
     }
 
     /**
@@ -865,9 +1041,17 @@ class BotAI {
                 }
             }
 
+            // Hero participation
+            $sendHero = 0;
+            $hCheck = $database->query_return("SELECT u.hero, h.dead, h.health FROM " . TB_PREFIX . "units u LEFT JOIN " . TB_PREFIX . "hero h ON h.uid = $bUid WHERE u.vref = $bWid LIMIT 1");
+            if (!empty($hCheck[0]) && (int)($hCheck[0]['hero'] ?? 0) > 0 && (int)($hCheck[0]['dead'] ?? 0) === 0 && (float)($hCheck[0]['health'] ?? 0) >= 25) {
+                $sendHero = 1;
+                $database->query("UPDATE " . TB_PREFIX . "units SET hero = hero - 1 WHERE vref = $bWid AND hero > 0");
+            }
+
             $attackId = $database->addAttack(
                 $bWid,
-                $t[1], $t[2], $t[3], $t[4], $t[5], $t[6], $t[7], $t[8], $t[9], $t[10], 0,
+                $t[1], $t[2], $t[3], $t[4], $t[5], $t[6], $t[7], $t[8], $t[9], $t[10], $sendHero,
                 $attackType,
                 0, 0, 0
             );
@@ -886,7 +1070,10 @@ class BotAI {
                 foreach ($dispatched as $uNum => $c) {
                     $troopBreakdown[] = "u{$uNum}: {$c}";
                 }
-                $dispatchedReports[] = "<b>{$bot['username']}</b> [{$bot['vname']}] mengirim {$sumDispatched} pasukan (" . implode(', ', $troopBreakdown) . ") via {$attackTypeName} ke <b>{$targetUser}</b> [{$targetVname} ({$targetCoor['x']}|{$targetCoor['y']})], tiba dalam " . round($duration / 60, 1) . " menit (Jarak: " . round($bot['dist'], 1) . " kotak).";
+                if ($sendHero) {
+                    $troopBreakdown[] = "Hero: 1";
+                }
+                $dispatchedReports[] = "<b>{$bot['username']}</b> [{$bot['vname']}] mengirim " . ($sumDispatched + $sendHero) . " pasukan (" . implode(', ', $troopBreakdown) . ") via {$attackTypeName} ke <b>{$targetUser}</b> [{$targetVname} ({$targetCoor['x']}|{$targetCoor['y']})], tiba dalam " . round($duration / 60, 1) . " menit (Jarak: " . round($bot['dist'], 1) . " kotak).";
             }
         }
 

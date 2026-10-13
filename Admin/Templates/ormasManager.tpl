@@ -41,16 +41,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($targetType === 'coords') {
             $x = (int)($_POST['coord_x'] ?? 0);
             $y = (int)($_POST['coord_y'] ?? 0);
-            $wRow = $database->getMInfo($database->getBaseID($x, $y));
-            $targetWid = (int)($wRow['id'] ?? 0);
+            $res = mysqli_query($database->dblink, "SELECT id FROM " . TB_PREFIX . "wdata WHERE x = $x AND y = $y LIMIT 1");
+            if ($res && ($wRow = mysqli_fetch_assoc($res))) {
+                $targetWid = (int)($wRow['id'] ?? 0);
+            }
         } elseif ($targetType === 'username') {
             $uName = trim($_POST['username'] ?? '');
             if ($uName !== '') {
-                $uRow = $database->getUser($uName, 0);
+                $uRow = $database->getUserArray($uName, 0);
                 if ($uRow && isset($uRow['id'])) {
                     // Ambil ibukota atau desa pertama
                     $vList = $database->getProfileVillages($uRow['id']);
-                    if (!empty($vList)) {
+                    if (!empty($vList) && isset($vList[0]['wref'])) {
                         $targetWid = (int)$vList[0]['wref'];
                     }
                 }

@@ -871,13 +871,20 @@ class Battle {
      ******************************************************************/
     if ($prevDefVerdict !== 1 && !empty($units['Def_unit']['hero']) && !empty($defenderhero['heroid'])) {
 
-        $dead = $this->applyHeroBattleDamage($defenderhero['heroid'], $result[2], null, false, $prevDefVerdict);
+        $defArmyWiped = (isset($result[2]) && (float)$result[2] >= 0.90);
+        $dead = $this->applyHeroBattleDamage($defenderhero['heroid'], $result[2], null, $defArmyWiped, $prevDefVerdict);
 
         if ($dead !== null) {
             $result['deadherodef'] = $dead;
         }
     } elseif ($prevDefVerdict !== null) {
         $result['deadherodef'] = $prevDefVerdict;
+    } elseif (!empty($units['Def_unit']['hero']) && empty($defenderhero['heroid'])) {
+        // Desync recovery: hero was marked in units garrison but already dead or missing in hero table
+        $result['deadherodef'] = 1;
+        if (!empty($DefenderWref)) {
+            mysqli_query($database->dblink, "UPDATE " . TB_PREFIX . "units SET hero = 0 WHERE vref = " . (int)$DefenderWref);
+        }
     }
 
     /******************************************************************
