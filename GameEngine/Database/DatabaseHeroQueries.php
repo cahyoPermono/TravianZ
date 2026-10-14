@@ -292,4 +292,10 @@ trait DatabaseHeroQueries {
 
 		return $ok;
     }
+
+    public static function clearHeroCache(): void {
+        self::$heroCache = [];
+        self::$heroVillageCache = [];
+        self::$heroFieldCache = [];
+    }
 }

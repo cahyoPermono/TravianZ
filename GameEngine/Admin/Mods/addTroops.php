@@ -89,10 +89,8 @@ if (!empty($fields)) {
     $database->query($q);
 
     // Invalidate in-memory caches
-    if (class_exists('DatabaseHeroQueries')) {
-        \DatabaseHeroQueries::$heroCache = [];
-        \DatabaseHeroQueries::$heroFieldCache = [];
-        \DatabaseHeroQueries::$heroVillageCache = [];
+    if (method_exists($database, 'clearHeroCache')) {
+        $database->clearHeroCache();
     }
     if (method_exists($database, 'clearUnitsCache')) {
         $database->clearUnitsCache();
