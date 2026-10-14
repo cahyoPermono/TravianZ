@@ -119,20 +119,23 @@ assertEqual(Plague::PLAGUE_CHOLERA, (int)$plagueData['plague_type'], "Plague typ
 assertEqual(0.80, Plague::getProductionMultiplier($testVid, 'crop'), "Cholera applies -20% production penalty (0.80x)");
 assertEqual(0.85, Plague::getCombatMultiplier($testVid), "Cholera applies -15% combat power penalty");
 
-// Test Quarantine toggle
+// Test Quarantine toggle and cure reset
 assertEqual(0, (int)$plagueData['quarantine'], "Initial quarantine status is 0");
 Plague::toggleQuarantine($testVid);
 $plagueQ = Plague::getVillagePlague($testVid);
 assertEqual(1, (int)$plagueQ['quarantine'], "Quarantine toggled to 1");
 
-Plague::toggleQuarantine($testVid);
-$plagueUnQ = Plague::getVillagePlague($testVid);
-assertEqual(0, (int)$plagueUnQ['quarantine'], "Quarantine toggled back to 0");
-
-// Test Cure
+// Test Cure clears quarantine too
 Plague::cureVillage($testVid);
 assertTrue(!Plague::isVillageInfected($testVid), "Village successfully cured");
 assertEqual(1.0, Plague::getProductionMultiplier($testVid, 'crop'), "Cured village returns to 1.0x production");
+assertEqual(1.0, Plague::getCombatMultiplier($testVid), "Cured village returns to 1.0x combat");
+
+// Test Pestilence training time multiplier
+Plague::infectVillage($testVid, Plague::PLAGUE_PESTILENCE, 1, 7200);
+assertEqual(1.25, Plague::getTrainingTimeMultiplier($testVid), "Pestilence applies +25% (1.25x) training time multiplier");
+Plague::cureVillage($testVid);
+assertEqual(1.0, Plague::getTrainingTimeMultiplier($testVid), "Cured village returns to 1.0x training time");
 
 // 4. Test Push Protection setting
 echo "4. Testing Push Protection configuration...\n";

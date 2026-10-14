@@ -401,7 +401,7 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
                         </div>
                         <h3 class="codex-card-title">Tentara Bayaran Netral (Mercenary Enclaves)</h3>
                         <p class="codex-card-body">
-                            Butuh bala bantuan garnisun instan tanpa menunggu antrean barak atau riset teknologi di akademi? Sewa serdadu bayaran berpengalaman di Tab 6 Pasar menggunakan koin Silver: <strong>Garda Zirah Besi</strong> (perisai infantri berat), <strong>Pemanah Busur Kreta</strong> (penembak runduk mematikan), <strong>Penjarah Stepa</strong> (kavaleri tombak), dan <strong>Penebas Benteng</strong> (veteran pendobrak). Otomatis memperkuat pertahanan desa dari serbuan musuh dengan sistem desersi otomatis saat kelaparan gandum!
+                            Butuh bala bantuan garnisun instan tanpa menunggu antrean barak atau riset teknologi di akademi? Sewa serdadu bayaran berpengalaman di Tab 6 Pasar menggunakan koin Silver: <strong>Garda Zirah Besi</strong> (perisai infantri seimbang), <strong>Pemanah Tembok Aegis</strong> (anti-infanteri benteng), <strong>Ksatria Perisai Templar</strong> (kavaleri anti-kuda), dan <strong>Penjaga Gerbang Praetorian</strong> (serdadu elit benteng). Otomatis memperkuat pertahanan desa dari serbuan musuh dengan sistem desersi otomatis saat kelaparan gandum!
                         </p>
                         <div class="bullet-traits-list mercenary-traits-grid">
                             <div class="bullet-item"><span class="bullet-dot" style="background:#3b82f6;"></span> Kontrak bayaran menggunakan koin Silver hasil berburu</div>

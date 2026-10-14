@@ -665,6 +665,13 @@ class Battle {
         $units['Att_unit'] = $attForces['att_units'];
     }
 
+    // Wabah Penyakit (Kolera) Attacker Penalty: -15% daya serang
+    if (class_exists('Plague') && !empty($AttackerWref)) {
+        $attPlagueMult = Plague::getCombatMultiplier((int)$AttackerWref);
+        $ap  *= $attPlagueMult;
+        $cap *= $attPlagueMult;
+    }
+
     /******************************************************************
      * WALL + RESIDENCE
      ******************************************************************/
@@ -672,6 +679,13 @@ class Battle {
 
     $dp  = $walled['dp'];
     $cdp = $walled['cdp'];
+
+    // Wabah Penyakit (Kolera) Defender Penalty: -15% daya bertahan
+    if (class_exists('Plague') && !empty($DefenderWref)) {
+        $defPlagueMult = Plague::getCombatMultiplier((int)$DefenderWref);
+        $dp  *= $defPlagueMult;
+        $cdp *= $defPlagueMult;
+    }
 
     /******************************************************************
      * ATTACK / DEFENSE TOTAL

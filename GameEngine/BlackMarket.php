@@ -255,10 +255,10 @@ class BlackMarket
                 'silver' => 50,
                 'desc' => 'Menyuplai +2.000 gandum darurat ke lumbung desa.'
             ],
-            'merchant_pass' => [
-                'name' => 'Surat Jalan Pedagang Palsu',
-                'silver' => 45,
-                'desc' => 'Penyelundup memberikan logistik darurat +500 tiap res.'
+            'ancient_relic' => [
+                'name' => 'Gulungan Pusaka Kuno Selundupan',
+                'silver' => 55,
+                'desc' => 'Menambahkan +250 Culture Points (CP) untuk mempercepat ekspansi desa baru.'
             ],
         ];
 
@@ -309,18 +309,20 @@ class BlackMarket
             ];
         }
 
-        if ($itemKey === 'merchant_pass') {
-            if (!self::spendSilver($uid, $cost, 'Black Market Merchant Pass')) {
+        if ($itemKey === 'ancient_relic') {
+            if (!self::spendSilver($uid, $cost, 'Black Market Ancient Relic')) {
                 return ['success' => false, 'message' => 'Gagal memproses transaksi Silver.'];
             }
 
-            // Reward bonus merchant supply bonus
-            $database->modifyResource($vref, 500, 500, 500, 500, 1, true);
-            self::logAction($uid, $vref, 'merchant_pass', 'Used forged merchant pass for bonus cargo', $cost);
+            // Reward Culture Points to both village and account
+            $cpBonus = 250;
+            $database->addCP($vref, $cpBonus);
+            $database->setCelCp($uid, $cpBonus);
+            self::logAction($uid, $vref, 'ancient_relic', "Acquired $cpBonus Culture Points via Smuggler Ancient Relic", $cost);
 
             return [
                 'success' => true,
-                'message' => "📜 Surat jalan pedagang palsu berhasil digunakan! Penyelundup memberikan muatan logistik tambahan 500 masing-masing sumber daya ke desa."
+                'message' => "📜 Gulungan pusaka kuno selundupan berhasil dipelajari! +" . number_format($cpBonus) . " Culture Points (CP) telah ditambahkan ke peradaban desa dan akun Anda!"
             ];
         }
 

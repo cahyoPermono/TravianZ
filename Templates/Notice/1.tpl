@@ -574,9 +574,9 @@ if (!empty($mercData) && $mercData['total_troops'] > 0):
 <tr>
 <td>&nbsp;</td>
 <td style="text-align:center; padding: 4px 2px;"><span style="font-size:16px;">🛡️</span><br/><span style="font-size:9.5px; font-weight:bold; color:#1e293b;">Garda Zirah</span></td>
-<td style="text-align:center; padding: 4px 2px;"><span style="font-size:16px;">🏹</span><br/><span style="font-size:9.5px; font-weight:bold; color:#1e293b;">Pemanah Kreta</span></td>
-<td style="text-align:center; padding: 4px 2px;"><span style="font-size:16px;">🐎</span><br/><span style="font-size:9.5px; font-weight:bold; color:#1e293b;">Penjarah Stepa</span></td>
-<td style="text-align:center; padding: 4px 2px;"><span style="font-size:16px;">🔨</span><br/><span style="font-size:9.5px; font-weight:bold; color:#1e293b;">Penebas Benteng</span></td>
+<td style="text-align:center; padding: 4px 2px;"><span style="font-size:16px;">🏹</span><br/><span style="font-size:9.5px; font-weight:bold; color:#1e293b;">Pemanah Aegis</span></td>
+<td style="text-align:center; padding: 4px 2px;"><span style="font-size:16px;">🐎</span><br/><span style="font-size:9.5px; font-weight:bold; color:#1e293b;">Ksatria Templar</span></td>
+<td style="text-align:center; padding: 4px 2px;"><span style="font-size:16px;">🏛️</span><br/><span style="font-size:9.5px; font-weight:bold; color:#1e293b;">Praetorian Elit</span></td>
 <?php for ($e = 5; $e <= ($colspan - 1); $e++): ?>
 <td class="none" style="opacity: 0.25;">?</td>
 <?php endfor; ?>

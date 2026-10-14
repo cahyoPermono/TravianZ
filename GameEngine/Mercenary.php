@@ -68,58 +68,56 @@ class Mercenary
                 'name'        => 'Garda Zirah Besi',
                 'en_name'     => 'Ironclad Vanguard',
                 'icon'        => '🛡️',
-                'type'        => 'Infanteri Bertahan',
-                'atk'         => 30,
-                'di'          => 80,
-                'dc'          => 95,
+                'type'        => 'Infanteri Bertahan Seimbang',
+                'atk'         => 25,
+                'di'          => 110,
+                'dc'          => 105,
                 'pop'         => 1,
                 'upkeep'      => 1,
-                'cost_silver' => 4,
+                'cost_silver' => 12,
                 'desc'        => 'Zirah pelat baja berat anti-kuda dan anti-infanteri yang kokoh membentengi desa dari serbuan musuh.'
             ],
             2 => [
                 'key'         => 'm2',
-                'name'        => 'Pemanah Busur Kreta',
-                'en_name'     => 'Cretan Marksman',
+                'name'        => 'Pemanah Tembok Aegis',
+                'en_name'     => 'Aegis Wall Archer',
                 'icon'        => '🏹',
-                'type'        => 'Infanteri Serang Jarak Jauh',
-                'atk'         => 65,
-                'di'          => 40,
-                'dc'          => 35,
+                'type'        => 'Infanteri Anti-Infanteri',
+                'atk'         => 20,
+                'di'          => 140,
+                'dc'          => 65,
                 'pop'         => 1,
                 'upkeep'      => 1,
-                'cost_silver' => 3,
-                'desc'        => 'Pemanah bayaran berakurasi mematikan jarak jauh yang merontokkan barisan serbu lawan.'
+                'cost_silver' => 14,
+                'desc'        => 'Pemanah benteng dengan pertahanan jarak jauh yang sangat mematikan terhadap infanteri penyerbu lawan.'
             ],
             3 => [
                 'key'         => 'm3',
-                'name'        => 'Penjarah Padang Stepa',
-                'en_name'     => 'Steppe Marauder',
+                'name'        => 'Ksatria Perisai Templar',
+                'en_name'     => 'Templar Shield Knight',
                 'icon'        => '🐎',
-                'type'        => 'Kavaleri Serbu Cepat',
-                'atk'         => 90,
-                'di'          => 45,
-                'dc'          => 35,
-                'speed'       => 16,
-                'cap'         => 100,
+                'type'        => 'Kavaleri Anti-Kavaleri',
+                'atk'         => 35,
+                'di'          => 120,
+                'dc'          => 180,
                 'pop'         => 2,
                 'upkeep'      => 2,
-                'cost_silver' => 7,
-                'desc'        => 'Penunggang kuda stepa ganas dengan kapasitas kantong rampasan besar untuk operasi jarahan kilat.'
+                'cost_silver' => 25,
+                'desc'        => 'Kavaleri pelindung berlapis baja tebal dengan tombak panjang khusus untuk mematahkan dan meremukkan kavaleri musuh.'
             ],
             4 => [
                 'key'         => 'm4',
-                'name'        => 'Penebas Benteng',
-                'en_name'     => 'Sapper Demolitionist',
-                'icon'        => '🔨',
-                'type'        => 'Pendobrak Khusus Benteng',
-                'atk'         => 75,
-                'di'          => 50,
-                'dc'          => 40,
+                'name'        => 'Penjaga Gerbang Praetorian',
+                'en_name'     => 'Praetorian Citadel Guard',
+                'icon'        => '🏛️',
+                'type'        => 'Serdadu Elit Benteng',
+                'atk'         => 45,
+                'di'          => 175,
+                'dc'          => 165,
                 'pop'         => 2,
                 'upkeep'      => 2,
-                'cost_silver' => 8,
-                'desc'        => 'Serdadu peremuk gerbang dan penghancur pagar pertahanan musuh dengan beliung baja dan bahan peledak.'
+                'cost_silver' => 30,
+                'desc'        => 'Pengawal gerbang benteng elit legendaris berkekuatan luar biasa tinggi yang tangguh menahan gempuran segala jenis pasukan musuh.'
             ],
         ];
     }
@@ -171,8 +169,8 @@ class Mercenary
             return ['dp' => 0, 'cdp' => 0, 'involve' => 0];
         }
 
-        $dp = ($g['m1'] * 80) + ($g['m2'] * 40) + ($g['m3'] * 45) + ($g['m4'] * 50);
-        $cdp = ($g['m1'] * 95) + ($g['m2'] * 35) + ($g['m3'] * 35) + ($g['m4'] * 40);
+        $dp = ($g['m1'] * 110) + ($g['m2'] * 140) + ($g['m3'] * 120) + ($g['m4'] * 175);
+        $cdp = ($g['m1'] * 105) + ($g['m2'] * 65) + ($g['m3'] * 180) + ($g['m4'] * 165);
 
         return [
             'dp'      => $dp,
@@ -295,7 +293,7 @@ class Mercenary
         }
 
         // Calculate Silver Cost
-        $cost = ($c1 * 4) + ($c2 * 3) + ($c3 * 7) + ($c4 * 8);
+        $cost = ($c1 * 12) + ($c2 * 14) + ($c3 * 25) + ($c4 * 30);
 
         $silver = BlackMarket::getSilver($uid);
         if ($silver < $cost) {
@@ -323,7 +321,7 @@ class Mercenary
                 updated = $now";
         @mysqli_query($db, $q);
 
-        $desc = "Hired $c1 Garda Zirah, $c2 Pemanah Kreta, $c3 Penjarah Stepa, $c4 Penebas Benteng for $cost Silver";
+        $desc = "Hired $c1 Garda Zirah, $c2 Pemanah Aegis, $c3 Ksatria Templar, $c4 Praetorian for $cost Silver";
         BlackMarket::logAction($uid, $vref, 'hire_mercenary', $desc, $cost);
 
         return [

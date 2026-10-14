@@ -262,25 +262,25 @@ if (!empty($_SESSION['bm_flash'])) {
                 </td>
             </tr>
 
-            <!-- ITEM 3: FORGED MERCHANT PASS -->
+            <!-- ITEM 3: ANCIENT RELIC (CP BONUS) -->
             <tr>
                 <td>
-                    <b>📜 Surat Jalan Pedagang Palsu</b><br />
-                    <span style="font-size: 10px; color: #666;">Izin jalan bebas pajak yang memberi pasokan logistik selundupan ekstra +500 tiap res.</span>
+                    <b>📜 Gulungan Pusaka Kuno Selundupan</b><br />
+                    <span style="font-size: 10px; color: #666;">Naskah kuno peninggalan peradaban masa lalu yang memberi <b>+250 Culture Points (CP)</b> seketika untuk mempercepat pendirian desa baru.</span>
                 </td>
                 <td style="text-align: center; font-size: 11px; color: #444;">
-                    Siap Pakai
+                    +250 CP Akun
                 </td>
                 <td style="text-align: center; font-weight: bold; color: #996600;">
-                    45 Silver
+                    55 Silver
                 </td>
                 <td style="text-align: right;">
                     <form method="POST" action="build.php" style="margin: 0;">
                         <input type="hidden" name="ft" value="bm_contraband">
                         <input type="hidden" name="id" value="<?php echo (int)$id; ?>">
-                        <input type="hidden" name="item_key" value="merchant_pass">
-                        <button type="submit" <?php if($silver < 45) echo 'disabled'; ?> style="padding: 4px 8px; font-size: 11px; font-weight: bold; background: <?php echo ($silver >= 45) ? '#386b2e' : '#ccc'; ?>; color: #fff; border: none; border-radius: 3px; cursor: <?php echo ($silver >= 45) ? 'pointer' : 'not-allowed'; ?>;">
-                            Beli Surat
+                        <input type="hidden" name="item_key" value="ancient_relic">
+                        <button type="submit" <?php if($silver < 55) echo 'disabled'; ?> style="padding: 4px 8px; font-size: 11px; font-weight: bold; background: <?php echo ($silver >= 55) ? '#386b2e' : '#ccc'; ?>; color: #fff; border: none; border-radius: 3px; cursor: <?php echo ($silver >= 55) ? 'pointer' : 'not-allowed'; ?>;">
+                            Beli Pusaka
                         </button>
                     </form>
                 </td>

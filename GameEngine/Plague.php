@@ -112,7 +112,7 @@ class Plague {
         $db = self::db();
         if (!$db || $vref <= 0) return false;
 
-        $q = "UPDATE `" . TB_PREFIX . "village_plague` SET `plague_type` = 0, `cure_time` = 0 WHERE `vref` = " . (int)$vref;
+        $q = "UPDATE `" . TB_PREFIX . "village_plague` SET `plague_type` = 0, `cure_time` = 0, `quarantine` = 0, `severity` = 0 WHERE `vref` = " . (int)$vref;
         return (bool)@mysqli_query($db, $q);
     }
 
@@ -284,6 +284,20 @@ class Plague {
     }
 
     /**
+     * Multiplier for troop training time (barracks, stables, etc.).
+     * Pestilence slows down troop training by +25% (1.25x).
+     */
+    public static function getTrainingTimeMultiplier(int $vref): float {
+        $plague = self::getVillagePlague($vref);
+        if (!$plague) return 1.0;
+
+        if ((int)$plague['plague_type'] === self::PLAGUE_PESTILENCE) {
+            return 1.25; // +25% training time
+        }
+        return 1.0;
+    }
+
+    /**
      * Automation tick hook.
      * Cleans up expired plagues and evaluates starvation risk.
      */
@@ -299,7 +313,7 @@ class Plague {
         $now = time();
 
         // 1. Clean up expired infections
-        @mysqli_query($db, "UPDATE `" . TB_PREFIX . "village_plague` SET `plague_type` = 0 WHERE `cure_time` > 0 AND `cure_time` <= $now");
+        @mysqli_query($db, "UPDATE `" . TB_PREFIX . "village_plague` SET `plague_type` = 0, `cure_time` = 0, `quarantine` = 0, `severity` = 0 WHERE `cure_time` > 0 AND `cure_time` <= $now");
 
         // 2. Small chance (5%) for critically starving villages (crop < 5) to develop cholera
         $starvingQ = "SELECT v.wref, v.crop, v.pop FROM `" . TB_PREFIX . "vdata` v 

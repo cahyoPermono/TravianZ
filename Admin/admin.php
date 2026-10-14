@@ -121,6 +121,7 @@ function admin_validated_page(string $raw): string
         'botManager',
         'ormasManager',
         'weatherManager',
+        'plagueManager',
     ];
 
     return in_array($raw, $whitelist, true) ? $raw : '';
@@ -301,6 +302,10 @@ if ($page !== '') {
 
         case 'weatherManager':
             $subpage = 'Weather & Disaster Manager';
+            break;
+
+        case 'plagueManager':
+            $subpage = 'Village Plague & Outbreak Manager';
             break;
 
         case 'users':
@@ -900,6 +905,7 @@ body.app #menu li.sub ul li a:hover{color:#d97706!important}
                                 <li><a href="?p=botManager"><font color="#22c55e"><b>🤖 Bot AI Manager</b></font></a></li>
                                 <li><a href="?p=ormasManager"><font color="#ea580c"><b>🦹 Ormas & Preman Manager</b></font></a></li>
                                 <li><a href="?p=weatherManager"><font color="#0284c7"><b>🌤️ Weather & Disaster Manager</b></font></a></li>
+                                <li><a href="?p=plagueManager"><font color="#dc2626"><b>☣️ Plague & Outbreak Manager</b></font></a></li>
 								<li><a href="?p=multiacc"><font color="Red"><b><?php echo ADMIN_MULTI_ACCOUNT_DETECTION; ?></b></font></a></li>
                                 <li><a href="?p=pushprot"><font color="Red"><b><?php echo ADMIN_PUSH_PROTECTION; ?></b></font></a></li>
                                 <li><a href="?p=blockReg"><font color="Red"><b><?php echo ADMIN_REGISTRATION_BLOCKLIST; ?></b></font></a></li>
@@ -933,6 +939,7 @@ body.app #menu li.sub ul li a:hover{color:#d97706!important}
                         <li><a href="?p=botManager"><font color="#22c55e"><b>🤖 Bot AI Manager</b></font></a></li>
                         <li><a href="?p=ormasManager"><font color="#ea580c"><b>🦹 Ormas & Preman Manager</b></font></a></li>
                         <li><a href="?p=weatherManager"><font color="#0284c7"><b>🌤️ Weather & Disaster Manager</b></font></a></li>
+                        <li><a href="?p=plagueManager"><font color="#dc2626"><b>☣️ Plague & Outbreak Manager</b></font></a></li>
                         <li><a href="?p=pushprot"><?php echo ADMIN_PUSH_PROTECTION; ?></a></li>
                         <li><a href="?p=heatmap"><?php echo ADMIN_WORLD_MAP_HEATMAP; ?></a></li>
                         <li><a href="?action=logout"><?php echo ADMIN_LOGOUT; ?></a></li>

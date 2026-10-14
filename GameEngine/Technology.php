@@ -709,6 +709,15 @@ class Technology {
 		// mercenarului si bonusul de alianta se cumuleaza multiplicativ).
 		$each = $this->applyAllianceRecruitmentBonus($each);
 
+		// Wabah Pestilensi Medan Tempur: waktu latih melambat +25% (1.25x)
+		if (file_exists(__DIR__ . '/Plague.php')) {
+			require_once __DIR__ . '/Plague.php';
+			global $village;
+			if (isset($village->wid) && $village->wid > 0) {
+				$each = (int)round($each * Plague::getTrainingTimeMultiplier((int)$village->wid));
+			}
+		}
+
 		return $each;
 	}
 

@@ -135,9 +135,9 @@ $hasRally = $village->resarray['f39'] > 0;
             <tr>
                 <th>&nbsp;</th>
                 <td title="Garda Zirah Besi" style="font-size:11px;">🛡️ Garda Zirah</td>
-                <td title="Pemanah Busur Kreta" style="font-size:11px;">🏹 Pemanah Kreta</td>
-                <td title="Penjarah Stepa" style="font-size:11px;">🐎 Penjarah Stepa</td>
-                <td title="Penebas Benteng" style="font-size:11px;">🔨 Penebas Benteng</td>
+                <td title="Pemanah Tembok Aegis" style="font-size:11px;">🏹 Pemanah Aegis</td>
+                <td title="Ksatria Perisai Templar" style="font-size:11px;">🐎 Ksatria Templar</td>
+                <td title="Penjaga Gerbang Praetorian" style="font-size:11px;">🏛️ Praetorian Elit</td>
             </tr>
             <tr>
                 <th><?= TROOPS ?></th>

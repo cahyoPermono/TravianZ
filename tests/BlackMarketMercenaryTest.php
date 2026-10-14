@@ -102,17 +102,23 @@ assertTest($antidoteRes['success'], "Antidote bought and cured village: " . $ant
 assertTest(BlackMarket::getSilver($testUid) === $silverBeforeAntidote - 65, "65 Silver deducted for antidote");
 assertTest(!Plague::isVillageInfected($testVref), "Village is now completely cured of plague");
 
+// Ancient Relic test (replacing old merchant pass)
+$silverBeforeRelic = BlackMarket::getSilver($testUid);
+$relicRes = BlackMarket::buyContraband($testUid, $testVref, 'ancient_relic');
+assertTest($relicRes['success'], "Ancient Relic bought: " . $relicRes['message']);
+assertTest(BlackMarket::getSilver($testUid) === $silverBeforeRelic - 55, "55 Silver deducted for ancient relic");
+
 // 6. Mercenary Enclave Unit Definitions & Hiring
 echo "\n6. Mercenary Enclave Tests:\n";
 $units = Mercenary::getUnitsInfo();
 assertTest(count($units) === 4, "4 Mercenary units defined");
-assertTest($units[1]['name'] === 'Garda Zirah Besi' && $units[1]['cost_silver'] === 4, "Unit 1 is Garda Zirah Besi (4 Silver)");
-assertTest($units[2]['name'] === 'Pemanah Busur Kreta' && $units[2]['cost_silver'] === 3, "Unit 2 is Pemanah Busur Kreta (3 Silver)");
-assertTest($units[3]['name'] === 'Penjarah Padang Stepa' && $units[3]['cost_silver'] === 7, "Unit 3 is Penjarah Padang Stepa (7 Silver)");
-assertTest($units[4]['name'] === 'Penebas Benteng' && $units[4]['cost_silver'] === 8, "Unit 4 is Penebas Benteng (8 Silver)");
+assertTest($units[1]['name'] === 'Garda Zirah Besi' && $units[1]['cost_silver'] === 12, "Unit 1 is Garda Zirah Besi (12 Silver)");
+assertTest($units[2]['name'] === 'Pemanah Tembok Aegis' && $units[2]['cost_silver'] === 14, "Unit 2 is Pemanah Tembok Aegis (14 Silver)");
+assertTest($units[3]['name'] === 'Ksatria Perisai Templar' && $units[3]['cost_silver'] === 25, "Unit 3 is Ksatria Perisai Templar (25 Silver)");
+assertTest($units[4]['name'] === 'Penjaga Gerbang Praetorian' && $units[4]['cost_silver'] === 30, "Unit 4 is Penjaga Gerbang Praetorian (30 Silver)");
 
-// Hire mercenaries: 10 Garda Zirah, 5 Pemanah, 2 Penjarah, 1 Penebas
-// Cost: (10*4) + (5*3) + (2*7) + (1*8) = 40 + 15 + 14 + 8 = 77 Silver
+// Hire mercenaries: 10 Garda Zirah, 5 Pemanah, 2 Ksatria Templar, 1 Praetorian
+// Cost: (10*12) + (5*14) + (2*25) + (1*30) = 120 + 70 + 50 + 30 = 270 Silver
 $silverBeforeHire = BlackMarket::getSilver($testUid);
 $hireRes = Mercenary::hireMercenaries($testUid, $testVref, [
     'm1' => 10,
@@ -121,7 +127,7 @@ $hireRes = Mercenary::hireMercenaries($testUid, $testVref, [
     'm4' => 1
 ]);
 assertTest($hireRes['success'], "Mercenaries hired successfully: " . $hireRes['message']);
-assertTest(BlackMarket::getSilver($testUid) === $silverBeforeHire - 77, "77 Silver deducted correctly");
+assertTest(BlackMarket::getSilver($testUid) === $silverBeforeHire - 270, "270 Silver deducted correctly");
 
 // 7. Garrison & Upkeep
 echo "\n7. Garrison & Upkeep Tests:\n";

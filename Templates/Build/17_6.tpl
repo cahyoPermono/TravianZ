@@ -184,10 +184,10 @@ if (!empty($_SESSION['merc_flash'])) {
 <script type="text/javascript">
 var playerSilver = <?php echo (int)$silver; ?>;
 var costs = {
-    m1: 4,
-    m2: 3,
-    m3: 7,
-    m4: 8
+    m1: 12,
+    m2: 14,
+    m3: 25,
+    m4: 30
 };
 
 function recalcMercCost() {
