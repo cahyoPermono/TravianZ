@@ -88,7 +88,13 @@ class BotAI {
                 $botLogs[] = "Hero: " . $heroResult;
             }
 
-            // 5. Automated Raiding / Attacks (Hero included when available)
+            // 5. Automated Alliance Mutual Defense (Bantuan Bertahan Aliansi)
+            $defenseResult = self::processAllianceDefense($bot);
+            if ($defenseResult) {
+                $botLogs[] = "Defense: " . $defenseResult;
+            }
+
+            // 6. Automated Raiding / Attacks (Hero included when available)
             $attackResult = self::processAttack($bot);
             if ($attackResult) {
                 $botLogs[] = "Attack: " . $attackResult;
@@ -583,6 +589,388 @@ class BotAI {
     }
 
     /**
+     * Automated Alliance Mutual Defense (Bantuan Bertahan Aliansi):
+     * When any bot or member in the same alliance is attacked, other bots in that
+     * alliance dispatch defensive reinforcements (attack_type = 2) to garrison
+     * and defend the ally's village.
+     *
+     * Detection priorities:
+     * 1. Active Incoming Attacks (Priority 1):
+     *    Checks movement table for attacks/raids currently marching towards an ally village.
+     *    Dispatches ~40% of available defense troops (up to 150) + Hero if available.
+     * 2. Recent Attack Casualties (Priority 2):
+     *    Checks ndata for reports (ntype 4,5,6,7) within the last 2 hours.
+     *    Dispatches ~25% of available defense troops (up to 80) to replenish garrison.
+     *
+     * Safeguards:
+     * - Preserves 60-75% garrison at home for self defense.
+     * - Prevents duplicate reinforcements (if this bot is already marching or stationed there).
+     * - Caps helper bots per village (max 3 bots reinforcing the same village simultaneously).
+     * - Excludes internal alliance attacks.
+     *
+     * @param array $bot Bot record row
+     * @return string|null Log message if reinforcement dispatched, or null
+     */
+    public static function processAllianceDefense(array $bot): ?string {
+        global $database;
+        if (!isset($database) || $database === null) {
+            return null;
+        }
+
+        // Feature toggle (default: true)
+        if (defined('BOT_AI_ALLIANCE_DEFENSE_ENABLED') && !BOT_AI_ALLIANCE_DEFENSE_ENABLED) {
+            return null;
+        }
+
+        $botAlliance = (int)($bot['alliance'] ?? 0);
+        if ($botAlliance <= 0) {
+            return null; // Bot is not part of any alliance
+        }
+
+        $wid = (int)$bot['wref'];
+        $uid = (int)$bot['uid'];
+        $tribe = (int)$bot['tribe'];
+
+        // Get bot village coordinates
+        $botCoor = $database->getCoor($wid);
+        if (!$botCoor) {
+            return null;
+        }
+
+        // Check standing troops at home
+        $tribeUnits = self::getTribeUnits($tribe);
+        $unitCols = array_map(function($u) { return 'u' . $u; }, $tribeUnits['all']);
+        $colsSql = implode(', ', $unitCols);
+        $res = $database->query_return("SELECT {$colsSql}, hero FROM " . TB_PREFIX . "units WHERE vref = $wid");
+        if (empty($res[0])) {
+            return null;
+        }
+        $homeUnits = $res[0];
+
+        // Group available troops by role (prioritize defensive units)
+        // For Gauls (tribe 3), basic unit 21 (Phalanx) is their primary defender (40 inf / 50 cav def)
+        $defensiveRoles = ($tribe === 3)
+            ? ['basic', 'inf_def', 'cav_def']
+            : ['inf_def', 'cav_def', 'basic'];
+        $secondaryRoles = ['inf_adv', 'cav_heavy', 'cav_light'];
+
+        $availableDef = [];
+        $totalDefAvailable = 0;
+        foreach (array_merge($defensiveRoles, $secondaryRoles) as $role) {
+            if (isset($tribeUnits[$role])) {
+                $uNum = $tribeUnits[$role];
+                $cnt = (int)($homeUnits['u' . $uNum] ?? 0);
+                if ($cnt > 0 && !isset($availableDef[$uNum])) {
+                    $availableDef[$uNum] = $cnt;
+                    $totalDefAvailable += $cnt;
+                }
+            }
+        }
+
+        $minTroops = defined('BOT_AI_MIN_DEFENSE_TROOPS') ? (int)BOT_AI_MIN_DEFENSE_TROOPS : 6;
+        if ($totalDefAvailable < $minTroops) {
+            return null; // Not enough troops to spare for reinforcement
+        }
+
+        // Limit concurrent outgoing reinforcement movements per bot (default 2)
+        $maxOutgoingDefense = defined('BOT_AI_MAX_OUTGOING_DEFENSE') ? (int)BOT_AI_MAX_OUTGOING_DEFENSE : 2;
+        $activeReinf = $database->query_return("
+            SELECT COUNT(*) as active_reinf
+            FROM " . TB_PREFIX . "movement m
+            JOIN " . TB_PREFIX . "attacks a ON m.ref = a.id
+            WHERE m.`from` = $wid AND m.sort_type = 3 AND m.proc = 0 AND a.attack_type = 2
+        ");
+        if ((int)($activeReinf[0]['active_reinf'] ?? 0) >= $maxOutgoingDefense) {
+            return null;
+        }
+
+        $maxDefenseDist = defined('BOT_AI_MAX_DEFENSE_DISTANCE') ? (float)BOT_AI_MAX_DEFENSE_DISTANCE : 120.0;
+        $maxHelpersPerVillage = defined('BOT_AI_MAX_HELPERS_PER_VILLAGE') ? (int)BOT_AI_MAX_HELPERS_PER_VILLAGE : 3;
+
+        // =========================================================================
+        // STEP 1: SEARCH FOR THREATENED ALLY VILLAGES IN SAME ALLIANCE
+        // =========================================================================
+        $threatTarget = null;
+        $threatReason = '';
+        $threatLevel = 0; // 1 = Active incoming attack, 2 = Recent attack recovery
+
+        // 1A. PRIORITY 1: Active Incoming Attacks / Raids on an alliance village
+        $activeIncoming = $database->query_return("
+            SELECT m.moveid, m.to as target_wid, m.from as attacker_wid, m.endtime,
+                   v.name as vname, v.pop, w.x, w.y, u.username as ally_username, u.id as ally_uid,
+                   a.attack_type
+            FROM " . TB_PREFIX . "movement m
+            JOIN " . TB_PREFIX . "attacks a ON m.ref = a.id
+            JOIN " . TB_PREFIX . "vdata v ON m.to = v.wref
+            JOIN " . TB_PREFIX . "wdata w ON v.wref = w.id
+            JOIN " . TB_PREFIX . "users u ON v.owner = u.id
+            LEFT JOIN " . TB_PREFIX . "vdata v_atk ON m.`from` = v_atk.wref
+            LEFT JOIN " . TB_PREFIX . "users u_atk ON v_atk.owner = u_atk.id
+            WHERE u.alliance = $botAlliance
+              AND m.to != $wid
+              AND m.proc = 0
+              AND m.sort_type = 3
+              AND a.attack_type IN (3, 4)
+              AND m.endtime > " . time() . "
+              AND (u_atk.alliance IS NULL OR u_atk.alliance != $botAlliance)
+            ORDER BY m.endtime ASC
+            LIMIT 10
+        ");
+
+        if (!empty($activeIncoming)) {
+            foreach ($activeIncoming as $inc) {
+                $tWid = (int)$inc['target_wid'];
+                $dist = self::getDistance($botCoor['x'], $botCoor['y'], $inc['x'], $inc['y']);
+                if ($dist > $maxDefenseDist || $dist < 0.5) {
+                    continue;
+                }
+
+                // Check if this bot is already marching troops or already has stationed troops there
+                $alreadyMarching = $database->query_return("
+                    SELECT m.moveid
+                    FROM " . TB_PREFIX . "movement m
+                    JOIN " . TB_PREFIX . "attacks a ON m.ref = a.id
+                    WHERE m.`from` = $wid AND m.`to` = $tWid AND m.sort_type = 3 AND m.proc = 0 AND a.attack_type = 2
+                    LIMIT 1
+                ");
+                if (!empty($alreadyMarching)) {
+                    continue;
+                }
+
+                $alreadyStationed = $database->query_return("
+                    SELECT id FROM " . TB_PREFIX . "enforcement WHERE vref = $tWid AND `from` = $wid LIMIT 1
+                ");
+                if (!empty($alreadyStationed)) {
+                    continue;
+                }
+
+                // Check how many helpers are already aiding this village
+                $currentHelpers = $database->query_return("
+                    SELECT COUNT(*) as total_marching
+                    FROM " . TB_PREFIX . "movement m
+                    JOIN " . TB_PREFIX . "attacks a ON m.ref = a.id
+                    WHERE m.`to` = $tWid AND m.sort_type = 3 AND m.proc = 0 AND a.attack_type = 2
+                ");
+                $marchingCount = (int)($currentHelpers[0]['total_marching'] ?? 0);
+                if ($marchingCount >= $maxHelpersPerVillage) {
+                    continue;
+                }
+
+                $timeLeft = max(1, (int)$inc['endtime'] - time());
+                $minsLeft = round($timeLeft / 60, 1);
+                $atkTypeLabel = ((int)$inc['attack_type'] === 3) ? 'Serangan Penuh' : 'Raid';
+                $threatTarget = [
+                    'wref' => $tWid,
+                    'vname' => $inc['vname'],
+                    'x' => $inc['x'],
+                    'y' => $inc['y'],
+                    'dist' => $dist,
+                    'ally_username' => $inc['ally_username'],
+                    'ally_uid' => (int)$inc['ally_uid'],
+                ];
+                $threatReason = "Diserang ({$atkTypeLabel}) - Tiba dalam {$minsLeft}m";
+                $threatLevel = 1;
+                break;
+            }
+        }
+
+        // 1B. PRIORITY 2: Recent Attack Casualties (Alliance member attacked in last 2 hours)
+        if ($threatTarget === null) {
+            $recentAttacks = $database->query_return("
+                SELECT n.toWref as target_wid, n.time, n.data,
+                       v.name as vname, v.pop, w.x, w.y, u.username as ally_username, u.id as ally_uid
+                FROM " . TB_PREFIX . "ndata n
+                JOIN " . TB_PREFIX . "users u ON n.uid = u.id
+                JOIN " . TB_PREFIX . "vdata v ON n.toWref = v.wref
+                JOIN " . TB_PREFIX . "wdata w ON v.wref = w.id
+                WHERE u.alliance = $botAlliance
+                  AND n.toWref != $wid
+                  AND n.ntype IN (4, 5, 6, 7)
+                  AND n.time >= " . (time() - 7200) . "
+                ORDER BY n.id DESC
+                LIMIT 15
+            ");
+
+            if (!empty($recentAttacks)) {
+                $checkedWrefs = [];
+                foreach ($recentAttacks as $atk) {
+                    $tWid = (int)$atk['target_wid'];
+                    if ($tWid <= 0 || isset($checkedWrefs[$tWid])) {
+                        continue;
+                    }
+                    $checkedWrefs[$tWid] = true;
+
+                    $dist = self::getDistance($botCoor['x'], $botCoor['y'], $atk['x'], $atk['y']);
+                    if ($dist > $maxDefenseDist || $dist < 0.5) {
+                        continue;
+                    }
+
+                    // Check if this bot is already marching troops or already has stationed troops there
+                    $alreadyMarching = $database->query_return("
+                        SELECT m.moveid
+                        FROM " . TB_PREFIX . "movement m
+                        JOIN " . TB_PREFIX . "attacks a ON m.ref = a.id
+                        WHERE m.`from` = $wid AND m.`to` = $tWid AND m.sort_type = 3 AND m.proc = 0 AND a.attack_type = 2
+                        LIMIT 1
+                    ");
+                    if (!empty($alreadyMarching)) {
+                        continue;
+                    }
+
+                    $alreadyStationed = $database->query_return("
+                        SELECT id FROM " . TB_PREFIX . "enforcement WHERE vref = $tWid AND `from` = $wid LIMIT 1
+                    ");
+                    if (!empty($alreadyStationed)) {
+                        continue;
+                    }
+
+                    $currentHelpers = $database->query_return("
+                        SELECT COUNT(*) as total_marching
+                        FROM " . TB_PREFIX . "movement m
+                        JOIN " . TB_PREFIX . "attacks a ON m.ref = a.id
+                        WHERE m.`to` = $tWid AND m.sort_type = 3 AND m.proc = 0 AND a.attack_type = 2
+                    ");
+                    $marchingCount = (int)($currentHelpers[0]['total_marching'] ?? 0);
+                    if ($marchingCount >= $maxHelpersPerVillage) {
+                        continue;
+                    }
+
+                    $agoMins = max(1, round((time() - (int)$atk['time']) / 60));
+                    $threatTarget = [
+                        'wref' => $tWid,
+                        'vname' => $atk['vname'],
+                        'x' => $atk['x'],
+                        'y' => $atk['y'],
+                        'dist' => $dist,
+                        'ally_username' => $atk['ally_username'],
+                        'ally_uid' => (int)$atk['ally_uid'],
+                    ];
+                    $threatReason = "Baru diserang {$agoMins}m lalu (Pemulihan Garnisun)";
+                    $threatLevel = 2;
+                    break;
+                }
+            }
+        }
+
+        if ($threatTarget === null) {
+            return null; // No ally currently requires defensive aid
+        }
+
+        // =========================================================================
+        // STEP 2: CALCULATE TROOP REINFORCEMENTS TO DISPATCH
+        // =========================================================================
+        // Active attack (Priority 1): send ~40% of available defense troops (up to 150)
+        // Recent recovery (Priority 2): send ~25% of available defense troops (up to 80)
+        $ratio = ($threatLevel === 1) ? 0.40 : 0.25;
+        $maxCap = ($threatLevel === 1) ? 150 : 80;
+        $targetPartySize = min($maxCap, max($minTroops, (int)floor($totalDefAvailable * $ratio)));
+
+        $dispatched = [];
+        $dispatchedSpeeds = [];
+        $totalDispatched = 0;
+
+        foreach ($availableDef as $uNum => $avail) {
+            $portion = (int)round(($avail / $totalDefAvailable) * $targetPartySize);
+            $send = min($avail, max(0, $portion));
+            if ($send > 0) {
+                $dispatched[$uNum] = $send;
+                $dispatchedSpeeds[] = self::getUnitSpeed($uNum);
+                $totalDispatched += $send;
+            }
+        }
+
+        // Guarantee minimum troops
+        if ($totalDispatched < $minTroops) {
+            $primaryUnit = key($availableDef);
+            $add = min($availableDef[$primaryUnit] - ($dispatched[$primaryUnit] ?? 0), $minTroops - $totalDispatched);
+            if ($add > 0) {
+                $dispatched[$primaryUnit] = ($dispatched[$primaryUnit] ?? 0) + $add;
+                $totalDispatched += $add;
+                if (!in_array(self::getUnitSpeed($primaryUnit), $dispatchedSpeeds, true)) {
+                    $dispatchedSpeeds[] = self::getUnitSpeed($primaryUnit);
+                }
+            }
+        }
+
+        if ($totalDispatched <= 0) {
+            return null;
+        }
+
+        // Hero participation: If hero is alive, healthy (health >= 50), stationed at home,
+        // and threat is an active incoming attack (Priority 1)
+        $sendHero = 0;
+        if ($threatLevel === 1 && !empty($homeUnits['hero']) && (int)$homeUnits['hero'] > 0) {
+            $hCheck = $database->query_return("SELECT heroid, health, dead FROM " . TB_PREFIX . "hero WHERE uid = $uid AND dead = 0 LIMIT 1");
+            if (!empty($hCheck[0]) && (int)$hCheck[0]['dead'] === 0 && (float)$hCheck[0]['health'] >= 50) {
+                $sendHero = 1;
+                $database->query("UPDATE " . TB_PREFIX . "units SET hero = hero - 1 WHERE vref = $wid AND hero > 0");
+            }
+        }
+
+        // 1. Deduct troops from bot village (mode 0 = subtract)
+        $unitNums = array_keys($dispatched);
+        $amounts = array_values($dispatched);
+        $modes = array_fill(0, count($amounts), 0);
+        $database->modifyUnit($wid, $unitNums, $amounts, $modes);
+
+        // 2. Travel duration based on slowest marching unit
+        $marchSpeed = !empty($dispatchedSpeeds) ? min($dispatchedSpeeds) : 6;
+        $incSpeed = defined('INCREASE_SPEED') ? max(1, (int)INCREASE_SPEED) : 1;
+        $duration = max(30, (int)round(($threatTarget['dist'] / $marchSpeed) * 3600 / $incSpeed));
+
+        // 3. Map dispatched units to tribe slots t1..t10
+        $t = array_fill(1, 10, 0);
+        $baseUnit = ($tribe - 1) * 10;
+        foreach ($dispatched as $uNum => $cnt) {
+            $slot = $uNum - $baseUnit;
+            if ($slot >= 1 && $slot <= 10) {
+                $t[$slot] = $cnt;
+            }
+        }
+
+        // 4. Create attack entry with attack_type = 2 (Reinforcement / Bantuan Bertahan)
+        $attackId = $database->addAttack(
+            $wid,
+            $t[1], $t[2], $t[3], $t[4], $t[5], $t[6], $t[7], $t[8], $t[9], $t[10], $sendHero,
+            2, // Reinforcement
+            0, 0, 0
+        );
+
+        if (!$attackId) {
+            // Rollback on failure
+            $database->modifyUnit($wid, $unitNums, $amounts, array_fill(0, count($amounts), 1));
+            if ($sendHero) {
+                $database->query("UPDATE " . TB_PREFIX . "units SET hero = hero + 1 WHERE vref = $wid");
+            }
+            return null;
+        }
+
+        // 5. Create troop movement entry
+        $database->addMovement(
+            3, // Outward movement
+            $wid,
+            $threatTarget['wref'],
+            $attackId,
+            time(),
+            time() + $duration
+        );
+
+        // Build human-friendly log
+        $unitParts = [];
+        foreach ($dispatched as $uNum => $cnt) {
+            $unitParts[] = self::getUnitName($uNum) . ": " . $cnt;
+        }
+        if ($sendHero) {
+            $unitParts[] = "Hero: 1";
+        }
+        $unitsDesc = implode(', ', $unitParts);
+        $distRounded = round($threatTarget['dist'], 1);
+        $durMins = round($duration / 60, 1);
+
+        return "Bantuan bertahan ({$totalDispatched} pasukan [{$unitsDesc}]) dikirim ke sekutu '{$threatTarget['ally_username']}' ({$threatTarget['vname']} [{$threatTarget['x']}|{$threatTarget['y']}]) | Jarak: {$distRounded} | Tiba: {$durMins}m | Status: {$threatReason}";
+    }
+
+    /**
      * Process automated raids to nearby villages.
      * Supports dynamic scaling:
      * - Raid party size scales with standing army (up to 120 troops under dynamic scaling)
@@ -976,9 +1364,9 @@ class BotAI {
      *
      * @param int|string $botUid 0 for closest bot, 'all' for all available bots, 'alliance:<id>' for all bots in alliance, or specific bot UID.
      * @param string|int $targetInput Target username, "x|y" coordinate, village wref, or 'alliance:<id>' / alliance tag/name.
-     * @param int $attackType 4 = Raid, 3 = Normal Attack.
+     * @param int $attackType 4 = Raid, 3 = Normal Attack, 2 = Reinforcement (Bantuan Bertahan).
      * @param int $troopCount Minimum / custom troop count to dispatch (0 = auto 35-50 garrison).
-     * @param string $composition 'balanced', 'cavalry', 'infantry', or 'siege'.
+     * @param string $composition 'balanced', 'cavalry', 'infantry', 'siege', or 'defense'.
      * @return array Result array with status, message, and details.
      */
     public static function orderAttack($botUid, $targetInput, $attackType = 4, $troopCount = 0, $composition = 'balanced') {
@@ -992,9 +1380,9 @@ class BotAI {
             return ['status' => 'error', 'message' => 'Target tidak boleh kosong (masukkan username, koordinat X|Y, atau pilih aliansi sasaran).'];
         }
 
-        $attackType = in_array((int)$attackType, [3, 4], true) ? (int)$attackType : 4;
-        $attackTypeName = ($attackType === 3) ? 'Normal Attack' : 'Raid';
-        $validCompositions = ['balanced', 'cavalry', 'infantry', 'siege'];
+        $attackType = in_array((int)$attackType, [2, 3, 4], true) ? (int)$attackType : 4;
+        $attackTypeName = ($attackType === 2) ? 'Reinforcement' : (($attackType === 3) ? 'Normal Attack' : 'Raid');
+        $validCompositions = ['balanced', 'cavalry', 'infantry', 'siege', 'defense'];
         $composition = in_array($composition, $validCompositions, true) ? $composition : 'balanced';
 
         // 1. Resolve Target (Single Village vs Alliance)
@@ -1182,6 +1570,7 @@ class BotAI {
             // Extract unit numbers by role
             $basicU   = $tribeUnits['basic'];
             $defU     = $tribeUnits['inf_def'] ?? $basicU;
+            $cavDefU  = $tribeUnits['cav_def'] ?? null;
             $advU     = $tribeUnits['inf_adv'] ?? $basicU;
             $lightCav = $tribeUnits['cav_light'] ?? null;
             $heavyCav = $tribeUnits['cav_heavy'] ?? $lightCav;
@@ -1194,6 +1583,16 @@ class BotAI {
             // Build unit allocation according to requested composition
             $plan = [];
             switch ($composition) {
+                case 'defense':
+                    // Defensive garrison: heavy emphasis on inf_def and cav_def / basic
+                    $defCount = (int)round($desiredTotal * 0.55);
+                    $cavDefCount = $cavDefU ? (int)round($desiredTotal * 0.30) : 0;
+                    $basicCount = max(0, $desiredTotal - $defCount - $cavDefCount);
+                    if ($defCount > 0) $plan[$defU] = ($plan[$defU] ?? 0) + $defCount;
+                    if ($cavDefCount > 0) $plan[$cavDefU] = ($plan[$cavDefU] ?? 0) + $cavDefCount;
+                    if ($basicCount > 0) $plan[$basicU] = ($plan[$basicU] ?? 0) + $basicCount;
+                    break;
+
                 case 'cavalry':
                     if ($lightCav && $heavyCav) {
                         $lCount = (int)round($desiredTotal * 0.60);
@@ -1343,12 +1742,15 @@ class BotAI {
                 $attackerAliPrefix = !empty($bot['ali_tag']) ? "[{$bot['ali_tag']}] " : "";
                 $targetAliPrefix = !empty($currentTarget['ali_tag']) ? "[{$currentTarget['ali_tag']}] " : "";
 
-                $dispatchedReports[] = "<b>{$attackerAliPrefix}{$bot['username']}</b> [{$bot['vname']}] mengerahkan " . ($sumDispatched + $sendHero) . " pasukan (" . implode(', ', $troopBreakdown) . ") via {$attackTypeName} ke <b>{$targetAliPrefix}{$targetUser}</b> [{$targetVname} ({$targetX}|{$targetY})], tiba dalam " . round($duration / 60, 1) . " menit (Jarak: " . round($dist, 1) . " petak).";
+                $attackVerb = ($attackType === 2) ? 'Bantuan Bertahan' : $attackTypeName;
+                $dispatchedReports[] = "<b>{$attackerAliPrefix}{$bot['username']}</b> [{$bot['vname']}] mengerahkan " . ($sumDispatched + $sendHero) . " pasukan (" . implode(', ', $troopBreakdown) . ") via {$attackVerb} ke <b>{$targetAliPrefix}{$targetUser}</b> [{$targetVname} ({$targetX}|{$targetY})], tiba dalam " . round($duration / 60, 1) . " menit (Jarak: " . round($dist, 1) . " petak).";
             }
         }
 
         $summaryMsg = "";
-        if ($isAllianceTarget && $attackerAllianceInfo !== null) {
+        if ($attackType === 2) {
+            $summaryMsg = "🛡️ <b>BANTUAN BERTAHAN BERHASIL DIKERAHKAN!</b> Sebanyak " . count($dispatchedReports) . " bot meluncurkan bala bantuan pasukan ke {$targetUser}!";
+        } elseif ($isAllianceTarget && $attackerAllianceInfo !== null) {
             $summaryMsg = "⚔️ <b>PERANG ALIANSI PECAH!</b> Aliansi [{$attackerAllianceInfo['tag']}] {$attackerAllianceInfo['name']} mengerahkan " . count($dispatchedReports) . " bot untuk menyerang Aliansi [{$targetAlliance['tag']}] {$targetAlliance['name']}!";
         } elseif ($isAllianceTarget) {
             $summaryMsg = "🎯 <b>SERANGAN MASSAL KE ALIANSI!</b> Sebanyak " . count($dispatchedReports) . " bot meluncurkan serangan ke desa-desa Aliansi [{$targetAlliance['tag']}] {$targetAlliance['name']}!";

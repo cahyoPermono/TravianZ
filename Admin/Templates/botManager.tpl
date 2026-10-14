@@ -656,6 +656,8 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
 .badge-build { background:#1e3a5f; color:#93c5fd; padding:1px 6px; border-radius:4px; font-size:9px; font-weight:bold; }
 .badge-train { background:#064e3b; color:#86efac; padding:1px 6px; border-radius:4px; font-size:9px; font-weight:bold; }
 .badge-attack { background:#7f1d1d; color:#fca5a5; padding:1px 6px; border-radius:4px; font-size:9px; font-weight:bold; }
+.badge-defense { background:#0284c7; color:#e0f2fe; padding:1px 6px; border-radius:4px; font-size:9px; font-weight:bold; }
+.badge-hero { background:#7c2d12; color:#fed7aa; padding:1px 6px; border-radius:4px; font-size:9px; font-weight:bold; }
 
 /* Table Directory */
 .botm-table-panel { background:#0b1220; border:1px solid #1f2937; border-radius:10px; padding:16px; margin-bottom:20px; }
@@ -750,8 +752,12 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
                                     $badge = '<span class="badge-build">UPGRADE</span>';
                                     if (stripos($act, 'Train') !== false) {
                                         $badge = '<span class="badge-train">TRAIN</span>';
+                                    } elseif (stripos($act, 'Defense') !== false || stripos($act, 'Bantuan') !== false) {
+                                        $badge = '<span class="badge-defense">DEFEND</span>';
                                     } elseif (stripos($act, 'Attack') !== false) {
                                         $badge = '<span class="badge-attack">RAID</span>';
+                                    } elseif (stripos($act, 'Hero') !== false) {
+                                        $badge = '<span class="badge-hero">HERO</span>';
                                     }
                                 ?>
                                 <div class="log-action"><?php echo $badge; ?> <?php echo htmlspecialchars($act); ?></div>
@@ -951,17 +957,19 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
                     <label>Komposisi Pasukan:</label>
                     <select name="composition" class="botm-form-control">
                         <option value="balanced">⚔️ Seimbang (Infanteri + Kavaleri + Pengepungan)</option>
+                        <option value="defense">🛡️ Garnisun Pertahanan (Infanteri & Kavaleri Defensif)</option>
                         <option value="cavalry">🐎 Kavaleri Cepat (Serbuan Kuda Kilat)</option>
-                        <option value="infantry">🛡️ Barisan Infanteri (Pedang & Tombak)</option>
+                        <option value="infantry">⚔️ Barisan Infanteri (Pedang & Tombak)</option>
                         <option value="siege">💣 Penghancur Benteng (Catapult & Ram)</option>
                     </select>
                 </div>
 
                 <div class="botm-form-group">
-                    <label>Tipe Serangan:</label>
+                    <label>Tipe Operasi / Serangan:</label>
                     <select name="attack_type" class="botm-form-control">
                         <option value="4">⚔️ Raid (Penjarahan Sumber Daya)</option>
                         <option value="3">💀 Normal Attack (Serangan Tempur Penuh)</option>
+                        <option value="2">🛡️ Bantuan Bertahan (Reinforcement ke Sekutu)</option>
                     </select>
                 </div>
 
