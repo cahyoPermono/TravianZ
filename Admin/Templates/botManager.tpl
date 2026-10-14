@@ -658,6 +658,7 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
 .badge-attack { background:#7f1d1d; color:#fca5a5; padding:1px 6px; border-radius:4px; font-size:9px; font-weight:bold; }
 .badge-defense { background:#0284c7; color:#e0f2fe; padding:1px 6px; border-radius:4px; font-size:9px; font-weight:bold; }
 .badge-hero { background:#7c2d12; color:#fed7aa; padding:1px 6px; border-radius:4px; font-size:9px; font-weight:bold; }
+.badge-revenge { background:#b91c1c; color:#ffffff; padding:1px 6px; border-radius:4px; font-size:9px; font-weight:bold; box-shadow:0 0 6px rgba(185,28,28,0.6); }
 
 /* Table Directory */
 .botm-table-panel { background:#0b1220; border:1px solid #1f2937; border-radius:10px; padding:16px; margin-bottom:20px; }
@@ -754,6 +755,8 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
                                         $badge = '<span class="badge-train">TRAIN</span>';
                                     } elseif (stripos($act, 'Defense') !== false || stripos($act, 'Bantuan') !== false) {
                                         $badge = '<span class="badge-defense">DEFEND</span>';
+                                    } elseif (stripos($act, 'Revenge') !== false || stripos($act, 'Balas Dendam') !== false || stripos($act, 'Retaliation') !== false) {
+                                        $badge = '<span class="badge-revenge">REVENGE</span>';
                                     } elseif (stripos($act, 'Attack') !== false) {
                                         $badge = '<span class="badge-attack">RAID</span>';
                                     } elseif (stripos($act, 'Hero') !== false) {

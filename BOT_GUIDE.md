@@ -68,12 +68,16 @@ define("BOT_AI_ATTACK_CHANCE", 35);          // Persentase peluang bot melancark
 define("BOT_AI_MAX_DISTANCE", 70.0);         // Jarak maksimum (radius kotak) target raid bot (2x lipat lebih luas)
 define("BOT_AI_MAX_CONCURRENT_ATTACKS", 1);  // Jumlah serangan keluar maksimal dari 1 desa bot bersamaan
 define("BOT_AI_REVENGE_ENABLED", true);       // Prioritaskan serang balik pemain yang menyerang bot / aliansi bot
+define("BOT_AI_REVENGE_MAX_DISTANCE", 250.0); // Jarak maksimal balas dendam (default 250 tile / set 0 untuk seluruh map)
 define("BOT_MAX_FIELD_LEVEL", 6);            // Batas level ladang sumber daya pada fase awal
 ```
 
-### Fitur Unggulan Balas Dendam (Global Revenge):
-- **Jangkauan Seluruh Map**: Jika ada pemain yang menyerang bot atau anggota aliansinya, bot akan membalas ke koordinat mana pun di seluruh peta tanpa dibatasi radius `BOT_AI_MAX_DISTANCE`.
-- **Prioritas Penuh (100%)**: Balas dendam langsung diluncurkan begitu bot memiliki pasukan siap tempur, mengabaikan jam tidur malam dan melewati roll peluang random 35%.
+### Fitur Unggulan Balas Dendam (Global Alliance Revenge):
+- **Dual-Channel Detection (Real-Time & Laporan)**:
+  1. **Serangan Balasan Saat Ini (Counter-Strike)**: Bot langsung mendeteksi jika musuh sedang berbaris menyerang desa bot atau rekan aliansinya saat ini juga, dan langsung menyerang balik desa asal musuh selagi pasukan musuh di jalan!
+  2. **Laporan Tempur (ndata)**: Memeriksa laporan tempur 24 jam terakhir dari seluruh anggota aliansi dan membalas dendam kepada desa penyerang.
+- **Jangkauan Luas & Fleksibel**: Balas dendam menjangkau radius hingga 250 tile (`BOT_AI_REVENGE_MAX_DISTANCE`), atau seluruh map jika diset 0.
+- **Aktif 24 Jam Penuh**: Balas dendam tidak terhalang oleh jam tidur malam dan melewati roll persentase peluang random (100% langsung membalas).
 - **Kekuatan Lebih Besar**: Serangan balik menggunakan *Normal Attack* dengan kekuatan armada hingga 50% pasukan dan mengikutsertakan Hero jika sehat.
 
 ### Tips Penyesuaian:

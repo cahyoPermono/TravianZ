@@ -985,16 +985,6 @@ class BotAI {
         $tribe = (int)$bot['tribe'];
         $pop = max(10, (int)$bot['pop']);
 
-        // Attack window restriction (default: 08:00 - 20:00 server time)
-        $startHour = defined('BOT_AI_ATTACK_START_HOUR') ? (int)BOT_AI_ATTACK_START_HOUR : 8;
-        $endHour = defined('BOT_AI_ATTACK_END_HOUR') ? (int)BOT_AI_ATTACK_END_HOUR : 20;
-        $currentHour = (int)date('G');
-        if ($startHour < $endHour) {
-            if ($currentHour < $startHour || $currentHour >= $endHour) {
-                return null; // Peaceful nighttime / outside attack hours
-            }
-        }
-
         $minTroops = defined('BOT_AI_MIN_RAID_TROOPS') ? (int)BOT_AI_MIN_RAID_TROOPS : 6;
         $attackChance = defined('BOT_AI_ATTACK_CHANCE') ? (int)BOT_AI_ATTACK_CHANCE : 35;
         $maxDistance = defined('BOT_AI_MAX_DISTANCE') ? (float)BOT_AI_MAX_DISTANCE : 70.0;
@@ -1039,14 +1029,16 @@ class BotAI {
             return null;
         }
 
-        // Check active outgoing attacks
+        // Check active outgoing attacks (only count real attacks/raids; exclude defensive reinforcements)
         $resActive = $database->query_return("
-            SELECT COUNT(*) as active_attacks
-            FROM " . TB_PREFIX . "movement
-            WHERE `from` = $wid AND sort_type = 3 AND proc = 0
+            SELECT COUNT(m.moveid) as active_attacks
+            FROM " . TB_PREFIX . "movement m
+            LEFT JOIN " . TB_PREFIX . "attacks a ON m.ref = a.id
+            WHERE m.`from` = $wid AND m.sort_type = 3 AND m.proc = 0
+              AND (a.attack_type IS NULL OR a.attack_type IN (3, 4))
         ");
         $activeAttacks = (int)($resActive[0]['active_attacks'] ?? 0);
-        if ($activeAttacks >= max(2, $maxConcurrent + 1)) {
+        if ($activeAttacks >= 3) {
             return null;
         }
 
@@ -1060,14 +1052,56 @@ class BotAI {
             ? array_map('trim', explode(',', PROTECTED_PLAYERS))
             : [];
         $botAlliance = (int)($bot['alliance'] ?? 0);
+        $revengeMaxDist = defined('BOT_AI_REVENGE_MAX_DISTANCE') ? (float)BOT_AI_REVENGE_MAX_DISTANCE : 250.0;
 
         // =========================================================================
-        // PRIORITY 1: GLOBAL REVENGE (Balas Dendam Seluruh Map & Prioritas Penuh)
+        // PRIORITY 1: GLOBAL & ALLIANCE REVENGE (Balas Dendam Aktif & Laporan Tempur)
         // =========================================================================
         $revengeTarget = null;
         $isRevenge = false;
 
         if (!defined('BOT_AI_REVENGE_ENABLED') || BOT_AI_REVENGE_ENABLED) {
+            $attackerWrefs = []; // [attacker_wref => last_incident_time]
+
+            // Channel A: Serangan Musuh yang Sedang Aktif Berjalan Menuju Bot atau Sekutu
+            // Pasukan musuh sedang di jalan, desa asalnya rentan diserang balik!
+            $allyWrefs = [$wid];
+            if ($botAlliance > 0) {
+                $allyVids = $database->query_return("
+                    SELECT v.wref
+                    FROM " . TB_PREFIX . "vdata v
+                    JOIN " . TB_PREFIX . "users u ON v.owner = u.id
+                    WHERE u.alliance = $botAlliance
+                ");
+                if (!empty($allyVids)) {
+                    $allyWrefs = array_map('intval', array_column($allyVids, 'wref'));
+                }
+            }
+            $allyWrefFilter = implode(',', array_unique($allyWrefs));
+
+            $activeIncoming = $database->query_return("
+                SELECT m.`from` as attacker_wref, m.starttime
+                FROM " . TB_PREFIX . "movement m
+                JOIN " . TB_PREFIX . "attacks a ON m.ref = a.id
+                WHERE m.`to` IN ($allyWrefFilter)
+                  AND m.sort_type = 3
+                  AND m.proc = 0
+                  AND a.attack_type IN (3, 4)
+                  AND m.`from` != $wid
+                ORDER BY m.starttime DESC
+                LIMIT 15
+            ");
+
+            if (!empty($activeIncoming)) {
+                foreach ($activeIncoming as $inc) {
+                    $aw = (int)$inc['attacker_wref'];
+                    if ($aw > 0 && !isset($attackerWrefs[$aw])) {
+                        $attackerWrefs[$aw] = (int)$inc['starttime'];
+                    }
+                }
+            }
+
+            // Channel B: Laporan Tempur Terakhir (ndata) 24 jam terakhir
             $recentAttacks = [];
             if ($botAlliance > 0) {
                 $recentAttacks = $database->query_return("
@@ -1077,7 +1111,7 @@ class BotAI {
                     WHERE (n.uid = $uid OR u.alliance = $botAlliance)
                       AND n.ntype IN (4, 5, 6, 7)
                       AND n.time >= " . (time() - 86400) . "
-                    ORDER BY n.id DESC LIMIT 15
+                    ORDER BY n.id DESC LIMIT 50
                 ");
             } else {
                 $recentAttacks = $database->query_return("
@@ -1086,71 +1120,89 @@ class BotAI {
                     WHERE uid = $uid
                       AND ntype IN (4, 5, 6, 7)
                       AND time >= " . (time() - 86400) . "
-                    ORDER BY id DESC LIMIT 10
+                    ORDER BY id DESC LIMIT 20
                 ");
             }
 
             if (!empty($recentAttacks)) {
-                // Collect distinct attacker village IDs with their latest attack timestamp
-                $attackerWrefs = [];
                 foreach ($recentAttacks as $atkNotice) {
                     $parts = explode(',', $atkNotice['data']);
                     if (isset($parts[1]) && is_numeric($parts[1])) {
                         $w = (int)$parts[1];
-                        if ($w > 0 && !isset($attackerWrefs[$w])) {
-                            $attackerWrefs[$w] = (int)$atkNotice['time'];
+                        if ($w > 0) {
+                            $t = (int)$atkNotice['time'];
+                            if (!isset($attackerWrefs[$w]) || $t > $attackerWrefs[$w]) {
+                                $attackerWrefs[$w] = $t;
+                            }
                         }
                     }
                 }
+            }
 
-                if (!empty($attackerWrefs)) {
-                    $wrefList = implode(',', array_keys($attackerWrefs));
-                    $targetVillages = $database->query_return("
-                        SELECT v.wref, v.owner, v.name as vname, v.pop, w.x, w.y, u.username, u.access, u.protect, u.alliance
-                        FROM " . TB_PREFIX . "vdata v
-                        JOIN " . TB_PREFIX . "wdata w ON v.wref = w.id
-                        JOIN " . TB_PREFIX . "users u ON v.owner = u.id
-                        WHERE v.wref IN ($wrefList)
-                          AND v.wref != $wid
-                          AND v.owner != $uid
-                          AND u.access < 8
-                          AND u.protect < " . time()
-                    );
+            if (!empty($attackerWrefs)) {
+                $wrefList = implode(',', array_keys($attackerWrefs));
+                $targetVillages = $database->query_return("
+                    SELECT v.wref, v.owner, v.name as vname, v.pop, w.x, w.y, u.username, u.access, u.protect, u.alliance
+                    FROM " . TB_PREFIX . "vdata v
+                    JOIN " . TB_PREFIX . "wdata w ON v.wref = w.id
+                    JOIN " . TB_PREFIX . "users u ON v.owner = u.id
+                    WHERE v.wref IN ($wrefList)
+                      AND v.wref != $wid
+                      AND v.owner != $uid
+                      AND u.access < 8
+                      AND u.protect < " . time()
+                );
 
-                    if (!empty($targetVillages)) {
-                        foreach ($targetVillages as $tgt) {
-                            if (in_array($tgt['username'], $protectedList, true)) {
-                                continue;
-                            }
-                            if ($botAlliance > 0 && !empty($tgt['alliance']) && (int)$tgt['alliance'] === $botAlliance) {
-                                continue;
-                            }
-
-                            $w = (int)$tgt['wref'];
-                            $lastAtkTime = (int)($attackerWrefs[$w] ?? 0);
-
-                            // Check if this bot has already launched a counter-strike after this attack incident
-                            $alreadyRetaliated = $database->query_return("
-                                SELECT moveid
-                                FROM " . TB_PREFIX . "movement
-                                WHERE `from` = $wid AND `to` = $w AND sort_type = 3 AND starttime >= $lastAtkTime
-                                LIMIT 1
-                            ");
-                            if (!empty($alreadyRetaliated)) {
-                                continue; // Already counter-attacked for this incident
-                            }
-
-                            $dist = self::getDistance($botCoor['x'], $botCoor['y'], $tgt['x'], $tgt['y']);
-                            if ($dist < 0.5) {
-                                continue;
-                            }
-
-                            // JANGKAUAN GLOBAL: Jarak di seluruh map diterima tanpa dibatasi maxDistance!
-                            $tgt['dist'] = $dist;
-                            $revengeTarget = $tgt;
-                            $isRevenge = true;
-                            break; // Pilih target balas dendam pertama yang valid (terbaru)
+                if (!empty($targetVillages)) {
+                    $validRevengeTargets = [];
+                    foreach ($targetVillages as $tgt) {
+                        if (in_array($tgt['username'], $protectedList, true)) {
+                            continue;
                         }
+                        if ($botAlliance > 0 && !empty($tgt['alliance']) && (int)$tgt['alliance'] === $botAlliance) {
+                            continue;
+                        }
+
+                        $w = (int)$tgt['wref'];
+                        $lastAtkTime = (int)($attackerWrefs[$w] ?? 0);
+
+                        // Cek apakah bot ini sudah meluncurkan serangan balasan setelah insiden ini terjadi
+                        $alreadyRetaliated = $database->query_return("
+                            SELECT moveid
+                            FROM " . TB_PREFIX . "movement
+                            WHERE `from` = $wid AND `to` = $w AND sort_type = 3 AND starttime >= $lastAtkTime
+                            LIMIT 1
+                        ");
+                        if (!empty($alreadyRetaliated)) {
+                            continue; // Sudah melancarkan balas dendam untuk insiden ini
+                        }
+
+                        $dist = self::getDistance($botCoor['x'], $botCoor['y'], $tgt['x'], $tgt['y']);
+                        if ($dist < 0.5) {
+                            continue;
+                        }
+
+                        // Jangkauan Balas Dendam (default 250 tile atau 0 untuk tanpa batas)
+                        if ($revengeMaxDist > 0 && $dist > $revengeMaxDist) {
+                            continue;
+                        }
+
+                        $tgt['dist'] = $dist;
+                        $tgt['last_incident_time'] = $lastAtkTime;
+                        $validRevengeTargets[] = $tgt;
+                    }
+
+                    if (!empty($validRevengeTargets)) {
+                        // Urutkan: Serangan musuh paling baru diprioritaskan, jika sama prioritaskan terdekat
+                        usort($validRevengeTargets, function($a, $b) {
+                            if ($a['last_incident_time'] !== $b['last_incident_time']) {
+                                return $b['last_incident_time'] <=> $a['last_incident_time'];
+                            }
+                            return $a['dist'] <=> $b['dist'];
+                        });
+
+                        $revengeTarget = $validRevengeTargets[0];
+                        $isRevenge = true;
                     }
                 }
             }
@@ -1355,7 +1407,7 @@ class BotAI {
         }
         $summaryStr = implode(', ', $summaryParts);
 
-        $revengePrefix = $isRevenge ? "[BALAS DENDAM / RETALIATION] " : "";
+        $revengePrefix = $isRevenge ? "[BALAS DENDAM ALIANSI / REVENGE] " : "";
         return "{$revengePrefix}{$attackTypeName} dispatched! " . ($totalDispatched + $sendHero) . " troops [{$summaryStr}] marched towards {$target['vname']} ({$target['username']}) - distance: " . round($target['dist'], 1) . " tiles, arrival in {$duration}s";
     }
 
