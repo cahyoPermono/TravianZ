@@ -57,14 +57,24 @@ class Assassin {
      */
     protected static function db() {
         global $database;
-        if (isset($database->dblink) && $database->dblink) {
+        if (isset($database->dblink) && $database->dblink instanceof \mysqli) {
             return $database->dblink;
         }
-        static $db = null;
-        if ($db === null) {
-            $db = @mysqli_connect(SQL_SERVER, SQL_USER, SQL_PASS, SQL_DB, SQL_PORT);
+        if (isset($GLOBALS['link']) && $GLOBALS['link'] instanceof \mysqli) {
+            return $GLOBALS['link'];
         }
-        return $db;
+        if (isset($database->connection) && $database->connection instanceof \mysqli) {
+            return $database->connection;
+        }
+        static $fallbackDb = null;
+        if ($fallbackDb === null && defined('SQL_SERVER') && defined('SQL_USER') && defined('SQL_PASS') && defined('SQL_DB')) {
+            $port = defined('SQL_PORT') ? (int)SQL_PORT : 3306;
+            $conn = @mysqli_connect(SQL_SERVER, SQL_USER, SQL_PASS, SQL_DB, $port);
+            if ($conn instanceof \mysqli) {
+                $fallbackDb = $conn;
+            }
+        }
+        return $fallbackDb;
     }
 
     /**
@@ -150,15 +160,39 @@ class Assassin {
         global $database;
         self::ensureTables();
 
-        $sql = "SELECT s.*, w.fieldtype, w.image
-                FROM " . TB_PREFIX . "assassin_sanctuary s
-                JOIN " . TB_PREFIX . "wdata w ON s.wref = w.id
-                WHERE s.status = 1
-                LIMIT 1";
-        $res = $database->query_return($sql);
+        $raw = $database->query_return("SELECT * FROM " . TB_PREFIX . "assassin_sanctuary WHERE status = 1 LIMIT 1");
+        if (!empty($raw[0])) {
+            $s = $raw[0];
+            $w = $database->query_return("SELECT id, x, y, fieldtype, occupied, image FROM " . TB_PREFIX . "wdata WHERE id = " . (int)$s['wref'] . " LIMIT 1");
 
-        if (!empty($res[0])) {
-            return $res[0];
+            // SELF-HEALING / SYNC CHECK:
+            // If wref is invalid OR if coordinates in assassin_sanctuary do not match wdata coordinates
+            // (e.g. admin manually modified x, y in phpMyAdmin without updating wref and vdata):
+            if (empty($w[0]) || (int)$s['x'] !== (int)$w[0]['x'] || (int)$s['y'] !== (int)$w[0]['y']) {
+                try {
+                    return self::relocateSanctuary((int)$s['x'], (int)$s['y']);
+                } catch (\Exception $e) {
+                    return self::relocateSanctuary(null, null);
+                }
+            }
+
+            // Ensure tile is marked as occupied in wdata
+            if (empty($w[0]['occupied'])) {
+                $database->setFieldTaken((int)$s['wref']);
+            }
+
+            // Ensure vdata exists for this sanctuary
+            $vCheck = $database->query_return("SELECT wref FROM " . TB_PREFIX . "vdata WHERE wref = " . (int)$s['wref'] . " LIMIT 1");
+            if (empty($vCheck[0])) {
+                try {
+                    return self::relocateSanctuary((int)$s['x'], (int)$s['y']);
+                } catch (\Exception $e) {
+                    return self::relocateSanctuary(null, null);
+                }
+            }
+
+            self::$cachedSanctuaryWref = (int)$s['wref'];
+            return array_merge($s, $w[0]);
         }
 
         return self::ensureSanctuary();
@@ -261,16 +295,17 @@ class Assassin {
         ];
     }
 
+    public static ?int $cachedSanctuaryWref = null;
+
     /**
      * Check if a given map wref is the Assassin Sanctuary.
      */
     public static function isSanctuary(int $wref): bool {
-        static $sanctuaryWref = null;
-        if ($sanctuaryWref === null) {
+        if (self::$cachedSanctuaryWref === null) {
             $s = self::getSanctuary();
-            $sanctuaryWref = !empty($s['wref']) ? (int)$s['wref'] : 0;
+            self::$cachedSanctuaryWref = !empty($s['wref']) ? (int)$s['wref'] : 0;
         }
-        return ($wref > 0 && $wref === $sanctuaryWref);
+        return ($wref > 0 && $wref === self::$cachedSanctuaryWref);
     }
 
     /**
@@ -554,15 +589,38 @@ class Assassin {
             $database->query("DELETE FROM " . TB_PREFIX . "assassin_sanctuary");
         }
 
-        // If targetX and targetY are specified, validate tile
+        // If targetX and targetY are specified, validate tile directly from wdata
         $tile = null;
         if ($targetX !== null && $targetY !== null) {
-            $wref = $generator->getBaseID($targetX, $targetY);
-            $tCheck = $database->query_return("SELECT id, x, y, fieldtype, occupied, oasistype FROM " . TB_PREFIX . "wdata WHERE id = $wref LIMIT 1");
+            $tCheck = $database->query_return("SELECT id, x, y, fieldtype, occupied, oasistype FROM " . TB_PREFIX . "wdata WHERE x = $targetX AND y = $targetY LIMIT 1");
             if (!empty($tCheck[0])) {
-                if ($tCheck[0]['occupied'] != 0 || $tCheck[0]['oasistype'] != 0 || $tCheck[0]['fieldtype'] <= 0) {
-                    throw new \InvalidArgumentException("Koordinat ($targetX|$targetY) bukan petak lembah kosong yang dapat ditempati!");
+                $targetId = (int)$tCheck[0]['id'];
+
+                if ($tCheck[0]['oasistype'] != 0 || $tCheck[0]['fieldtype'] <= 0) {
+                    throw new \InvalidArgumentException("Koordinat ($targetX|$targetY) adalah Oasis atau bukan petak lembah kosong yang dapat ditempati!");
                 }
+
+                $isAssassinVillage = false;
+                if ($tCheck[0]['occupied'] != 0) {
+                    $vCheck = $database->query_return("SELECT wref, owner, name FROM " . TB_PREFIX . "vdata WHERE wref = $targetId LIMIT 1");
+                    if (!empty($vCheck[0]) && (int)$vCheck[0]['owner'] === $uid) {
+                        $isAssassinVillage = true;
+                    } else {
+                        $occName = !empty($vCheck[0]['name']) ? htmlspecialchars($vCheck[0]['name']) : 'Pemain Lain';
+                        throw new \InvalidArgumentException("Koordinat ($targetX|$targetY) sedang ditempati oleh desa pemain lain ($occName)!");
+                    }
+                }
+
+                // If occupied by Assassin or dirty, clean it first
+                if ($isAssassinVillage || $tCheck[0]['occupied'] != 0) {
+                    $database->query("DELETE FROM " . TB_PREFIX . "vdata WHERE wref = $targetId");
+                    $database->query("DELETE FROM " . TB_PREFIX . "fdata WHERE vref = $targetId");
+                    $database->query("DELETE FROM " . TB_PREFIX . "units WHERE vref = $targetId");
+                    $database->query("DELETE FROM " . TB_PREFIX . "tech WHERE vref = $targetId");
+                    $database->query("DELETE FROM " . TB_PREFIX . "abdata WHERE vref = $targetId");
+                    $database->query("UPDATE " . TB_PREFIX . "wdata SET occupied = 0 WHERE id = $targetId");
+                }
+
                 $tile = $tCheck[0];
             } else {
                 throw new \InvalidArgumentException("Koordinat ($targetX|$targetY) di luar batas peta!");
@@ -590,6 +648,12 @@ class Assassin {
         $time = time();
         $sanctuaryName = 'Kuil Bayangan [Sanctuary]';
 
+        $database->query("DELETE FROM " . TB_PREFIX . "vdata WHERE wref = $wref");
+        $database->query("DELETE FROM " . TB_PREFIX . "fdata WHERE vref = $wref");
+        $database->query("DELETE FROM " . TB_PREFIX . "units WHERE vref = $wref");
+        $database->query("DELETE FROM " . TB_PREFIX . "tech WHERE vref = $wref");
+        $database->query("DELETE FROM " . TB_PREFIX . "abdata WHERE vref = $wref");
+
         $database->addVillage($wref, $uid, 'Klan Assassin', 0, 120, $sanctuaryName);
         $database->addResourceFields($wref, $fieldtype);
         $database->addUnits($wref);
@@ -613,6 +677,7 @@ class Assassin {
             ($wref, $x, $y, '$nameEsc', 1, $time)
         ");
         $id = mysqli_insert_id($db);
+        self::$cachedSanctuaryWref = $wref;
 
         return [
             'id' => $id,

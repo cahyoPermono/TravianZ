@@ -24,13 +24,24 @@ class Plague {
      * Database connection resolution.
      */
     private static function db() {
-        if (isset($GLOBALS['database']) && isset($GLOBALS['database']->dblink)) {
+        if (isset($GLOBALS['database']) && isset($GLOBALS['database']->dblink) && $GLOBALS['database']->dblink instanceof \mysqli) {
             return $GLOBALS['database']->dblink;
         }
-        if (isset($GLOBALS['link']) && $GLOBALS['link']) {
+        if (isset($GLOBALS['link']) && $GLOBALS['link'] instanceof \mysqli) {
             return $GLOBALS['link'];
         }
-        return null;
+        if (isset($GLOBALS['database']) && isset($GLOBALS['database']->connection) && $GLOBALS['database']->connection instanceof \mysqli) {
+            return $GLOBALS['database']->connection;
+        }
+        static $fallbackDb = null;
+        if ($fallbackDb === null && defined('SQL_SERVER') && defined('SQL_USER') && defined('SQL_PASS') && defined('SQL_DB')) {
+            $port = defined('SQL_PORT') ? (int)SQL_PORT : 3306;
+            $conn = @mysqli_connect(SQL_SERVER, SQL_USER, SQL_PASS, SQL_DB, $port);
+            if ($conn instanceof \mysqli) {
+                $fallbackDb = $conn;
+            }
+        }
+        return $fallbackDb;
     }
 
     /**

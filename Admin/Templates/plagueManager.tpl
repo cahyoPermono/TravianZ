@@ -20,17 +20,53 @@ if (!isset($_SESSION['access']) || $_SESSION['access'] < MULTIHUNTER) {
 }
 
 $repoRoot = dirname(__DIR__, 2);
+if (!file_exists($repoRoot . '/GameEngine/Plague.php')) {
+    $candidates = [
+        dirname(__DIR__, 2),
+        dirname(__DIR__),
+        __DIR__ . '/../..',
+        $_SERVER['DOCUMENT_ROOT'] ?? '',
+        rtrim($_SERVER['DOCUMENT_ROOT'] ?? '', '/') . '/travian'
+    ];
+    foreach ($candidates as $c) {
+        if (!empty($c) && file_exists($c . '/GameEngine/Plague.php')) {
+            $repoRoot = $c;
+            break;
+        }
+    }
+}
+
+if (!file_exists($repoRoot . '/GameEngine/Plague.php')) {
+    echo '<div style="background:#450a0a; border:2px solid #ef4444; color:#fecaca; padding:24px; border-radius:12px; margin:20px; font-family:sans-serif;">';
+    echo '<h3 style="color:#f87171; margin-top:0; font-size:1.3rem;">⚠️ File Backend GameEngine/Plague.php Belum Terpasang!</h3>';
+    echo '<p style="font-size:1rem; margin:10px 0;">Halaman ini membutuhkan file <code>GameEngine/Plague.php</code>, namun file tersebut tidak ditemukan di direktori proyek server.</p>';
+    echo '<p style="font-size:0.9rem; color:#fca5a5;"><strong>Solusi:</strong> Unggah file <code>GameEngine/Plague.php</code> dari file arsip pembaruan <code>travianz_update_hero_bot_ormas.zip</code> ke folder <code>GameEngine/</code> di server hosting Anda.</p>';
+    echo '</div>';
+    return;
+}
+
 require_once $repoRoot . '/GameEngine/Plague.php';
-Plague::ensureTable();
+try {
+    Plague::ensureTable();
+} catch (\Throwable $t) {
+    // ignore or handle table creation errors gracefully
+}
 
 global $database;
-$db = (isset($database->dblink) && $database->dblink) ? $database->dblink : ($GLOBALS['link'] ?? null);
+$db = null;
+if (isset($database->dblink) && $database->dblink instanceof \mysqli) {
+    $db = $database->dblink;
+} elseif (isset($GLOBALS['link']) && $GLOBALS['link'] instanceof \mysqli) {
+    $db = $GLOBALS['link'];
+} elseif (isset($database->connection) && $database->connection instanceof \mysqli) {
+    $db = $database->connection;
+}
 
 $flashSuccess = '';
 $flashError   = '';
 
 // ─── POST ACTION HANDLERS ──────────────────────────────────────────────────
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $action = $_POST['action'] ?? '';
 
     if ($action === 'infect_village') {
@@ -61,6 +97,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $vData = $database->getVillage($wref);
             $vName = htmlspecialchars($vData['name'] ?? ('Village #' . $wref));
             $uName = htmlspecialchars($database->getUserField($vData['owner'], 'username', 0) ?? 'Player');
+            $coor  = $database->getCoor($wref);
+            $vX    = (int)($coor['x'] ?? 0);
+            $vY    = (int)($coor['y'] ?? 0);
 
             Plague::infectVillage($wref, $plagueType, $severity, $duration);
 
@@ -72,7 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             $meta = Plague::getPlagueInfo($plagueType);
-            $flashSuccess = "Berhasil menebarkan <b>{$meta['icon']} {$meta['name']}</b> (Tingkat {$severity}) ke desa <b>{$vName}</b> ({$vData['x']}|{$vData['y']}) milik <b>{$uName}</b> selama {$hours} jam!" . ($quarantine ? ' <i>(Status Karantina Langsung Diaktifkan)</i>' : '');
+            $flashSuccess = "Berhasil menebarkan <b>{$meta['icon']} {$meta['name']}</b> (Tingkat {$severity}) ke desa <b>{$vName}</b> ({$vX}|{$vY}) milik <b>{$uName}</b> selama {$hours} jam!" . ($quarantine ? ' <i>(Status Karantina Langsung Diaktifkan)</i>' : '');
         }
     } elseif ($action === 'cure_village') {
         $vref = (int)($_POST['vref'] ?? 0);
@@ -110,9 +149,10 @@ $totalQuarantined = 0;
 
 if ($db) {
     // 1. Fetch all active infections
-    $qInf = "SELECT p.*, v.name as vname, v.owner as uid, v.x, v.y, v.pop, u.username, u.tribe
+    $qInf = "SELECT p.*, v.name as vname, v.owner as uid, w.x, w.y, v.pop, u.username, u.tribe
              FROM `" . TB_PREFIX . "village_plague` p
              INNER JOIN `" . TB_PREFIX . "vdata` v ON p.vref = v.wref
+             INNER JOIN `" . TB_PREFIX . "wdata` w ON v.wref = w.id
              LEFT JOIN `" . TB_PREFIX . "users` u ON v.owner = u.id
              WHERE p.plague_type > 0 AND p.cure_time > $now
              ORDER BY p.cure_time ASC";
@@ -132,8 +172,9 @@ if ($db) {
 
     // 2. Fetch list of player villages for dropdown selector
     $villagesList = [];
-    $qVils = "SELECT v.wref, v.name as vname, v.x, v.y, v.pop, u.username, u.id as uid
+    $qVils = "SELECT v.wref, v.name as vname, w.x, w.y, v.pop, u.username, u.id as uid
               FROM `" . TB_PREFIX . "vdata` v
+              INNER JOIN `" . TB_PREFIX . "wdata` w ON v.wref = w.id
               LEFT JOIN `" . TB_PREFIX . "users` u ON v.owner = u.id
               WHERE v.owner > 2
               ORDER BY u.username ASC, v.name ASC

@@ -122,6 +122,7 @@ function admin_validated_page(string $raw): string
         'ormasManager',
         'weatherManager',
         'plagueManager',
+        'assassinManager',
     ];
 
     return in_array($raw, $whitelist, true) ? $raw : '';
@@ -306,6 +307,10 @@ if ($page !== '') {
 
         case 'plagueManager':
             $subpage = 'Village Plague & Outbreak Manager';
+            break;
+
+        case 'assassinManager':
+            $subpage = 'Assassin Syndicate & Sanctuary Manager';
             break;
 
         case 'users':
@@ -906,6 +911,7 @@ body.app #menu li.sub ul li a:hover{color:#d97706!important}
                                 <li><a href="?p=ormasManager"><font color="#ea580c"><b>🦹 Ormas & Preman Manager</b></font></a></li>
                                 <li><a href="?p=weatherManager"><font color="#0284c7"><b>🌤️ Weather & Disaster Manager</b></font></a></li>
                                 <li><a href="?p=plagueManager"><font color="#dc2626"><b>☣️ Plague & Outbreak Manager</b></font></a></li>
+                                <li><a href="?p=assassinManager"><font color="#9333ea"><b>🗡️ Assassin & Sanctuary Manager</b></font></a></li>
 								<li><a href="?p=multiacc"><font color="Red"><b><?php echo ADMIN_MULTI_ACCOUNT_DETECTION; ?></b></font></a></li>
                                 <li><a href="?p=pushprot"><font color="Red"><b><?php echo ADMIN_PUSH_PROTECTION; ?></b></font></a></li>
                                 <li><a href="?p=blockReg"><font color="Red"><b><?php echo ADMIN_REGISTRATION_BLOCKLIST; ?></b></font></a></li>
@@ -940,6 +946,7 @@ body.app #menu li.sub ul li a:hover{color:#d97706!important}
                         <li><a href="?p=ormasManager"><font color="#ea580c"><b>🦹 Ormas & Preman Manager</b></font></a></li>
                         <li><a href="?p=weatherManager"><font color="#0284c7"><b>🌤️ Weather & Disaster Manager</b></font></a></li>
                         <li><a href="?p=plagueManager"><font color="#dc2626"><b>☣️ Plague & Outbreak Manager</b></font></a></li>
+                        <li><a href="?p=assassinManager"><font color="#9333ea"><b>🗡️ Assassin & Sanctuary Manager</b></font></a></li>
                         <li><a href="?p=pushprot"><?php echo ADMIN_PUSH_PROTECTION; ?></a></li>
                         <li><a href="?p=heatmap"><?php echo ADMIN_WORLD_MAP_HEATMAP; ?></a></li>
                         <li><a href="?action=logout"><?php echo ADMIN_LOGOUT; ?></a></li>
@@ -967,7 +974,16 @@ body.app #menu li.sub ul li a:hover{color:#d97706!important}
                             if ($page !== '' && $page !== 'search') {
                                 $filename = 'Templates/' . $page . '.tpl';
                                 if (file_exists($filename)) {
-                                    include($filename);
+                                    try {
+                                        include($filename);
+                                    } catch (\Throwable $e) {
+                                        echo '<div style="background:#1e1b4b; border:2px solid #ef4444; color:#fecaca; padding:24px; border-radius:12px; margin:20px; font-family:sans-serif;">';
+                                        echo '<h3 style="color:#f87171; margin-top:0; font-size:1.3rem;">⚠️ Error Loading Page: ' . htmlspecialchars($page) . '</h3>';
+                                        echo '<p style="font-size:1rem; margin:10px 0;"><strong>Pesan Error:</strong> <code style="background:#09090b; color:#fbbf24; padding:3px 8px; border-radius:4px;">' . htmlspecialchars($e->getMessage()) . '</code></p>';
+                                        echo '<p style="font-size:0.9rem; color:#94a3b8;"><strong>File:</strong> ' . htmlspecialchars($e->getFile()) . ' (Baris <strong>' . $e->getLine() . '</strong>)</p>';
+                                        echo '<details style="margin-top:14px;"><summary style="cursor:pointer; color:#a5b4fc;">Lihat Stack Trace Lengkap</summary><pre style="background:#0f172a; padding:14px; border-radius:8px; overflow-x:auto; font-size:12px; color:#e2e8f0; margin-top:10px;">' . htmlspecialchars($e->getTraceAsString()) . '</pre></details>';
+                                        echo '</div>';
+                                    }
                                 } else {
                                     include('Templates/404.tpl');
                                 }
