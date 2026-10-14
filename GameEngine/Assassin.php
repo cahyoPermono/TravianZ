@@ -584,6 +584,8 @@ class Assassin {
                 $database->query("DELETE FROM " . TB_PREFIX . "vdata WHERE wref = $oldWref");
                 $database->query("DELETE FROM " . TB_PREFIX . "fdata WHERE vref = $oldWref");
                 $database->query("DELETE FROM " . TB_PREFIX . "units WHERE vref = $oldWref");
+                $database->query("DELETE FROM " . TB_PREFIX . "tdata WHERE vref = $oldWref");
+                $database->query("DELETE FROM " . TB_PREFIX . "abdata WHERE vref = $oldWref");
                 $database->query("UPDATE " . TB_PREFIX . "wdata SET occupied = 0 WHERE id = $oldWref");
             }
             $database->query("DELETE FROM " . TB_PREFIX . "assassin_sanctuary");
@@ -616,7 +618,7 @@ class Assassin {
                     $database->query("DELETE FROM " . TB_PREFIX . "vdata WHERE wref = $targetId");
                     $database->query("DELETE FROM " . TB_PREFIX . "fdata WHERE vref = $targetId");
                     $database->query("DELETE FROM " . TB_PREFIX . "units WHERE vref = $targetId");
-                    $database->query("DELETE FROM " . TB_PREFIX . "tech WHERE vref = $targetId");
+                    $database->query("DELETE FROM " . TB_PREFIX . "tdata WHERE vref = $targetId");
                     $database->query("DELETE FROM " . TB_PREFIX . "abdata WHERE vref = $targetId");
                     $database->query("UPDATE " . TB_PREFIX . "wdata SET occupied = 0 WHERE id = $targetId");
                 }
@@ -651,7 +653,7 @@ class Assassin {
         $database->query("DELETE FROM " . TB_PREFIX . "vdata WHERE wref = $wref");
         $database->query("DELETE FROM " . TB_PREFIX . "fdata WHERE vref = $wref");
         $database->query("DELETE FROM " . TB_PREFIX . "units WHERE vref = $wref");
-        $database->query("DELETE FROM " . TB_PREFIX . "tech WHERE vref = $wref");
+        $database->query("DELETE FROM " . TB_PREFIX . "tdata WHERE vref = $wref");
         $database->query("DELETE FROM " . TB_PREFIX . "abdata WHERE vref = $wref");
 
         $database->addVillage($wref, $uid, 'Klan Assassin', 0, 120, $sanctuaryName);
