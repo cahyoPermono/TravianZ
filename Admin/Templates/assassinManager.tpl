@@ -328,6 +328,7 @@ $worldMax = defined('WORLD_MAX') ? (int)WORLD_MAX : 100;
         <div style="display:flex; flex-wrap:wrap; gap:24px; margin-top:16px;">
             <!-- Form Coords -->
             <form method="POST" style="background:#09090b; border:1px solid #27272a; padding:16px; border-radius:8px; flex:1; min-width:300px;">
+                <?php echo csrf_field(); ?>
                 <input type="hidden" name="action" value="relocate_coords">
                 <div style="font-weight:600; color:#e0e7ff; margin-bottom:10px;">
                     🎯 Pindahkan ke Koordinat Spesifik
@@ -347,6 +348,7 @@ $worldMax = defined('WORLD_MAX') ? (int)WORLD_MAX : 100;
 
             <!-- Form Random -->
             <form method="POST" style="background:#09090b; border:1px solid #27272a; padding:16px; border-radius:8px; flex:1; min-width:300px; display:flex; flex-direction:column; justify-content:space-between;">
+                <?php echo csrf_field(); ?>
                 <input type="hidden" name="action" value="relocate_random">
                 <div>
                     <div style="font-weight:600; color:#e0e7ff; margin-bottom:8px;">
