@@ -282,15 +282,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
     // 5. ORDER ATTACK
     elseif ($action === 'order_attack') {
         $selectedBot = $_POST['target_bot'] ?? '0';
+        $targetAlliance = (int)($_POST['target_alliance'] ?? 0);
         $targetInput = trim((string)($_POST['target_input'] ?? ''));
+        if ($targetAlliance > 0) {
+            $targetInput = 'alliance:' . $targetAlliance;
+        }
+
         $attackType  = (int)($_POST['attack_type'] ?? 4);
         $troopCount  = (int)($_POST['troop_count'] ?? 0);
+        $composition = trim((string)($_POST['composition'] ?? 'balanced'));
 
-        $res = BotAI::orderAttack($selectedBot, $targetInput, $attackType, $troopCount);
+        $res = BotAI::orderAttack($selectedBot, $targetInput, $attackType, $troopCount, $composition);
         if ($res['status'] === 'success') {
-            $reportHtml = "<ul style='margin:6px 0 0 16px; padding:0;'>";
+            $reportHtml = "<ul style='margin:6px 0 0 16px; padding:0; max-height:260px; overflow-y:auto;'>";
             foreach ($res['reports'] as $rep) {
-                $reportHtml .= "<li>$rep</li>";
+                $reportHtml .= "<li style='margin-bottom:4px;'>$rep</li>";
             }
             $reportHtml .= "</ul>";
             $flashSuccess = "🎯 <b>Operasi Militer Bot AI Diluncurkan!</b> " . $res['message'] . $reportHtml;
@@ -536,26 +542,46 @@ if (!empty($botsList)) {
         }
     }
 
-    // Sum troop counts across bot villages
+    // Sum troop counts and unit details across bot villages
     if (!empty($vrefs)) {
         $vrefsList = implode(',', $vrefs);
         $unitsRows = $database->query_return("
-            SELECT vref, (u1+u2+u3+u4+u5+u6+u7+u8+u9+u10+
-                          u11+u12+u13+u14+u15+u16+u17+u18+u19+u20+
-                          u21+u22+u23+u24+u25+u26+u27+u28+u29+u30+
-                          u51+u52+u53+u54+u55+u56+u57+u58+u59+u60+
-                          u61+u62+u63+u64+u65+u66+u67+u68+u69+u70+
-                          u71+u72+u73+u74+u75+u76+u77+u78+u79+u80+
-                          u81+u82+u83+u84+u85+u86+u87+u88+u89+u90+
-                          u91+u92+u93+u94+u95+u96+u97+u98+u99+u100) as sum_troops
+            SELECT *
             FROM " . TB_PREFIX . "units
             WHERE vref IN ($vrefsList)
         ");
         $unitsMap = [];
+        $unitsDetailsMap = [];
         if (!empty($unitsRows)) {
             foreach ($unitsRows as $ur) {
-                $unitsMap[$ur['vref']] = (int)$ur['sum_troops'];
-                $totalTroops += (int)$ur['sum_troops'];
+                $vref = (int)$ur['vref'];
+                $total = 0;
+                $details = [];
+                for ($i = 1; $i <= 100; $i++) {
+                    $cnt = (int)($ur['u' . $i] ?? 0);
+                    if ($cnt > 0) {
+                        $uName = defined('U' . $i) ? constant('U' . $i) : ('Unit ' . $i);
+                        $details[] = [
+                            'id' => $i,
+                            'name' => $uName,
+                            'count' => $cnt,
+                        ];
+                        $total += $cnt;
+                    }
+                }
+                if (!empty($ur['hero']) && (int)$ur['hero'] > 0) {
+                    $cnt = (int)$ur['hero'];
+                    $hName = defined('U0') ? constant('U0') : 'Hero';
+                    $details[] = [
+                        'id' => 'hero',
+                        'name' => $hName,
+                        'count' => $cnt,
+                    ];
+                    $total += $cnt;
+                }
+                $unitsMap[$vref] = $total;
+                $unitsDetailsMap[$vref] = $details;
+                $totalTroops += $total;
             }
         }
     }
@@ -864,26 +890,35 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
 
     </div>
 
-    <!-- Panel 3: Order Attack / Air Strike -->
+    <!-- Panel 3: Order Attack / Air Strike / Alliance War -->
     <div class="botm-panel" style="border-color:#b91c1c; background:linear-gradient(135deg, #130a10 0%, #0b1220 100%); margin-bottom:20px;">
-        <h3 style="color:#f87171;">🎯 Perintahkan Bot AI Menyerang Target (Order AI Attack)</h3>
-        <p class="desc">Perintahkan bot untuk meluncurkan serangan/raid militer nyata ke pemain tertentu atau koordinat desa target. Target akan menerima notifikasi pedang merah di Titik Temu (Rally Point) secara real-time!</p>
+        <h3 style="color:#f87171;">🎯 Perintahkan Bot AI Menyerang Target / Perang Aliansi</h3>
+        <p class="desc">Perintahkan bot perorangan, bot aliansi, atau seluruh bot di peta untuk meluncurkan serangan/raid militer ke pemain, koordinat, atau <b>seluruh anggota aliansi lawan</b>. Target akan menerima notifikasi pedang merah di Titik Temu (Rally Point) secara real-time!</p>
 
         <form method="post" action="admin.php?p=botManager">
             <?php echo csrf_field(); ?>
             <input type="hidden" name="bot_action" value="order_attack">
 
-            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:14px; margin-bottom:14px;">
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:14px; margin-bottom:14px;">
                 <div class="botm-form-group">
                     <label>Pilih Bot Penyerang:</label>
                     <select name="target_bot" class="botm-form-control">
                         <option value="0">⚡ Otomatis: Bot Terdekat dari Target</option>
-                        <option value="all">🔥 SEMUA BOT AKTIF (Serangan Massal / Air Strike)</option>
+                        <option value="all">🔥 SEMUA BOT AKTIF (Serangan Massal Seluruh Peta)</option>
+                        <?php if (!empty($existingAlliances)): ?>
+                            <optgroup label="🛡️ Serang Mengatasnamakan Aliansi Bot:">
+                                <?php foreach ($existingAlliances as $ali): ?>
+                                    <option value="alliance:<?php echo $ali['id']; ?>">
+                                        🛡️ Semua Bot di Aliansi [<?php echo htmlspecialchars($ali['tag']); ?>] <?php echo htmlspecialchars($ali['name']); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </optgroup>
+                        <?php endif; ?>
                         <?php if (!empty($botsList)): ?>
-                            <optgroup label="Pilih Bot Spesifik:">
+                            <optgroup label="👤 Pilih Bot Spesifik:">
                                 <?php foreach ($botsList as $b): ?>
                                     <option value="<?php echo $b['id']; ?>">
-                                        <?php echo htmlspecialchars($b['username']); ?> [<?php echo htmlspecialchars($b['vname']); ?> (<?php echo $b['x']; ?>|<?php echo $b['y']; ?>)]
+                                        <?php echo (!empty($b['ali_tag']) ? "[{$b['ali_tag']}] " : "") . htmlspecialchars($b['username']); ?> [<?php echo htmlspecialchars($b['vname']); ?> (<?php echo $b['x']; ?>|<?php echo $b['y']; ?>)]
                                     </option>
                                 <?php endforeach; ?>
                             </optgroup>
@@ -892,27 +927,52 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
                 </div>
 
                 <div class="botm-form-group">
-                    <label>Target Pemain / Koordinat Desa:</label>
-                    <input type="text" name="target_input" class="botm-form-control" placeholder="Contoh: Player1 atau 15|-24" required>
-                    <span style="font-size:10px; color:#64748b;">Masukkan username pemain atau koordinat X|Y.</span>
+                    <label>Target Sasaran (Pemain / Koordinat X|Y):</label>
+                    <input type="text" name="target_input" class="botm-form-control" placeholder="Contoh: Player1 atau 15|-24">
+                    <span style="font-size:10px; color:#64748b;">Ketik username atau koordinat X|Y. Kosongkan jika memilih Aliansi Sasaran di bawah.</span>
+                </div>
+
+                <div class="botm-form-group">
+                    <label>⚔️ Atau Target Seluruh Aliansi Lawan:</label>
+                    <select name="target_alliance" class="botm-form-control">
+                        <option value="0">-- Bukan Serangan Aliansi (Gunakan Input di Atas) --</option>
+                        <?php if (!empty($existingAlliances)): ?>
+                            <?php foreach ($existingAlliances as $ali): ?>
+                                <option value="<?php echo $ali['id']; ?>">
+                                    🎯 Gempur Seluruh Desa Aliansi [<?php echo htmlspecialchars($ali['tag']); ?>] <?php echo htmlspecialchars($ali['name']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </select>
+                    <span style="font-size:10px; color:#f87171;">Jika dipilih, bot akan membagi serangan ke setiap desa aliansi ini!</span>
+                </div>
+
+                <div class="botm-form-group">
+                    <label>Komposisi Pasukan:</label>
+                    <select name="composition" class="botm-form-control">
+                        <option value="balanced">⚔️ Seimbang (Infanteri + Kavaleri + Pengepungan)</option>
+                        <option value="cavalry">🐎 Kavaleri Cepat (Serbuan Kuda Kilat)</option>
+                        <option value="infantry">🛡️ Barisan Infanteri (Pedang & Tombak)</option>
+                        <option value="siege">💣 Penghancur Benteng (Catapult & Ram)</option>
+                    </select>
                 </div>
 
                 <div class="botm-form-group">
                     <label>Tipe Serangan:</label>
                     <select name="attack_type" class="botm-form-control">
                         <option value="4">⚔️ Raid (Penjarahan Sumber Daya)</option>
-                        <option value="3">💀 Normal Attack (Serangan Penuh)</option>
+                        <option value="3">💀 Normal Attack (Serangan Tempur Penuh)</option>
                     </select>
                 </div>
 
                 <div class="botm-form-group">
                     <label>Jumlah Pasukan Tiap Bot:</label>
-                    <input type="number" name="troop_count" class="botm-form-control" value="0" min="0" max="5000">
-                    <span style="font-size:10px; color:#64748b;">0 = Otomatis (30-50% garnisun bot).</span>
+                    <input type="number" name="troop_count" class="botm-form-control" value="0" min="0" max="10000">
+                    <span style="font-size:10px; color:#64748b;">0 = Otomatis (35-50 pasukan garnisun bot).</span>
                 </div>
             </div>
 
-            <button type="submit" class="btn-primary" style="background:#dc2626; border-color:#ef4444; width:auto; padding:10px 20px;">
+            <button type="submit" class="btn-primary" style="background:#dc2626; border-color:#ef4444; width:auto; padding:10px 22px; font-weight:bold; cursor:pointer;">
                 🚀 Luncurkan Serangan Bot Sekarang
             </button>
         </form>
@@ -1146,9 +1206,31 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
                                 <td style="font-family:monospace; color:#fbbf24;"><?php echo $coords; ?></td>
                                 <td><b style="color:#4ade80;"><?php echo number_format((int)$b['pop']); ?></b></td>
                                 <td>
-                                    <span style="font-weight:bold; color:<?php echo $vTroops > 0 ? '#38bdf8' : '#64748b'; ?>;">
-                                        ⚔️ <?php echo number_format($vTroops); ?>
-                                    </span>
+                                    <?php
+                                        $vDetails = $unitsDetailsMap[$b['wref']] ?? [];
+                                    ?>
+                                    <?php if ($vTroops > 0): ?>
+                                        <div style="font-weight:bold; color:#38bdf8; margin-bottom:4px; font-size:12px;">
+                                            ⚔️ <?php echo number_format($vTroops); ?> Total
+                                        </div>
+                                        <div style="display:flex; flex-wrap:wrap; gap:4px; max-width:320px;">
+                                            <?php foreach ($vDetails as $u): ?>
+                                                <span style="display:inline-flex; align-items:center; gap:4px; background:#0f172a; border:1px solid #334155; padding:2px 6px; border-radius:4px; font-size:11px; color:#e2e8f0; white-space:nowrap;" title="<?php echo htmlspecialchars($u['name']); ?>: <?php echo number_format($u['count']); ?>">
+                                                    <?php if ($u['id'] === 'hero'): ?>
+                                                        <span style="font-size:11px;">👑</span>
+                                                    <?php else: ?>
+                                                        <img src="../img/un/u/<?php echo $u['id']; ?>.gif" style="width:14px; height:14px; vertical-align:middle;" alt="" onerror="this.style.display='none';">
+                                                    <?php endif; ?>
+                                                    <b style="color:#f8fafc; font-family:monospace;"><?php echo number_format($u['count']); ?></b>
+                                                    <span style="color:#94a3b8; font-size:10px;"><?php echo htmlspecialchars($u['name']); ?></span>
+                                                </span>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    <?php else: ?>
+                                        <span style="font-weight:bold; color:#64748b; font-size:11px;">
+                                            ⚔️ 0 Pasukan
+                                        </span>
+                                    <?php endif; ?>
                                 </td>
                                 <td class="res-pill">
                                     🌲 <?php echo number_format((int)$b['wood']); ?> |

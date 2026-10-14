@@ -40,7 +40,9 @@ AccessLogger::logRequest();
 	<meta name="content-language" content="en"/>
 	<meta http-equiv="imagetoolbar" content="no"/>
 	<script src="mt-core.js" type="text/javascript"></script>
+	<script src="mt-more.js" type="text/javascript"></script>
 	<script src="new.js" type="text/javascript"></script>
+	<script src="new2.js" type="text/javascript"></script>
 	<style type="text/css" media="screen">
 
 	</style>
@@ -51,7 +53,7 @@ AccessLogger::logRequest();
 
 </div>
 <div id="header">
-	<h1><?php echo PUBLIC_WELCOME_TO; ?> <?php echo SERVER_NAME; ?></h1>
+	<h1><?php echo defined('PUBLIC_WELCOME_TO') ? PUBLIC_WELCOME_TO : 'Welcome to'; ?> <?php echo SERVER_NAME; ?></h1>
 </div>
 
 <div id="navigation">
@@ -62,19 +64,19 @@ AccessLogger::logRequest();
 
 	<tr>
 
-		<td><a href="tutorial.php"><span><?php echo TUTORIAL; ?></span></a></td>
+		<td><a href="tutorial.php"><span><?php echo defined('TUTORIAL') ? TUTORIAL : 'Tutorial'; ?></span></a></td>
 
-		<td><a href="anleitung.php"><span><?php echo PUBLIC_MANUAL; ?></span></a></td>
+		<td><a href="anleitung.php"><span><?php echo defined('PUBLIC_MANUAL') ? PUBLIC_MANUAL : 'Manual'; ?></span></a></td>
 
-		<td><a href="https://github.com/Shadowss/TravianZ/discussions" target="_blank"><span><?php echo FORUM; ?></span></a></td>
-
-
+		<td><a href="https://github.com/Shadowss/TravianZ/discussions" target="_blank"><span><?php echo defined('FORUM') ? FORUM : 'Forum'; ?></span></a></td>
 
 
 
-		<td><a href="index.php?signup"><span><?php echo PUBLIC_REGISTER; ?></span></a></td>
 
-		<td><a href="index.php?login"><span><?php echo LOGIN; ?></span></a></td>
+
+		<td><a href="index.php?signup"><span><?php echo defined('PUBLIC_REGISTER') ? PUBLIC_REGISTER : 'Register'; ?></span></a></td>
+
+		<td><a href="index.php?login"><span><?php echo defined('LOGIN') ? LOGIN : 'Login'; ?></span></a></td>
 
 </tr>
 
@@ -92,17 +94,17 @@ AccessLogger::logRequest();
 	<div class="grit">
 
 
-<h1><?php echo PUBLIC_MANUAL; ?></h1>
+<h1><?php echo defined('PUBLIC_MANUAL') ? PUBLIC_MANUAL : 'Manual'; ?></h1>
 
 
 
 <p class="submenu">
 
-<a href="anleitung.php"><?php echo PUBLIC_TRIBES; ?></a> |
+<a href="anleitung.php"><?php echo defined('PUBLIC_TRIBES') ? PUBLIC_TRIBES : 'The tribes'; ?></a> |
 
-<a href="anleitung.php?s=1"><?php echo BUILDINGS; ?></a> |
+<a href="anleitung.php?s=1"><?php echo defined('BUILDINGS') ? BUILDINGS : 'Buildings'; ?></a> |
 
-<a href="anleitung.php?s=3"><?php echo MANUAL_FAQ; ?></a>
+<a href="anleitung.php?s=3"><?php echo defined('MANUAL_FAQ') ? MANUAL_FAQ : 'Travian FAQ'; ?></a>
 
 </p>
 
@@ -145,7 +147,7 @@ include("Templates/Anleitung/4.tpl"); }
 
 <div class="overlay_content">
 
-<a href="index.php" class="closer"><img class="dynamic_img" alt="<?php echo PUBLIC_CLOSE; ?>" src="img/un/x.gif" /></a>
+<a href="index.php" class="closer"><img class="dynamic_img" alt="<?php echo defined('PUBLIC_CLOSE') ? PUBLIC_CLOSE : 'Close'; ?>" src="img/un/x.gif" /></a>
 
 <h2>Anleitung</h2>
 

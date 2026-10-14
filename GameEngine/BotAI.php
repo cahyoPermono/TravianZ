@@ -135,7 +135,7 @@ class BotAI {
 
         // Grant organic production boost per tick
         // Scales dynamically with population when BOT_AI_DYNAMIC_SCALING is enabled
-        $dynamicScaling = defined('BOT_AI_DYNAMIC_SCALING') && BOT_AI_DYNAMIC_SCALING;
+        $dynamicScaling = defined('BOT_AI_DYNAMIC_SCALING') ? (bool)BOT_AI_DYNAMIC_SCALING : true;
         if ($dynamicScaling) {
             $boost = max(250, (int)round($pop * 3.5)) * SPEED;
         } else {
@@ -167,6 +167,7 @@ class BotAI {
 
         $wid = (int)$bot['wref'];
         $tribe = (int)$bot['tribe'];
+        $pop = max(10, (int)($bot['pop'] ?? 0));
         $fdata = $database->getResourceLevel($wid, false);
 
         if (!$fdata) {
@@ -174,10 +175,10 @@ class BotAI {
         }
 
         $wallType = self::getTribeWallType($tribe);
-        $dynamicScaling = defined('BOT_AI_DYNAMIC_SCALING') && BOT_AI_DYNAMIC_SCALING;
+        $dynamicScaling = defined('BOT_AI_DYNAMIC_SCALING') ? (bool)BOT_AI_DYNAMIC_SCALING : true;
         $maxFieldLvl = $dynamicScaling ? 10 : (defined('BOT_MAX_FIELD_LEVEL') ? (int)BOT_MAX_FIELD_LEVEL : 6);
-        $maxBuildingLvl = ($dynamicScaling && defined('BOT_AI_MAX_BUILDING_LEVEL')) ? (int)BOT_AI_MAX_BUILDING_LEVEL : 8;
-        $enableCavalry = defined('BOT_AI_ENABLE_CAVALRY') && BOT_AI_ENABLE_CAVALRY;
+        $maxBuildingLvl = defined('BOT_AI_MAX_BUILDING_LEVEL') ? (int)BOT_AI_MAX_BUILDING_LEVEL : 10;
+        $enableCavalry = defined('BOT_AI_ENABLE_CAVALRY') ? (bool)BOT_AI_ENABLE_CAVALRY : true;
 
         // Infrastructure levels
         $mbLevel = (int)($fdata['f26'] ?? 0); // slot 26: Main Building (type 15)
@@ -193,6 +194,7 @@ class BotAI {
         $stLevel = (int)($fdata['f20'] ?? 0); // slot 20: Stable (type 20)
         $mpLevel = (int)($fdata['f27'] ?? 0); // slot 27: Marketplace (type 17)
         $rsLevel = (int)($fdata['f30'] ?? 0); // slot 30: Residence (type 25)
+        $wsLevel = (int)($fdata['f23'] ?? 0); // slot 23: Workshop (type 21)
 
         // Find minimum level among resource fields (f1..f18)
         $minFieldLevel = 999;
@@ -241,16 +243,19 @@ class BotAI {
             $upgraded = "Constructed Cranny (slot 31) lvl 1";
         }
         // Phase 2: Construct advanced buildings when prerequisites are satisfied
-        elseif ($dynamicScaling && $acLevel < 1 && $mbLevel >= 3 && $brLevel >= 3) {
+        elseif ($acLevel < 1 && $mbLevel >= 3 && $brLevel >= 2) {
             $database->query("UPDATE " . TB_PREFIX . "fdata SET f22 = 1, f22t = 22 WHERE vref = $wid");
             $upgraded = "Constructed Academy (slot 22) lvl 1";
-        } elseif ($dynamicScaling && $mpLevel < 1 && $mbLevel >= 3 && $whLevel >= 1 && $grLevel >= 1) {
+        } elseif ($mpLevel < 1 && $mbLevel >= 3 && $whLevel >= 1 && $grLevel >= 1) {
             $database->query("UPDATE " . TB_PREFIX . "fdata SET f27 = 1, f27t = 17 WHERE vref = $wid");
             $upgraded = "Constructed Marketplace (slot 27) lvl 1";
-        } elseif ($dynamicScaling && $enableCavalry && $stLevel < 1 && $mbLevel >= 5 && $acLevel >= 5) {
+        } elseif ($enableCavalry && $stLevel < 1 && $mbLevel >= 3 && ($acLevel >= 1 || $pop >= 60)) {
             $database->query("UPDATE " . TB_PREFIX . "fdata SET f20 = 1, f20t = 20 WHERE vref = $wid");
             $upgraded = "Constructed Stable (slot 20) lvl 1";
-        } elseif ($dynamicScaling && $rsLevel < 1 && $mbLevel >= 5) {
+        } elseif ($wsLevel < 1 && $mbLevel >= 5 && ($acLevel >= 2 || $pop >= 120)) {
+            $database->query("UPDATE " . TB_PREFIX . "fdata SET f23 = 1, f23t = 21 WHERE vref = $wid");
+            $upgraded = "Constructed Workshop (slot 23) lvl 1";
+        } elseif ($rsLevel < 1 && $mbLevel >= 5) {
             $database->query("UPDATE " . TB_PREFIX . "fdata SET f30 = 1, f30t = 25 WHERE vref = $wid");
             $upgraded = "Constructed Residence (slot 30) lvl 1";
         }
@@ -302,6 +307,9 @@ class BotAI {
                         }
                         if ($stLevel > 0 && $stLevel < min(20, $maxBuildingLvl)) {
                             $candidates[] = ['slot' => 20, 'type' => 20, 'lvl' => $stLevel + 1, 'name' => 'Stable'];
+                        }
+                        if ($wsLevel > 0 && $wsLevel < min(20, $maxBuildingLvl)) {
+                            $candidates[] = ['slot' => 23, 'type' => 21, 'lvl' => $wsLevel + 1, 'name' => 'Workshop'];
                         }
                         if ($mpLevel > 0 && $mpLevel < min(20, $maxBuildingLvl)) {
                             $candidates[] = ['slot' => 27, 'type' => 17, 'lvl' => $mpLevel + 1, 'name' => 'Marketplace'];
@@ -367,7 +375,7 @@ class BotAI {
             return null;
         }
 
-        $dynamicScaling = defined('BOT_AI_DYNAMIC_SCALING') && BOT_AI_DYNAMIC_SCALING;
+        $dynamicScaling = defined('BOT_AI_DYNAMIC_SCALING') ? (bool)BOT_AI_DYNAMIC_SCALING : true;
         $popFactor = defined('BOT_AI_TROOP_POP_FACTOR') ? (float)BOT_AI_TROOP_POP_FACTOR : 1.8;
         $maxTroopsCap = defined('BOT_AI_MAX_TROOPS_CAP') ? (int)BOT_AI_MAX_TROOPS_CAP : 3000;
         $baseMax = defined('BOT_AI_MAX_TROOPS') ? (int)BOT_AI_MAX_TROOPS : 45;
@@ -406,27 +414,46 @@ class BotAI {
         // Determine trainable unit types based on buildings & population
         $acLevel = (int)($fdata['f22'] ?? 0);
         $stLevel = (int)($fdata['f20'] ?? 0);
-        $enableCavalry = defined('BOT_AI_ENABLE_CAVALRY') && BOT_AI_ENABLE_CAVALRY;
+        $wsLevel = (int)($fdata['f23'] ?? 0);
+        $enableCavalry = defined('BOT_AI_ENABLE_CAVALRY') ? (bool)BOT_AI_ENABLE_CAVALRY : true;
 
         $trainCandidates = [];
         // Basic infantry is always eligible
-        $trainCandidates[$tribeUnits['basic']] = 40;
+        $trainCandidates[$tribeUnits['basic']] = 35;
 
-        if ($dynamicScaling) {
-            // Advanced infantry: Academy >= 3 & Barracks >= 3 & pop >= 90
-            if ($acLevel >= 3 && $brLevel >= 3 && $pop >= 90 && !empty($tribeUnits['inf_adv'])) {
-                $trainCandidates[$tribeUnits['inf_adv']] = 35;
-            }
+        // Defensive infantry
+        if (!empty($tribeUnits['inf_def']) && ($brLevel >= 2 || $pop >= 40)) {
+            $trainCandidates[$tribeUnits['inf_def']] = 25;
+        }
 
-            // Light Cavalry: Stable >= 1 & enableCavalry & pop >= 150
-            if ($enableCavalry && $stLevel >= 1 && $pop >= 150 && !empty($tribeUnits['cav_light'])) {
-                $trainCandidates[$tribeUnits['cav_light']] = 25;
-            }
+        // Advanced / Elite offensive infantry
+        if (!empty($tribeUnits['inf_adv']) && ($acLevel >= 1 || $brLevel >= 3 || $pop >= 60)) {
+            $trainCandidates[$tribeUnits['inf_adv']] = 25;
+        }
 
-            // Heavy Cavalry: Stable >= 5 & enableCavalry & pop >= 250
-            if ($enableCavalry && $stLevel >= 5 && $pop >= 250 && !empty($tribeUnits['cav_heavy'])) {
-                $trainCandidates[$tribeUnits['cav_heavy']] = 15;
-            }
+        // Light Cavalry
+        if ($enableCavalry && !empty($tribeUnits['cav_light']) && ($stLevel >= 1 || $pop >= 80)) {
+            $trainCandidates[$tribeUnits['cav_light']] = 25;
+        }
+
+        // Defensive Cavalry (e.g. Druidrider / Paladin)
+        if ($enableCavalry && !empty($tribeUnits['cav_def']) && ($stLevel >= 2 || $pop >= 100)) {
+            $trainCandidates[$tribeUnits['cav_def']] = 15;
+        }
+
+        // Heavy Cavalry
+        if ($enableCavalry && !empty($tribeUnits['cav_heavy']) && ($stLevel >= 3 || $pop >= 130)) {
+            $trainCandidates[$tribeUnits['cav_heavy']] = 15;
+        }
+
+        // Battering Ram
+        if (!empty($tribeUnits['ram']) && ($wsLevel >= 1 || $pop >= 160)) {
+            $trainCandidates[$tribeUnits['ram']] = 8;
+        }
+
+        // Catapult
+        if (!empty($tribeUnits['catapult']) && ($wsLevel >= 2 || $pop >= 200)) {
+            $trainCandidates[$tribeUnits['catapult']] = 6;
         }
 
         // Weighted random selection of unit to train
@@ -458,7 +485,8 @@ class BotAI {
         $col = 'u' . $chosenUnit;
         $database->query("UPDATE " . TB_PREFIX . "units SET {$col} = {$col} + $trainCount WHERE vref = $wid");
 
-        return "Trained +$trainCount unit(s) [u{$chosenUnit}] (Total army: " . ($totalArmy + $trainCount) . "/$maxTroops)";
+        $uName = self::getUnitName($chosenUnit);
+        return "Trained +$trainCount $uName (Total army: " . ($totalArmy + $trainCount) . "/$maxTroops)";
     }
 
     /**
@@ -583,7 +611,7 @@ class BotAI {
         $attackChance = defined('BOT_AI_ATTACK_CHANCE') ? (int)BOT_AI_ATTACK_CHANCE : 35;
         $maxDistance = defined('BOT_AI_MAX_DISTANCE') ? (float)BOT_AI_MAX_DISTANCE : 70.0;
         $maxConcurrent = defined('BOT_AI_MAX_CONCURRENT_ATTACKS') ? (int)BOT_AI_MAX_CONCURRENT_ATTACKS : 1;
-        $dynamicScaling = defined('BOT_AI_DYNAMIC_SCALING') && BOT_AI_DYNAMIC_SCALING;
+        $dynamicScaling = defined('BOT_AI_DYNAMIC_SCALING') ? (bool)BOT_AI_DYNAMIC_SCALING : true;
 
         // Allow up to 2 concurrent raids for developed villages
         if ($dynamicScaling && $pop >= 300) {
@@ -604,7 +632,7 @@ class BotAI {
         $homeUnits = $res[0];
 
         // Identify combat-eligible troop pools
-        $combatRoles = ['basic', 'inf_adv', 'cav_light', 'cav_heavy'];
+        $combatRoles = ['basic', 'inf_def', 'inf_adv', 'cav_light', 'cav_def', 'cav_heavy', 'ram', 'catapult'];
         $availableCombat = [];
         $totalCombatAvailable = 0;
 
@@ -944,15 +972,16 @@ class BotAI {
     }
 
     /**
-     * Dispatch an admin-commanded AI attack/raid against a specific player or village.
+     * Dispatch an admin-commanded AI attack/raid against a specific player, village, or entire alliance.
      *
-     * @param int|string $botUid 0 for closest bot, 'all' for all available bots, or specific bot UID.
-     * @param string|int $targetInput Target username, "x|y" coordinate, or village wref.
+     * @param int|string $botUid 0 for closest bot, 'all' for all available bots, 'alliance:<id>' for all bots in alliance, or specific bot UID.
+     * @param string|int $targetInput Target username, "x|y" coordinate, village wref, or 'alliance:<id>' / alliance tag/name.
      * @param int $attackType 4 = Raid, 3 = Normal Attack.
-     * @param int $troopCount Minimum / custom troop count to dispatch (0 = auto 30-50% army).
+     * @param int $troopCount Minimum / custom troop count to dispatch (0 = auto 35-50 garrison).
+     * @param string $composition 'balanced', 'cavalry', 'infantry', or 'siege'.
      * @return array Result array with status, message, and details.
      */
-    public static function orderAttack($botUid, $targetInput, $attackType = 4, $troopCount = 0) {
+    public static function orderAttack($botUid, $targetInput, $attackType = 4, $troopCount = 0, $composition = 'balanced') {
         global $database;
         if (!isset($database) || $database === null) {
             require_once __DIR__ . '/Database.php';
@@ -960,167 +989,321 @@ class BotAI {
 
         $targetInput = trim((string)$targetInput);
         if (empty($targetInput)) {
-            return ['status' => 'error', 'message' => 'Target tidak boleh kosong (masukkan username atau koordinat X|Y).'];
-        }
-
-        // 1. Resolve Target Village
-        $targetVillage = null;
-        if (preg_match('/^(-?\d+)\s*\|\s*(-?\d+)$/', $targetInput, $matches)) {
-            $tx = (int)$matches[1];
-            $ty = (int)$matches[2];
-            $tWref = $database->getBaseID($tx, $ty);
-            if ($tWref) {
-                $targetVillage = $database->getMInfo($tWref);
-            }
-        } elseif (is_numeric($targetInput)) {
-            $targetVillage = $database->getMInfo((int)$targetInput);
-        } else {
-            // Treat as username
-            $tUser = $database->getUserField($database->escape($targetInput), 'id', 1);
-            if ($tUser) {
-                $tVillages = $database->getProfileVillages($tUser);
-                if (!empty($tVillages)) {
-                    $targetVillage = $database->getMInfo((int)$tVillages[0]['wref']);
-                }
-            }
-        }
-
-        if (empty($targetVillage) || empty($targetVillage['wref']) || empty($targetVillage['owner'])) {
-            return ['status' => 'error', 'message' => "Target '{$targetInput}' tidak ditemukan atau bukan desa yang dihuni."];
-        }
-
-        $targetWref = (int)$targetVillage['wref'];
-        $targetOwner = (int)$targetVillage['owner'];
-        $targetUser = $database->getUserField($targetOwner, 'username', 0);
-        $targetVname = $targetVillage['name'] ?? 'Desa';
-        $targetCoor = ['x' => (int)$targetVillage['x'], 'y' => (int)$targetVillage['y']];
-
-        // 2. Fetch Eligible Bots
-        $sql = "SELECT u.id as uid, u.username, u.tribe, v.wref, v.name as vname, w.x, w.y
-                FROM " . TB_PREFIX . "users u
-                JOIN " . TB_PREFIX . "vdata v ON u.id = v.owner
-                JOIN " . TB_PREFIX . "wdata w ON v.wref = w.id
-                WHERE u.access = 2
-                  AND (u.is_bot = 1 OR u.email LIKE '%@bot.travianz' OR u.desc1 LIKE '%[#BOT]%' OR u.desc2 LIKE '%[#BOT]%' OR u.username LIKE 'Bot_%')
-                  AND v.wref != $targetWref
-                  AND u.id != $targetOwner";
-
-        if (is_numeric($botUid) && (int)$botUid > 0) {
-            $sql .= " AND u.id = " . (int)$botUid;
-        }
-
-        $bots = $database->query_return($sql);
-        if (empty($bots)) {
-            return ['status' => 'error', 'message' => 'Tidak ada bot aktif yang tersedia untuk melakukan serangan.'];
-        }
-
-        // Calculate distance for all bots
-        foreach ($bots as &$b) {
-            $b['dist'] = self::getDistance($b['x'], $b['y'], $targetCoor['x'], $targetCoor['y']);
-        }
-        unset($b);
-
-        // Sort by distance ascending
-        usort($bots, function($a, $b) {
-            return $a['dist'] <=> $b['dist'];
-        });
-
-        // Filter bots to dispatch
-        $selectedBots = [];
-        if ($botUid === 'all') {
-            $selectedBots = $bots;
-        } elseif (is_numeric($botUid) && (int)$botUid > 0) {
-            $selectedBots = $bots;
-        } else {
-            // Closest single bot
-            $selectedBots = [ $bots[0] ];
+            return ['status' => 'error', 'message' => 'Target tidak boleh kosong (masukkan username, koordinat X|Y, atau pilih aliansi sasaran).'];
         }
 
         $attackType = in_array((int)$attackType, [3, 4], true) ? (int)$attackType : 4;
         $attackTypeName = ($attackType === 3) ? 'Normal Attack' : 'Raid';
+        $validCompositions = ['balanced', 'cavalry', 'infantry', 'siege'];
+        $composition = in_array($composition, $validCompositions, true) ? $composition : 'balanced';
+
+        // 1. Resolve Target (Single Village vs Alliance)
+        $isAllianceTarget = false;
+        $targetAlliance = null;
+        $targetVillages = [];
+
+        // Check if targetInput is 'alliance:<id>' or matches an existing alliance tag/name
+        $targetAliId = 0;
+        if (strpos($targetInput, 'alliance:') === 0) {
+            $targetAliId = (int)substr($targetInput, 9);
+        } else {
+            $escTarget = $database->escape($targetInput);
+            $aliCheck = $database->query_return("SELECT id, name, tag FROM " . TB_PREFIX . "alidata WHERE tag = '$escTarget' OR name = '$escTarget' LIMIT 1");
+            if (!empty($aliCheck[0]['id'])) {
+                $targetAliId = (int)$aliCheck[0]['id'];
+            }
+        }
+
+        if ($targetAliId > 0) {
+            $aliData = $database->query_return("SELECT id, name, tag FROM " . TB_PREFIX . "alidata WHERE id = $targetAliId LIMIT 1");
+            if (!empty($aliData[0])) {
+                $targetAlliance = $aliData[0];
+                $isAllianceTarget = true;
+                $tVils = $database->query_return("
+                    SELECT v.wref, v.owner, v.name as vname, v.pop, w.x, w.y, u.username, u.access, u.protect, a.tag as ali_tag, a.name as ali_name
+                    FROM " . TB_PREFIX . "vdata v
+                    JOIN " . TB_PREFIX . "wdata w ON v.wref = w.id
+                    JOIN " . TB_PREFIX . "users u ON v.owner = u.id
+                    LEFT JOIN " . TB_PREFIX . "alidata a ON u.alliance = a.id
+                    WHERE u.alliance = $targetAliId
+                    ORDER BY v.pop DESC
+                ");
+                if (!empty($tVils)) {
+                    $targetVillages = $tVils;
+                } else {
+                    return ['status' => 'error', 'message' => "Aliansi target [{$targetAlliance['tag']}] {$targetAlliance['name']} tidak memiliki desa yang aktif."];
+                }
+            }
+        }
+
+        // If not alliance target, resolve single village
+        if (!$isAllianceTarget) {
+            $singleTarget = null;
+            if (preg_match('/^(-?\d+)\s*\|\s*(-?\d+)$/', $targetInput, $matches)) {
+                $tx = (int)$matches[1];
+                $ty = (int)$matches[2];
+                $wRow = $database->query_return("SELECT id FROM " . TB_PREFIX . "wdata WHERE x = $tx AND y = $ty LIMIT 1");
+                $tWref = !empty($wRow[0]['id']) ? (int)$wRow[0]['id'] : 0;
+                if ($tWref > 0) {
+                    $singleTarget = $database->getMInfo($tWref);
+                }
+            } elseif (is_numeric($targetInput)) {
+                $singleTarget = $database->getMInfo((int)$targetInput);
+            } else {
+                // Treat as username
+                $tUser = $database->getUserField($database->escape($targetInput), 'id', 1);
+                if ($tUser) {
+                    $tVillages = $database->getProfileVillages($tUser);
+                    if (!empty($tVillages)) {
+                        $singleTarget = $database->getMInfo((int)$tVillages[0]['wref']);
+                    }
+                }
+            }
+
+            if (empty($singleTarget) || empty($singleTarget['wref']) || empty($singleTarget['owner'])) {
+                return ['status' => 'error', 'message' => "Target '{$targetInput}' tidak ditemukan atau bukan desa yang dihuni."];
+            }
+
+            $targetOwner = (int)$singleTarget['owner'];
+            $targetUser = $database->getUserField($targetOwner, 'username', 0);
+            $targetVillages = [[
+                'wref'     => (int)$singleTarget['wref'],
+                'owner'    => $targetOwner,
+                'vname'    => $singleTarget['name'] ?? 'Desa',
+                'username' => $targetUser,
+                'x'        => (int)$singleTarget['x'],
+                'y'        => (int)$singleTarget['y'],
+                'ali_tag'  => '',
+                'ali_name' => '',
+            ]];
+        }
+
+        // 2. Fetch Eligible Attacker Bots
+        $sql = "SELECT u.id as uid, u.username, u.tribe, u.alliance, v.wref, v.name as vname, w.x, w.y,
+                       a.tag as ali_tag, a.name as ali_name
+                FROM " . TB_PREFIX . "users u
+                JOIN " . TB_PREFIX . "vdata v ON u.id = v.owner
+                JOIN " . TB_PREFIX . "wdata w ON v.wref = w.id
+                LEFT JOIN " . TB_PREFIX . "alidata a ON u.alliance = a.id
+                WHERE u.access = 2
+                  AND (u.is_bot = 1 OR u.email LIKE '%@bot.travianz%' OR u.desc1 LIKE '%[#BOT]%' OR u.desc2 LIKE '%[#BOT]%' OR u.username LIKE 'Bot_%')";
+
+        $attackerAllianceInfo = null;
+        if (strpos((string)$botUid, 'alliance:') === 0) {
+            $aliId = (int)substr($botUid, 9);
+            $sql .= " AND u.alliance = $aliId";
+            $aRow = $database->query_return("SELECT id, name, tag FROM " . TB_PREFIX . "alidata WHERE id = $aliId LIMIT 1");
+            if (!empty($aRow[0])) {
+                $attackerAllianceInfo = $aRow[0];
+            }
+        } elseif ($botUid !== 'all' && is_numeric($botUid) && (int)$botUid > 0) {
+            $sql .= " AND u.id = " . (int)$botUid;
+        }
+
+        // Exclude bots that own any target village
+        $targetWrefs = array_column($targetVillages, 'wref');
+        $targetOwners = array_unique(array_column($targetVillages, 'owner'));
+
+        $bots = $database->query_return($sql);
+        if (empty($bots)) {
+            $msg = ($attackerAllianceInfo !== null)
+                ? "Tidak ada akun bot aktif yang tergabung dalam aliansi [{$attackerAllianceInfo['tag']}] {$attackerAllianceInfo['name']}."
+                : "Tidak ada bot aktif yang tersedia untuk melakukan serangan.";
+            return ['status' => 'error', 'message' => $msg];
+        }
+
+        // Filter out bots targeting their own villages
+        $bots = array_values(array_filter($bots, function($b) use ($targetWrefs, $targetOwners) {
+            return !in_array((int)$b['wref'], $targetWrefs, true) && !in_array((int)$b['uid'], $targetOwners, true);
+        }));
+
+        if (empty($bots)) {
+            return ['status' => 'error', 'message' => 'Bot tidak dapat menyerang desanya sendiri atau target tidak valid.'];
+        }
+
+        // Select bots to dispatch
+        $selectedBots = [];
+        if ($botUid === 'all' || strpos((string)$botUid, 'alliance:') === 0) {
+            $selectedBots = $bots;
+        } elseif (is_numeric($botUid) && (int)$botUid > 0) {
+            $selectedBots = $bots;
+        } else {
+            // Closest single bot to first target village
+            $firstTv = $targetVillages[0];
+            foreach ($bots as &$b) {
+                $b['dist'] = self::getDistance($b['x'], $b['y'], $firstTv['x'], $firstTv['y']);
+            }
+            unset($b);
+            usort($bots, function($a, $b) { return $a['dist'] <=> $b['dist']; });
+            $selectedBots = [ $bots[0] ];
+        }
+
+        $incSpeed = defined('INCREASE_SPEED') ? max(1, (int)INCREASE_SPEED) : 1;
         $dispatchedReports = [];
 
-        foreach ($selectedBots as $bot) {
+        foreach ($selectedBots as $botIndex => $bot) {
             $bWid = (int)$bot['wref'];
             $bUid = (int)$bot['uid'];
             $bTribe = (int)$bot['tribe'];
             $tribeUnits = self::getTribeUnits($bTribe);
 
+            // Determine target village for this bot
+            if ($isAllianceTarget) {
+                // Find closest village in enemy alliance for this bot
+                $assignedTarget = null;
+                $bestDist = 999999;
+                foreach ($targetVillages as $tv) {
+                    $d = self::getDistance($bot['x'], $bot['y'], $tv['x'], $tv['y']);
+                    if ($d < $bestDist) {
+                        $bestDist = $d;
+                        $assignedTarget = $tv;
+                        $assignedTarget['dist'] = $d;
+                    }
+                }
+                $currentTarget = $assignedTarget;
+            } else {
+                $currentTarget = $targetVillages[0];
+                $currentTarget['dist'] = self::getDistance($bot['x'], $bot['y'], $currentTarget['x'], $currentTarget['y']);
+            }
+
+            $targetWref = (int)$currentTarget['wref'];
+            $targetUser = $currentTarget['username'];
+            $targetVname = $currentTarget['vname'];
+            $targetX = (int)$currentTarget['x'];
+            $targetY = (int)$currentTarget['y'];
+            $dist = (float)$currentTarget['dist'];
+
             // Fetch available units at home
             $unitCols = array_map(function($u) { return 'u' . $u; }, $tribeUnits['all']);
             $colsSql = implode(', ', $unitCols);
-            $res = $database->query_return("SELECT {$colsSql} FROM " . TB_PREFIX . "units WHERE vref = $bWid");
+            $res = $database->query_return("SELECT {$colsSql}, hero FROM " . TB_PREFIX . "units WHERE vref = $bWid LIMIT 1");
             $homeUnits = !empty($res[0]) ? $res[0] : [];
 
-            // Identify available combat troops
-            $combatRoles = ['basic', 'inf_adv', 'cav_light', 'cav_heavy'];
-            $availableCombat = [];
-            $totalCombatAvailable = 0;
+            // Extract unit numbers by role
+            $basicU   = $tribeUnits['basic'];
+            $defU     = $tribeUnits['inf_def'] ?? $basicU;
+            $advU     = $tribeUnits['inf_adv'] ?? $basicU;
+            $lightCav = $tribeUnits['cav_light'] ?? null;
+            $heavyCav = $tribeUnits['cav_heavy'] ?? $lightCav;
+            $ramU     = $tribeUnits['ram'] ?? null;
+            $catU     = $tribeUnits['catapult'] ?? null;
 
-            foreach ($combatRoles as $role) {
-                if (isset($tribeUnits[$role])) {
-                    $uNum = $tribeUnits[$role];
-                    $cnt = (int)($homeUnits['u' . $uNum] ?? 0);
-                    if ($cnt > 0) {
-                        $availableCombat[$uNum] = $cnt;
-                        $totalCombatAvailable += $cnt;
+            // Target party size
+            $desiredTotal = ($troopCount > 0) ? (int)$troopCount : 40;
+
+            // Build unit allocation according to requested composition
+            $plan = [];
+            switch ($composition) {
+                case 'cavalry':
+                    if ($lightCav && $heavyCav) {
+                        $lCount = (int)round($desiredTotal * 0.60);
+                        $hCount = max(0, $desiredTotal - $lCount);
+                        if ($lCount > 0) $plan[$lightCav] = $lCount;
+                        if ($hCount > 0) $plan[$heavyCav] = $hCount;
+                    } elseif ($lightCav) {
+                        $plan[$lightCav] = $desiredTotal;
+                    } else {
+                        $plan[$advU] = $desiredTotal;
                     }
+                    break;
+
+                case 'infantry':
+                    $bCount = (int)round($desiredTotal * 0.40);
+                    $dCount = (int)round($desiredTotal * 0.30);
+                    $aCount = max(0, $desiredTotal - $bCount - $dCount);
+                    if ($bCount > 0) $plan[$basicU] = ($plan[$basicU] ?? 0) + $bCount;
+                    if ($dCount > 0) $plan[$defU]   = ($plan[$defU] ?? 0) + $dCount;
+                    if ($aCount > 0) $plan[$advU]   = ($plan[$advU] ?? 0) + $aCount;
+                    break;
+
+                case 'siege':
+                    $infCount = (int)round($desiredTotal * 0.35);
+                    $cavCount = ($lightCav || $heavyCav) ? (int)round($desiredTotal * 0.35) : 0;
+                    $remSiege = max(2, $desiredTotal - $infCount - $cavCount);
+                    $ramCount = $ramU ? (int)round($remSiege * 0.50) : 0;
+                    $catCount = $catU ? max(0, $remSiege - $ramCount) : 0;
+
+                    if ($infCount > 0) $plan[$advU] = ($plan[$advU] ?? 0) + $infCount;
+                    if ($cavCount > 0 && $lightCav) $plan[$lightCav] = ($plan[$lightCav] ?? 0) + $cavCount;
+                    if ($ramCount > 0) $plan[$ramU] = $ramCount;
+                    if ($catCount > 0) $plan[$catU] = $catCount;
+                    break;
+
+                case 'balanced':
+                default:
+                    $infTotal = (int)round($desiredTotal * 0.45);
+                    $cavTotal = ($lightCav || $heavyCav) ? (int)round($desiredTotal * 0.40) : 0;
+                    $siegeTotal = ($attackType === 3 && ($ramU || $catU)) ? max(0, $desiredTotal - $infTotal - $cavTotal) : 0;
+                    if ($siegeTotal === 0 && ($desiredTotal - $infTotal - $cavTotal) > 0) {
+                        $infTotal += ($desiredTotal - $infTotal - $cavTotal);
+                    }
+
+                    // Split infantry between basic & adv
+                    $bPart = (int)round($infTotal * 0.50);
+                    $aPart = max(0, $infTotal - $bPart);
+                    if ($bPart > 0) $plan[$basicU] = ($plan[$basicU] ?? 0) + $bPart;
+                    if ($aPart > 0) $plan[$advU]   = ($plan[$advU] ?? 0) + $aPart;
+
+                    // Split cavalry between light & heavy
+                    if ($cavTotal > 0) {
+                        if ($lightCav && $heavyCav) {
+                            $lPart = (int)round($cavTotal * 0.65);
+                            $hPart = max(0, $cavTotal - $lPart);
+                            if ($lPart > 0) $plan[$lightCav] = ($plan[$lightCav] ?? 0) + $lPart;
+                            if ($hPart > 0) $plan[$heavyCav] = ($plan[$heavyCav] ?? 0) + $hPart;
+                        } elseif ($lightCav) {
+                            $plan[$lightCav] = ($plan[$lightCav] ?? 0) + $cavTotal;
+                        }
+                    }
+
+                    // Siege
+                    if ($siegeTotal > 0) {
+                        $rPart = $ramU ? (int)round($siegeTotal * 0.50) : 0;
+                        $cPart = $catU ? max(0, $siegeTotal - $rPart) : 0;
+                        if ($rPart > 0) $plan[$ramU] = $rPart;
+                        if ($cPart > 0) $plan[$catU] = $cPart;
+                    }
+                    break;
+            }
+
+            // Auto-provision any missing units to ensure diverse army is mobilized
+            $toProvision = [];
+            foreach ($plan as $uNum => $needed) {
+                $cur = (int)($homeUnits['u' . $uNum] ?? 0);
+                if ($cur < $needed) {
+                    $diff = $needed - $cur;
+                    $toProvision[$uNum] = $diff;
+                    $homeUnits['u' . $uNum] = $needed;
                 }
             }
-
-            // Provision emergency combat troops if bot has 0 troops
-            if ($totalCombatAvailable <= 0) {
-                $basicU = $tribeUnits['basic'];
-                $provisionCount = max(20, $troopCount > 0 ? (int)$troopCount : 30);
-                $database->modifyUnit($bWid, [$basicU], [$provisionCount], [1]);
-                $availableCombat[$basicU] = $provisionCount;
-                $totalCombatAvailable = $provisionCount;
+            if (!empty($toProvision)) {
+                $pUnits = array_keys($toProvision);
+                $pAmounts = array_values($toProvision);
+                $pModes = array_fill(0, count($pAmounts), 1); // 1 = ADD
+                $database->modifyUnit($bWid, $pUnits, $pAmounts, $pModes);
             }
 
-            // Determine party size
-            $desiredSize = ($troopCount > 0) ? (int)$troopCount : max(15, (int)floor($totalCombatAvailable * 0.40));
-            $desiredSize = min($totalCombatAvailable, max(1, $desiredSize));
+            // Deduct dispatched units from bot village
+            $dispatched = $plan;
+            $database->modifyUnit($bWid, array_keys($dispatched), array_values($dispatched), array_fill(0, count($dispatched), 0));
 
-            // Allocate dispatched troops
-            $dispatched = [];
+            // March speed
             $dispatchedSpeeds = [];
-            $sumDispatched = 0;
-
-            foreach ($availableCombat as $uNum => $avail) {
-                $portion = (int)round(($avail / $totalCombatAvailable) * $desiredSize);
-                $send = min($avail, max(0, $portion));
-                if ($send > 0) {
-                    $dispatched[$uNum] = $send;
-                    $dispatchedSpeeds[] = self::getUnitSpeed($uNum);
-                    $sumDispatched += $send;
-                }
+            foreach (array_keys($dispatched) as $un) {
+                $dispatchedSpeeds[] = self::getUnitSpeed((int)$un);
             }
-
-            if ($sumDispatched <= 0) {
-                $firstU = key($availableCombat);
-                $dispatched[$firstU] = min($availableCombat[$firstU], $desiredSize);
-                $dispatchedSpeeds[] = self::getUnitSpeed($firstU);
-                $sumDispatched = $dispatched[$firstU];
-            }
-
-            // Deduct units from bot
-            $unitNums = array_keys($dispatched);
-            $amounts = array_values($dispatched);
-            $modes = array_fill(0, count($amounts), 0);
-            $database->modifyUnit($bWid, $unitNums, $amounts, $modes);
-
-            // Travel time
             $marchSpeed = !empty($dispatchedSpeeds) ? min($dispatchedSpeeds) : 6;
-            $incSpeed = defined('INCREASE_SPEED') ? max(1, (int)INCREASE_SPEED) : 1;
-            $duration = max(30, (int)round(($bot['dist'] / $marchSpeed) * 3600 / $incSpeed));
+            $duration = max(30, (int)round(($dist / $marchSpeed) * 3600 / $incSpeed));
 
             // Map dispatched units to tribe slots t1..t10
             $t = array_fill(1, 10, 0);
             $baseUnit = ($bTribe - 1) * 10;
+            $sumDispatched = 0;
             foreach ($dispatched as $uNum => $cnt) {
                 $slot = $uNum - $baseUnit;
                 if ($slot >= 1 && $slot <= 10) {
                     $t[$slot] = $cnt;
+                    $sumDispatched += $cnt;
                 }
             }
 
@@ -1151,20 +1334,33 @@ class BotAI {
 
                 $troopBreakdown = [];
                 foreach ($dispatched as $uNum => $c) {
-                    $troopBreakdown[] = "u{$uNum}: {$c}";
+                    $troopBreakdown[] = self::getUnitName($uNum) . ": " . number_format($c);
                 }
                 if ($sendHero) {
                     $troopBreakdown[] = "Hero: 1";
                 }
-                $dispatchedReports[] = "<b>{$bot['username']}</b> [{$bot['vname']}] mengirim " . ($sumDispatched + $sendHero) . " pasukan (" . implode(', ', $troopBreakdown) . ") via {$attackTypeName} ke <b>{$targetUser}</b> [{$targetVname} ({$targetCoor['x']}|{$targetCoor['y']})], tiba dalam " . round($duration / 60, 1) . " menit (Jarak: " . round($bot['dist'], 1) . " kotak).";
+
+                $attackerAliPrefix = !empty($bot['ali_tag']) ? "[{$bot['ali_tag']}] " : "";
+                $targetAliPrefix = !empty($currentTarget['ali_tag']) ? "[{$currentTarget['ali_tag']}] " : "";
+
+                $dispatchedReports[] = "<b>{$attackerAliPrefix}{$bot['username']}</b> [{$bot['vname']}] mengerahkan " . ($sumDispatched + $sendHero) . " pasukan (" . implode(', ', $troopBreakdown) . ") via {$attackTypeName} ke <b>{$targetAliPrefix}{$targetUser}</b> [{$targetVname} ({$targetX}|{$targetY})], tiba dalam " . round($duration / 60, 1) . " menit (Jarak: " . round($dist, 1) . " petak).";
             }
         }
 
+        $summaryMsg = "";
+        if ($isAllianceTarget && $attackerAllianceInfo !== null) {
+            $summaryMsg = "⚔️ <b>PERANG ALIANSI PECAH!</b> Aliansi [{$attackerAllianceInfo['tag']}] {$attackerAllianceInfo['name']} mengerahkan " . count($dispatchedReports) . " bot untuk menyerang Aliansi [{$targetAlliance['tag']}] {$targetAlliance['name']}!";
+        } elseif ($isAllianceTarget) {
+            $summaryMsg = "🎯 <b>SERANGAN MASSAL KE ALIANSI!</b> Sebanyak " . count($dispatchedReports) . " bot meluncurkan serangan ke desa-desa Aliansi [{$targetAlliance['tag']}] {$targetAlliance['name']}!";
+        } else {
+            $summaryMsg = "🎯 Berhasil memerintahkan " . count($dispatchedReports) . " bot untuk melancarkan serangan ke {$targetUser}!";
+        }
+
         return [
-            'status' => 'success',
-            'count' => count($dispatchedReports),
-            'reports' => $dispatchedReports,
-            'message' => "Berhasil memerintahkan " . count($dispatchedReports) . " bot untuk menyerang {$targetUser}!"
+            'status'   => 'success',
+            'count'    => count($dispatchedReports),
+            'reports'  => $dispatchedReports,
+            'message'  => $summaryMsg
         ];
     }
 
@@ -1198,40 +1394,63 @@ class BotAI {
      * Returns structured unit information for a given tribe.
      *
      * @param int $tribe
-     * @return array [
-     *   'basic' => int,       // Basic infantry (always trainable in Barracks)
-     *   'inf_adv' => int,     // Advanced / offensive infantry (requires Academy)
-     *   'scout' => int,       // Scout unit
-     *   'cav_light' => int,   // Light cavalry (trainable in Stable)
-     *   'cav_heavy' => int,   // Heavy cavalry (trainable in higher Stable)
-     *   'all' => int[]        // All 10 unit numbers for this tribe
-     * ]
+     * @return array
      */
     public static function getTribeUnits(int $tribe): array {
         $base = ($tribe - 1) * 10;
         $all = range($base + 1, $base + 10);
 
         $map = [
-            1  => ['basic' => 1,  'inf_adv' => 3,  'scout' => 4,  'cav_light' => 5,  'cav_heavy' => 6],
-            2  => ['basic' => 11, 'inf_adv' => 13, 'scout' => 14, 'cav_light' => 15, 'cav_heavy' => 16],
-            3  => ['basic' => 21, 'inf_adv' => 22, 'scout' => 23, 'cav_light' => 24, 'cav_heavy' => 26],
-            6  => ['basic' => 51, 'inf_adv' => 51, 'scout' => 52, 'cav_light' => 53, 'cav_heavy' => 55],
-            7  => ['basic' => 61, 'inf_adv' => 63, 'scout' => 64, 'cav_light' => 65, 'cav_heavy' => 66],
-            8  => ['basic' => 71, 'inf_adv' => 73, 'scout' => 74, 'cav_light' => 75, 'cav_heavy' => 76],
-            9  => ['basic' => 81, 'inf_adv' => 83, 'scout' => 82, 'cav_light' => 85, 'cav_heavy' => 86],
-            10 => ['basic' => 91, 'inf_adv' => 93, 'scout' => 94, 'cav_light' => 95, 'cav_heavy' => 96],
+            1  => [ // Roman
+                'basic' => 1, 'inf_def' => 2, 'inf_adv' => 3, 'scout' => 4, 'cav_light' => 5, 'cav_heavy' => 6, 'ram' => 7, 'catapult' => 8
+            ],
+            2  => [ // Teuton
+                'basic' => 11, 'inf_def' => 12, 'inf_adv' => 13, 'scout' => 14, 'cav_light' => 15, 'cav_heavy' => 16, 'ram' => 17, 'catapult' => 18
+            ],
+            3  => [ // Gaul
+                'basic' => 21, 'inf_adv' => 22, 'scout' => 23, 'cav_light' => 24, 'cav_def' => 25, 'cav_heavy' => 26, 'ram' => 27, 'catapult' => 28
+            ],
+            6  => [ // Hun
+                'basic' => 51, 'inf_adv' => 52, 'scout' => 53, 'cav_light' => 54, 'cav_heavy' => 56, 'ram' => 57, 'catapult' => 58
+            ],
+            7  => [ // Egyptian
+                'basic' => 61, 'inf_def' => 62, 'inf_adv' => 63, 'scout' => 64, 'cav_light' => 65, 'cav_heavy' => 66, 'ram' => 67, 'catapult' => 68
+            ],
+            8  => [ // Spartan
+                'basic' => 71, 'inf_def' => 72, 'inf_adv' => 73, 'scout' => 74, 'cav_light' => 75, 'cav_heavy' => 76, 'ram' => 77, 'catapult' => 78
+            ],
+            9  => [ // Viking
+                'basic' => 81, 'scout' => 82, 'inf_def' => 83, 'inf_adv' => 84, 'cav_light' => 85, 'cav_heavy' => 86, 'ram' => 87, 'catapult' => 88
+            ],
+            10 => [ // Nusantara
+                'basic' => 91, 'inf_def' => 92, 'inf_adv' => 93, 'scout' => 94, 'cav_light' => 95, 'cav_heavy' => 96, 'ram' => 97, 'catapult' => 98
+            ],
         ];
 
         $info = $map[$tribe] ?? [
             'basic'     => $base + 1,
+            'inf_def'   => $base + 2,
             'inf_adv'   => $base + 3,
             'scout'     => $base + 4,
             'cav_light' => $base + 5,
             'cav_heavy' => $base + 6,
+            'ram'       => $base + 7,
+            'catapult'  => $base + 8,
         ];
 
         $info['all'] = $all;
         return $info;
+    }
+
+    /**
+     * Get human-readable unit name.
+     */
+    public static function getUnitName(int $unitNum): string {
+        $cName = 'U' . $unitNum;
+        if (defined($cName)) {
+            return (string)constant($cName);
+        }
+        return "Unit " . $unitNum;
     }
 
     /**

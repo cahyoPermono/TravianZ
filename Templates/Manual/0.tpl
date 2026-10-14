@@ -12,6 +12,7 @@
 	<?php if(NEW_FUNCTIONS_MANUAL_NATURENATARS){ ?>
 	<li><a href="manual.php?typ=2&amp;s=4"><?php echo TRIBE4; ?></a></li>
 	<li><a href="manual.php?typ=2&amp;s=5"><?php echo TRIBE5; ?></a></li>
+	<?php } ?>
 	<?php if(defined('NEW_FUNCTION_TRIBE_HUNS') && NEW_FUNCTION_TRIBE_HUNS){ ?>
 	<li><a href="manual.php?typ=2&amp;s=6"><?php echo TRIBE6; ?></a></li>
 	<?php } ?>
@@ -24,6 +25,8 @@
 	<?php if(defined('NEW_FUNCTION_TRIBE_VIKINGS') && NEW_FUNCTION_TRIBE_VIKINGS){ ?>
 	<li><a href="manual.php?typ=2&amp;s=9"><?php echo TRIBE9; ?></a></li>
 	<?php } ?>
+	<?php if(defined('NEW_FUNCTION_TRIBE_NUSANTARA') && NEW_FUNCTION_TRIBE_NUSANTARA){ ?>
+	<li><a href="manual.php?typ=2&amp;s=10"><?php echo defined('TRIBE10') ? TRIBE10 : 'Nusantara'; ?></a></li>
 	<?php } ?>
 </ul>
 

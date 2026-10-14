@@ -25,6 +25,13 @@ trait DatabaseVillageQueries {
 
 	
 	
+    /**
+     * Map coordinate checksum for village / wref (used for karte.php?d=X&c=Y)
+     */
+    public function getVilHash($wref) {
+        return substr(md5((string)$wref), 5, 2);
+    }
+
     /***************************
     Function to calc oasis bonus
     References: lietuvis10
@@ -133,10 +140,6 @@ trait DatabaseVillageQueries {
 	 * 
 	 * @param int $sector The map sector, + | -, - | + , + | +, - | - (0 and > 3, 1, 2, 3)
 	 * @param int $mode 0 if villages need be generated under certain filters, 1 if not
-	 * @param bool $respect_gametime If is false, we generate user base really anywhere
-	 * and that means we can generate farms closer to the middle of the map as well.
-	 * Otherwise we'd only generate farms at corner edges in late game, which
-	 * sucks for people in the middle who registered too soon
 	 * @param int $numberOfVillages Number of villages which need to be generated
 	 * @return array Return the generated villages 
 	 */ 
@@ -222,9 +225,12 @@ trait DatabaseVillageQueries {
             
         }
 
-        foreach($villages as $village) $wids[] = $village['id'];
+        $wids = [];
+        foreach($villages as $village) {
+            $wids[] = $village['id'];
+        }
 
-        return $num_rows == 1 ? $wids[0] : $wids;
+        return $num_rows == 1 ? ($wids[0] ?? null) : $wids;
     }
 
 	function setFieldTaken($id) {
@@ -365,8 +371,8 @@ trait DatabaseVillageQueries {
 	 * 
 	 * Add the buildings tables to a specified village(s), and its relative buildings
 	 * 
-	 * @param mixed $vid The village ID(s)
-	 * @param mixed $type int if there's only one village, array if there are multiple villages
+	 * @param mixed $vids The village ID(s)
+	 * @param mixed $types int if there's only one village, array if there are multiple villages
 	 * @param array $buildingsArray divided in two portion, which contains the types (unidimensional array) and the values of the
 	 *              buildings that need to be added (bidimensional array)
 	 * @return bool Return true if the query was successful, false otherwise
@@ -2238,7 +2244,7 @@ trait DatabaseVillageQueries {
         return $this->getVillage($wref, 0, $use_cache)['crop'];
 	}
 
-	function Getowner($vid) {
+	function Getowner($vid, $use_cache = true) {
         // return from cache
         return $this->getVillage($vid, 0, $use_cache)['owner'];
 	}

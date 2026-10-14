@@ -135,7 +135,7 @@ tz_def('CLAY', 'Clay');
 tz_def('IRON', 'Iron');
 tz_def('CROP', 'Crop');
 tz_def('LEVEL', 'Level');
-tz_def('CROP_COM', CROP.' consumption');
+tz_def('CROP_COM', (defined('CROP') ? CROP : 'Crop').' consumption');
 tz_def('PER_HR', 'per hour');
 tz_def('PRODUCTION', 'Production');
 tz_def('CAPITAL1', 'Capital');
@@ -179,7 +179,7 @@ tz_def('BACK', 'Back');
 tz_def('NEW', 'new');
 tz_def('UNREAD', 'unread');
 tz_def('NO_MESS', 'There are no messages available');
-tz_def('NO_MESS_IN_ARCHIVE', NO_MESS.' in the archive');
+tz_def('NO_MESS_IN_ARCHIVE', (defined('NO_MESS') ? NO_MESS : 'There are no messages available').' in the archive');
 tz_def('NO_MESS_SENT', 'There are no sent messages available');
 tz_def('MESS_FOR_SUP', 'Message for Support');
 tz_def('MESS_FOR_MH', 'Message for Multihunter');
@@ -313,7 +313,8 @@ tz_def('EASTER', 'Happy Easter');
 if(!defined('PEACE')) tz_def('PEACE', 'Peace');
 
 tz_def('GOLD', 'Gold');
-tz_def('GOLD_IMG', '<img src=\"/img/x.gif\" class=\"gold\" alt=\"'.GOLD.'\" title=\"'.GOLD.'\">');
+$goldText = defined('GOLD') ? GOLD : 'Gold';
+tz_def('GOLD_IMG', '<img src=\"/img/x.gif\" class=\"gold\" alt=\"'.$goldText.'\" title=\"'.$goldText.'\">');
 
 //QUEST
 tz_def('Q_CONTINUE', 'Continue with the next task.');
@@ -638,9 +639,10 @@ tz_def('Q25_26_ORDER', 'Order:</p>Extend all resource tiles to level 2.');
 tz_def('Q25_26_RESP', 'Congratulations! Your village grows and thrives...');
 
 tz_def('Q25_27', 'Task 23: Friends.');
-tz_def('Q25_27_DESC', 'As single player it is hard to compete with attackers. It is to your advantage if your neighbours like you.<br><br>It is even better if you play together with friends. Did you know that you can earn '.GOLD_IMG.' by inviting friends?');
-tz_def('Q25_27_ORDER', 'Order:</p>How much '.GOLD_IMG.' do you earn for inviting a friend?');
-tz_def('Q25_27_RESP', 'Correct! You get 50 '.GOLD_IMG.' if your invited friend have 2 village.');
+$goldImg = defined('GOLD_IMG') ? GOLD_IMG : '<img src=\"/img/x.gif\" class=\"gold\" alt=\"Gold\" title=\"Gold\">';
+tz_def('Q25_27_DESC', 'As single player it is hard to compete with attackers. It is to your advantage if your neighbours like you.<br><br>It is even better if you play together with friends. Did you know that you can earn '.$goldImg.' by inviting friends?');
+tz_def('Q25_27_ORDER', 'Order:</p>How much '.$goldImg.' do you earn for inviting a friend?');
+tz_def('Q25_27_RESP', 'Correct! You get 50 '.$goldImg.' if your invited friend have 2 village.');
 
 tz_def('Q25_28', 'Task 24: Construct Embassy.');
 tz_def('Q25_28_DESC', 'The world of Travian is dangerous. You already built a cranny to protect you against attackers.<br><br>A good alliance will give you even better protection.');
@@ -792,9 +794,10 @@ tz_def('TUTORIAL', 'Tutorial');
 if(!defined('FAQ')) tz_def('FAQ', 'Faq');
 if(!defined('SPIELREGELN')) tz_def('SPIELREGELN', 'Game Rules');
 tz_def('PLAYER_STATISTICS', 'Player statistics');
-tz_def('TOTAL_PLAYERS', PLAYERS.' in total');
+$playersText = defined('PLAYERS') ? PLAYERS : 'Players';
+tz_def('TOTAL_PLAYERS', $playersText.' in total');
 tz_def('ACTIVE_PLAYERS', 'Active players');
-tz_def('ONLINE_PLAYERS', PLAYERS.' online');
+tz_def('ONLINE_PLAYERS', $playersText.' online');
 tz_def('MP_STRATEGY_GAME', SERVER_NAME.' - the multiplayer strategy game');
 tz_def('WHAT_IS', SERVER_NAME.' is one of the most popular browser games in the world. As a player in '.SERVER_NAME.', you will build your own empire, recruit a mighty army, and fight with your allies for game world hegemony.');
 tz_def('REGISTER_FOR_FREE', 'Register here for free!');
@@ -1056,7 +1059,8 @@ tz_def('DEMOLITION_OF', 'Demolition of ');
 tz_def('MAINBUILDING_DESC', 'The village`s master builders live in the main building. The higher its level the faster your master builders complete the construction of new buildings.');
 
 tz_def('RALLYPOINT', 'Rally Point');
-tz_def('RALLYPOINT_COMMENCE', 'Troops movement will be displayed when the '.RALLYPOINT.' is completed');
+$rpText = defined('RALLYPOINT') ? RALLYPOINT : 'Rally Point';
+tz_def('RALLYPOINT_COMMENCE', 'Troops movement will be displayed when the '.$rpText.' is completed');
 tz_def('OVERVIEW', 'Overview');
 tz_def('REINFORCEMENT', 'Reinforcement');
 tz_def('EVASION_SETTINGS', 'evasion settings');
@@ -1724,6 +1728,7 @@ The construction plans are conquerable immediately when they appear to the serve
 There will be a countdown in game, showing the exact time of the release, 5 days prior to the launch. ');
 
 //WW Village Release Message
+$wwVilText = defined('WWVILLAGE') ? WWVILLAGE : 'WW village';
 tz_def('WWVILLAGEMSG', '<h1><b>Wonder of the World Villages</b></h1>
 
 Countless days have passed since the first battles upon the walls of the cursed villages of the Dread Natars, many armies of both the free ones and the Natarian empire struggled and died before the walls of the many strongholds from which the Natars had once ruled all creation. Now with the dust settled and a relative calm having settled in, armies began to count their losses and collect their dead, the stench of combat still lingering in the night air, a smell of a slaughter unforgettable in its extent and brutality yet soon to be dwarfed by yet others. The largest armies of the free ones and the Dread Natars were marshalling for yet another renewed assault upon the coveted former strongholds of the Natarian Empire.
@@ -1732,7 +1737,7 @@ But to raise such a great Wonder would be no easy task, one would need construct
 Tens of thousands of scouts roamed across all existence searching in vain for these mystical plans, looking in all places but the dreaded Natarian Capital, yet could not find them. Today however, they return bearing good news, they return baring the locations of the plans, hidden by the armies of the Natars inside secret strongholds constructed to be hidden from the eyes of man.
 Now begins the final stretch, when the greatest armies of the Free people and the Natars will clash across the world for the fate of all that lies under heaven. This is the war that will echo across the eons, this is your war, and here you shall etch your name across history, here you shall become legend.
 
-<img src="/img/x.gif" class="WWVillagesAnnouncement" title="'.WWVILLAGE.'" alt="'.WWVILLAGE.'">
+<img src="/img/x.gif" class="WWVillagesAnnouncement" title="'.$wwVilText.'" alt="'.$wwVilText.'">
 
 To conquer one, the following things must happen:
 
@@ -1755,6 +1760,7 @@ tz_def('WILL_SPAWN_IN', 'will spawn in');
 tz_def('PLAN', 'Ancient Construction Plan');
 tz_def('PLANVILLAGE', 'WW Buildingplan');
 tz_def('PLAN_DESC', 'With this ancient construction plan you will able to build World Wonder to level 50. to build further, your alliance must hold at least two plans.');
+$planText = defined('PLAN') ? PLAN : 'Ancient Construction Plan';
 tz_def('PLAN_INFO', '<h1><b>World Wonder Construction Plans</b></h1>
 
 
@@ -1768,7 +1774,7 @@ Today, however, this last secret will be revealed. Deprivations and endeavors of
 
 In the end, we will see whether the free tribes of Travian can once again outwit the Natars and vanquish them once and for all. Do not be so foolish as to assume that the Natars will leave without a fight, though!
 
-<img src="/img/x.gif" class="WWBuildingPlansAnnouncement" title="'.PLAN.'" alt="'.PLAN.'">
+<img src="/img/x.gif" class="WWBuildingPlansAnnouncement" title="'.$planText.'" alt="'.$planText.'">
 
 To steal a set of Construction Plans from the Natars, the following things must happen:
 - You must Attack the village (NOT Raid!)
@@ -1866,9 +1872,10 @@ tz_def('CONF_SERV_ERRORREPORT_TOOLTIP', 'Enable (Yes) or disable (No) the displa
 
 //Admin setting - Admin/Templates/config.tpl & editPlusSet.tpl
 tz_def('PLUS_LOGO', '<b><font color="#71D000">P</font><font color="#FF6F0F">l</font><font color="#71D000">u</font><font color="#FF6F0F">s</font></b>');
-tz_def('PLUS_CONFIGURATION', PLUS_LOGO.' Configuration');
-tz_def('PLUS_SETT', PLUS_LOGO.' Settings');
-tz_def('EDIT_PLUS_SETT', 'Edit '.PLUS_LOGO.' Setting');
+$plusLogo = defined('PLUS_LOGO') ? PLUS_LOGO : '<b><font color="#71D000">P</font><font color="#FF6F0F">l</font><font color="#71D000">u</font><font color="#FF6F0F">s</font></b>';
+tz_def('PLUS_CONFIGURATION', $plusLogo.' Configuration');
+tz_def('PLUS_SETT', $plusLogo.' Settings');
+tz_def('EDIT_PLUS_SETT', 'Edit '.$plusLogo.' Setting');
 tz_def('EDIT_PLUS_SETT1', 'Edit PLUS Setting');
 tz_def('CONF_PLUS_PAYPALEMAIL', '<a href="https://www.paypal.com" target="_blank">PayPal</a> E-Mail Address');
 tz_def('CONF_PLUS_PAYPALEMAIL_TOOLTIP', 'The E-Mail Address specified at registration on PayPal.<br><font color="red"><b>Must be Business or Premier account!</b></font>');
@@ -1883,7 +1890,7 @@ tz_def('CONF_PLUS_PACKAGEGOLDB_TOOLTIP', 'The amount of gold issued for the paym
 tz_def('CONF_PLUS_PACKAGEPRICEB', 'Package &#34;B&#34; Amount of Price');
 tz_def('CONF_PLUS_PACKAGEPRICEB_TOOLTIP', 'The amount necessary to pay the cost of package &#34;B&#34;.');
 tz_def('CONF_PLUS_PACKAGEGOLDC', 'Package &#34;C&#34; Amount of Gold');
-tz_def('CONF_PLUS_PACKAGEGOLDC_TOOLTIP', 'The amount of gold issued for the payment of the package &#34;C&#34;.');
+tz_def('CONF_PLUS_PACKAGEGOLDC_TOOLTIP', 'The amount issued for the payment of the package &#34;C&#34;.');
 tz_def('CONF_PLUS_PACKAGEPRICEC', 'Package &#34;C&#34; Amount of Price');
 tz_def('CONF_PLUS_PACKAGEPRICEC_TOOLTIP', 'The amount necessary to pay the cost of package &#34;C&#34;.');
 tz_def('CONF_PLUS_PACKAGEGOLDD', 'Package &#34;D&#34; Amount of Gold');
@@ -1894,8 +1901,8 @@ tz_def('CONF_PLUS_PACKAGEGOLDE', 'Package &#34;E&#34; Amount of Gold');
 tz_def('CONF_PLUS_PACKAGEGOLDE_TOOLTIP', 'The amount of gold issued for the payment of the package &#34;E&#34;.');
 tz_def('CONF_PLUS_PACKAGEPRICEE', 'Package &#34;E&#34; Amount of Price');
 tz_def('CONF_PLUS_PACKAGEPRICEE_TOOLTIP', 'The amount necessary to pay the cost of package &#34;E&#34;.');
-tz_def('CONF_PLUS_ACCDURATION', PLUS_LOGO.' account duration');
-tz_def('CONF_PLUS_ACCDURATION_TOOLTIP', 'The duration of the game function '.PLUS_LOGO.' for the account at the time of activation by the player.');
+tz_def('CONF_PLUS_ACCDURATION', $plusLogo.' account duration');
+tz_def('CONF_PLUS_ACCDURATION_TOOLTIP', 'The duration of the game function '.$plusLogo.' for the account at the time of activation by the player.');
 tz_def('CONF_PLUS_PRODUCTDURATION', '+25% production duration');
 tz_def('CONF_PLUS_PRODUCTDURATION_TOOLTIP', 'The duration of the game function +25% production duration for the account at the time of activation by the player.');
 
@@ -2611,6 +2618,11 @@ tz_def('TZ_RT_WAS_ATTACKED', "was attacked");
 tz_def('TZ_RT_REINF_IN', "Reinforcement in");
 tz_def('TZ_RT_ELDERS_REINF', "village of the elders reinforcement");
 tz_def('TZ_RT_UNOCC_OASIS', "Unoccupied Oasis");
+tz_def('TZ_RT_ADV_RETURNED', 'Hero returned from an adventure');
+tz_def('TZ_RT_ADV_FELL', 'Hero fell on an adventure');
+tz_def('TZ_RT_AUC_WON', 'Auction won');
+tz_def('TZ_RT_AUC_SOLD', 'Auction sold');
+tz_def('TZ_RT_AUC_EXPIRED', 'Auction expired');
 
 // ===== settler reports (issue #178) =====
 tz_def('TZ_RT_NEW_VILLAGE', "New village founded");
@@ -2797,7 +2809,8 @@ if (!function_exists('rc_bld')) {
 if (!function_exists('tz_build_name')) {
     function tz_build_name($type, $mode = 0) {
         $b = Building::procResType((int) $type);
-        return ($b === '' && !$mode) ? RC_VILLAGE_CANT_BE : $b;
+        $emptyText = defined('RC_VILLAGE_CANT_BE') ? RC_VILLAGE_CANT_BE : "Village can't be";
+        return ($b === '' && !$mode) ? $emptyText : $b;
     }
 }
 if (!function_exists('tz_expand_report')) {
@@ -2824,22 +2837,22 @@ if (!function_exists('tz_loc_topic')) {
         if (!is_string($s) || $s === '') return $s;
         // strtr does longest-match, single-pass (no double substitution).
         $map = array(
-            'village of the elders reinforcement ' => TZ_RT_ELDERS_REINF.' ',
-            'Reinforcement in '                    => TZ_RT_REINF_IN.' ',
-            ' was attacked'                        => ' '.TZ_RT_WAS_ATTACKED,
-            ' send resources to '                  => ' '.TZ_RT_SEND_RES_TO.' ',
-            ' scouts '                             => ' '.TZ_RT_SCOUTS.' ',
-            ' attacks '                            => ' '.TZ_RT_ATTACKS.' ',
-            ' reinforcement '                      => ' '.TZ_RT_REINFORCEMENT.' ',
-            'Unoccupied Oasis'                     => TZ_RT_UNOCC_OASIS,
-            'New village founded'                  => TZ_RT_NEW_VILLAGE,
-            'Settlers returned - valley occupied'  => TZ_RT_VALLEY_OCCUPIED,
+            'village of the elders reinforcement ' => (defined('TZ_RT_ELDERS_REINF') ? TZ_RT_ELDERS_REINF : "village of the elders reinforcement").' ',
+            'Reinforcement in '                    => (defined('TZ_RT_REINF_IN') ? TZ_RT_REINF_IN : "Reinforcement in").' ',
+            ' was attacked'                        => ' '.(defined('TZ_RT_WAS_ATTACKED') ? TZ_RT_WAS_ATTACKED : "was attacked"),
+            ' send resources to '                  => ' '.(defined('TZ_RT_SEND_RES_TO') ? TZ_RT_SEND_RES_TO : "send resources to").' ',
+            ' scouts '                             => ' '.(defined('TZ_RT_SCOUTS') ? TZ_RT_SCOUTS : "scouts").' ',
+            ' attacks '                            => ' '.(defined('TZ_RT_ATTACKS') ? TZ_RT_ATTACKS : "attacks").' ',
+            ' reinforcement '                      => ' '.(defined('TZ_RT_REINFORCEMENT') ? TZ_RT_REINFORCEMENT : "reinforcement").' ',
+            'Unoccupied Oasis'                     => defined('TZ_RT_UNOCC_OASIS') ? TZ_RT_UNOCC_OASIS : "Unoccupied Oasis",
+            'New village founded'                  => defined('TZ_RT_NEW_VILLAGE') ? TZ_RT_NEW_VILLAGE : "New village founded",
+            'Settlers returned - valley occupied'  => defined('TZ_RT_VALLEY_OCCUPIED') ? TZ_RT_VALLEY_OCCUPIED : "Settling failed (valley occupied)",
             // T4 hero port (Phase 6)
-            'Hero returned from an adventure'      => TZ_RT_ADV_RETURNED,
-            'Hero fell on an adventure'            => TZ_RT_ADV_FELL,
-            'Auction won'                          => TZ_RT_AUC_WON,
-            'Auction sold'                         => TZ_RT_AUC_SOLD,
-            'Auction expired'                      => TZ_RT_AUC_EXPIRED,
+            'Hero returned from an adventure'      => defined('TZ_RT_ADV_RETURNED') ? TZ_RT_ADV_RETURNED : "Hero returned from an adventure",
+            'Hero fell on an adventure'            => defined('TZ_RT_ADV_FELL') ? TZ_RT_ADV_FELL : "Hero fell on an adventure",
+            'Auction won'                          => defined('TZ_RT_AUC_WON') ? TZ_RT_AUC_WON : "Auction won",
+            'Auction sold'                         => defined('TZ_RT_AUC_SOLD') ? TZ_RT_AUC_SOLD : "Auction sold",
+            'Auction expired'                      => defined('TZ_RT_AUC_EXPIRED') ? TZ_RT_AUC_EXPIRED : "Auction expired",
         );
         return strtr($s, $map);
     }
@@ -3127,6 +3140,18 @@ tz_def('ANL_ROMAN_MERCHANT', 'Merchants can carry 500 units of resources (speed:
 tz_def('ANL_GAUL_MERCHANT', 'Merchants can carry 750 units of resources (speed: 24 fields/hour)');
 tz_def('ANL_TEUTON_MERCHANT', 'Merchants can carry 1000 units of resources (speed: 12 fields/hour)');
 tz_def('ANL_TEUTON_PLUNDER_BONUS', 'Plunder bonus: enemy crannies only hides 66% of the normal amount in Travian version 2.5 and 3, and 80% of the normal amount in Travian version 3.5.');
+tz_def('ANL_NUSANTARA', 'Nusantara');
+tz_def('ANL_NUSANTARA_ALT', 'Nusantara');
+tz_def('ANL_NUSANTARA_TROOPS', 'The Nusantara troops');
+tz_def('ANL_NUSANTARA_DESC_1', 'The majestic maritime empire of Nusantara is famed for its seasoned sailors, brave warriors bearing mystical kris blades, and ancient bronze Cetbang swivel artillery. They thrive across archipelago waters and lush inland valleys alike.');
+tz_def('ANL_NUSANTARA_DESC_2', 'Their armies maintain a formidable balance of swift offensive striking power and stalwart coastal defense. They employ agile light cavalry for lightning raids, lethal gendewa longbowmen, and colossal Bhayangkara war elephants that shatter enemy battle lines.');
+tz_def('ANL_NUSANTARA_DESC_3', 'For tacticians who value troop mobility, balanced military flexibility, and unyielding defense, Nusantara is an extraordinary choice!');
+tz_def('ANL_NUSANTARA_MERCHANT', 'Merchants can carry 750 units of resources (speed: 16 fields/hour)');
+tz_def('ANL_NUSANTARA_SPEC_1', 'Gendewa Archers & Cetbang swivel cannons possess feared attack and wall-breaching capabilities.');
+tz_def('ANL_NUSANTARA_SPEC_2', 'Bhayangkara War Elephants serve as titanic heavy cavalry to trample enemy fortifications.');
+tz_def('ANL_NUSANTARA_SPEC_3', 'Sturdy seafaring merchants carry 750 resources at a swift 16 fields/hour.');
+tz_def('ANL_NUSANTARA_SPEC_4', 'Traditional herbalist mastery: 50% resource discount on compounding herbal concoctions against seasonal plagues.');
+tz_def('ANL_NUSANTARA_SPEC_5', 'Versatile troop roster combining spear phalanxes and fast cavalry suited for both defensive and aggressive playstyles.');
 tz_def('ANL_ATTACK_VALUE', 'Attack value');
 tz_def('ANL_DEF_INFANTRY', 'Defence value against infantry');
 tz_def('ANL_DEF_CAVALRY', 'Defence value against cavalry');
