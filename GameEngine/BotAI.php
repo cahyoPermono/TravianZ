@@ -48,7 +48,7 @@ class BotAI {
         @touch($lockFile);
 
         // Fetch all active bot accounts and their villages
-        $sql = "SELECT u.id as uid, u.username, u.tribe, u.access, u.alliance,
+        $sql = "SELECT u.id as uid, u.username, u.tribe, u.access, u.alliance, u.regtime, u.timestamp,
                        v.wref, v.name as vname, v.pop, v.wood, v.clay, v.iron, v.crop, v.maxstore, v.maxcrop
                 FROM " . TB_PREFIX . "users u
                 JOIN " . TB_PREFIX . "vdata v ON u.id = v.owner
@@ -186,6 +186,42 @@ class BotAI {
         $maxBuildingLvl = defined('BOT_AI_MAX_BUILDING_LEVEL') ? (int)BOT_AI_MAX_BUILDING_LEVEL : 10;
         $enableCavalry = defined('BOT_AI_ENABLE_CAVALRY') ? (bool)BOT_AI_ENABLE_CAVALRY : true;
 
+        // Pacing pertumbuhan alami berdasarkan umur akun bot & server speed
+        $regTime = (int)($bot['regtime'] ?? $bot['timestamp'] ?? 0);
+        if ($regTime <= 0) {
+            $regTime = time() - 86400; // fallback 1 hari
+        }
+        $ageSeconds = max(60, time() - $regTime);
+        $speed = defined('SPEED') ? max(1, (float)SPEED) : 1.0;
+        $effectiveAgeDays = ($ageSeconds / 86400.0) * sqrt($speed);
+
+        // 1. Batas maksimal populasi berdasarkan umur (Hari 1: max ~50-60 pop, Hari 2: max ~95 pop, dst)
+        $basePopLimit = 25;
+        $maxPopByAge = (int)round($basePopLimit + min(450, pow($effectiveAgeDays + 0.3, 1.15) * 28));
+
+        // Auto-normalize overgrown bot village to natural building levels
+        if ($pop > ($maxPopByAge * 1.5)) {
+            self::rebalanceVillageBuildings($wid, $tribe, $effectiveAgeDays);
+            return "Auto-normalized overgrown bot village buildings & population down to natural cap";
+        }
+
+        if ($pop >= $maxPopByAge) {
+            return null; // Batas populasi wajar sesuai umur akun tercapai
+        }
+
+        // 2. Batas level ladang berdasarkan umur (Hari 1: max lvl 2, Hari 2: max lvl 3-4, dst)
+        $ageFieldCap = max(2, min(10, (int)floor(1.2 + ($effectiveAgeDays * 1.0))));
+        $maxFieldLvl = min($maxFieldLvl, $ageFieldCap);
+
+        // 3. Batas level gedung kota berdasarkan umur (Hari 1: max lvl 3, Hari 2: max lvl 4-5)
+        $ageBuildingCap = max(2, min(20, (int)floor(2 + ($effectiveAgeDays * 1.2))));
+        $maxBuildingLvl = min($maxBuildingLvl, $ageBuildingCap);
+
+        // 3. Pacing konstruksi: simulasi antrean tukang bangunan (~6-10 menit per upgrade)
+        if (rand(1, 100) > 35) {
+            return null; // Tukang bangunan sedang bekerja
+        }
+
         // Infrastructure levels
         $mbLevel = (int)($fdata['f26'] ?? 0); // slot 26: Main Building (type 15)
         $whLevel = (int)($fdata['f25'] ?? 0); // slot 25: Warehouse (type 10)
@@ -248,20 +284,20 @@ class BotAI {
             $database->query("UPDATE " . TB_PREFIX . "fdata SET f31 = 1, f31t = 23 WHERE vref = $wid");
             $upgraded = "Constructed Cranny (slot 31) lvl 1";
         }
-        // Phase 2: Construct advanced buildings when prerequisites are satisfied
-        elseif ($acLevel < 1 && $mbLevel >= 3 && $brLevel >= 2) {
+        // Phase 2: Construct advanced buildings when prerequisites and age requirements are satisfied
+        elseif ($acLevel < 1 && $mbLevel >= 3 && $brLevel >= 2 && $effectiveAgeDays >= 1.5) {
             $database->query("UPDATE " . TB_PREFIX . "fdata SET f22 = 1, f22t = 22 WHERE vref = $wid");
             $upgraded = "Constructed Academy (slot 22) lvl 1";
-        } elseif ($mpLevel < 1 && $mbLevel >= 3 && $whLevel >= 1 && $grLevel >= 1) {
+        } elseif ($mpLevel < 1 && $mbLevel >= 3 && $whLevel >= 1 && $grLevel >= 1 && $effectiveAgeDays >= 1.0) {
             $database->query("UPDATE " . TB_PREFIX . "fdata SET f27 = 1, f27t = 17 WHERE vref = $wid");
             $upgraded = "Constructed Marketplace (slot 27) lvl 1";
-        } elseif ($enableCavalry && $stLevel < 1 && $mbLevel >= 3 && ($acLevel >= 1 || $pop >= 60)) {
+        } elseif ($enableCavalry && $stLevel < 1 && $mbLevel >= 3 && ($acLevel >= 1 || $pop >= 80) && $effectiveAgeDays >= 2.5) {
             $database->query("UPDATE " . TB_PREFIX . "fdata SET f20 = 1, f20t = 20 WHERE vref = $wid");
             $upgraded = "Constructed Stable (slot 20) lvl 1";
-        } elseif ($wsLevel < 1 && $mbLevel >= 5 && ($acLevel >= 2 || $pop >= 120)) {
+        } elseif ($wsLevel < 1 && $mbLevel >= 5 && ($acLevel >= 2 || $pop >= 150) && $effectiveAgeDays >= 4.5) {
             $database->query("UPDATE " . TB_PREFIX . "fdata SET f23 = 1, f23t = 21 WHERE vref = $wid");
             $upgraded = "Constructed Workshop (slot 23) lvl 1";
-        } elseif ($rsLevel < 1 && $mbLevel >= 5) {
+        } elseif ($rsLevel < 1 && $mbLevel >= 5 && $effectiveAgeDays >= 3.0) {
             $database->query("UPDATE " . TB_PREFIX . "fdata SET f30 = 1, f30t = 25 WHERE vref = $wid");
             $upgraded = "Constructed Residence (slot 30) lvl 1";
         }
@@ -381,13 +417,27 @@ class BotAI {
             return null;
         }
 
-        $dynamicScaling = defined('BOT_AI_DYNAMIC_SCALING') ? (bool)BOT_AI_DYNAMIC_SCALING : true;
-        $popFactor = defined('BOT_AI_TROOP_POP_FACTOR') ? (float)BOT_AI_TROOP_POP_FACTOR : 1.8;
-        $maxTroopsCap = defined('BOT_AI_MAX_TROOPS_CAP') ? (int)BOT_AI_MAX_TROOPS_CAP : 3000;
-        $baseMax = defined('BOT_AI_MAX_TROOPS') ? (int)BOT_AI_MAX_TROOPS : 45;
+        // Pacing pasukan alami berdasarkan umur akun bot & populasi
+        $regTime = (int)($bot['regtime'] ?? $bot['timestamp'] ?? 0);
+        if ($regTime <= 0) {
+            $regTime = time() - 86400;
+        }
+        $ageSeconds = max(60, time() - $regTime);
+        $speed = defined('SPEED') ? max(1, (float)SPEED) : 1.0;
+        $effectiveAgeDays = ($ageSeconds / 86400.0) * sqrt($speed);
 
-        // Dynamic maximum army capacity
-        $maxTroops = $dynamicScaling ? max($baseMax, min($maxTroopsCap, (int)round($pop * $popFactor))) : $baseMax;
+        // Rasio pasukan realistis terhadap populasi (default: 25 - 35% populasi, BUKAN 180%!)
+        $popFactor = defined('BOT_AI_TROOP_POP_FACTOR') ? (float)BOT_AI_TROOP_POP_FACTOR : 0.30;
+        $popArmyCap = max(8, (int)round($pop * $popFactor));
+
+        // Batas maksimal pasukan berdasarkan umur bot:
+        // Hari 1 (<= 24 jam): max ~25 - 30 pasukan
+        // Hari 2 (<= 48 jam): max ~45 - 50 pasukan
+        // Hari 3 (<= 72 jam): max ~65 - 70 pasukan
+        // Hari 7 (1 minggu): max ~135 - 150 pasukan
+        $ageArmyCap = (int)round(12 + ($effectiveAgeDays * 18));
+        $maxTroops = min($ageArmyCap, $popArmyCap);
+        $maxTroops = max(8, min(300, $maxTroops));
 
         $tribeUnits = self::getTribeUnits($tribe);
 
@@ -413,11 +463,22 @@ class BotAI {
         $marchingTotal = (int)($resMarching[0]['marching'] ?? 0);
         $totalArmy = $atHomeTotal + $marchingTotal;
 
-        if ($totalArmy >= $maxTroops) {
-            return null; // Cap reached
+        // Auto-trimming: Jika bot memiliki pasukan berlebih tidak wajar dari versi sebelumnya, normalkan ke batas natural
+        if ($totalArmy > ($maxTroops * 1.5)) {
+            self::trimVillageTroops($wid, $tribe, $maxTroops);
+            return "Rebalanced troops: trimmed excess army from $totalArmy down to natural cap of $maxTroops";
         }
 
-        // Determine trainable unit types based on buildings & population
+        if ($totalArmy >= $maxTroops) {
+            return null; // Batas pasukan wajar tercapai
+        }
+
+        // Pacing pelatihan barak: 40% peluang per tick untuk mensimulasikan durasi pelatihan nyata
+        if (rand(1, 100) > 40) {
+            return null; // Pelatihan di barak sedang berlangsung
+        }
+
+        // Determine trainable unit types based on buildings, population, and bot age
         $acLevel = (int)($fdata['f22'] ?? 0);
         $stLevel = (int)($fdata['f20'] ?? 0);
         $wsLevel = (int)($fdata['f23'] ?? 0);
@@ -425,41 +486,29 @@ class BotAI {
 
         $trainCandidates = [];
         // Basic infantry is always eligible
-        $trainCandidates[$tribeUnits['basic']] = 35;
+        $trainCandidates[$tribeUnits['basic']] = 50;
 
-        // Defensive infantry
-        if (!empty($tribeUnits['inf_def']) && ($brLevel >= 2 || $pop >= 40)) {
-            $trainCandidates[$tribeUnits['inf_def']] = 25;
+        // Defensive infantry: Membutuhkan barak lvl 2 atau pop >= 50 dan umur >= 0.8 hari
+        if (!empty($tribeUnits['inf_def']) && ($brLevel >= 2 || $pop >= 50) && $effectiveAgeDays >= 0.8) {
+            $trainCandidates[$tribeUnits['inf_def']] = 30;
         }
 
-        // Advanced / Elite offensive infantry
-        if (!empty($tribeUnits['inf_adv']) && ($acLevel >= 1 || $brLevel >= 3 || $pop >= 60)) {
-            $trainCandidates[$tribeUnits['inf_adv']] = 25;
+        // Advanced / Elite offensive infantry: Membutuhkan akademi atau barak lvl 3 dan pop >= 80, umur >= 1.5 hari
+        if (!empty($tribeUnits['inf_adv']) && ($acLevel >= 1 || $brLevel >= 3) && $pop >= 80 && $effectiveAgeDays >= 1.5) {
+            $trainCandidates[$tribeUnits['inf_adv']] = 20;
         }
 
-        // Light Cavalry
-        if ($enableCavalry && !empty($tribeUnits['cav_light']) && ($stLevel >= 1 || $pop >= 80)) {
-            $trainCandidates[$tribeUnits['cav_light']] = 25;
+        // Kavaleri: Hanya terbuka setelah bot berumur >= 2.5 hari, pop >= 100, dan memiliki Stable
+        if ($enableCavalry && $effectiveAgeDays >= 2.5 && $pop >= 100 && $stLevel >= 1) {
+            if (!empty($tribeUnits['cav_light'])) $trainCandidates[$tribeUnits['cav_light']] = 15;
+            if (!empty($tribeUnits['cav_def']) && $stLevel >= 2) $trainCandidates[$tribeUnits['cav_def']] = 10;
+            if (!empty($tribeUnits['cav_heavy']) && $stLevel >= 3 && $pop >= 150) $trainCandidates[$tribeUnits['cav_heavy']] = 10;
         }
 
-        // Defensive Cavalry (e.g. Druidrider / Paladin)
-        if ($enableCavalry && !empty($tribeUnits['cav_def']) && ($stLevel >= 2 || $pop >= 100)) {
-            $trainCandidates[$tribeUnits['cav_def']] = 15;
-        }
-
-        // Heavy Cavalry
-        if ($enableCavalry && !empty($tribeUnits['cav_heavy']) && ($stLevel >= 3 || $pop >= 130)) {
-            $trainCandidates[$tribeUnits['cav_heavy']] = 15;
-        }
-
-        // Battering Ram
-        if (!empty($tribeUnits['ram']) && ($wsLevel >= 1 || $pop >= 160)) {
-            $trainCandidates[$tribeUnits['ram']] = 8;
-        }
-
-        // Catapult
-        if (!empty($tribeUnits['catapult']) && ($wsLevel >= 2 || $pop >= 200)) {
-            $trainCandidates[$tribeUnits['catapult']] = 6;
+        // Senjata Pengepungan: Hanya terbuka setelah bot berumur >= 4.5 hari, pop >= 180, dan memiliki Workshop
+        if ($effectiveAgeDays >= 4.5 && $pop >= 180 && $wsLevel >= 1) {
+            if (!empty($tribeUnits['ram'])) $trainCandidates[$tribeUnits['ram']] = 5;
+            if (!empty($tribeUnits['catapult']) && $wsLevel >= 2) $trainCandidates[$tribeUnits['catapult']] = 4;
         }
 
         // Weighted random selection of unit to train
@@ -474,14 +523,8 @@ class BotAI {
             }
         }
 
-        // Batch size scales with village population
-        if ($dynamicScaling) {
-            $batchMin = max(2, (int)floor($pop / 50));
-            $batchMax = max(4, (int)ceil($pop / 25));
-            $batchSize = rand($batchMin, $batchMax);
-        } else {
-            $batchSize = rand(2, 4);
-        }
+        // Natural batch size: 1 - 2 pasukan per tick pelatihan
+        $batchSize = rand(1, 2);
 
         $trainCount = min($batchSize, $maxTroops - $totalArmy);
         if ($trainCount <= 0) {
@@ -493,6 +536,238 @@ class BotAI {
 
         $uName = self::getUnitName($chosenUnit);
         return "Trained +$trainCount $uName (Total army: " . ($totalArmy + $trainCount) . "/$maxTroops)";
+    }
+
+    /**
+     * Trim excess troops in a bot village down to a target natural garrison size.
+     */
+    /**
+     * Trim excess troops in a bot village down to a target natural garrison size.
+     * Guarantees that only basic infantry is kept, zeroing out premature cavalry, siege, and high-tier units.
+     */
+    public static function trimVillageTroops(int $wid, int $tribe, int $targetTotal = 25): int {
+        global $database;
+        $tribeUnits = self::getTribeUnits($tribe);
+        $unitCols = array_map(function($u) { return 'u' . $u; }, $tribeUnits['all']);
+        $colsSql = implode(', ', $unitCols);
+        $res = $database->query_return("SELECT {$colsSql} FROM " . TB_PREFIX . "units WHERE vref = $wid");
+        if (empty($res[0])) return 0;
+
+        $row = $res[0];
+        $currentTotal = 0;
+        foreach ($tribeUnits['all'] as $u) {
+            $currentTotal += (int)($row['u' . $u] ?? 0);
+        }
+
+        // Keep target garrison as basic infantry, reset high tier/cavalry/siege
+        $basicUnit = $tribeUnits['basic'];
+        $updates = [];
+        foreach ($tribeUnits['all'] as $u) {
+            if ($u === $basicUnit) {
+                $updates[] = "u{$u} = $targetTotal";
+            } else {
+                $updates[] = "u{$u} = 0";
+            }
+        }
+        $database->query("UPDATE " . TB_PREFIX . "units SET " . implode(', ', $updates) . " WHERE vref = $wid");
+        if (method_exists($database, 'addStarvationData')) {
+            $database->addStarvationData($wid);
+        }
+        return max(0, $currentTotal - $targetTotal);
+    }
+
+    /**
+     * Helper to rebalance a bot village's resource fields, city buildings, and queues to natural age limits.
+     * Also clears pending building, training, and research queues so the village does not jump back up on the next tick.
+     */
+    public static function rebalanceVillageBuildings(int $wid, int $tribe, float $effectiveAgeDays = 1.0): int {
+        global $database;
+
+        // Natural resource field level (Day 1 = max lvl 2, Day 2 = max lvl 3, Day 3 = max lvl 4)
+        if ($effectiveAgeDays <= 1.0) {
+            $fieldLvl = 2;
+        } elseif ($effectiveAgeDays <= 2.0) {
+            $fieldLvl = 3;
+        } elseif ($effectiveAgeDays <= 3.0) {
+            $fieldLvl = 4;
+        } else {
+            $fieldLvl = max(2, min(10, (int)floor(1.0 + ($effectiveAgeDays * 1.0))));
+        }
+
+        // Natural city infrastructure levels
+        $mbLvl = max(1, min(20, (int)floor(2 + ($effectiveAgeDays * 1.2)))); // Day 1 = 3, Day 2 = 4
+        $whLvl = max(1, min(20, (int)floor(1 + ($effectiveAgeDays * 0.8)))); // Day 1 = 1, Day 2 = 2
+        $grLvl = max(1, min(20, (int)floor(1 + ($effectiveAgeDays * 0.8)))); // Day 1 = 1, Day 2 = 2
+        $brLvl = max(1, min(20, (int)floor(1 + ($effectiveAgeDays * 0.9)))); // Day 1 = 1, Day 2 = 2
+        $wlLvl = max(1, min(20, (int)floor(1 + ($effectiveAgeDays * 0.8)))); // Day 1 = 1, Day 2 = 2
+        $crLvl = max(1, min(10, (int)floor(1 + ($effectiveAgeDays * 0.7)))); // Day 1 = 1, Day 2 = 2
+        $wallType = self::getTribeWallType($tribe);
+
+        // Advanced buildings (unlocked only after maturity)
+        $acLvl = ($effectiveAgeDays >= 1.5) ? max(1, min(20, (int)floor(($effectiveAgeDays - 1.0) * 1.5))) : 0;
+        $mpLvl = ($effectiveAgeDays >= 1.2) ? max(1, min(20, (int)floor($effectiveAgeDays * 0.8))) : 0;
+        $stLvl = ($effectiveAgeDays >= 2.5) ? max(1, min(20, (int)floor(($effectiveAgeDays - 2.0) * 1.2))) : 0;
+        $wsLvl = ($effectiveAgeDays >= 4.5) ? max(1, min(20, (int)floor(($effectiveAgeDays - 4.0) * 1.0))) : 0;
+        $rsLvl = ($effectiveAgeDays >= 3.0) ? max(1, min(10, (int)floor(($effectiveAgeDays - 2.5) * 1.0))) : 0;
+
+        // Build full SQL update for fdata
+        $setParts = [];
+        for ($fi = 1; $fi <= 18; $fi++) {
+            $setParts[] = "f{$fi} = $fieldLvl";
+        }
+
+        // Core city slots
+        $setParts[] = "f26 = $mbLvl, f26t = 15"; // Main Building
+        $setParts[] = "f25 = $whLvl, f25t = 10"; // Warehouse
+        $setParts[] = "f28 = $grLvl, f28t = 11"; // Granary
+        $setParts[] = "f39 = 1, f39t = 16";      // Rally Point
+        $setParts[] = "f21 = $brLvl, f21t = 19"; // Barracks
+        $setParts[] = "f40 = $wlLvl, f40t = $wallType"; // Wall
+        $setParts[] = "f31 = $crLvl, f31t = 23"; // Cranny
+
+        // Advanced buildings (reset to 0 if age not reached)
+        $setParts[] = $acLvl > 0 ? "f22 = $acLvl, f22t = 22" : "f22 = 0, f22t = 0";
+        $setParts[] = $mpLvl > 0 ? "f27 = $mpLvl, f27t = 17" : "f27 = 0, f27t = 0";
+        $setParts[] = $stLvl > 0 ? "f20 = $stLvl, f20t = 20" : "f20 = 0, f20t = 0";
+        $setParts[] = $wsLvl > 0 ? "f23 = $wsLvl, f23t = 21" : "f23 = 0, f23t = 0";
+        $setParts[] = $rsLvl > 0 ? "f30 = $rsLvl, f30t = 25" : "f30 = 0, f30t = 0";
+
+        // Clear unused / unbuilt slots: f19, f24, f29, f32..f38
+        $unusedSlots = [19, 24, 29, 32, 33, 34, 35, 36, 37, 38];
+        foreach ($unusedSlots as $us) {
+            $setParts[] = "f{$us} = 0, f{$us}t = 0";
+        }
+
+        $database->query("UPDATE " . TB_PREFIX . "fdata SET " . implode(', ', $setParts) . " WHERE vref = $wid");
+
+        // Clear pending building, training, research, and demolition queues
+        $database->query("DELETE FROM " . TB_PREFIX . "bdata WHERE wid = $wid");
+        $database->query("DELETE FROM " . TB_PREFIX . "training WHERE vref = $wid");
+        $database->query("DELETE FROM " . TB_PREFIX . "research WHERE vref = $wid");
+        $database->query("DELETE FROM " . TB_PREFIX . "demolition WHERE vref = $wid");
+
+        // Update storage capacities in vdata
+        $whCap = self::getStorageCapacity($whLvl);
+        $grCap = self::getStorageCapacity($grLvl);
+        $database->query("UPDATE " . TB_PREFIX . "vdata SET maxstore = $whCap, maxcrop = $grCap WHERE wref = $wid");
+
+        // Invalidate database resource level cache
+        if (class_exists('DatabaseVillageQueries') && method_exists('DatabaseVillageQueries', 'clearResourseLevelsCache')) {
+            DatabaseVillageQueries::clearResourseLevelsCache();
+        }
+
+        // Recount population
+        return self::recountPop($wid);
+    }
+
+    /**
+     * Rebalance all bot villages on the server to natural population and garrison levels.
+     * Can be invoked from Admin Bot Manager.
+     */
+    public static function rebalanceBotTroops($targetGarrison = 0, $rebalancePop = false, $targetDay = 1): array {
+        global $database;
+
+        $sql = "SELECT u.id as uid, u.username, u.tribe, u.regtime, u.timestamp, v.wref, v.pop
+                FROM " . TB_PREFIX . "users u
+                JOIN " . TB_PREFIX . "vdata v ON u.id = v.owner
+                WHERE u.access = 2
+                  AND (u.is_bot = 1 OR u.email LIKE '%@bot.travianz' OR u.desc1 LIKE '%[#BOT]%' OR u.desc2 LIKE '%[#BOT]%' OR u.username LIKE 'Bot_%')
+                ORDER BY u.id ASC";
+        $bots = $database->query_return($sql);
+
+        if (empty($bots)) {
+            return [
+                'status' => 'idle',
+                'message' => 'No active bot accounts found',
+                'villages_processed' => 0,
+                'troops_trimmed' => 0,
+                'total_troops_after' => 0,
+            ];
+        }
+
+        $speed = defined('SPEED') ? max(1, (float)SPEED) : 1.0;
+        $trimmedBots = 0;
+        $totalTrimmedTroops = 0;
+        $popAdjustedBots = 0;
+
+        foreach ($bots as $bot) {
+            $wid = (int)$bot['wref'];
+            $tribe = (int)$bot['tribe'];
+            $bUid = (int)$bot['uid'];
+
+            // Determine effective age days
+            if ($targetDay > 0) {
+                $effectiveAgeDays = (float)$targetDay;
+                // Synchronize bot regtime to chosen target day
+                $syncedRegTime = time() - (int)($targetDay * 86400);
+                $database->query("UPDATE " . TB_PREFIX . "users SET regtime = $syncedRegTime WHERE id = $bUid");
+            } else {
+                $regTime = (int)($bot['regtime'] ?? $bot['timestamp'] ?? 0);
+                if ($regTime <= 0) {
+                    $regTime = time() - 86400;
+                }
+                $ageSeconds = max(60, time() - $regTime);
+                $effectiveAgeDays = ($ageSeconds / 86400.0) * sqrt($speed);
+            }
+
+            // 1. Rebalance buildings & population to natural age curve if requested
+            if ($rebalancePop) {
+                self::rebalanceVillageBuildings($wid, $tribe, $effectiveAgeDays);
+                $popAdjustedBots++;
+            }
+
+            // 2. Rebalance garrison troops
+            if ($targetGarrison > 0) {
+                $allowedTroops = $targetGarrison;
+            } else {
+                $pop = (int)($database->getVillageField($wid, 'pop') ?: $bot['pop']);
+                $ageArmyCap = (int)round(12 + ($effectiveAgeDays * 13));
+                $popArmyCap = max(8, (int)round($pop * 0.35));
+                $allowedTroops = min($ageArmyCap, $popArmyCap);
+                $allowedTroops = max(8, min(250, $allowedTroops));
+            }
+
+            // Clear foreign reinforcements stationed in or sent from the bot village
+            $database->query("DELETE FROM " . TB_PREFIX . "enforcement WHERE vref = $wid OR `from` = $wid");
+
+            // Trim standing army to natural garrison size
+            $trimmed = self::trimVillageTroops($wid, $tribe, $allowedTroops);
+            if ($trimmed > 0) {
+                $totalTrimmedTroops += $trimmed;
+                $trimmedBots++;
+            }
+        }
+
+        if (method_exists($database, 'clearUnitsCache')) {
+            $database->clearUnitsCache();
+        }
+
+        // Calculate remaining troops across all bot villages
+        $totalTroopsAfter = 0;
+        $vrefs = array_map(function($b) { return (int)$b['wref']; }, $bots);
+        if (!empty($vrefs)) {
+            $vrefList = implode(',', $vrefs);
+            $allUnits = $database->query_return("SELECT * FROM " . TB_PREFIX . "units WHERE vref IN ($vrefList)");
+            if (!empty($allUnits)) {
+                foreach ($allUnits as $uRow) {
+                    for ($ui = 1; $ui <= 100; $ui++) {
+                        $totalTroopsAfter += (int)($uRow['u' . $ui] ?? 0);
+                    }
+                }
+            }
+        }
+
+        return [
+            'status' => 'success',
+            'villages_processed' => count($bots),
+            'bots_total' => count($bots),
+            'bots_trimmed' => $trimmedBots,
+            'troops_trimmed' => $totalTrimmedTroops,
+            'troops_removed' => $totalTrimmedTroops,
+            'pop_adjusted_bots' => $popAdjustedBots,
+            'total_troops_after' => $totalTroopsAfter,
+            'target_day' => $targetDay,
+        ];
     }
 
     /**
@@ -1992,7 +2267,9 @@ class BotAI {
             }
         }
 
-        Building::recountCP($database, $vid);
+        if (class_exists('Building') && method_exists('Building', 'recountCP') && !empty($database->dblink) && $database->dblink instanceof \mysqli) {
+            Building::recountCP($database, $vid);
+        }
         $database->query("UPDATE " . TB_PREFIX . "vdata SET pop = $popTot WHERE wref = $vid");
 
         return $popTot;
@@ -2003,11 +2280,17 @@ class BotAI {
      */
     public static function buildingPOP(int $type, int $lvl): int {
         $varName = 'bid' . $type;
-        global $$varName;
+        $data = $GLOBALS[$varName] ?? null;
+        if (!is_array($data)) {
+            global $$varName;
+            $data = $$varName ?? null;
+        }
+        if (!is_array($data) && file_exists(__DIR__ . '/Data/buidata.php')) {
+            require __DIR__ . '/Data/buidata.php';
+            $data = $GLOBALS[$varName] ?? ($$varName ?? null);
+        }
 
         $popTot = 0;
-        $data = $$varName ?? null;
-
         if (is_array($data)) {
             for ($i = 0; $i <= $lvl; $i++) {
                 if (isset($data[$i]['pop'])) {

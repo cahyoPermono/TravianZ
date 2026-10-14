@@ -182,3 +182,60 @@ Server kini telah dilengkapi fitur **Hero dari Awal Permainan** persis seperti d
      - `define("HERO_MANSION_REGEN_PER_LEVEL", 3);`
      - `define("HERO_MANSION_REVIVE_DISCOUNT", 0.025);`
 
+---
+
+## 9. Formula Pertumbuhan Alami Bot Berbasis Usia Akun (Natural Age Pacing)
+
+Untuk mencegah bot melesat secara tidak realistis dalam hitungan jam (seperti mencapai populasi 400+ dan ribuan pasukan hanya dalam 1 hari), sistem telah dilengkapi **pembatas usia akun (*Account Age-Gated Progression*)**:
+
+1. **Plafon Populasi Maksimal per Usia**:
+   - **Hari ke-1 (Usia 0–24 Jam)**: Maksimal **~48–56 populasi** (desa pemula yang wajar: ladang lvl 2, MB lvl 3, Warehouse/Granary/Barracks/Wall lvl 1).
+   - **Hari ke-2 (Usia 24–48 Jam)**: Maksimal **~75–85 populasi** (ladang lvl 3).
+   - **Hari ke-3 (Usia 48–72 Jam)**: Maksimal **~110–130 populasi** (ladang lvl 4, mulai kavaleri).
+   - Bot tidak akan melakukan upgrade gedung jika populasinya telah menyentuh batas wajar usianya.
+   - Jika bot terlanjur overgrown (> 1.5x plafon), bot secara otomatis menormalkan kembali bangunannya.
+
+2. **Plafon Level Ladang Sumber Daya**:
+   - **Hari ke-1**: Maksimal level **2**.
+   - **Hari ke-2**: Maksimal level **3**.
+   - **Hari ke-3**: Maksimal level **4**.
+
+3. **Batasan Pasukan & Jenis Unit Berbasis Usia**:
+   - Rasio pasukan dibatasi **25%–35% dari populasi** desa bot (bukan 180%).
+   - **Hari ke-1**: Maksimal **20–25 pasukan total**, dan **hanya infanteri dasar** (contoh: *Clubswinger / Legionnaire / Phalanx*). Kavaleri dan senjata pengepungan (*catapult / ram*) **dikunci total**.
+   - **Hari ke-2.5+**: Kandang Kuda (*Stable*) baru boleh dibangun untuk melatih unit kavaleri awal.
+   - **Hari ke-4.5+**: Bengkel Senjata (*Workshop*) baru boleh dibangun untuk senjata pengepungan.
+
+4. **Pencegahan Akumulasi & Auto-Trimming**:
+   - Setiap kali bot memeriksa pelatihan militer, jika total pasukan di desa bot melebihi 1.5x batas usianya (misal karena sisa bot lama), sistem secara otomatis memangkas (*auto-trim*) pasukan tersebut kembali ke batas wajar.
+   - Seluruh antrean konstruksi (`bdata`), antrean pelatihan militer (`training`), dan penelitian (`research`) yang tertunda dibersihkan saat normalisasi agar gedung atau pasukan tidak melonjak kembali.
+
+---
+
+## 10. Fitur Admin: Troop Manager (Tambah Pasukan) & Normalisasi Bot
+
+Tersedia antarmuka admin lengkap untuk mengganti kerugian pasukan pemain atau menyeimbangkan bot yang ada:
+
+### A. Admin Troop Manager (Kompensasi / Edit Pasukan)
+- **Akses**: Masuk ke **Admin Control Panel (ACP)** -> Menu Sidebar **⚔️ Troop Manager (Tambah Pasukan)** atau URL `admin.php?p=addTroops`.
+- **Fitur Utama**:
+  - **Banner Kompensasi Instan Vee**: Sistem otomatis mendeteksi akun pemain **Vee** (Desa: *Fuuuiiyooohh*) di baris teratas dengan tombol 1-klik untuk memberikan kompensasi penuh.
+  - **Tombol Kompensasi Cepat 1-Klik**:
+    - `🎁 Berikan Kompensasi Penuh (+197 & +8 & Revive Hero)`: Langsung tersedia di banner atas, tabel pencarian, dan di halaman edit desa.
+    - Suku Teuton (Vee): Menambahkan **+197 Clubswinger (u11)**, **+8 Paladin (u15)**, serta **menghidupkan kembali Hero (Pahlawan) dengan 100% Health** langsung di desa.
+    - Suku Romawi: +197 Legionnaire (u1), +8 Equites Imperatoris (u5), dan Revive Hero 100%.
+    - Suku Gaul: +197 Phalanx (u21), +8 Theutates Thunder (u24), dan Revive Hero 100%.
+  - **Pencarian Cepat**: Cari desa berdasarkan Nama Pemain, Nama Desa, ID Desa (`did`), atau Koordinat `(X|Y)`.
+  - **Helper Input Cepat**: Tombol `+50`, `+100`, `+197` infanteri dan `+8`, `+50` kavaleri untuk mengisi form secara instan.
+  - **Mode Input Aditif (`+`)**: Tambahkan jumlah pasukan tanpa menimpa jumlah yang ada.
+  - **Mode Input Langsung**: Menetapkan angka pasti pasukan garnisun (`u1`–`u100`) dan status Hero di desa.
+
+### B. Tombol Normalisasi Pasukan & Bangunan Bot (1-Klik Rebalance)
+- **Akses**: Masuk ke **Admin Panel -> Bot AI Manager** (`admin.php?p=botManager`), klik tombol merah muda di pojok kanan atas: **⚖️ Normalisasi Pasukan & Bangunan Bot**.
+- **Fungsi**:
+  - Pilihan Target Usia Bot: **Usia Hari 1 (Default)**, Hari 2, Hari 3, atau Otomatis.
+  - Langsung mereset seluruh 18 ladang ke level 2, merapikan gedung kota (Main Building lvl 3, Warehouse/Granary/Barracks/Wall/Cranny lvl 1), mencopot gedung lanjut (Stable/Workshop/Academy/Market/Residence ke level 0), membersihkan antrean pending (`bdata`, `training`, `research`, `demolition`), dan menghitung ulang populasi menjadi ~48–56 pop/desa.
+  - Memangkas ribuan pasukan bot berlebih kembali ke 20–25 prajurit dasar per desa (0 kavaleri, 0 senjata pengepungan).
+  - Membersihkan pasukan bantuan bot (*enforcement*) agar bot tidak saling menumpuk garnisun puluhan ribu.
+
+

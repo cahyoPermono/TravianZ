@@ -501,6 +501,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
             }
         }
     }
+    // 9. REBALANCE BOT TROOPS
+    elseif ($action === 'rebalance_troops') {
+        $targetGarrison = max(0, (int)($_POST['target_garrison'] ?? 0));
+        $rebalancePop = !empty($_POST['rebalance_pop']) || !isset($_POST['rebalance_pop_submitted']);
+        $targetAgeDay = isset($_POST['target_age_day']) ? (int)$_POST['target_age_day'] : 1;
+        $result = BotAI::rebalanceBotTroops($targetGarrison, $rebalancePop, $targetAgeDay);
+        $ageLabel = $targetAgeDay > 0 ? "Hari ke-$targetAgeDay" : "Otomatis";
+        $flashSuccess = "⚖️ <b>Normalisasi Berhasil!</b> Diproses: <b>" . ($result['villages_processed'] ?? 0) . "</b> desa bot (Target Usia: <b>$ageLabel</b>).<br>"
+            . "• Pasukan berlebih dipangkas: <b>" . number_format($result['troops_trimmed'] ?? 0) . "</b> unit (Sisa total server: <b>" . number_format($result['total_troops_after'] ?? 0) . "</b> unit).<br>"
+            . "• Bangunan & populasi dinormalkan: <b>" . ($result['pop_adjusted_bots'] ?? 0) . "</b> desa bot (Ladang lvl 2, MB lvl 3, Warehouse/Barracks lvl 1, gedung lanjut seperti Stable/Workshop dicopot, pop ~48-56/desa).";
+    }
 }
 
 // ==============================================================================
@@ -691,7 +702,13 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
             <h2>🤖 <span>Autonomous Bot AI</span> Manager</h2>
             <p>Kelola bot mandiri dengan perkembangan bangunan organik, pelatihan militer multi-tier, dan penyerangan raid aktif — 100% via Browser tanpa perlu terminal Hostinger.</p>
         </div>
-        <div style="display:flex; gap:8px;">
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <a href="admin.php?p=addTroops" class="btn-secondary" style="padding:10px 14px; font-size:12px; font-weight:700; background:#1e293b; color:#38bdf8; border:1px solid #0284c7;" title="Buka Admin Troop Manager untuk tambah atau kompensasi pasukan pemain/desa">
+                ⚔️ Troop Manager (Kompensasi)
+            </a>
+            <button type="button" class="btn-secondary" style="padding:10px 14px; font-size:12px; font-weight:700; background:#3b1e2b; color:#f472b6; border:1px solid #be185d;" onclick="openRebalanceModal()" title="Pangkas pasukan bot berlebih dan normalkan bangunan/populasi agar sesuai pertumbuhan alami">
+                ⚖️ Normalisasi Pasukan & Bangunan Bot
+            </button>
             <form method="post" action="admin.php?p=botManager" style="margin:0;">
                 <?php echo csrf_field(); ?>
                 <input type="hidden" name="bot_action" value="run_tick">
@@ -1279,7 +1296,75 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
 
 </div>
 
+<!-- Modal Normalisasi Pasukan Bot -->
+<div id="modalRebalance" style="display:none; position:fixed; z-index:99999; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.78); backdrop-filter:blur(3px); align-items:center; justify-content:center;">
+    <div style="background:#0f172a; border:1px solid #334155; border-radius:12px; width:92%; max-width:540px; padding:24px; box-shadow:0 20px 40px rgba(0,0,0,0.6); color:#f8fafc; font-family:Verdana,Arial,sans-serif;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid #1e293b; padding-bottom:10px;">
+            <h3 style="margin:0; font-size:16px; color:#f472b6; display:flex; align-items:center; gap:8px;">⚖️ Normalisasi / Rebalance Pasukan Bot</h3>
+            <button type="button" onclick="closeRebalanceModal()" style="background:transparent; border:none; color:#94a3b8; font-size:24px; cursor:pointer; line-height:1;">&times;</button>
+        </div>
+        <p style="font-size:11px; color:#cbd5e1; line-height:1.5; margin:0 0 16px;">
+            Fitur ini secara instan memangkas ribuan pasukan bot yang menumpuk tidak wajar (misal 60.000 pasukan) agar kembali seimbang sesuai batas pertumbuhan alami berdasarkan usia akun (1 hari: ~20-35 pasukan).
+        </p>
+        <form method="post" action="admin.php?p=botManager" style="margin:0;">
+            <?php echo csrf_field(); ?>
+            <input type="hidden" name="bot_action" value="rebalance_troops">
+            
+            <div class="botm-form-group" style="margin-bottom:14px;">
+                <label style="display:block; font-size:11px; font-weight:600; color:#cbd5e1; margin-bottom:6px;">Target Normalisasi Usia Bot:</label>
+                <select name="target_age_day" class="botm-form-control" style="width:100%; box-sizing:border-box; background:#0b1220; color:#fff; border:1px solid #334155; border-radius:6px; padding:7px 10px; font-size:12px;">
+                    <option value="1" selected>⭐ Usia Hari 1 (Default): Pop ~48-56, Ladang Lvl 2, Gedung Kota Lvl 1-3, Tanpa Stable/Workshop, Pasukan ~20-25</option>
+                    <option value="2">Usia Hari 2: Pop ~75-85, Ladang Lvl 3, Gedung Kota Lvl 2-4, Pasukan ~35-45</option>
+                    <option value="3">Usia Hari 3: Pop ~110-130, Ladang Lvl 4, Buka Kavaleri Dasar, Pasukan ~55-70</option>
+                    <option value="0">Otomatis (Sesuai hitungan timestamp akun saat ini)</option>
+                </select>
+                <small style="color:#94a3b8; font-size:10px; display:block; margin-top:4px;">
+                    💡 Pilih <b>Usia Hari 1</b> untuk langsung membersihkan bot yang populasinya membesar tidak wajar (400+) dan mencopot kandang kavaleri/bengkel.
+                </small>
+            </div>
+
+            <div class="botm-form-group" style="margin-bottom:14px;">
+                <label style="display:block; font-size:11px; font-weight:600; color:#cbd5e1; margin-bottom:6px;">Batas Maksimal Pasukan Garnisun per Desa:</label>
+                <input type="number" name="target_garrison" class="botm-form-control" value="0" min="0" max="500" style="width:100%; box-sizing:border-box;">
+                <small style="color:#94a3b8; font-size:10px; display:block; margin-top:4px;">
+                    💡 Isi <b>0</b> untuk otomatis sesuai formula target usia bot (Hari 1 = ~20-25 prajurit dasar). Atau tentukan angka tetap jika ingin membatasi (misal 20).
+                </small>
+            </div>
+
+            <div style="background:#1e293b; border:1px solid #334155; border-radius:8px; padding:12px; margin-bottom:16px;">
+                <input type="hidden" name="rebalance_pop_submitted" value="1">
+                <label style="display:flex; align-items:flex-start; gap:8px; font-size:11px; color:#e2e8f0; cursor:pointer;">
+                    <input type="checkbox" name="rebalance_pop" value="1" checked style="margin-top:2px;">
+                    <span>
+                        <b style="color:#f472b6;">Normalisasi Bangunan, Ladang & Populasi ke Batas Usia Bot</b><br>
+                        <span style="font-size:10px; color:#94a3b8;">Sangat Dianjurkan (Centang): Menormalkan ladang ke level 2, merapikan gedung kota (Main Building lvl 3, Warehouse/Granary/Barracks/Wall lvl 1), mencopot gedung lanjut (Stable/Workshop/Academy) yang belum saatnya dibangun, menghapus antrean konstruksi/pelatihan yang tertunda, dan menghitung ulang populasi menjadi wajar ~48-56 pop/desa.</span>
+                    </span>
+                </label>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:8px;">
+                <button type="button" onclick="closeRebalanceModal()" class="btn-secondary" style="padding:8px 14px; font-size:11px; cursor:pointer;">Batal</button>
+                <button type="submit" class="btn-primary" style="background:#be185d; padding:8px 16px; font-size:12px; font-weight:700; cursor:pointer;">⚖️ Eksekusi Normalisasi</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script type="text/javascript">
+function openRebalanceModal() {
+    var modal = document.getElementById('modalRebalance');
+    if (modal) {
+        modal.style.display = 'flex';
+    }
+}
+
+function closeRebalanceModal() {
+    var modal = document.getElementById('modalRebalance');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
 function setCount(val) {
     document.getElementById('spawn_count').value = val;
 }

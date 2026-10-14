@@ -17,7 +17,7 @@ require_once(__DIR__ . '/../csrf.php');
 if (!isset($_SESSION)) {
     session_start();
 }
-if (empty($_SESSION['access']) || $_SESSION['access'] < 9) {
+if (empty($_SESSION['access']) || $_SESSION['access'] < (defined('MULTIHUNTER') ? MULTIHUNTER : 8)) {
     admin_deny('You must be signed in as an administrator to view this page. Your session may have expired — please return to the admin panel and sign in again.');
 }
 
@@ -52,12 +52,52 @@ $u = ($tribe - 1) * 10;
 $fields = [];
 for ($i = 1; $i <= 10; $i++) {
     $unitId = $u + $i;
-    $val = (int)($_POST['u' . $unitId] ?? 0);
-    $fields[] = "u$unitId = $val";
+    $addVal = (int)($_POST['add_u' . $unitId] ?? 0);
+    if ($addVal > 0) {
+        $fields[] = "u$unitId = u$unitId + $addVal";
+    } elseif (isset($_POST['u' . $unitId])) {
+        $val = max(0, (int)$_POST['u' . $unitId]);
+        $fields[] = "u$unitId = $val";
+    }
 }
 
-$q = "UPDATE " . TB_PREFIX . "units SET " . implode(", ", $fields) . " WHERE vref = $id";
-$database->query($q);
+// Hero adjustment
+if (isset($_POST['hero'])) {
+    $heroVal = max(0, (int)$_POST['hero']);
+    $fields[] = "hero = $heroVal";
+
+    $uOwner = (int)$user['id'];
+    if ($heroVal == 1) {
+        $heroCheck = $database->query_return("SELECT heroid FROM " . TB_PREFIX . "hero WHERE uid = $uOwner LIMIT 1");
+        if (!empty($heroCheck)) {
+            $database->query("UPDATE " . TB_PREFIX . "hero SET dead = 0, health = 100, inrevive = 0, intraining = 0, wref = $id WHERE uid = $uOwner");
+        } else {
+            $basicUnit = $u + 1;
+            $heroNameEsc = $database->escape(($user['username'] ?? 'Player') . "'s Hero");
+            $database->query("INSERT INTO " . TB_PREFIX . "hero (`uid`, `unit`, `name`, `wref`, `level`, `points`, `experience`, `silver`, `production`, `dead`, `health`, `attack`, `defence`, `attackbonus`, `defencebonus`, `regeneration`, `resources`, `res_type`, `autoregen`, `lastupdate`) VALUES ($uOwner, $basicUnit, '$heroNameEsc', $id, 0, 0, 0, 100, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, " . time() . ")");
+        }
+    } elseif ($heroVal == 0) {
+        $database->query("UPDATE " . TB_PREFIX . "hero SET dead = 1, health = 0, inrevive = 0, intraining = 0 WHERE uid = $uOwner");
+    }
+}
+
+if (!empty($fields)) {
+    if (method_exists($database, 'addUnits')) {
+        $database->addUnits($id);
+    }
+    $q = "UPDATE " . TB_PREFIX . "units SET " . implode(", ", $fields) . " WHERE vref = $id";
+    $database->query($q);
+
+    // Invalidate in-memory caches
+    if (class_exists('DatabaseHeroQueries')) {
+        \DatabaseHeroQueries::$heroCache = [];
+        \DatabaseHeroQueries::$heroFieldCache = [];
+        \DatabaseHeroQueries::$heroVillageCache = [];
+    }
+    if (method_exists($database, 'clearUnitsCache')) {
+        $database->clearUnitsCache();
+    }
+}
 
 /* ---------------------------------------------------------------------------
  * Log admin - adaptat pentru tabelul tău
@@ -65,11 +105,10 @@ $database->query($q);
 $adminId = (string)(int)$_SESSION['id'];
 $time = time();
 
-// FIX AICI
 $villageName = $village['name'] ?? 'Village';
 $villageNameSafe = htmlspecialchars($villageName, ENT_QUOTES, 'UTF-8');
 
-$logText = "Changed troop amounts in village <a href='admin.php?p=village&did=$id'>$villageNameSafe</a>";
+$logText = "Updated / added troop amounts in village <a href='admin.php?p=addTroops&did=$id'>$villageNameSafe</a> (Owner: " . htmlspecialchars($user['username'] ?? '') . ")";
 
 $adminIdEsc = $database->escape($adminId);
 $logEsc = $database->escape($logText);
@@ -81,6 +120,6 @@ $database->query(
 
 $database->addStarvationData($id);
 
-header("Location: ../../../Admin/admin.php?p=village&did=" . $id . "&d");
+header("Location: ../../../Admin/admin.php?p=addTroops&did=" . $id . "&saved=1");
 exit;
 ?>
