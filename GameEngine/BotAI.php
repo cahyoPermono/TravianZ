@@ -2040,124 +2040,133 @@ class BotAI {
             $res = $database->query_return("SELECT {$colsSql}, hero FROM " . TB_PREFIX . "units WHERE vref = $bWid LIMIT 1");
             $homeUnits = !empty($res[0]) ? $res[0] : [];
 
-            // Extract unit numbers by role
-            $basicU   = $tribeUnits['basic'];
-            $defU     = $tribeUnits['inf_def'] ?? $basicU;
-            $cavDefU  = $tribeUnits['cav_def'] ?? null;
-            $advU     = $tribeUnits['inf_adv'] ?? $basicU;
-            $lightCav = $tribeUnits['cav_light'] ?? null;
-            $heavyCav = $tribeUnits['cav_heavy'] ?? $lightCav;
-            $ramU     = $tribeUnits['ram'] ?? null;
-            $catU     = $tribeUnits['catapult'] ?? null;
-
-            // Target party size
-            $desiredTotal = ($troopCount > 0) ? (int)$troopCount : 40;
-
-            // Build unit allocation according to requested composition
-            $plan = [];
-            switch ($composition) {
-                case 'defense':
-                    // Defensive garrison: heavy emphasis on inf_def and cav_def / basic
-                    $defCount = (int)round($desiredTotal * 0.55);
-                    $cavDefCount = $cavDefU ? (int)round($desiredTotal * 0.30) : 0;
-                    $basicCount = max(0, $desiredTotal - $defCount - $cavDefCount);
-                    if ($defCount > 0) $plan[$defU] = ($plan[$defU] ?? 0) + $defCount;
-                    if ($cavDefCount > 0) $plan[$cavDefU] = ($plan[$cavDefU] ?? 0) + $cavDefCount;
-                    if ($basicCount > 0) $plan[$basicU] = ($plan[$basicU] ?? 0) + $basicCount;
-                    break;
-
-                case 'cavalry':
-                    if ($lightCav && $heavyCav) {
-                        $lCount = (int)round($desiredTotal * 0.60);
-                        $hCount = max(0, $desiredTotal - $lCount);
-                        if ($lCount > 0) $plan[$lightCav] = $lCount;
-                        if ($hCount > 0) $plan[$heavyCav] = $hCount;
-                    } elseif ($lightCav) {
-                        $plan[$lightCav] = $desiredTotal;
-                    } else {
-                        $plan[$advU] = $desiredTotal;
-                    }
-                    break;
-
-                case 'infantry':
-                    $bCount = (int)round($desiredTotal * 0.40);
-                    $dCount = (int)round($desiredTotal * 0.30);
-                    $aCount = max(0, $desiredTotal - $bCount - $dCount);
-                    if ($bCount > 0) $plan[$basicU] = ($plan[$basicU] ?? 0) + $bCount;
-                    if ($dCount > 0) $plan[$defU]   = ($plan[$defU] ?? 0) + $dCount;
-                    if ($aCount > 0) $plan[$advU]   = ($plan[$advU] ?? 0) + $aCount;
-                    break;
-
-                case 'siege':
-                    $infCount = (int)round($desiredTotal * 0.35);
-                    $cavCount = ($lightCav || $heavyCav) ? (int)round($desiredTotal * 0.35) : 0;
-                    $remSiege = max(2, $desiredTotal - $infCount - $cavCount);
-                    $ramCount = $ramU ? (int)round($remSiege * 0.50) : 0;
-                    $catCount = $catU ? max(0, $remSiege - $ramCount) : 0;
-
-                    if ($infCount > 0) $plan[$advU] = ($plan[$advU] ?? 0) + $infCount;
-                    if ($cavCount > 0 && $lightCav) $plan[$lightCav] = ($plan[$lightCav] ?? 0) + $cavCount;
-                    if ($ramCount > 0) $plan[$ramU] = $ramCount;
-                    if ($catCount > 0) $plan[$catU] = $catCount;
-                    break;
-
-                case 'balanced':
-                default:
-                    $infTotal = (int)round($desiredTotal * 0.45);
-                    $cavTotal = ($lightCav || $heavyCav) ? (int)round($desiredTotal * 0.40) : 0;
-                    $siegeTotal = ($attackType === 3 && ($ramU || $catU)) ? max(0, $desiredTotal - $infTotal - $cavTotal) : 0;
-                    if ($siegeTotal === 0 && ($desiredTotal - $infTotal - $cavTotal) > 0) {
-                        $infTotal += ($desiredTotal - $infTotal - $cavTotal);
-                    }
-
-                    // Split infantry between basic & adv
-                    $bPart = (int)round($infTotal * 0.50);
-                    $aPart = max(0, $infTotal - $bPart);
-                    if ($bPart > 0) $plan[$basicU] = ($plan[$basicU] ?? 0) + $bPart;
-                    if ($aPart > 0) $plan[$advU]   = ($plan[$advU] ?? 0) + $aPart;
-
-                    // Split cavalry between light & heavy
-                    if ($cavTotal > 0) {
-                        if ($lightCav && $heavyCav) {
-                            $lPart = (int)round($cavTotal * 0.65);
-                            $hPart = max(0, $cavTotal - $lPart);
-                            if ($lPart > 0) $plan[$lightCav] = ($plan[$lightCav] ?? 0) + $lPart;
-                            if ($hPart > 0) $plan[$heavyCav] = ($plan[$heavyCav] ?? 0) + $hPart;
-                        } elseif ($lightCav) {
-                            $plan[$lightCav] = ($plan[$lightCav] ?? 0) + $cavTotal;
-                        }
-                    }
-
-                    // Siege
-                    if ($siegeTotal > 0) {
-                        $rPart = $ramU ? (int)round($siegeTotal * 0.50) : 0;
-                        $cPart = $catU ? max(0, $siegeTotal - $rPart) : 0;
-                        if ($rPart > 0) $plan[$ramU] = $rPart;
-                        if ($cPart > 0) $plan[$catU] = $cPart;
-                    }
-                    break;
-            }
-
-            // Auto-provision any missing units to ensure diverse army is mobilized
-            $toProvision = [];
-            foreach ($plan as $uNum => $needed) {
+            // Fetch available regular combat units at home (strictly only troops the bot actually owns, NO auto-provisioning)
+            $availableUnits = [];
+            $totalAvailable = 0;
+            foreach ($tribeUnits['all'] as $uNum) {
                 $cur = (int)($homeUnits['u' . $uNum] ?? 0);
-                if ($cur < $needed) {
-                    $diff = $needed - $cur;
-                    $toProvision[$uNum] = $diff;
-                    $homeUnits['u' . $uNum] = $needed;
+                if ($cur > 0) {
+                    $availableUnits[$uNum] = $cur;
+                    $totalAvailable += $cur;
                 }
             }
-            if (!empty($toProvision)) {
-                $pUnits = array_keys($toProvision);
-                $pAmounts = array_values($toProvision);
-                $pModes = array_fill(0, count($pAmounts), 1); // 1 = ADD
-                $database->modifyUnit($bWid, $pUnits, $pAmounts, $pModes);
+
+            // Check hero availability
+            $sendHero = 0;
+            $hCheck = $database->query_return("SELECT u.hero, h.dead, h.health FROM " . TB_PREFIX . "units u LEFT JOIN " . TB_PREFIX . "hero h ON h.uid = $bUid WHERE u.vref = $bWid LIMIT 1");
+            $heroAvailable = (!empty($hCheck[0]) && (int)($hCheck[0]['hero'] ?? 0) > 0 && (int)($hCheck[0]['dead'] ?? 0) === 0 && (float)($hCheck[0]['health'] ?? 0) >= 25);
+
+            // If the bot has no troops at all and no ready hero, skip this bot
+            if ($totalAvailable <= 0 && !$heroAvailable) {
+                continue;
             }
 
-            // Deduct dispatched units from bot village
-            $dispatched = $plan;
-            $database->modifyUnit($bWid, array_keys($dispatched), array_values($dispatched), array_fill(0, count($dispatched), 0));
+            // Target party size capped strictly by total available units at home
+            if ($troopCount > 0) {
+                $targetSend = min((int)$troopCount, $totalAvailable);
+            } else {
+                // Default: send all troops if small garrison (<= 50), or up to 50
+                $targetSend = min(50, $totalAvailable);
+            }
+
+            // If nothing to send and no hero, skip
+            if ($targetSend <= 0 && !$heroAvailable) {
+                continue;
+            }
+
+            $dispatched = [];
+            if ($targetSend >= $totalAvailable) {
+                $dispatched = $availableUnits;
+            } elseif ($targetSend > 0) {
+                // Select $targetSend units from $availableUnits based on requested composition
+                $basicU   = $tribeUnits['basic'];
+                $defU     = $tribeUnits['inf_def'] ?? $basicU;
+                $cavDefU  = $tribeUnits['cav_def'] ?? null;
+                $advU     = $tribeUnits['inf_adv'] ?? $basicU;
+                $lightCav = $tribeUnits['cav_light'] ?? null;
+                $heavyCav = $tribeUnits['cav_heavy'] ?? $lightCav;
+                $ramU     = $tribeUnits['ram'] ?? null;
+                $catU     = $tribeUnits['catapult'] ?? null;
+                $scoutU   = $tribeUnits['scout'] ?? null;
+
+                $weights = [];
+                foreach ($availableUnits as $uNum => $avail) {
+                    $w = 1.0;
+                    $isScout = ($scoutU && $uNum === $scoutU);
+                    $isCav   = in_array($uNum, array_filter([$lightCav, $heavyCav, $cavDefU]), true);
+                    $isSiege = in_array($uNum, array_filter([$ramU, $catU]), true);
+                    $isInf   = in_array($uNum, array_filter([$basicU, $defU, $advU]), true);
+                    $isDef   = in_array($uNum, array_filter([$defU, $cavDefU, $basicU]), true);
+
+                    if ($isScout) {
+                        $w = 0.05; // Do not send scouts unless only scouts are available
+                    } elseif ($composition === 'cavalry') {
+                        $w = $isCav ? 5.0 : ($isInf ? 1.0 : 0.5);
+                    } elseif ($composition === 'infantry') {
+                        $w = $isInf ? 5.0 : ($isCav ? 1.0 : 0.5);
+                    } elseif ($composition === 'siege') {
+                        $w = $isSiege ? 5.0 : ($isInf ? 1.0 : 0.5);
+                    } elseif ($composition === 'defense') {
+                        $w = $isDef ? 5.0 : 1.0;
+                    } else { // balanced
+                        $w = $isCav ? 1.5 : ($isInf ? 1.0 : 0.8);
+                    }
+
+                    $weights[$uNum] = $w * $avail;
+                }
+
+                $sumWeights = array_sum($weights);
+                $remaining = $targetSend;
+
+                if ($sumWeights > 0) {
+                    foreach ($availableUnits as $uNum => $avail) {
+                        $portion = (int)floor(($weights[$uNum] / $sumWeights) * $targetSend);
+                        $send = min($avail, $portion);
+                        if ($send > 0) {
+                            $dispatched[$uNum] = $send;
+                            $remaining -= $send;
+                        }
+                    }
+                }
+
+                // If any remainder left due to floor rounding, fill from available units with remaining headroom
+                if ($remaining > 0) {
+                    $headroom = [];
+                    foreach ($availableUnits as $uNum => $avail) {
+                        $hr = $avail - ($dispatched[$uNum] ?? 0);
+                        if ($hr > 0) {
+                            $headroom[$uNum] = $hr;
+                        }
+                    }
+                    arsort($headroom);
+                    foreach ($headroom as $uNum => $hr) {
+                        $take = min($hr, $remaining);
+                        $dispatched[$uNum] = ($dispatched[$uNum] ?? 0) + $take;
+                        $remaining -= $take;
+                        if ($remaining <= 0) {
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Filter out any 0 amounts
+            $dispatched = array_filter($dispatched, function($cnt) { return $cnt > 0; });
+
+            if (empty($dispatched) && !$heroAvailable) {
+                continue;
+            }
+
+            // Deduct dispatched units from bot village (mode 0 = subtract)
+            if (!empty($dispatched)) {
+                $database->modifyUnit($bWid, array_keys($dispatched), array_values($dispatched), array_fill(0, count($dispatched), 0));
+            }
+
+            // Hero participation
+            if ($heroAvailable) {
+                $sendHero = 1;
+                $database->query("UPDATE " . TB_PREFIX . "units SET hero = hero - 1 WHERE vref = $bWid AND hero > 0");
+            }
 
             // March speed
             $dispatchedSpeeds = [];
@@ -2179,14 +2188,6 @@ class BotAI {
                 }
             }
 
-            // Hero participation
-            $sendHero = 0;
-            $hCheck = $database->query_return("SELECT u.hero, h.dead, h.health FROM " . TB_PREFIX . "units u LEFT JOIN " . TB_PREFIX . "hero h ON h.uid = $bUid WHERE u.vref = $bWid LIMIT 1");
-            if (!empty($hCheck[0]) && (int)($hCheck[0]['hero'] ?? 0) > 0 && (int)($hCheck[0]['dead'] ?? 0) === 0 && (float)($hCheck[0]['health'] ?? 0) >= 25) {
-                $sendHero = 1;
-                $database->query("UPDATE " . TB_PREFIX . "units SET hero = hero - 1 WHERE vref = $bWid AND hero > 0");
-            }
-
             $attackId = $database->addAttack(
                 $bWid,
                 $t[1], $t[2], $t[3], $t[4], $t[5], $t[6], $t[7], $t[8], $t[9], $t[10], $sendHero,
@@ -2194,30 +2195,46 @@ class BotAI {
                 0, 0, 0
             );
 
-            if ($attackId) {
-                $database->addMovement(
-                    3, // Attack/Raid
-                    $bWid,
-                    $targetWref,
-                    $attackId,
-                    time(),
-                    time() + $duration
-                );
-
-                $troopBreakdown = [];
-                foreach ($dispatched as $uNum => $c) {
-                    $troopBreakdown[] = self::getUnitName($uNum) . ": " . number_format($c);
+            if (!$attackId) {
+                // Rollback on failure
+                if (!empty($dispatched)) {
+                    $database->modifyUnit($bWid, array_keys($dispatched), array_values($dispatched), array_fill(0, count($dispatched), 1));
                 }
                 if ($sendHero) {
-                    $troopBreakdown[] = "Hero: 1";
+                    $database->query("UPDATE " . TB_PREFIX . "units SET hero = hero + 1 WHERE vref = $bWid");
                 }
-
-                $attackerAliPrefix = !empty($bot['ali_tag']) ? "[{$bot['ali_tag']}] " : "";
-                $targetAliPrefix = !empty($currentTarget['ali_tag']) ? "[{$currentTarget['ali_tag']}] " : "";
-
-                $attackVerb = ($attackType === 2) ? 'Bantuan Bertahan' : $attackTypeName;
-                $dispatchedReports[] = "<b>{$attackerAliPrefix}{$bot['username']}</b> [{$bot['vname']}] mengerahkan " . ($sumDispatched + $sendHero) . " pasukan (" . implode(', ', $troopBreakdown) . ") via {$attackVerb} ke <b>{$targetAliPrefix}{$targetUser}</b> [{$targetVname} ({$targetX}|{$targetY})], tiba dalam " . round($duration / 60, 1) . " menit (Jarak: " . round($dist, 1) . " petak).";
+                continue;
             }
+
+            $database->addMovement(
+                3, // Attack/Raid
+                $bWid,
+                $targetWref,
+                $attackId,
+                time(),
+                time() + $duration
+            );
+
+            $troopBreakdown = [];
+            foreach ($dispatched as $uNum => $c) {
+                $troopBreakdown[] = self::getUnitName($uNum) . ": " . number_format($c);
+            }
+            if ($sendHero) {
+                $troopBreakdown[] = "Hero: 1";
+            }
+
+            $attackerAliPrefix = !empty($bot['ali_tag']) ? "[{$bot['ali_tag']}] " : "";
+            $targetAliPrefix = !empty($currentTarget['ali_tag']) ? "[{$currentTarget['ali_tag']}] " : "";
+
+            $attackVerb = ($attackType === 2) ? 'Bantuan Bertahan' : $attackTypeName;
+            $dispatchedReports[] = "<b>{$attackerAliPrefix}{$bot['username']}</b> [{$bot['vname']}] mengerahkan " . ($sumDispatched + $sendHero) . " pasukan (" . implode(', ', $troopBreakdown) . ") via {$attackVerb} ke <b>{$targetAliPrefix}{$targetUser}</b> [{$targetVname} ({$targetX}|{$targetY})], tiba dalam " . round($duration / 60, 1) . " menit (Jarak: " . round($dist, 1) . " petak).";
+        }
+
+        if (empty($dispatchedReports)) {
+            return [
+                'status'  => 'error',
+                'message' => 'Tidak ada pasukan yang dapat dikerahkan. Bot yang dipilih tidak memiliki pasukan atau hero yang siap dikirim di desanya.'
+            ];
         }
 
         $summaryMsg = "";

@@ -997,7 +997,7 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
                 <div class="botm-form-group">
                     <label>Jumlah Pasukan Tiap Bot:</label>
                     <input type="number" name="troop_count" class="botm-form-control" value="0" min="0" max="10000">
-                    <span style="font-size:10px; color:#64748b;">0 = Otomatis (35-50 pasukan garnisun bot).</span>
+                    <span style="font-size:10px; color:#64748b;">0 = Otomatis (maks. 50 pasukan). Pasukan yang dikirim dibatasi ketat oleh jumlah pasukan yang dimiliki bot di desanya.</span>
                 </div>
             </div>
 
