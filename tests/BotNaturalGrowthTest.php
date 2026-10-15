@@ -100,18 +100,58 @@ class MockBotTrimDatabase {
                 }
             }
         }
+        // Parse update on vdata table
+        if (preg_match('/UPDATE\s+\w*vdata\s+SET\s+(.+)\s+WHERE\s+wref\s*=\s*(\d+)/i', $sql, $m)) {
+            $setClause = $m[1];
+            $wref = (int)$m[2];
+            $parts = explode(',', $setClause);
+            foreach ($parts as $p) {
+                if (preg_match('/(wood|clay|iron|crop|maxstore|maxcrop)\s*=\s*(\d+)/', $p, $pm)) {
+                    $this->vdata[$wref][$pm[1]] = (int)$pm[2];
+                }
+            }
+        }
+    }
+
+    public array $modifyResourceCalls = [];
+
+    public function modifyResource($vid, $wood, $clay, $iron, $crop, $mode, $setLastupdate = false) {
+        $this->modifyResourceCalls[] = [
+            'vid' => $vid,
+            'wood' => $wood,
+            'clay' => $clay,
+            'iron' => $iron,
+            'crop' => $crop,
+            'mode' => $mode,
+            'setLastupdate' => $setLastupdate,
+        ];
+        if (!isset($this->vdata[$vid])) {
+            $this->vdata[$vid] = ['wood' => 0, 'clay' => 0, 'iron' => 0, 'crop' => 0, 'maxstore' => 1200, 'maxcrop' => 1200];
+        }
+        $sign = ($mode == 1) ? 1 : -1;
+        $this->vdata[$vid]['wood'] = max(0, min($this->vdata[$vid]['maxstore'], $this->vdata[$vid]['wood'] + ($sign * $wood)));
+        $this->vdata[$vid]['clay'] = max(0, min($this->vdata[$vid]['maxstore'], $this->vdata[$vid]['clay'] + ($sign * $clay)));
+        $this->vdata[$vid]['iron'] = max(0, min($this->vdata[$vid]['maxstore'], $this->vdata[$vid]['iron'] + ($sign * $iron)));
+        $this->vdata[$vid]['crop'] = max(0, min($this->vdata[$vid]['maxcrop'], $this->vdata[$vid]['crop'] + ($sign * $crop)));
+        return true;
+    }
+
+    public function getVillageFields($vid, $fields, $useCache = false) {
+        return $this->vdata[$vid] ?? ['wood' => 500, 'clay' => 500, 'iron' => 500, 'crop' => 500];
     }
 
     public function query_return(string $sql) {
         if (strpos($sql, 'FROM') !== false && strpos($sql, 'units') !== false) {
-            // Return dummy bloated units row: 500 u11 (Macemen), 150 u12 (Spearmen), 80 u15 (Teuton Knight)
+            $u11 = isset($this->unitsData[101]['u11']) ? $this->unitsData[101]['u11'] : 500;
+            $u12 = isset($this->unitsData[101]['u12']) ? $this->unitsData[101]['u12'] : 150;
+            $u15 = isset($this->unitsData[101]['u15']) ? $this->unitsData[101]['u15'] : 80;
             return [[
                 'vref' => 101,
-                'u11' => 500,
-                'u12' => 150,
+                'u11' => $u11,
+                'u12' => $u12,
                 'u13' => 0,
                 'u14' => 0,
-                'u15' => 80,
+                'u15' => $u15,
                 'u16' => 0,
                 'u17' => 0,
                 'u18' => 0,
@@ -207,6 +247,73 @@ $rebReport = BotAI::rebalanceBotTroops(25, true, 1);
 assertEqual('success', $rebReport['status'], "Rebalance status must be success");
 assertEqual(1, $rebReport['pop_adjusted_bots'], "Must adjust pop for 1 bot");
 assertEqual(1, $rebReport['target_day'], "Report must reflect target_day = 1");
+
+// 7. Test BotAI::replenishResources: Natural growth & anti-instant-refill
+// Simulate a village that was just raided: has only 30 wood left, warehouse cap is 1200
+$mockDb->vdata[101] = [
+    'wood' => 30,
+    'clay' => 30,
+    'iron' => 30,
+    'crop' => 30,
+    'maxstore' => 1200,
+    'maxcrop' => 1200,
+    'lastupdate' => time() - 60 // 60 seconds ago
+];
+$mockDb->modifyResourceCalls = [];
+
+$testBot = [
+    'wref' => 101,
+    'pop' => 50,
+    'maxstore' => 1200,
+    'maxcrop' => 1200,
+    'wood' => 30,
+    'clay' => 30,
+    'iron' => 30,
+    'crop' => 30,
+    'lastupdate' => time() - 60
+];
+
+BotAI::replenishResources($testBot);
+
+// Verify modifyResource was called with a realistic delta, NOT an instant jump to 1200!
+assertTrue(!empty($mockDb->modifyResourceCalls), "replenishResources must call modifyResource to update resources");
+$lastCall = end($mockDb->modifyResourceCalls);
+$addedWood = $lastCall['wood'];
+assertTrue($addedWood > 0, "Wood produced in 60s should be > 0");
+assertTrue($addedWood < 100, "Wood produced in 60s must be realistic (< 100 units, NOT +2500 boost!), was: $addedWood");
+$woodAfter = $mockDb->vdata[101]['wood'];
+assertTrue($woodAfter < 200, "Total wood after 60s of a raid should stay low (< 200), was: $woodAfter");
+echo "Natural resource test passed: After raid, 60s produced +$addedWood wood (Total: $woodAfter/1200, no instant 1200 refill)" . PHP_EOL;
+
+// 8. Test processBuild & processTrain pause when resources are depleted (< 30)
+$mockDb->unitsData[101] = [
+    'u11' => 10,
+    'u12' => 0,
+    'u15' => 0,
+];
+$mockDb->vdata[101] = [
+    'wood' => 10,
+    'clay' => 10,
+    'iron' => 10,
+    'crop' => 10,
+    'maxstore' => 1200,
+    'maxcrop' => 1200,
+];
+$depletedBot = [
+    'wref' => 101,
+    'tribe' => 2,
+    'pop' => 50,
+    'wood' => 10,
+    'clay' => 10,
+    'iron' => 10,
+    'crop' => 10,
+    'regtime' => time() - 86400,
+];
+$buildRes = BotAI::processBuild($depletedBot);
+assertEqual(null, $buildRes, "processBuild must pause when resources are depleted (< 30) from raids");
+$trainRes = BotAI::processTrain($depletedBot);
+assertEqual(null, $trainRes, "processTrain must pause when resources are depleted (< 30) from raids");
+echo "Raid impact test passed: Bot cannot build or train when depleted dry by raids" . PHP_EOL;
 
 // Restore original DB
 $database = $origDb;

@@ -157,8 +157,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
             // Starter resources & warehouse capacity
             $database->query("
                 UPDATE " . TB_PREFIX . "vdata
-                SET wood = 800, clay = 800, iron = 800, crop = 800,
-                    maxstore = 1200, maxcrop = 1200
+                SET wood = 400, clay = 400, iron = 400, crop = 400,
+                    maxstore = 1200, maxcrop = 1200, lastupdate = " . time() . "
                 WHERE wref = $wid
             ");
 

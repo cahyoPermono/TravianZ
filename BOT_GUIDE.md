@@ -238,4 +238,29 @@ Tersedia antarmuka admin lengkap untuk mengganti kerugian pasukan pemain atau me
   - Memangkas ribuan pasukan bot berlebih kembali ke 20–25 prajurit dasar per desa (0 kavaleri, 0 senjata pengepungan).
   - Membersihkan pasukan bantuan bot (*enforcement*) agar bot tidak saling menumpuk garnisun puluhan ribu.
 
+---
+
+## 11. Mekanisme Produksi Sumber Daya Alami Bot (Anti-Infinite ATM / Natural Resource Economy)
+
+Sebelum pembaruan ini, bot menggunakan injeksi flat buatan (`+250 * SPEED` per tick) yang menyebabkan desa bot langsung penuh kembali (**1.200 / 1.200 / 1.200 / 1.200**) dalam hitungan detik setelah dijarah pemain, sehingga bot bertindak seperti mesin ATM tanpa batas yang tidak realistis.
+
+Sistem kini telah diperbaiki total menjadi **Sistem Ekonomi & Produksi Alami**:
+1. **Produksi Berdasarkan Level Ladang Nyata**:
+   - Produksi dihitung langsung dari level 18 ladang sumber daya di tabel `fdata` (Kayu, Tanah Liat, Besi, Gandum) menggunakan data standar Travian (`buidata.php`).
+   - Bonus gedung olahan (Penggergajian Kayu lvl 5, Pabrik Batu Bata lvl 6, Pabrik Peleburan Besi lvl 7, Penggilingan Gandum lvl 8, dan Toko Roti lvl 9) turut dihitung.
+   - Dikurangi konsumsi gandum oleh populasi (*crop upkeep*).
+2. **Akumulasi Berdasarkan Selang Waktu Nyata (*Elapsed Time*)**:
+   - Pertambahan sumber daya dihitung dari selisih waktu (`time() - lastupdate`), sama persis seperti desa pemain asli:
+     $$\Delta \text{Resource} = \left(\frac{\text{Produksi per Jam}}{3600}\right) \times \Delta t$$
+3. **Hasil Jarahan Bertahan Nyata (Tidak Langsung Penuh)**:
+   - Ketika pemain menyerang dan menjarah desa bot, sumber daya yang terambil akan benar-benar berkurang di database.
+   - Jika pemain kembali menyerang 2 menit kemudian, sumber daya bot hanya bertambah sedikit sesuai produksi 2 menit tersebut (misal hanya +10 s/d +20 sumber daya, bukan langsung 1.200!).
+4. **Perlindungan Cranny (*Persembunyian*) Otomatis**:
+   - Sumber daya bot dilindungi oleh gedung Persembunyian (*Cranny*) sesuai levelnya. Pemain hanya bisa menjarah sisa sumber daya di atas kapasitas persembunyian.
+5. **Konstruksi & Pelatihan Mengonsumsi Sumber Daya**:
+   - Tukang bangunan dan barak bot kini memeriksa kecukupan stok sumber daya. Jika desa bot baru saja dijarah habis (< 30 sumber daya), pembangunan gedung dan pelatihan pasukan akan **ditunda sementara** hingga ladang bot memproduksi cukup bahan baku.
+6. **Normalisasi Cepat Lewat Admin Panel**:
+   - Tombol **⚖️ Normalisasi Bot** di ACP secara otomatis menormalkan stok sumber daya bot lama yang terlanjur mentok di 1.200 menjadi kapasitas operasional wajar (~35% kapasitas gudang) dan menyinkronkan timestamp `lastupdate`.
+
+
 

@@ -49,7 +49,7 @@ class BotAI {
 
         // Fetch all active bot accounts and their villages
         $sql = "SELECT u.id as uid, u.username, u.tribe, u.access, u.alliance, u.regtime, u.timestamp,
-                       v.wref, v.name as vname, v.pop, v.wood, v.clay, v.iron, v.crop, v.maxstore, v.maxcrop
+                       v.wref, v.name as vname, v.pop, v.wood, v.clay, v.iron, v.crop, v.maxstore, v.maxcrop, v.lastupdate
                 FROM " . TB_PREFIX . "users u
                 JOIN " . TB_PREFIX . "vdata v ON u.id = v.owner
                 WHERE u.access = 2
@@ -114,51 +114,148 @@ class BotAI {
     }
 
     /**
-     * Replenish resources for bot villages so they grow and can be farmed.
-     * Dynamically scales production with village population and ensures
-     * storage capacity reflects current warehouse/granary building levels.
+     * Replenish resources for bot villages naturally based on genuine resource field levels
+     * and elapsed time, exactly mirroring standard Travian player production.
+     * Raided bot villages stay depleted and accumulate resources realistically over time.
      */
-    private static function replenishResources(array $bot) {
-        global $database;
+    public static function replenishResources(array $bot) {
+        global $database, $bid1, $bid2, $bid3, $bid4, $bid5, $bid6, $bid7, $bid8, $bid9, $bid10, $bid11;
+
+        if (!isset($bid1) || !isset($bid4)) {
+            include_once __DIR__ . '/Data/buidata.php';
+        }
 
         $wid = (int)$bot['wref'];
-        $pop = max(10, (int)$bot['pop']);
-        $maxStore = max(1200, (int)$bot['maxstore']);
-        $maxCrop = max(1200, (int)$bot['maxcrop']);
-
-        // Check if warehouse/granary has upgraded beyond base capacity
         $fdata = $database->getResourceLevel($wid, false);
-        if ($fdata) {
-            $whLevel = (int)($fdata['f25'] ?? 0);
-            $grLevel = (int)($fdata['f28'] ?? 0);
-            if ($whLevel > 0) {
-                $maxStore = max($maxStore, self::getStorageCapacity($whLevel));
-            }
-            if ($grLevel > 0) {
-                $maxCrop = max($maxCrop, self::getStorageCapacity($grLevel));
+        if (!$fdata) {
+            return;
+        }
+
+        $storageBase = defined('STORAGE_BASE') ? (int)STORAGE_BASE : 800;
+        $speed = defined('SPEED') ? max(1, (float)SPEED) : 1.0;
+
+        // 1. Calculate realistic warehouse & granary limits
+        $whLevel = (int)($fdata['f25'] ?? 0);
+        $grLevel = (int)($fdata['f28'] ?? 0);
+        $maxStore = max($storageBase, (int)($bot['maxstore'] ?? $storageBase));
+        $maxCrop  = max($storageBase, (int)($bot['maxcrop'] ?? $storageBase));
+
+        if ($whLevel > 0) {
+            $maxStore = max($maxStore, self::getStorageCapacity($whLevel));
+        }
+        if ($grLevel > 0) {
+            $maxCrop = max($maxCrop, self::getStorageCapacity($grLevel));
+        }
+
+        // 2. Elapsed time since lastupdate
+        $now = time();
+        $lastupdate = (int)($bot['lastupdate'] ?? 0);
+        if ($lastupdate <= 0 && method_exists($database, 'getVillageField')) {
+            $lastupdate = (int)$database->getVillageField($wid, 'lastupdate');
+        }
+        if ($lastupdate <= 0 || $lastupdate > $now) {
+            $lastupdate = $now - 60;
+        }
+
+        $timepast = $now - $lastupdate;
+        if ($timepast <= 0) {
+            return;
+        }
+        // Cap max elapsed time to 24 hours to avoid extreme jumps after server maintenance
+        $timepast = min(86400, $timepast);
+
+        // 3. Compute true gross production per hour from resource fields (f1..f18)
+        $woodProd = 0;
+        $clayProd = 0;
+        $ironProd = 0;
+        $cropProd = 0;
+
+        for ($i = 1; $i <= 18; $i++) {
+            $fType = (int)($fdata['f' . $i . 't'] ?? 0);
+            $fLvl  = (int)($fdata['f' . $i] ?? 0);
+            if ($fLvl < 0) $fLvl = 0;
+
+            switch ($fType) {
+                case 1:
+                    $woodProd += (int)($bid1[$fLvl]['prod'] ?? 2);
+                    break;
+                case 2:
+                    $clayProd += (int)($bid2[$fLvl]['prod'] ?? 2);
+                    break;
+                case 3:
+                    $ironProd += (int)($bid3[$fLvl]['prod'] ?? 2);
+                    break;
+                case 4:
+                    $cropProd += (int)($bid4[$fLvl]['prod'] ?? 2);
+                    break;
             }
         }
 
-        // Grant organic production boost per tick
-        // Scales dynamically with population when BOT_AI_DYNAMIC_SCALING is enabled
-        $dynamicScaling = defined('BOT_AI_DYNAMIC_SCALING') ? (bool)BOT_AI_DYNAMIC_SCALING : true;
-        if ($dynamicScaling) {
-            $boost = max(250, (int)round($pop * 3.5)) * SPEED;
+        // Fallback baseline if fields not configured yet
+        if ($woodProd <= 0) $woodProd = 8;
+        if ($clayProd <= 0) $clayProd = 8;
+        if ($ironProd <= 0) $ironProd = 8;
+        if ($cropProd <= 0) $cropProd = 12;
+
+        // 4. Bonus buildings (Sawmill=5, Brickyard=6, Iron Foundry=7, Grain Mill=8, Bakery=9)
+        $woodBonus = 0;
+        $clayBonus = 0;
+        $ironBonus = 0;
+        $cropBonus = 0;
+        for ($i = 19; $i <= 38; $i++) {
+            $bType = (int)($fdata['f' . $i . 't'] ?? 0);
+            $bLvl  = (int)($fdata['f' . $i] ?? 0);
+            if ($bLvl <= 0) continue;
+
+            if ($bType == 5 && isset($bid5[$bLvl]['attri'])) $woodBonus += (int)$bid5[$bLvl]['attri'];
+            if ($bType == 6 && isset($bid6[$bLvl]['attri'])) $clayBonus += (int)$bid6[$bLvl]['attri'];
+            if ($bType == 7 && isset($bid7[$bLvl]['attri'])) $ironBonus += (int)$bid7[$bLvl]['attri'];
+            if ($bType == 8 && isset($bid8[$bLvl]['attri'])) $cropBonus += (int)$bid8[$bLvl]['attri'];
+            if ($bType == 9 && isset($bid9[$bLvl]['attri'])) $cropBonus += (int)$bid9[$bLvl]['attri'];
+        }
+
+        if ($woodBonus > 0) $woodProd += round($woodProd * ($woodBonus / 100));
+        if ($clayBonus > 0) $clayProd += round($clayProd * ($clayBonus / 100));
+        if ($ironBonus > 0) $ironProd += round($ironProd * ($ironBonus / 100));
+        if ($cropBonus > 0) $cropProd += round($cropProd * ($cropBonus / 100));
+
+        // Scale hourly production by server SPEED
+        $woodProdPerHour = round($woodProd * $speed);
+        $clayProdPerHour = round($clayProd * $speed);
+        $ironProdPerHour = round($ironProd * $speed);
+        $cropProdPerHour = round($cropProd * $speed);
+
+        // 5. Account for crop upkeep (population consumption)
+        $pop = max(2, (int)($bot['pop'] ?? 2));
+        $netCropPerHour = max(5 * $speed, $cropProdPerHour - $pop);
+
+        // 6. Natural delta produced during elapsed time
+        $deltaWood = ($woodProdPerHour / 3600.0) * $timepast;
+        $deltaClay = ($clayProdPerHour / 3600.0) * $timepast;
+        $deltaIron = ($ironProdPerHour / 3600.0) * $timepast;
+        $deltaCrop = ($netCropPerHour / 3600.0) * $timepast;
+
+        // 7. Atomic update in database using modifyResource with clamp to maxstore / maxcrop
+        if (method_exists($database, 'modifyResource')) {
+            $database->query("
+                UPDATE " . TB_PREFIX . "vdata
+                SET maxstore = $maxStore, maxcrop = $maxCrop
+                WHERE wref = $wid AND (maxstore != $maxStore OR maxcrop != $maxCrop)
+            ");
+            $database->modifyResource($wid, $deltaWood, $deltaClay, $deltaIron, $deltaCrop, 1, true);
         } else {
-            $boost = 250 * SPEED;
+            $database->query("
+                UPDATE " . TB_PREFIX . "vdata
+                SET wood = LEAST($maxStore, wood + $deltaWood),
+                    clay = LEAST($maxStore, clay + $deltaClay),
+                    iron = LEAST($maxStore, iron + $deltaIron),
+                    crop = LEAST($maxCrop, crop + $deltaCrop),
+                    maxstore = $maxStore,
+                    maxcrop = $maxCrop,
+                    lastupdate = $now
+                WHERE wref = $wid
+            ");
         }
-
-        $wood = min($maxStore, (int)$bot['wood'] + $boost);
-        $clay = min($maxStore, (int)$bot['clay'] + $boost);
-        $iron = min($maxStore, (int)$bot['iron'] + $boost);
-        $crop = min($maxCrop, max(150, (int)$bot['crop'] + $boost));
-
-        $database->query("
-            UPDATE " . TB_PREFIX . "vdata
-            SET wood = $wood, clay = $clay, iron = $iron, crop = $crop,
-                maxstore = $maxStore, maxcrop = $maxCrop, lastupdate = " . time() . "
-            WHERE wref = $wid
-        ");
     }
 
     /**
@@ -220,6 +317,16 @@ class BotAI {
         // 3. Pacing konstruksi: simulasi antrean tukang bangunan (~6-10 menit per upgrade)
         if (rand(1, 100) > 35) {
             return null; // Tukang bangunan sedang bekerja
+        }
+
+        // 4. Resource check: Jika desa bot baru saja dirampok dan sumber daya tiris (< 30), tunda konstruksi
+        $vRes = method_exists($database, 'getVillageFields') ? $database->getVillageFields($wid, 'wood, clay, iron, crop', false) : null;
+        $curWood = (float)($vRes['wood'] ?? $bot['wood'] ?? 0);
+        $curClay = (float)($vRes['clay'] ?? $bot['clay'] ?? 0);
+        $curIron = (float)($vRes['iron'] ?? $bot['iron'] ?? 0);
+        $curCrop = (float)($vRes['crop'] ?? $bot['crop'] ?? 0);
+        if ($curWood < 30 || $curClay < 30 || $curIron < 30 || $curCrop < 20) {
+            return null; // Sumber daya habis dijarah pemain, tunggu produksi pulih
         }
 
         // Infrastructure levels
@@ -389,6 +496,14 @@ class BotAI {
         }
 
         if ($upgraded) {
+            // Deduct realistic construction cost from village storage
+            $dWood = min($curWood, 40);
+            $dClay = min($curClay, 40);
+            $dIron = min($curIron, 35);
+            $dCrop = min($curCrop, 25);
+            if (method_exists($database, 'modifyResource')) {
+                $database->modifyResource($wid, $dWood, $dClay, $dIron, $dCrop, 0);
+            }
             self::recountPop($wid);
         }
 
@@ -478,6 +593,16 @@ class BotAI {
             return null; // Pelatihan di barak sedang berlangsung
         }
 
+        // Cek ketersediaan sumber daya untuk melatih pasukan (jika baru dijarah, tunggu produksi pulih)
+        $vRes = method_exists($database, 'getVillageFields') ? $database->getVillageFields($wid, 'wood, clay, iron, crop', false) : null;
+        $curWood = (float)($vRes['wood'] ?? $bot['wood'] ?? 0);
+        $curClay = (float)($vRes['clay'] ?? $bot['clay'] ?? 0);
+        $curIron = (float)($vRes['iron'] ?? $bot['iron'] ?? 0);
+        $curCrop = (float)($vRes['crop'] ?? $bot['crop'] ?? 0);
+        if ($curWood < 35 || $curClay < 35 || $curIron < 25 || $curCrop < 20) {
+            return null; // Sumber daya habis dijarah pemain, barak menunggu pasokan baru
+        }
+
         // Determine trainable unit types based on buildings, population, and bot age
         $acLevel = (int)($fdata['f22'] ?? 0);
         $stLevel = (int)($fdata['f20'] ?? 0);
@@ -533,6 +658,15 @@ class BotAI {
 
         $col = 'u' . $chosenUnit;
         $database->query("UPDATE " . TB_PREFIX . "units SET {$col} = {$col} + $trainCount WHERE vref = $wid");
+
+        // Deduct training resources from village storage
+        $tWood = min($curWood, $trainCount * 50);
+        $tClay = min($curClay, $trainCount * 50);
+        $tIron = min($curIron, $trainCount * 35);
+        $tCrop = min($curCrop, $trainCount * 20);
+        if (method_exists($database, 'modifyResource')) {
+            $database->modifyResource($wid, $tWood, $tClay, $tIron, $tCrop, 0);
+        }
 
         $uName = self::getUnitName($chosenUnit);
         return "Trained +$trainCount $uName (Total army: " . ($totalArmy + $trainCount) . "/$maxTroops)";
@@ -646,10 +780,22 @@ class BotAI {
         $database->query("DELETE FROM " . TB_PREFIX . "research WHERE vref = $wid");
         $database->query("DELETE FROM " . TB_PREFIX . "demolition WHERE vref = $wid");
 
-        // Update storage capacities in vdata
+        // Update storage capacities in vdata and normalize resource stock to realistic partial fill (~35% cap)
         $whCap = self::getStorageCapacity($whLvl);
         $grCap = self::getStorageCapacity($grLvl);
-        $database->query("UPDATE " . TB_PREFIX . "vdata SET maxstore = $whCap, maxcrop = $grCap WHERE wref = $wid");
+        $initRes = min(400, (int)round($whCap * 0.35));
+        $initCrop = min(400, (int)round($grCap * 0.35));
+        $database->query("
+            UPDATE " . TB_PREFIX . "vdata
+            SET wood = LEAST(wood, $initRes),
+                clay = LEAST(clay, $initRes),
+                iron = LEAST(iron, $initRes),
+                crop = LEAST(crop, $initCrop),
+                maxstore = $whCap,
+                maxcrop = $grCap,
+                lastupdate = " . time() . "
+            WHERE wref = $wid
+        ");
 
         // Invalidate database resource level cache
         if (class_exists('DatabaseVillageQueries') && method_exists('DatabaseVillageQueries', 'clearResourseLevelsCache')) {
