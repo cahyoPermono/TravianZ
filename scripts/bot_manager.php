@@ -112,6 +112,7 @@ switch ($action) {
                 $uid,
                 $username
             );
+            $wid = is_array($wid) ? (int)($wid[0] ?? 0) : (int)$wid;
 
             if (!$wid) {
                 echo "[-] Failed to generate village for $username\n";

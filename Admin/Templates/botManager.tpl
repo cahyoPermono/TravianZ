@@ -135,6 +135,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
                 $uid,
                 $username
             );
+            $wid = is_array($wid) ? (int)($wid[0] ?? 0) : (int)$wid;
 
             if (!$wid) {
                 continue;

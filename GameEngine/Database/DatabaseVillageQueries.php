@@ -255,7 +255,7 @@ trait DatabaseVillageQueries {
 	 * @param string $username The username of the future owner
 	 * @param array $troopsArray The troops that need to be added in the village(s)
 	 * @param array $buildingsArray The buildings that need to be created in the village(s)
-	 * @return array Returns the created villages ID
+	 * @return int|array Returns the created village ID (int for single village, array for multiple)
 	 */
 	
 	function generateVillages($villageArrays, $uid, $username, $troopsArray = null, $buildingsArray = null){
