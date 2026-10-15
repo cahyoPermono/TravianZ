@@ -518,18 +518,48 @@ class BotAI {
      * - Produces multi-tier units (advanced infantry & cavalry) when buildings allow
      * - Batch size scales proportionally with village size
      */
+    /**
+     * Helper to safely retrieve building level (GID) in village.
+     */
+    public static function getBuildingLevel(int $wid, int $gid, array $fdata = []): int {
+        global $database;
+        if (method_exists($database, 'getFieldLevelInVillage')) {
+            $lvl = (int)$database->getFieldLevelInVillage($wid, $gid);
+            if ($lvl > 0) {
+                return $lvl;
+            }
+        }
+        if (empty($fdata) && method_exists($database, 'getResourceLevel')) {
+            $fdata = $database->getResourceLevel($wid, false);
+        }
+        $maxLvl = 0;
+        for ($i = 19; $i <= 40; $i++) {
+            if ((int)($fdata['f' . $i . 't'] ?? 0) === $gid) {
+                $maxLvl = max($maxLvl, (int)($fdata['f' . $i] ?? 0));
+            }
+        }
+        return $maxLvl;
+    }
+
+    /**
+     * Automated troop training in barracks, stable, or workshop.
+     * 100% Natural mechanics:
+     * - Requires actual Barracks (GID 19), Stable (GID 20), or Workshop (GID 21).
+     * - Queues troops into standard training table with realistic build times.
+     * - Consumes genuine village resources based on unit cost from Data/unitdata.php.
+     * - Incremental graduation via standard AutomationTraining::trainingComplete().
+     */
     public static function processTrain(array $bot) {
         global $database;
 
         $wid = (int)$bot['wref'];
         $tribe = (int)$bot['tribe'];
         $pop = max(10, (int)$bot['pop']);
-        $fdata = $database->getResourceLevel($wid, false);
 
-        // Barracks must be built
-        $brLevel = (int)($fdata['f21'] ?? 0);
+        // Check building levels using getBuildingLevel
+        $brLevel = self::getBuildingLevel($wid, 19);
         if ($brLevel < 1) {
-            return null;
+            return null; // Barracks not yet built
         }
 
         // Pacing pasukan alami berdasarkan umur akun bot & populasi
@@ -541,15 +571,11 @@ class BotAI {
         $speed = defined('SPEED') ? max(1, (float)SPEED) : 1.0;
         $effectiveAgeDays = ($ageSeconds / 86400.0) * sqrt($speed);
 
-        // Rasio pasukan realistis terhadap populasi (default: 25 - 35% populasi, BUKAN 180%!)
+        // Rasio pasukan realistis terhadap populasi (25 - 35% populasi)
         $popFactor = defined('BOT_AI_TROOP_POP_FACTOR') ? (float)BOT_AI_TROOP_POP_FACTOR : 0.30;
         $popArmyCap = max(8, (int)round($pop * $popFactor));
 
-        // Batas maksimal pasukan berdasarkan umur bot:
-        // Hari 1 (<= 24 jam): max ~25 - 30 pasukan
-        // Hari 2 (<= 48 jam): max ~45 - 50 pasukan
-        // Hari 3 (<= 72 jam): max ~65 - 70 pasukan
-        // Hari 7 (1 minggu): max ~135 - 150 pasukan
+        // Batas maksimal pasukan berdasarkan umur bot
         $ageArmyCap = (int)round(12 + ($effectiveAgeDays * 18));
         $maxTroops = min($ageArmyCap, $popArmyCap);
         $maxTroops = max(8, min(300, $maxTroops));
@@ -568,7 +594,7 @@ class BotAI {
             }
         }
 
-        // Units marching in outgoing attacks (sum t1 through t10)
+        // Units marching in outgoing attacks
         $resMarching = $database->query_return("
             SELECT SUM(a.t1 + a.t2 + a.t3 + a.t4 + a.t5 + a.t6 + a.t7 + a.t8 + a.t9 + a.t10) as marching
             FROM " . TB_PREFIX . "movement m
@@ -576,9 +602,18 @@ class BotAI {
             WHERE m.from = $wid AND m.sort_type = 3 AND m.proc = 0
         ");
         $marchingTotal = (int)($resMarching[0]['marching'] ?? 0);
-        $totalArmy = $atHomeTotal + $marchingTotal;
 
-        // Auto-trimming: Jika bot memiliki pasukan berlebih tidak wajar dari versi sebelumnya, normalkan ke batas natural
+        // Units currently queued in training
+        $resQueued = $database->query_return("
+            SELECT SUM(amt) as queued
+            FROM " . TB_PREFIX . "training
+            WHERE vref = $wid
+        ");
+        $queuedTotal = (int)($resQueued[0]['queued'] ?? 0);
+
+        $totalArmy = $atHomeTotal + $marchingTotal + $queuedTotal;
+
+        // Auto-trimming: Jika bot memiliki pasukan berlebih tidak wajar, normalkan ke batas natural
         if ($totalArmy > ($maxTroops * 1.5)) {
             self::trimVillageTroops($wid, $tribe, $maxTroops);
             return "Rebalanced troops: trimmed excess army from $totalArmy down to natural cap of $maxTroops";
@@ -588,29 +623,24 @@ class BotAI {
             return null; // Batas pasukan wajar tercapai
         }
 
-        // Pacing pelatihan barak: 40% peluang per tick untuk mensimulasikan durasi pelatihan nyata
+        // Jangan menumpuk antrean berlebih jika sudah ada unit yang sedang dilatih
+        if ($queuedTotal >= 6) {
+            return null; // Antrean pelatihan masih penuh
+        }
+
+        // Pacing pelatihan: 40% peluang per tick
         if (rand(1, 100) > 40) {
             return null; // Pelatihan di barak sedang berlangsung
         }
 
-        // Cek ketersediaan sumber daya untuk melatih pasukan (jika baru dijarah, tunggu produksi pulih)
-        $vRes = method_exists($database, 'getVillageFields') ? $database->getVillageFields($wid, 'wood, clay, iron, crop', false) : null;
-        $curWood = (float)($vRes['wood'] ?? $bot['wood'] ?? 0);
-        $curClay = (float)($vRes['clay'] ?? $bot['clay'] ?? 0);
-        $curIron = (float)($vRes['iron'] ?? $bot['iron'] ?? 0);
-        $curCrop = (float)($vRes['crop'] ?? $bot['crop'] ?? 0);
-        if ($curWood < 35 || $curClay < 35 || $curIron < 25 || $curCrop < 20) {
-            return null; // Sumber daya habis dijarah pemain, barak menunggu pasokan baru
-        }
-
         // Determine trainable unit types based on buildings, population, and bot age
-        $acLevel = (int)($fdata['f22'] ?? 0);
-        $stLevel = (int)($fdata['f20'] ?? 0);
-        $wsLevel = (int)($fdata['f23'] ?? 0);
+        $acLevel = self::getBuildingLevel($wid, 22);
+        $stLevel = self::getBuildingLevel($wid, 20);
+        $wsLevel = self::getBuildingLevel($wid, 21);
         $enableCavalry = defined('BOT_AI_ENABLE_CAVALRY') ? (bool)BOT_AI_ENABLE_CAVALRY : true;
 
         $trainCandidates = [];
-        // Basic infantry is always eligible
+        // Basic infantry is always eligible (Barracks >= 1)
         $trainCandidates[$tribeUnits['basic']] = 50;
 
         // Defensive infantry: Membutuhkan barak lvl 2 atau pop >= 50 dan umur >= 0.8 hari
@@ -623,14 +653,14 @@ class BotAI {
             $trainCandidates[$tribeUnits['inf_adv']] = 20;
         }
 
-        // Kavaleri: Hanya terbuka setelah bot berumur >= 2.5 hari, pop >= 100, dan memiliki Stable
+        // Kavaleri: Hanya terbuka setelah bot berumur >= 2.5 hari, pop >= 100, dan memiliki Stable (lvl >= 1)
         if ($enableCavalry && $effectiveAgeDays >= 2.5 && $pop >= 100 && $stLevel >= 1) {
             if (!empty($tribeUnits['cav_light'])) $trainCandidates[$tribeUnits['cav_light']] = 15;
             if (!empty($tribeUnits['cav_def']) && $stLevel >= 2) $trainCandidates[$tribeUnits['cav_def']] = 10;
             if (!empty($tribeUnits['cav_heavy']) && $stLevel >= 3 && $pop >= 150) $trainCandidates[$tribeUnits['cav_heavy']] = 10;
         }
 
-        // Senjata Pengepungan: Hanya terbuka setelah bot berumur >= 4.5 hari, pop >= 180, dan memiliki Workshop
+        // Senjata Pengepungan: Hanya terbuka setelah bot berumur >= 4.5 hari, pop >= 180, dan memiliki Workshop (lvl >= 1)
         if ($effectiveAgeDays >= 4.5 && $pop >= 180 && $wsLevel >= 1) {
             if (!empty($tribeUnits['ram'])) $trainCandidates[$tribeUnits['ram']] = 5;
             if (!empty($tribeUnits['catapult']) && $wsLevel >= 2) $trainCandidates[$tribeUnits['catapult']] = 4;
@@ -648,28 +678,102 @@ class BotAI {
             }
         }
 
-        // Natural batch size: 1 - 2 pasukan per tick pelatihan
-        $batchSize = rand(1, 2);
+        // Fetch unit cost and training time from Data/unitdata.php and Data/buidata.php
+        global ${'u' . $chosenUnit}, $bid19, $bid20, $bid21;
+        if (!isset(${'u' . $chosenUnit})) {
+            include_once __DIR__ . '/Data/unitdata.php';
+        }
+        if (!isset($bid19) || !isset($bid20) || !isset($bid21)) {
+            include_once __DIR__ . '/Data/buidata.php';
+        }
+        $uData = ${'u' . $chosenUnit} ?? null;
+        if (!$uData) {
+            return null;
+        }
 
-        $trainCount = min($batchSize, $maxTroops - $totalArmy);
+        $wCost = (int)($uData['wood'] ?? 100);
+        $cCost = (int)($uData['clay'] ?? 100);
+        $iCost = (int)($uData['iron'] ?? 100);
+        $crCost = (int)($uData['crop'] ?? 100);
+        $unitPop = (int)($uData['pop'] ?? 1);
+        $baseTime = (int)($uData['time'] ?? 1200);
+
+        // Update resource production to current timestamp
+        if (method_exists($database, 'updateResField')) {
+            $database->updateResField($wid);
+        }
+
+        // Cek ketersediaan sumber daya desa bot
+        $vRes = method_exists($database, 'getVillageFields') ? $database->getVillageFields($wid, 'wood, clay, iron, crop', false) : null;
+        $curWood = (float)($vRes['wood'] ?? $bot['wood'] ?? 0);
+        $curClay = (float)($vRes['clay'] ?? $bot['clay'] ?? 0);
+        $curIron = (float)($vRes['iron'] ?? $bot['iron'] ?? 0);
+        $curCrop = (float)($vRes['crop'] ?? $bot['crop'] ?? 0);
+
+        $canAffordWood = ($wCost > 0) ? (int)floor($curWood / $wCost) : 999;
+        $canAffordClay = ($cCost > 0) ? (int)floor($curClay / $cCost) : 999;
+        $canAffordIron = ($iCost > 0) ? (int)floor($curIron / $iCost) : 999;
+        $canAffordCrop = ($crCost > 0) ? (int)floor($curCrop / $crCost) : 999;
+        $maxAffordable = min($canAffordWood, $canAffordClay, $canAffordIron, $canAffordCrop);
+
+        if ($maxAffordable < 1) {
+            return null; // Sumber daya belum cukup, bot harus menunggu produksi lapangan (seperti pemain asli)
+        }
+
+        // Natural batch size: 1 - 2 unit per batch pelatihan
+        $batchSize = rand(1, 2);
+        $trainCount = min($batchSize, $maxAffordable, $maxTroops - $totalArmy);
         if ($trainCount <= 0) {
             return null;
         }
 
-        $col = 'u' . $chosenUnit;
-        $database->query("UPDATE " . TB_PREFIX . "units SET {$col} = {$col} + $trainCount WHERE vref = $wid");
-
-        // Deduct training resources from village storage
-        $tWood = min($curWood, $trainCount * 50);
-        $tClay = min($curClay, $trainCount * 50);
-        $tIron = min($curIron, $trainCount * 35);
-        $tCrop = min($curCrop, $trainCount * 20);
+        // Deduct genuine village resources
+        $totalW = $wCost * $trainCount;
+        $totalC = $cCost * $trainCount;
+        $totalI = $iCost * $trainCount;
+        $totalCr = $crCost * $trainCount;
         if (method_exists($database, 'modifyResource')) {
-            $database->modifyResource($wid, $tWood, $tClay, $tIron, $tCrop, 0);
+            $database->modifyResource($wid, $totalW, $totalC, $totalI, $totalCr, 0);
+        }
+
+        // Calculate natural training duration per unit ($eachTime) based on building level
+        $bLevel = 1;
+        $attri = 100;
+
+        if (in_array($chosenUnit, [4, 5, 6, 15, 16, 23, 24, 25, 26, 35, 36, 45, 46, 53, 54, 55, 56, 64, 65, 66, 75, 76, 85, 86, 94, 95, 96])) {
+            $bLevel = max(1, $stLevel);
+            $attri = (float)($bid20[$bLevel]['attri'] ?? 100);
+        } elseif (in_array($chosenUnit, [7, 8, 17, 18, 27, 28, 37, 38, 47, 48, 57, 58, 67, 68, 77, 78, 87, 88, 97, 98])) {
+            $bLevel = max(1, $wsLevel);
+            $attri = (float)($bid21[$bLevel]['attri'] ?? 100);
+        } else {
+            $bLevel = max(1, $brLevel);
+            $attri = (float)($bid19[$bLevel]['attri'] ?? 100);
+        }
+
+        $eachTime = max(3, (int)round(($attri / 100) * $baseTime / $speed));
+
+        // Enqueue into standard training table
+        global $technology, $village;
+        if (empty($technology)) {
+            require_once __DIR__ . '/Technology.php';
+            $technology = new Technology();
+        }
+        $savedWid = $village->wid ?? null;
+        if (empty($village)) {
+            $village = (object)['wid' => $wid];
+        } else {
+            $village->wid = $wid;
+        }
+
+        $database->trainUnit($wid, $chosenUnit, $trainCount, $unitPop, $eachTime, 0);
+
+        if ($savedWid !== null) {
+            $village->wid = $savedWid;
         }
 
         $uName = self::getUnitName($chosenUnit);
-        return "Trained +$trainCount $uName (Total army: " . ($totalArmy + $trainCount) . "/$maxTroops)";
+        return "Queued +$trainCount $uName into training queue (duration: {$eachTime}s each, Cost: {$totalW}w, {$totalC}c, {$totalI}i, {$totalCr}cr, Total army: " . ($totalArmy + $trainCount) . "/$maxTroops)";
     }
 
     /**
@@ -1392,6 +1496,23 @@ class BotAI {
     }
 
     /**
+     * Check if current time is within peaceful nighttime window (20:00 - 08:00).
+     * Bots are strictly prohibited from attacking anyone (players, other bots, oases, revenge)
+     * during this blackout window so they can safely train/regenerate troops.
+     * Attacks are only permitted from 08:00:00 to 19:59:59 server time.
+     */
+    public static function isNightTime(): bool {
+        $startHour = defined('BOT_AI_ATTACK_START_HOUR') ? (int)BOT_AI_ATTACK_START_HOUR : 8;
+        $endHour   = defined('BOT_AI_ATTACK_END_HOUR') ? (int)BOT_AI_ATTACK_END_HOUR : 20;
+        $hour      = (int)date('G');
+
+        if ($startHour < $endHour) {
+            return ($hour < $startHour || $hour >= $endHour);
+        }
+        return ($hour >= $endHour && $hour < $startHour);
+    }
+
+    /**
      * Process automated raids to nearby villages.
      * Supports dynamic scaling:
      * - Raid party size scales with standing army (up to 120 troops under dynamic scaling)
@@ -1399,6 +1520,12 @@ class BotAI {
      * - Calculates duration using the slowest marching unit
      */
     public static function processAttack(array $bot) {
+        // Strict Blackout Window: Bots are forbidden from attacking ANYONE (including bots, players, oases, revenge)
+        // between 20:00 (8:00 PM) and 08:00 (8:00 AM) server time so troops can safely regenerate.
+        if (self::isNightTime()) {
+            return null;
+        }
+
         global $database;
 
         $wid = (int)$bot['wref'];
@@ -1635,8 +1762,7 @@ class BotAI {
         $target = null;
 
         if ($revengeTarget !== null) {
-            // REVENGE IS ACTIVE:
-            // Mengabaikan jam damai malam hari & mengabaikan peluang random (100% pasti membalas)!
+            // REVENGE IS ACTIVE (100% pasti membalas dalam jam aktif 08:00 - 20:00):
             $target = $revengeTarget;
         } else {
             // REGULAR RANDOM RAID (FARMING):
@@ -1646,13 +1772,8 @@ class BotAI {
             }
 
             // Check attack window (default 08:00 - 20:00 server time)
-            $startHour = defined('BOT_AI_ATTACK_START_HOUR') ? (int)BOT_AI_ATTACK_START_HOUR : 8;
-            $endHour = defined('BOT_AI_ATTACK_END_HOUR') ? (int)BOT_AI_ATTACK_END_HOUR : 20;
-            $currentHour = (int)date('G');
-            if ($startHour < $endHour) {
-                if ($currentHour < $startHour || $currentHour >= $endHour) {
-                    return null; // Peaceful nighttime / outside attack hours
-                }
+            if (self::isNightTime()) {
+                return null; // Outside attack hours
             }
 
             // Probability roll for regular raids (default 35%)

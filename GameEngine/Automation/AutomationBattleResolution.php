@@ -3279,6 +3279,15 @@ trait AutomationBattleResolution {
                     // delete the target village if it was destroyed — extracted to handleVillageDestruction() [#155]
                     $this->handleVillageDestruction($village_destroyed, $can_destroy, $data, $to, $varray);
 
+                    // Check if defender village was a Bandit Camp and award rewards if cleared
+                    if (file_exists(dirname(__DIR__) . '/BanditCamp.php')) {
+                        require_once dirname(__DIR__) . '/BanditCamp.php';
+                        $campCleared = \BanditCamp::onBattleCompleted((int)$DefenderWref, (int)$from['owner'], (int)$from['wref']);
+                        if (!empty($campCleared)) {
+                            $razedTargets[$DefenderWref] = true;
+                        }
+                    }
+
                     // remember the razed tile so any follow-up wave still queued in
                     // this same batch bounces home instead of fighting a phantom
                     // (now-deleted) village. Needed on top of the $to['wref'] check

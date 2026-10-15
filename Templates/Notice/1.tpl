@@ -21,7 +21,16 @@
 $dataarray = array_map('tz_expand_report', explode(",", $message->readingNotice['data']));
 
 // ======================== BASIC SETTINGS ========================
-$hasHero = (isset($dataarray[270]) && $dataarray[270] > 0);
+$heroSentAtt = 0;
+$heroDeadAtt = 0;
+if (isset($dataarray[272]) && is_numeric($dataarray[272]) && (int)$dataarray[272] > 0) {
+    $heroSentAtt = (int)$dataarray[272];
+    $heroDeadAtt = (int)($dataarray[273] ?? 0);
+} elseif (isset($dataarray[270]) && is_numeric($dataarray[270]) && (int)$dataarray[270] > 0) {
+    $heroSentAtt = (int)$dataarray[270];
+    $heroDeadAtt = (int)($dataarray[271] ?? 0);
+}
+$hasHero = ($heroSentAtt > 0);
 $colspan = $hasHero ? 11 : 10;
 
 // Spy detection (unchanged logic)
@@ -137,7 +146,7 @@ for ($i = 3; $i <= 12; $i++) {
 }
 
 if ($hasHero) {
-    echo "<td>".$dataarray[270]."</td>";
+    echo "<td>".$heroSentAtt."</td>";
 }
 
 // CASUALTIES
@@ -150,8 +159,8 @@ for ($i = 13; $i <= 22; $i++) {
 }
 
 if ($hasHero) {
-    $tdclass = ($dataarray[271] == 0) ? 'class="none"' : '';
-    echo "<td $tdclass>".$dataarray[271]."</td>";
+    $tdclass = ($heroDeadAtt == 0) ? 'class="none"' : '';
+    echo "<td $tdclass>".$heroDeadAtt."</td>";
 }
 
 // PRISONERS (unchanged logic but safer sum)
@@ -292,7 +301,7 @@ foreach ($defArray as $index => $value) {
 
     if ($value == 0) continue;
 
-    $heroIndex = ($index == 0 ? 272 : 244 + ($index - 1));
+    $heroIndex = ($index == 0 ? 274 : 244 + ($index - 1));
     $heroDeadIndex = ($index == 0 ? 1 : 9);
 
     $target = ($index == 0 ? $targetTribe : $index) - 1;
@@ -413,7 +422,7 @@ if ($defHeroData === null && !empty($defUid)) {
     }
 }
 
-if (!empty($defHeroData)):
+if (!empty($defHeroData) && ($defHeroData['reason'] ?? '') !== 'none' && $targetTribe != 4):
 ?>
 <table cellpadding="1" cellspacing="1" class="defender" style="margin-top: 10px; border: 1.5px solid <?= ($defHeroData['present'] ? '#10b981' : '#cbd5e1') ?>;">
 <thead>

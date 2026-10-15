@@ -428,6 +428,109 @@ class BanditCamp {
     }
 
     /**
+     * Called when a battle against a potential Bandit Camp finishes.
+     * Evaluates remaining defenders synchronously and immediately awards
+     * rewards and clears the camp tile if defeated.
+     */
+    public static function onBattleCompleted(int $targetWref, int $attackerUid, int $attackerWref = 0) {
+        global $database;
+
+        self::ensureTable();
+
+        $camps = $database->query_return("
+            SELECT b.*, w.x, w.y
+            FROM " . TB_PREFIX . "bandit_camps b
+            JOIN " . TB_PREFIX . "wdata w ON b.wref = w.id
+            WHERE b.wref = $targetWref AND b.status = 1
+            LIMIT 1
+        ");
+
+        if (empty($camps[0])) {
+            return null;
+        }
+
+        $camp = $camps[0];
+
+        // Check if all defending units in the camp are defeated
+        $unitRow = $database->getUnit($targetWref, false);
+        $totalRemaining = 0;
+        if (!empty($unitRow)) {
+            for ($i = 1; $i <= 100; $i++) {
+                $totalRemaining += (int)($unitRow['u' . $i] ?? 0);
+            }
+        }
+
+        if ($totalRemaining === 0) {
+            $userRes = $database->query_return("SELECT username FROM " . TB_PREFIX . "users WHERE id = $attackerUid LIMIT 1");
+            $conquerorName = !empty($userRes[0]['username']) ? $userRes[0]['username'] : 'Prajurit Sekutu';
+            return self::rewardAndClearCamp($camp, $attackerUid, $conquerorName);
+        }
+
+        return null;
+    }
+
+    /**
+     * Reward the conqueror, notify, and remove the camp from the world map.
+     */
+    public static function rewardAndClearCamp(array $camp, int $conquerorUid, string $conquerorName = ''): array {
+        global $database;
+
+        $wref = (int)$camp['wref'];
+        $campId = (int)$camp['id'];
+        $expBonus = (int)$camp['reward_exp'];
+        $cpBonus = (int)$camp['reward_cp'];
+        $silverBonus = (int)$camp['reward_silver'];
+        $time = time();
+
+        // 1. Award rewards to conqueror
+        if ($conquerorUid > 0) {
+            // Hero EXP & Silver
+            $database->query("
+                UPDATE " . TB_PREFIX . "hero
+                SET experience = IFNULL(experience, 0) + $expBonus, silver = IFNULL(silver, 0) + $silverBonus
+                WHERE uid = $conquerorUid
+            ");
+
+            // CP on users table
+            $database->query("
+                UPDATE " . TB_PREFIX . "users
+                SET cp = IFNULL(cp, 0) + $cpBonus
+                WHERE id = $conquerorUid
+            ");
+
+            // Notice / In-game report
+            $tierLabel = self::getTierLabel((int)$camp['tier']);
+            $topic = "🏆 [KEMENANGAN] {$camp['name']} Berhasil Dihancurkan!";
+            $noticeData = "Selamat! Pasukanmu berhasil menumpas seluruh penjaga di {$camp['name']} ({$tierLabel}). " .
+                          "Hadiah Kemenangan: +{$expBonus} Hero EXP, +{$cpBonus} CP, +{$silverBonus} Silver.";
+
+            $database->addNotice($conquerorUid, $wref, 0, 1, $topic, $noticeData, $time);
+        }
+
+        // 2. Cleanup village data and free map tile
+        $database->query("DELETE FROM " . TB_PREFIX . "vdata WHERE wref = $wref");
+        $database->query("DELETE FROM " . TB_PREFIX . "fdata WHERE vref = $wref");
+        $database->query("DELETE FROM " . TB_PREFIX . "units WHERE vref = $wref");
+        $database->query("UPDATE " . TB_PREFIX . "wdata SET occupied = 0 WHERE id = $wref");
+
+        // 3. Mark camp as cleared in database
+        $database->query("
+            UPDATE " . TB_PREFIX . "bandit_camps
+            SET status = 0, cur_hp = 0, cleared_by = $conquerorUid, cleared_time = $time
+            WHERE id = $campId
+        ");
+
+        return [
+            'id' => $campId,
+            'name' => $camp['name'],
+            'conqueror' => $conquerorName,
+            'exp' => $expBonus,
+            'cp' => $cpBonus,
+            'silver' => $silverBonus
+        ];
+    }
+
+    /**
      * Check active camps for zero remaining troops (cleared).
      * Awards Hero EXP, CP, Silver, removes camp tile, and logs victory.
      */
@@ -451,7 +554,6 @@ class BanditCamp {
 
         foreach ($activeCamps as $camp) {
             $wref = (int)$camp['wref'];
-            $campId = (int)$camp['id'];
 
             // Sum remaining troops in camp units (bypass cache to get fresh count)
             $unitRow = $database->getUnit($wref, false);
@@ -464,71 +566,43 @@ class BanditCamp {
 
             if ($totalRemaining === 0) {
                 // Find victorious attacker who wiped out the camp
+                // Check both returning (sort_type = 4, m.from = wref) and incoming (sort_type = 3, m.to = wref)
                 $attackerSql = "
-                    SELECT m.from as from_wref, v.owner as conqueror_uid, u.username as conqueror_name
+                    SELECT v.owner as conqueror_uid, u.username as conqueror_name
                     FROM " . TB_PREFIX . "movement m
-                    JOIN " . TB_PREFIX . "vdata v ON m.from = v.wref
+                    JOIN " . TB_PREFIX . "vdata v ON (CASE WHEN m.sort_type = 4 THEN m.to = v.wref ELSE m.from = v.wref END)
                     JOIN " . TB_PREFIX . "users u ON v.owner = u.id
-                    WHERE m.to = $wref AND m.sort_type IN (3, 4) AND m.proc = 1
+                    WHERE ((m.to = $wref AND m.sort_type = 3) OR (m.from = $wref AND m.sort_type = 4))
                     ORDER BY m.endtime DESC
                     LIMIT 1
                 ";
                 $lastAttacker = $database->query_return($attackerSql);
 
                 $conquerorUid = !empty($lastAttacker[0]['conqueror_uid']) ? (int)$lastAttacker[0]['conqueror_uid'] : 0;
-                $conquerorName = !empty($lastAttacker[0]['conqueror_name']) ? $lastAttacker[0]['conqueror_name'] : 'Prajurit Sekutu';
+                $conquerorName = !empty($lastAttacker[0]['conqueror_name']) ? $lastAttacker[0]['conqueror_name'] : '';
 
-                $expBonus = (int)$camp['reward_exp'];
-                $cpBonus = (int)$camp['reward_cp'];
-                $silverBonus = (int)$camp['reward_silver'];
-                $time = time();
-
-                // 1. Award rewards to conqueror
-                if ($conquerorUid > 0) {
-                    // Hero EXP & Silver
-                    $database->query("
-                        UPDATE " . TB_PREFIX . "hero
-                        SET experience = experience + $expBonus, silver = silver + $silverBonus
-                        WHERE uid = $conquerorUid
-                    ");
-
-                    // CP on users table
-                    $database->query("
-                        UPDATE " . TB_PREFIX . "users
-                        SET cp = cp + $cpBonus
-                        WHERE id = $conquerorUid
-                    ");
-
-                    // Notice / In-game report
-                    $tierLabel = self::getTierLabel((int)$camp['tier']);
-                    $topic = "🏆 [KEMENANGAN] {$camp['name']} Berhasil Dihancurkan!";
-                    $noticeData = "Selamat! Pasukanmu berhasil menumpas seluruh penjaga di {$camp['name']} ({$tierLabel}). " .
-                                  "Hadiah Kemenangan: +{$expBonus} Hero EXP, +{$cpBonus} CP, +{$silverBonus} Silver.";
-
-                    $database->addNotice($conquerorUid, $wref, 0, 1, $topic, $noticeData, $time);
+                // Secondary fallback: check recent combat reports in ndata if movement records already expired
+                if ($conquerorUid === 0) {
+                    $noticeSql = "
+                        SELECT n.uid as conqueror_uid, u.username as conqueror_name
+                        FROM " . TB_PREFIX . "ndata n
+                        JOIN " . TB_PREFIX . "users u ON n.uid = u.id
+                        WHERE n.toWref = $wref AND n.ntype IN (1, 2)
+                        ORDER BY n.time DESC
+                        LIMIT 1
+                    ";
+                    $lastNotice = $database->query_return($noticeSql);
+                    if (!empty($lastNotice[0]['conqueror_uid'])) {
+                        $conquerorUid = (int)$lastNotice[0]['conqueror_uid'];
+                        $conquerorName = $lastNotice[0]['conqueror_name'] ?? '';
+                    }
                 }
 
-                // 2. Cleanup village data and free map tile
-                $database->query("DELETE FROM " . TB_PREFIX . "vdata WHERE wref = $wref");
-                $database->query("DELETE FROM " . TB_PREFIX . "fdata WHERE vref = $wref");
-                $database->query("DELETE FROM " . TB_PREFIX . "units WHERE vref = $wref");
-                $database->query("UPDATE " . TB_PREFIX . "wdata SET occupied = 0 WHERE id = $wref");
+                if (empty($conquerorName)) {
+                    $conquerorName = 'Prajurit Sekutu';
+                }
 
-                // 3. Mark camp as cleared in database
-                $database->query("
-                    UPDATE " . TB_PREFIX . "bandit_camps
-                    SET status = 0, cur_hp = 0, cleared_by = $conquerorUid, cleared_time = $time
-                    WHERE id = $campId
-                ");
-
-                $cleared[] = [
-                    'id' => $campId,
-                    'name' => $camp['name'],
-                    'conqueror' => $conquerorName,
-                    'exp' => $expBonus,
-                    'cp' => $cpBonus,
-                    'silver' => $silverBonus
-                ];
+                $cleared[] = self::rewardAndClearCamp($camp, $conquerorUid, $conquerorName);
             }
         }
 
