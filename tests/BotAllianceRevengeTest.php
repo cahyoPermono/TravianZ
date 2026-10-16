@@ -8,6 +8,8 @@
 if (!defined('TB_PREFIX')) define('TB_PREFIX', 's1_');
 if (!defined('INCREASE_SPEED')) define('INCREASE_SPEED', 1);
 if (!defined('WORLD_MAX')) define('WORLD_MAX', 400);
+if (!defined('BOT_AI_ATTACK_START_HOUR')) define('BOT_AI_ATTACK_START_HOUR', 0);
+if (!defined('BOT_AI_ATTACK_END_HOUR')) define('BOT_AI_ATTACK_END_HOUR', 24);
 
 require_once dirname(__DIR__) . '/GameEngine/BotAI.php';
 
@@ -172,7 +174,7 @@ assertTrue(strpos($res, "Musuh_Jahat") !== false, "Must target enemy username Mu
 assertTrue(strpos($res, "Markas Musuh") !== false, "Must target enemy village Markas Musuh");
 
 assertEqual(1, count($database->addedAttacks), "Must create 1 attack record");
-assertEqual(3, $database->addedAttacks[0]['type'], "Revenge attack type must be Normal Attack (3)");
+assertEqual(4, $database->addedAttacks[0]['type'], "Revenge attack type defaults to Raid (4) to prevent army extinction");
 
 assertEqual(1, count($database->addedMovements), "Must create 1 movement record");
 assertEqual(101, $database->addedMovements[0]['from'], "From must be 101");

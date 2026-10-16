@@ -571,6 +571,9 @@ class BotAI {
         $speed = defined('SPEED') ? max(1, (float)SPEED) : 1.0;
         $effectiveAgeDays = ($ageSeconds / 86400.0) * sqrt($speed);
 
+        // Hitung batas pertahanan garnisun rumah (Home Garrison Reserve)
+        $homeReserve = self::getHomeReserve($pop);
+
         // Rasio pasukan realistis terhadap populasi (25 - 35% populasi)
         $popFactor = defined('BOT_AI_TROOP_POP_FACTOR') ? (float)BOT_AI_TROOP_POP_FACTOR : 0.30;
         $popArmyCap = max(8, (int)round($pop * $popFactor));
@@ -578,7 +581,8 @@ class BotAI {
         // Batas maksimal pasukan berdasarkan umur bot
         $ageArmyCap = (int)round(12 + ($effectiveAgeDays * 18));
         $maxTroops = min($ageArmyCap, $popArmyCap);
-        $maxTroops = max(8, min(300, $maxTroops));
+        // Pastikan batas maksimal pasukan selalu mencukupi home reserve + surplus tempur
+        $maxTroops = max($homeReserve + 10, min(300, $maxTroops));
 
         $tribeUnits = self::getTribeUnits($tribe);
 
@@ -623,13 +627,17 @@ class BotAI {
             return null; // Batas pasukan wajar tercapai
         }
 
-        // Jangan menumpuk antrean berlebih jika sudah ada unit yang sedang dilatih
-        if ($queuedTotal >= 6) {
+        // Mode Pemulihan Darurat: Jika pasukan bot berada di bawah batas garnisun rumah (Home Reserve)
+        $isEmergencyRecovery = ($totalArmy < $homeReserve);
+
+        // Jangan menumpuk antrean berlebih: dalam mode darurat izinkan antrean lebih tinggi agar barak aktif memulihkan pasukan
+        $maxQueued = $isEmergencyRecovery ? min(20, $homeReserve) : 6;
+        if ($queuedTotal >= $maxQueued) {
             return null; // Antrean pelatihan masih penuh
         }
 
-        // Pacing pelatihan: 40% peluang per tick
-        if (rand(1, 100) > 40) {
+        // Pacing pelatihan: 40% peluang per tick dalam masa damai; 100% aktif (bypass roll) saat pemulihan darurat
+        if (!$isEmergencyRecovery && rand(1, 100) > 40) {
             return null; // Pelatihan di barak sedang berlangsung
         }
 
@@ -640,30 +648,38 @@ class BotAI {
         $enableCavalry = defined('BOT_AI_ENABLE_CAVALRY') ? (bool)BOT_AI_ENABLE_CAVALRY : true;
 
         $trainCandidates = [];
-        // Basic infantry is always eligible (Barracks >= 1)
-        $trainCandidates[$tribeUnits['basic']] = 50;
+        if ($isEmergencyRecovery) {
+            // Mode Darurat: Fokus prioritaskan infanteri dasar & infanteri pertahanan agar segera pulih
+            $trainCandidates[$tribeUnits['basic']] = 75;
+            if (!empty($tribeUnits['inf_def']) && ($brLevel >= 2 || $pop >= 50)) {
+                $trainCandidates[$tribeUnits['inf_def']] = 25;
+            }
+        } else {
+            // Basic infantry is always eligible (Barracks >= 1)
+            $trainCandidates[$tribeUnits['basic']] = 50;
 
-        // Defensive infantry: Membutuhkan barak lvl 2 atau pop >= 50 dan umur >= 0.8 hari
-        if (!empty($tribeUnits['inf_def']) && ($brLevel >= 2 || $pop >= 50) && $effectiveAgeDays >= 0.8) {
-            $trainCandidates[$tribeUnits['inf_def']] = 30;
-        }
+            // Defensive infantry: Membutuhkan barak lvl 2 atau pop >= 50 dan umur >= 0.8 hari
+            if (!empty($tribeUnits['inf_def']) && ($brLevel >= 2 || $pop >= 50) && $effectiveAgeDays >= 0.8) {
+                $trainCandidates[$tribeUnits['inf_def']] = 30;
+            }
 
-        // Advanced / Elite offensive infantry: Membutuhkan akademi atau barak lvl 3 dan pop >= 80, umur >= 1.5 hari
-        if (!empty($tribeUnits['inf_adv']) && ($acLevel >= 1 || $brLevel >= 3) && $pop >= 80 && $effectiveAgeDays >= 1.5) {
-            $trainCandidates[$tribeUnits['inf_adv']] = 20;
-        }
+            // Advanced / Elite offensive infantry: Membutuhkan akademi atau barak lvl 3 dan pop >= 80, umur >= 1.5 hari
+            if (!empty($tribeUnits['inf_adv']) && ($acLevel >= 1 || $brLevel >= 3) && $pop >= 80 && $effectiveAgeDays >= 1.5) {
+                $trainCandidates[$tribeUnits['inf_adv']] = 20;
+            }
 
-        // Kavaleri: Hanya terbuka setelah bot berumur >= 2.5 hari, pop >= 100, dan memiliki Stable (lvl >= 1)
-        if ($enableCavalry && $effectiveAgeDays >= 2.5 && $pop >= 100 && $stLevel >= 1) {
-            if (!empty($tribeUnits['cav_light'])) $trainCandidates[$tribeUnits['cav_light']] = 15;
-            if (!empty($tribeUnits['cav_def']) && $stLevel >= 2) $trainCandidates[$tribeUnits['cav_def']] = 10;
-            if (!empty($tribeUnits['cav_heavy']) && $stLevel >= 3 && $pop >= 150) $trainCandidates[$tribeUnits['cav_heavy']] = 10;
-        }
+            // Kavaleri: Hanya terbuka setelah bot berumur >= 2.5 hari, pop >= 100, dan memiliki Stable (lvl >= 1)
+            if ($enableCavalry && $effectiveAgeDays >= 2.5 && $pop >= 100 && $stLevel >= 1) {
+                if (!empty($tribeUnits['cav_light'])) $trainCandidates[$tribeUnits['cav_light']] = 15;
+                if (!empty($tribeUnits['cav_def']) && $stLevel >= 2) $trainCandidates[$tribeUnits['cav_def']] = 10;
+                if (!empty($tribeUnits['cav_heavy']) && $stLevel >= 3 && $pop >= 150) $trainCandidates[$tribeUnits['cav_heavy']] = 10;
+            }
 
-        // Senjata Pengepungan: Hanya terbuka setelah bot berumur >= 4.5 hari, pop >= 180, dan memiliki Workshop (lvl >= 1)
-        if ($effectiveAgeDays >= 4.5 && $pop >= 180 && $wsLevel >= 1) {
-            if (!empty($tribeUnits['ram'])) $trainCandidates[$tribeUnits['ram']] = 5;
-            if (!empty($tribeUnits['catapult']) && $wsLevel >= 2) $trainCandidates[$tribeUnits['catapult']] = 4;
+            // Senjata Pengepungan: Hanya terbuka setelah bot berumur >= 4.5 hari, pop >= 180, dan memiliki Workshop (lvl >= 1)
+            if ($effectiveAgeDays >= 4.5 && $pop >= 180 && $wsLevel >= 1) {
+                if (!empty($tribeUnits['ram'])) $trainCandidates[$tribeUnits['ram']] = 5;
+                if (!empty($tribeUnits['catapult']) && $wsLevel >= 2) $trainCandidates[$tribeUnits['catapult']] = 4;
+            }
         }
 
         // Weighted random selection of unit to train
@@ -720,8 +736,8 @@ class BotAI {
             return null; // Sumber daya belum cukup, bot harus menunggu produksi lapangan (seperti pemain asli)
         }
 
-        // Natural batch size: 1 - 2 unit per batch pelatihan
-        $batchSize = rand(1, 2);
+        // Batch size: 3 - 5 unit per tick dalam pemulihan darurat, 1 - 2 unit dalam masa damai
+        $batchSize = $isEmergencyRecovery ? rand(3, 5) : rand(1, 2);
         $trainCount = min($batchSize, $maxAffordable, $maxTroops - $totalArmy);
         if ($trainCount <= 0) {
             return null;
@@ -971,10 +987,11 @@ class BotAI {
                 $allowedTroops = $targetGarrison;
             } else {
                 $pop = (int)($database->getVillageField($wid, 'pop') ?: $bot['pop']);
+                $homeReserve = self::getHomeReserve($pop);
                 $ageArmyCap = (int)round(12 + ($effectiveAgeDays * 13));
                 $popArmyCap = max(8, (int)round($pop * 0.35));
                 $allowedTroops = min($ageArmyCap, $popArmyCap);
-                $allowedTroops = max(8, min(250, $allowedTroops));
+                $allowedTroops = max($homeReserve, min(250, $allowedTroops));
             }
 
             // Clear foreign reinforcements stationed in or sent from the bot village
@@ -1192,9 +1209,13 @@ class BotAI {
             }
         }
 
-        $minTroops = defined('BOT_AI_MIN_DEFENSE_TROOPS') ? (int)BOT_AI_MIN_DEFENSE_TROOPS : 6;
-        if ($totalDefAvailable < $minTroops) {
-            return null; // Not enough troops to spare for reinforcement
+        $pop = max(10, (int)($bot['pop'] ?? 10));
+        $homeReserve = self::getHomeReserve($pop);
+        $deployableDef = max(0, $totalDefAvailable - $homeReserve);
+
+        $minTroops = defined('BOT_AI_MIN_DEFENSE_TROOPS') ? (int)BOT_AI_MIN_DEFENSE_TROOPS : 10;
+        if ($deployableDef < $minTroops) {
+            return null; // Garnisun pertahanan rumah wajib dipertahankan; tidak ada sisa pasukan untuk dikirim
         }
 
         // Limit concurrent outgoing reinforcement movements per bot (default 2)
@@ -1382,13 +1403,14 @@ class BotAI {
         }
 
         // =========================================================================
-        // STEP 2: CALCULATE TROOP REINFORCEMENTS TO DISPATCH
+        // STEP 2: CALCULATE TROOP REINFORCEMENTS TO DISPATCH (FROM DEPLOYABLE SURPLUS)
         // =========================================================================
-        // Active attack (Priority 1): send ~40% of available defense troops (up to 150)
-        // Recent recovery (Priority 2): send ~25% of available defense troops (up to 80)
+        // Active attack (Priority 1): send ~40% of deployable defense troops (up to 100)
+        // Recent recovery (Priority 2): send ~25% of deployable defense troops (up to 50)
         $ratio = ($threatLevel === 1) ? 0.40 : 0.25;
-        $maxCap = ($threatLevel === 1) ? 150 : 80;
-        $targetPartySize = min($maxCap, max($minTroops, (int)floor($totalDefAvailable * $ratio)));
+        $maxCap = ($threatLevel === 1) ? 100 : 50;
+        $targetPartySize = min($maxCap, max($minTroops, (int)floor($deployableDef * $ratio)));
+        $targetPartySize = min($targetPartySize, $deployableDef);
 
         $dispatched = [];
         $dispatchedSpeeds = [];
@@ -1396,7 +1418,8 @@ class BotAI {
 
         foreach ($availableDef as $uNum => $avail) {
             $portion = (int)round(($avail / $totalDefAvailable) * $targetPartySize);
-            $send = min($avail, max(0, $portion));
+            $remainingCap = $deployableDef - $totalDispatched;
+            $send = min($avail, max(0, $portion), $remainingCap);
             if ($send > 0) {
                 $dispatched[$uNum] = $send;
                 $dispatchedSpeeds[] = self::getUnitSpeed($uNum);
@@ -1404,10 +1427,10 @@ class BotAI {
             }
         }
 
-        // Guarantee minimum troops
-        if ($totalDispatched < $minTroops) {
+        // Guarantee minimum troops while strictly respecting deployableDef
+        if ($totalDispatched < $minTroops && $totalDispatched < $deployableDef) {
             $primaryUnit = key($availableDef);
-            $add = min($availableDef[$primaryUnit] - ($dispatched[$primaryUnit] ?? 0), $minTroops - $totalDispatched);
+            $add = min($availableDef[$primaryUnit] - ($dispatched[$primaryUnit] ?? 0), $deployableDef - $totalDispatched, $minTroops - $totalDispatched);
             if ($add > 0) {
                 $dispatched[$primaryUnit] = ($dispatched[$primaryUnit] ?? 0) + $add;
                 $totalDispatched += $add;
@@ -1533,7 +1556,12 @@ class BotAI {
         $tribe = (int)$bot['tribe'];
         $pop = max(10, (int)$bot['pop']);
 
-        $minTroops = defined('BOT_AI_MIN_RAID_TROOPS') ? (int)BOT_AI_MIN_RAID_TROOPS : 6;
+        // Mandatory Home Garrison Reserve:
+        $homeReserve = self::getHomeReserve($pop);
+        $minDeployable = max(15, min(30, (int)round($pop * 0.10)));
+        $minTroopsConfig = defined('BOT_AI_MIN_RAID_TROOPS') ? (int)BOT_AI_MIN_RAID_TROOPS : 15;
+        $minAttackForce = max($minDeployable, $minTroopsConfig);
+
         $attackChance = defined('BOT_AI_ATTACK_CHANCE') ? (int)BOT_AI_ATTACK_CHANCE : 35;
         $maxDistance = defined('BOT_AI_MAX_DISTANCE') ? (float)BOT_AI_MAX_DISTANCE : 70.0;
         $maxConcurrent = defined('BOT_AI_MAX_CONCURRENT_ATTACKS') ? (int)BOT_AI_MAX_CONCURRENT_ATTACKS : 1;
@@ -1573,8 +1601,10 @@ class BotAI {
             }
         }
 
-        if ($totalCombatAvailable < $minTroops) {
-            return null;
+        // Anti-suicide & Home Garrison Protection:
+        $deployableCombat = max(0, $totalCombatAvailable - $homeReserve);
+        if ($deployableCombat < $minAttackForce) {
+            return null; // Garnisun pertahanan rumah wajib dipertahankan; sisa pasukan tempur belum cukup untuk menyerang
         }
 
         // Check active outgoing attacks (only count real attacks/raids; exclude defensive reinforcements)
@@ -1725,6 +1755,44 @@ class BotAI {
                             continue; // Sudah melancarkan balas dendam untuk insiden ini
                         }
 
+                        // 1. Cek apakah ada gerakan serangan aktif yang sedang berjalan ke desa target dari bot ini
+                        $ongoingToTarget = $database->query_return("
+                            SELECT moveid
+                            FROM " . TB_PREFIX . "movement
+                            WHERE `from` = $wid AND `to` = $w AND sort_type = 3 AND proc = 0
+                            LIMIT 1
+                        ");
+                        if (!empty($ongoingToTarget)) {
+                            continue;
+                        }
+
+                        // 2. War Fatigue & Anti-Ping-Pong Cooldown:
+                        // Cegah balas-membalas non-stop antara 2 desa dalam 2 jam (7200 detik)
+                        $revengeCooldown = defined('BOT_AI_REVENGE_COOLDOWN') ? (int)BOT_AI_REVENGE_COOLDOWN : 7200;
+                        $recentRetaliation = $database->query_return("
+                            SELECT moveid
+                            FROM " . TB_PREFIX . "movement
+                            WHERE `from` = $wid AND `to` = $w AND sort_type = 3 AND starttime >= " . (time() - $revengeCooldown) . "
+                            LIMIT 1
+                        ");
+                        if (!empty($recentRetaliation)) {
+                            continue; // Masih dalam masa jeda / pendinginan perang
+                        }
+
+                        // 3. Batasi kroyokan bot sealiansi: maksimal 2 serangan bot sealiansi bersamaan ke 1 target
+                        if ($botAlliance > 0) {
+                            $allianceSwarm = $database->query_return("
+                                SELECT COUNT(m.moveid) as ally_atks
+                                FROM " . TB_PREFIX . "movement m
+                                JOIN " . TB_PREFIX . "vdata v ON m.`from` = v.wref
+                                JOIN " . TB_PREFIX . "users u ON v.owner = u.id
+                                WHERE u.alliance = $botAlliance AND m.`to` = $w AND m.sort_type = 3 AND m.proc = 0
+                            ");
+                            if ((int)($allianceSwarm[0]['ally_atks'] ?? 0) >= 2) {
+                                continue;
+                            }
+                        }
+
                         $dist = self::getDistance($botCoor['x'], $botCoor['y'], $tgt['x'], $tgt['y']);
                         if ($dist < 0.5) {
                             continue;
@@ -1811,11 +1879,35 @@ class BotAI {
                     continue;
                 }
 
+                $tw = (int)$tgt['wref'];
+
+                // 1. Cek apakah bot ini sudah memiliki gerakan serangan aktif yang sedang berjalan ke desa target
+                $ongoingToTarget = $database->query_return("
+                    SELECT moveid
+                    FROM " . TB_PREFIX . "movement
+                    WHERE `from` = $wid AND `to` = $tw AND sort_type = 3 AND proc = 0
+                    LIMIT 1
+                ");
+                if (!empty($ongoingToTarget)) {
+                    continue;
+                }
+
+                // 2. Cooldown antar serangan dari bot ini ke desa yang sama (minimal 1 jam / 3600 detik)
+                $recentAttack = $database->query_return("
+                    SELECT moveid
+                    FROM " . TB_PREFIX . "movement
+                    WHERE `from` = $wid AND `to` = $tw AND sort_type = 3 AND starttime >= " . (time() - 3600) . "
+                    LIMIT 1
+                ");
+                if (!empty($recentAttack)) {
+                    continue;
+                }
+
                 if (defined('BOT_AI_GANG_ATTACK_ENABLED') && !BOT_AI_GANG_ATTACK_ENABLED) {
                     $incoming = $database->query_return("
                         SELECT COUNT(*) as total
                         FROM " . TB_PREFIX . "movement
-                        WHERE `to` = " . (int)$tgt['wref'] . " AND sort_type = 3 AND proc = 0
+                        WHERE `to` = " . $tw . " AND sort_type = 3 AND proc = 0
                     ");
                     if ((int)($incoming[0]['total'] ?? 0) >= 2) {
                         continue;
@@ -1843,24 +1935,26 @@ class BotAI {
         // TROOP DISPATCH & CALCULATION
         // =========================================================================
         if ($isRevenge) {
-            // Retaliation strike: Send powerful force (50% of available troops, up to 250)
-            $targetPartySize = min(250, max($minTroops, (int)floor($totalCombatAvailable * 0.50)));
+            // Retaliation strike: Send ~50% of deployable surplus (up to 150 troops)
+            $targetPartySize = min(150, max($minAttackForce, (int)floor($deployableCombat * 0.50)));
         } elseif ($dynamicScaling) {
-            // Dynamic scaling raid: ~30% of standing army, up to 120 troops
-            $targetPartySize = min(120, max($minTroops, (int)floor($totalCombatAvailable * 0.30)));
+            // Dynamic scaling raid: ~35% of deployable surplus, up to 100 troops
+            $targetPartySize = min(100, max($minAttackForce, (int)floor($deployableCombat * 0.35)));
         } else {
-            // Legacy cap: 5 - 15 troops
-            $targetPartySize = min(15, max(5, (int)floor($totalCombatAvailable * 0.40)));
+            // Legacy cap
+            $targetPartySize = min(15, max($minAttackForce, (int)floor($deployableCombat * 0.40)));
         }
+        $targetPartySize = min($targetPartySize, $deployableCombat);
 
-        // Allocate raid quotas across available combat units
+        // Allocate raid quotas across available combat units strictly within deployableCombat
         $dispatched = [];
         $dispatchedSpeeds = [];
         $totalDispatched = 0;
 
         foreach ($availableCombat as $uNum => $avail) {
             $portion = (int)round(($avail / $totalCombatAvailable) * $targetPartySize);
-            $send = min($avail, max(0, $portion));
+            $remainingCap = $deployableCombat - $totalDispatched;
+            $send = min($avail, max(0, $portion), $remainingCap);
             if ($send > 0) {
                 $dispatched[$uNum] = $send;
                 $dispatchedSpeeds[] = self::getUnitSpeed($uNum);
@@ -1868,14 +1962,18 @@ class BotAI {
             }
         }
 
-        // Guarantee minimum troops
-        if ($totalDispatched < $minTroops) {
+        // Guarantee minimum troops while strictly respecting deployableCombat
+        if ($totalDispatched < $minAttackForce && $totalDispatched < $deployableCombat) {
             $primaryUnit = key($availableCombat);
-            $add = min($availableCombat[$primaryUnit] - ($dispatched[$primaryUnit] ?? 0), $minTroops - $totalDispatched);
-            if ($add > 0) {
-                $dispatched[$primaryUnit] = ($dispatched[$primaryUnit] ?? 0) + $add;
-                $totalDispatched += $add;
-                if (!in_array(self::getUnitSpeed($primaryUnit), $dispatchedSpeeds)) {
+            $maxCanAdd = min(
+                $availableCombat[$primaryUnit] - ($dispatched[$primaryUnit] ?? 0),
+                $deployableCombat - $totalDispatched,
+                $minAttackForce - $totalDispatched
+            );
+            if ($maxCanAdd > 0) {
+                $dispatched[$primaryUnit] = ($dispatched[$primaryUnit] ?? 0) + $maxCanAdd;
+                $totalDispatched += $maxCanAdd;
+                if (!in_array(self::getUnitSpeed($primaryUnit), $dispatchedSpeeds, true)) {
                     $dispatchedSpeeds[] = self::getUnitSpeed($primaryUnit);
                 }
             }
@@ -1915,8 +2013,25 @@ class BotAI {
             }
         }
 
-        // Determine attack type: Normal Attack (3) if revenging or 25% chance for regular raid
-        $attackType = ($isRevenge || rand(1, 100) <= 25) ? 3 : 4;
+        // Determine attack type:
+        // Default to Raid (Type 4) for bot attacks & revenge to cushion casualties and prevent army extinction.
+        // Only use Normal Attack (Type 3) if bot has overwhelming force (>= 80 troops) AND includes siege equipment (rams/catapults).
+        $hasSiege = false;
+        $siegeUnits = array_merge(
+            isset($tribeUnits['ram']) ? [$tribeUnits['ram']] : [],
+            isset($tribeUnits['catapult']) ? [$tribeUnits['catapult']] : []
+        );
+        foreach ($siegeUnits as $su) {
+            if (!empty($dispatched[$su]) && $dispatched[$su] > 0) {
+                $hasSiege = true;
+                break;
+            }
+        }
+
+        $attackType = 4; // Default to Raid (Type 4) to prevent total extinction
+        if ($totalDispatched >= 80 && $hasSiege) {
+            $attackType = 3; // Full assault with siege weapons
+        }
         $attackTypeName = ($attackType === 3) ? 'Normal Attack' : 'Raid';
 
         $attackId = $database->addAttack(
@@ -2394,6 +2509,19 @@ class BotAI {
         }
 
         return sqrt($xd * $xd + $yd * $yd);
+    }
+
+    /**
+     * Calculate mandatory home garrison reserve that must never march out on attacks or distant reinforcements.
+     * Keeps villages defended and prevents army extinction.
+     *
+     * @param int $pop Village population
+     * @return int Minimum garrison troops to retain at home
+     */
+    public static function getHomeReserve(int $pop): int {
+        $pop = max(10, $pop);
+        // Scales naturally with population: minimum 15, maximum 60 (approx 20% of pop)
+        return max(15, min(60, (int)round($pop * 0.20)));
     }
 
     /**
