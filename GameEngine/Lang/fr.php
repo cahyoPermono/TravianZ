@@ -1388,6 +1388,7 @@ tz_def('DEFENSIVEWALL_DESC', 'Le mur défensif protège votre village contre les
 tz_def('BIGHOSPITAL', 'Grand hôpital');
 tz_def('BIGHOSPITAL_DESC', 'Le Grand hôpital est une version améliorée de l\'hôpital ; il permet de soigner un plus grand nombre de vos troupes blessées après la bataille. Les niveaux supérieurs réduisent le temps de soin.<br>Spécifique à la tribu : Spartiates et Vikings uniquement');
 tz_def('BARRICADE', 'Barricade');
+tz_def('PARANORMAL_SANCTUARY', 'Sanctuaire Paranormal');
 tz_def('HEALING_TIME_NOW', 'Temps de soin actuel');
 tz_def('WOUNDED_TROOPS', 'Troupes blessées');
 tz_def('NO_WOUNDED', 'Aucune troupe blessée à l\'hôpital.');
@@ -1436,6 +1437,7 @@ tz_def('MANUAL_UDESC_89', 'Le Jarl soumet les villages ennemis à sa volonté, r
 tz_def('MANUAL_UDESC_90', 'Les colons sont de courageux sujets qui partent fonder un nouveau village pour les Vikings. Il en faut trois, accompagnés de provisions.');
 tz_def('HEALING_TIME_LEVEL', 'Temps de guérison au niveau');
 tz_def('BARRICADE_DESC', 'La barricade protège votre village contre les attaques des autres joueurs. Sa structure en bois multicouche confère un solide bonus de défense.<br>Spécifique à la tribu : Vikings uniquement');
+tz_def('PARANORMAL_SANCTUARY_DESC', 'Lieu de méditation mystique des anciens de Nusantara pour lier et invoquer des esprits astraux protecteurs du village.<br>Spécifique à la tribu : Nusantara uniquement');
 
 tz_def('BUILDING_MAX_LEVEL_UNDER', 'Bâtiment au niveau maximum atteint');
 tz_def('BUILDING_BEING_DEMOLISHED', 'Bâtiment en cours de démolition');

@@ -20,21 +20,54 @@
 
 $dataarray = array_map('tz_expand_report', explode(",", $message->readingNotice['data']));
 
+// ======================== SPY REPORT DETECTION ========================
+$spyData = null;
+$spyPic = null;
+$spyIndex = null;
+foreach ($dataarray as $idx => $val) {
+    if (is_string($val) && (
+        strpos($val, '<div class="res">') !== false ||
+        strpos($val, 'class="r1"') !== false ||
+        strpos($val, 'RC_CRANNY_CAPACITY') !== false ||
+        strpos($val, 'RC_WALL_LEVEL') !== false ||
+        strpos($val, 'RC_RESIDENCE_LEVEL') !== false ||
+        strpos($val, 'RC_PALACE_LEVEL') !== false ||
+        strpos($val, 'RC_NO_INFO') !== false ||
+        (defined('RC_CRANNY_CAPACITY') && strpos($val, constant('RC_CRANNY_CAPACITY')) !== false)
+    )) {
+        $spyData = $val;
+        $spyIndex = $idx;
+        if (isset($dataarray[$idx - 1]) && is_numeric($dataarray[$idx - 1])) {
+            $spyPic = (int)$dataarray[$idx - 1];
+        }
+        break;
+    }
+}
+
 // ======================== BASIC SETTINGS ========================
 $heroSentAtt = 0;
 $heroDeadAtt = 0;
-if (isset($dataarray[272]) && is_numeric($dataarray[272]) && (int)$dataarray[272] > 0) {
-    $heroSentAtt = (int)$dataarray[272];
-    $heroDeadAtt = (int)($dataarray[273] ?? 0);
-} elseif (isset($dataarray[270]) && is_numeric($dataarray[270]) && (int)$dataarray[270] > 0) {
-    $heroSentAtt = (int)$dataarray[270];
-    $heroDeadAtt = (int)($dataarray[271] ?? 0);
+if ($spyIndex !== null) {
+    // In scout reports, spyPic is at ($spyIndex - 1) and spyData is at $spyIndex.
+    // The attacker hero (t11) is located immediately after spyData:
+    if (isset($dataarray[$spyIndex + 1]) && is_numeric($dataarray[$spyIndex + 1]) && (int)$dataarray[$spyIndex + 1] > 0) {
+        $heroSentAtt = (int)$dataarray[$spyIndex + 1];
+        $heroDeadAtt = (isset($dataarray[$spyIndex + 2]) && is_numeric($dataarray[$spyIndex + 2])) ? (int)$dataarray[$spyIndex + 2] : 0;
+    }
+} else {
+    if (isset($dataarray[272]) && is_numeric($dataarray[272]) && (int)$dataarray[272] > 0) {
+        $heroSentAtt = (int)$dataarray[272];
+        $heroDeadAtt = (int)($dataarray[273] ?? 0);
+    } elseif (isset($dataarray[270]) && is_numeric($dataarray[270]) && (int)$dataarray[270] > 0) {
+        $heroSentAtt = (int)$dataarray[270];
+        $heroDeadAtt = (int)($dataarray[271] ?? 0);
+    }
 }
 $hasHero = ($heroSentAtt > 0);
 $colspan = $hasHero ? 11 : 10;
 
-// Spy detection (unchanged logic)
-$spy = !empty($dataarray[269]) && !empty($dataarray[268]) && empty($dataarray[287]);
+// Spy detection
+$spy = ($spyData !== null) || (!empty($dataarray[269]) && !empty($dataarray[268]) && empty($dataarray[287]));
 
 // ======================== URL SETUP ========================
 
@@ -225,7 +258,20 @@ if (!empty($dataarray[266]) && !empty($dataarray[267])) {
 </tbody>
 <?php }
 
-if ($spy) {
+if ($spyData !== null) {
+?>
+<tbody class="goods">
+<tr>
+<th><?php echo INFORMATION; ?></th>
+<td colspan="<?php echo $colspan; ?>">
+<?php if ($spyPic > 0) { ?>
+<img class="unit u<?php echo $spyPic; ?>" src="img/x.gif" alt="" />
+<?php } ?>
+<?php echo $spyData; ?>
+</td>
+</tr>
+</tbody>
+<?php } elseif ($spy && !empty($dataarray[269])) {
 ?>
 <tbody class="goods">
 <tr>
@@ -605,6 +651,92 @@ if (!empty($mercData) && $mercData['total_troops'] > 0):
     <?php echo ($mercData['dead'][$m] == 0) ? '<td class="none">0</td>' : '<td style="color:#dc2626; font-weight:bold;">'.$mercData['dead'][$m].'</td>'; ?>
 <?php endfor; ?>
 <?php for ($e = 5; $e <= ($colspan - 1); $e++): ?>
+<td class="none">0</td>
+<?php endfor; ?>
+</tr>
+</tbody>
+</table>
+<?php endif; ?>
+
+<?php
+// Paranormal Guardian display in battle report
+$paranormalData = null;
+if (!empty($dataarray[29])) {
+    $defWid = (int)$dataarray[29];
+    if (file_exists(dirname(__DIR__, 2) . '/GameEngine/Paranormal.php')) {
+        require_once dirname(__DIR__, 2) . '/GameEngine/Paranormal.php';
+        $pSpirits = Paranormal::getVillageSpirits($defWid);
+        $pTotal = (int)$pSpirits['pocong'] + (int)$pSpirits['kuntilanak'] + (int)$pSpirits['genderuwo'];
+        if ($pTotal > 0) {
+            $defSendTot = 0;
+            $defDeadTot = 0;
+            for ($k = 35; $k <= 44; $k++) {
+                $defSendTot += (int)($dataarray[$k] ?? 0);
+            }
+            for ($k = 45; $k <= 54; $k++) {
+                $defDeadTot += (int)($dataarray[$k] ?? 0);
+            }
+            $pRatio = ($defSendTot > 0) ? min(1.0, max(0.0, $defDeadTot / $defSendTot)) : 0.0;
+            $dP = (int)round((int)$pSpirits['pocong'] * $pRatio);
+            $dK = (int)round((int)$pSpirits['kuntilanak'] * $pRatio);
+            $dG = (int)round((int)$pSpirits['genderuwo'] * $pRatio);
+
+            $paranormalData = [
+                'troops' => [
+                    1 => (int)$pSpirits['pocong'] + $dP,
+                    2 => (int)$pSpirits['kuntilanak'] + $dK,
+                    3 => (int)$pSpirits['genderuwo'] + $dG
+                ],
+                'dead' => [
+                    1 => $dP,
+                    2 => $dK,
+                    3 => $dG
+                ],
+                'total_troops' => $pTotal + $dP + $dK + $dG
+            ];
+        }
+    }
+}
+
+if (!empty($paranormalData) && $paranormalData['total_troops'] > 0):
+?>
+<table cellpadding="1" cellspacing="1" class="defender" style="margin-top: 10px; border: 1.5px solid #a855f7;">
+<thead>
+<tr>
+<td class="role" style="font-weight: bold; background: #f3e8ff; color: #7e22ce; border-color: #d8b4fe;">
+    👻 Makhluk Gaib
+</td>
+<td colspan="<?php echo $colspan; ?>" style="background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%); color: #7e22ce; font-weight: bold; padding: 5px 8px; border-color: #d8b4fe;">
+    🔮 Penjaga Mistis (Paranormal Guardians) <?php echo FROM_THE_VILL . ' ' . $deffrom_url; ?>
+</td>
+</tr>
+</thead>
+
+<tbody class="units">
+<tr>
+<td>&nbsp;</td>
+<td style="text-align:center; padding: 4px 2px;"><span style="font-size:16px;">👻</span><br/><span style="font-size:9.5px; font-weight:bold; color:#581c87;">Pocong</span></td>
+<td style="text-align:center; padding: 4px 2px;"><span style="font-size:16px;">👰</span><br/><span style="font-size:9.5px; font-weight:bold; color:#581c87;">Kuntilanak</span></td>
+<td style="text-align:center; padding: 4px 2px;"><span style="font-size:16px;">👹</span><br/><span style="font-size:9.5px; font-weight:bold; color:#581c87;">Genderuwo</span></td>
+<?php for ($e = 4; $e <= ($colspan - 1); $e++): ?>
+<td class="none" style="opacity: 0.25;">?</td>
+<?php endfor; ?>
+</tr>
+<tr>
+<th><?php echo TROOPS; ?></th>
+<?php for ($m = 1; $m <= 3; $m++): ?>
+    <?php echo ($paranormalData['troops'][$m] == 0) ? '<td class="none">0</td>' : '<td><b>'.$paranormalData['troops'][$m].'</b></td>'; ?>
+<?php endfor; ?>
+<?php for ($e = 4; $e <= ($colspan - 1); $e++): ?>
+<td class="none">0</td>
+<?php endfor; ?>
+</tr>
+<tr>
+<th><?php echo CASUALTIES; ?></th>
+<?php for ($m = 1; $m <= 3; $m++): ?>
+    <?php echo ($paranormalData['dead'][$m] == 0) ? '<td class="none">0</td>' : '<td style="color:#dc2626; font-weight:bold;">'.$paranormalData['dead'][$m].'</td>'; ?>
+<?php endfor; ?>
+<?php for ($e = 4; $e <= ($colspan - 1); $e++): ?>
 <td class="none">0</td>
 <?php endfor; ?>
 </tr>

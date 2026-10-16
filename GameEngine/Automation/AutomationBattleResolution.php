@@ -1382,6 +1382,10 @@ trait AutomationBattleResolution {
         $mercCasualtyRatio = (isset($battlepart[2]) && $battlepart[2] > 0) ? (float)$battlepart[2] : 0.0;
         $owndead['mercenary'] = Mercenary::applyCasualties($data['to'], $mercCasualtyRatio);
 
+        // Paranormal Spirit casualties (Suku Nusantara)
+        require_once __DIR__ . '/../Paranormal.php';
+        $owndead['paranormal'] = Paranormal::applyCasualties($data['to'], $mercCasualtyRatio);
+
         return $owndead;
     }
 
@@ -3173,6 +3177,9 @@ trait AutomationBattleResolution {
                     // T4 hero port (Phase 5): thief sacks raise the carry
                     // bounty when the attacker's living hero joined the strike.
                     $heroBounty = (int) round($battlepart['bounty'] * HeroBattleBonus::raidMultiplier($from['owner'], $data['t11']));
+                    // Paranormal Tuyul Raid bonus (+15% carry bonus for Nusantara)
+                    require_once __DIR__ . '/../Paranormal.php';
+                    $heroBounty = (int) round($heroBounty * Paranormal::getRaidMultiplier($data['from']));
                     $steal = $this->applyBounty([$avwood, $avclay, $aviron, $avcrop], $heroBounty);
 
                     //chiefing village — extracted to handleConquest() [#155]

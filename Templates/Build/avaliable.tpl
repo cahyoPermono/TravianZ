@@ -73,9 +73,10 @@ $hospital = $building->getTypeLevel(46);
 $defensivewall = $building->getTypeLevel(47);
 $bighospital = $building->getTypeLevel(48);
 $barricade = $building->getTypeLevel(50);
+$paranormal = $building->getTypeLevel(51);
 
 $typesArray = [];
-for ($i = 1; $i <= 50; $i++) {
+for ($i = 1; $i <= 51; $i++) {
     $typesArray[] = $i;
 }
 
@@ -132,7 +133,7 @@ $commandcenter1 = getTypeCount(44);
 $waterworks1 = getTypeCount(45);
 $hospital1 = getTypeCount(46);
 $bighospital1 = getTypeCount(48);
-
+$paranormal1 = getTypeCount(51);
 ?>
 <div id="build" class="gid0"><h1><?php echo CONSTRUCT_NEW_BUILDING;?></h1>
 <?php
@@ -276,6 +277,9 @@ if($session->tribe != 8 && $session->tribe != 9 && $hospital == 0 && $hospital1 
 if(($session->tribe == 8 || $session->tribe == 9) && $bighospital == 0 && $bighospital1 == 0 && $mainbuilding >= 10 && $academy >= 15 && $id != 39 && $id != 40) {
     include("avaliable/bighospital.tpl");
 }
+if($session->tribe == 10 && $paranormal == 0 && $paranormal1 == 0 && $mainbuilding >= 3 && $cranny >= 3 && $id != 39 && $id != 40) {
+    include("avaliable/paranormal.tpl");
+}
 if($greatbarracks == 0 && $greatbarracks1 == 0 && $barrack == 20 && $village->capital == 0 && $id != 39 && $id != 40) {
     include("avaliable/greatbarracks.tpl");
 }
@@ -377,6 +381,9 @@ if($session->tribe != 8 && $session->tribe != 9 && $hospital == 0 && $hospital1 
 }
 if(($session->tribe == 8 || $session->tribe == 9) && $bighospital == 0 && $bighospital1 == 0 && ($mainbuilding < 10 || $academy < 15) && $academy >= 5) {
     include("soon/bighospital.tpl");
+}
+if($session->tribe == 10 && $paranormal == 0 && $paranormal1 == 0 && ($mainbuilding < 3 || $cranny < 3)) {
+    include("soon/paranormal.tpl");
 }
 if($greatbarracks == 0 && $barrack >= 18 && $village->capital == 0) {
     include("soon/greatbarracks.tpl");

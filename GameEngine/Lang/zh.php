@@ -1209,6 +1209,8 @@ tz_def('HORSEDRINKING_DESC', '饮马槽是罗马人加快骑兵训练速度、�
 tz_def('GREATWORKSHOP', '大攻城武器厂');
 tz_def('TRAINING_COMMENCE_GREATWORKSHOP', 'Training can commence when great workshop is completed.');
 tz_def('GREATWORKSHOP_DESC', 'Siege engines like catapults and rams can be built in the great workshop. The higher its level the faster the units are produced.');
+tz_def('PARANORMAL_SANCTUARY', '灵修圣所');
+tz_def('PARANORMAL_SANCTUARY_DESC', '群岛长老冥想与通灵之所，可召唤并束缚灵界生物护佑村庄并带来丰饶祝福。<br>部落专属：仅限群岛王国');
 
 tz_def('BUILDING_MAX_LEVEL_UNDER', '建筑正在升级至最高等级');
 tz_def('BUILDING_BEING_DEMOLISHED', '建筑正在被拆除');

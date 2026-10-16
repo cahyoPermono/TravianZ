@@ -2550,3 +2550,14 @@ CREATE TABLE IF NOT EXISTS `%PREFIX%healing` (
  PRIMARY KEY (`id`),
  KEY `vref` (`vref`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+CREATE TABLE IF NOT EXISTS `%PREFIX%paranormal` (
+ `vref` int(11) NOT NULL,
+ `pocong` int(11) NOT NULL DEFAULT '0',
+ `kuntilanak` int(11) NOT NULL DEFAULT '0',
+ `genderuwo` int(11) NOT NULL DEFAULT '0',
+ `tuyul_until` int(11) NOT NULL DEFAULT '0',
+ `ritual_type` int(11) NOT NULL DEFAULT '0',
+ `ritual_end` int(11) NOT NULL DEFAULT '0',
+ PRIMARY KEY (`vref`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;

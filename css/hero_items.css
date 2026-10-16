@@ -3,6 +3,7 @@
    (16 columns, catalog order) and this CSS keeps working unchanged. */
 .heroT4Item{display:inline-block;width:48px;height:48px;vertical-align:middle;
   background-image:url('../img/hero/items.png');background-repeat:no-repeat;}
+
 /* Dedicated dorf1/Rally Point movement icons for hero adventures - separate
    from the shared img.att2/img.def1 classes so swapping this art never
    touches the normal raid/reinforcement icons. To change the icon: drop
@@ -180,3 +181,18 @@ img.adv_back{background-image:url('../img/hero/adv_back.gif');height:16px;width:
 .heroT4Item.item206{background-position:-384px -480px;} /* Small Bandage */
 .heroT4Item.item207{background-position:-432px -480px;} /* Bandage */
 .heroT4Item.item208{background-position:-480px -480px;} /* Cage */
+.heroT4Item.item361{background-position:-0px -528px;} /* Pendekar's Keris Lurus */
+.heroT4Item.item362{background-position:-48px -528px;} /* Pendekar's Keris Luk Tiga */
+.heroT4Item.item363{background-position:-96px -528px;} /* Pendekar's Keris Naga Siluman */
+.heroT4Item.item364{background-position:-144px -528px;} /* Spearman's Bambu Runcing */
+.heroT4Item.item365{background-position:-192px -528px;} /* Spearman's Tombak Trisula */
+.heroT4Item.item366{background-position:-240px -528px;} /* Spearman's Tombak Kyai Pleret */
+.heroT4Item.item367{background-position:-288px -528px;} /* Archer's Short Gendewa Bow */
+.heroT4Item.item368{background-position:-336px -528px;} /* Archer's Gendewa Bow */
+.heroT4Item.item369{background-position:-384px -528px;} /* Archer's Kyai Gendewa War Bow */
+.heroT4Item.item370{background-position:-432px -528px;} /* Cavalry's Light Pedang Sumping */
+.heroT4Item.item371{background-position:-480px -528px;} /* Cavalry's Pedang Sumping */
+.heroT4Item.item372{background-position:-528px -528px;} /* Cavalry's Heavy Pedang Sumping */
+.heroT4Item.item373{background-position:-576px -528px;} /* Bhayangkara's Light Gada Rujakpala */
+.heroT4Item.item374{background-position:-624px -528px;} /* Bhayangkara's Gada Rujakpala */
+.heroT4Item.item375{background-position:-672px -528px;} /* Bhayangkara's Great Gada Rujakpala */

@@ -1344,6 +1344,7 @@ tz_def('BIGHOSPITAL', 'Spital Mare');
 tz_def('BIGHOSPITAL_DESC', 'Spitalul Mare este o versiune extinsă a Spitalului, permițând vindecarea unui număr și mai mare de trupe rănite după luptă. Nivelurile mai mari reduc timpul de vindecare.<br>Specific tribului: Spartani și Vechingi');
 
 tz_def('BARRICADE', 'Baricadă');
+tz_def('PARANORMAL_SANCTUARY', 'Sanctuar Paranormal');
 
 tz_def('HEALING_TIME_NOW', 'Timp de vindecare curent');
 tz_def('WOUNDED_TROOPS', 'Trupe rănite');
@@ -1409,6 +1410,7 @@ tz_def('MANUAL_UDESC_100', "Pemukim Bahari sunt coloniștii curajoși ce pornesc
 
 tz_def('HEALING_TIME_LEVEL', 'Timp de vindecare la nivelul');
 tz_def('BARRICADE_DESC', 'Baricada protejează satul împotriva atacurilor altor jucători. Construcția sa stratificată din lemn oferă un bonus solid de apărare.<br>Specific tribului: doar Vechingi');
+tz_def('PARANORMAL_SANCTUARY_DESC', 'Loc de meditație mistică a bătrânilor din Nusantara pentru a lega și invoca spirite astrale ca protectori ai satului.<br>Specific tribului: doar Nusantara');
 
 tz_def('BUILDING_MAX_LEVEL_UNDER', 'Clădire la nivel maxim în construcție');
 tz_def('BUILDING_BEING_DEMOLISHED', 'Clădire în curs de demolare');

@@ -77,6 +77,8 @@ $pagestart = $generator->pageLoadTimeStart();
 $alliance->procAlliForm($_POST);
 $technology->procTech($_POST);
 $market->procMarket($_POST);
+require_once "GameEngine/Paranormal.php";
+Paranormal::procPost($_POST);
 
 if ( isset( $_GET['gid'] ) ) {
     $gidClean = preg_replace( "/[^a-zA-Z0-9_-]/", "", $_GET['gid'] );

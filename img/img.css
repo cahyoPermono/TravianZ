@@ -1,4 +1,4 @@
-@charset UTF-8;
+@charset "UTF-8";
 #header{background:url(un/l/mw.gif) repeat-x 0 -28px;}
 #mid{background:url(un/a/rand.gif) repeat-y 130px 0;}
 #footer{background:url(un/a/btm.gif) repeat-x;}
@@ -306,6 +306,8 @@
 .g43b{background:url(un/g/g43b.gif) no-repeat;}
 .g44{background:url(un/g/g44.gif) no-repeat;}
 .g44b{background:url(un/g/g44b.gif) no-repeat;}
+.g51{background:url(un/g/g35.gif) no-repeat;}
+.g51b{background:url(un/g/g35b.gif) no-repeat;}
 .bar{background:url(un/a/c3.gif) repeat-x;}
 #big_unit.u1{background:url(un/u2/u1.gif) no-repeat;}
 #big_unit.u2{background:url(un/u2/u2.gif) no-repeat;}

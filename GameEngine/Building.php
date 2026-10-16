@@ -82,7 +82,7 @@ class Building {
      * Cazurile ne-tabelare (25, 26, 34, 38, 39, 40, 49) raman in switch-ul din
      * meetRequirement(). Regulile noilor triburi se editeaza aici, intr-un loc.
      */
-    private const BUILD_REQUIREMENTS = array(
+    public const BUILD_REQUIREMENTS = array(
         1  => array('unique' => false),
         2  => array('unique' => false),
         3  => array('unique' => false),
@@ -127,6 +127,7 @@ class Building {
         47 => array('tribe' => array(8), 'unique' => false),                       // Defensive Wall (Spartani)
         48 => array('tribe' => array(8, 9), 'levels' => array(array(15, 10), array(22, 15))),    // Big Hospital
         50 => array('tribe' => array(9), 'unique' => false),                       // Barricade (Vikingi)
+        51 => array('tribe' => array(10), 'levels' => array(array(15, 3), array(23, 3))), // Sanggar Paranormal (Nusantara)
     );
 
     public function __construct() {
@@ -660,15 +661,16 @@ class Building {
         39 => GREATGRANARY,
         40 => WONDER,
         41 => HORSEDRINKING,
-        42 => STONEWALL,
-        43 => MAKESHIFTWALL,
-        44 => COMMANDCENTER,
-        45 => WATERWORKS,
-        46 => HOSPITAL,
-        47 => DEFENSIVEWALL,
-        48 => BIGHOSPITAL,
-        49 => GREATWORKSHOP,
-        50 => BARRICADE
+        42 => defined('STONEWALL') ? STONEWALL : 'Stone Wall',
+        43 => defined('MAKESHIFTWALL') ? MAKESHIFTWALL : 'Makeshift Wall',
+        44 => defined('COMMANDCENTER') ? COMMANDCENTER : 'Command Center',
+        45 => defined('WATERWORKS') ? WATERWORKS : 'Waterworks',
+        46 => defined('HOSPITAL') ? HOSPITAL : 'Hospital',
+        47 => defined('DEFENSIVEWALL') ? DEFENSIVEWALL : 'Defensive Wall',
+        48 => defined('BIGHOSPITAL') ? BIGHOSPITAL : 'Big Hospital',
+        49 => defined('GREATWORKSHOP') ? GREATWORKSHOP : 'Great Workshop',
+        50 => defined('BARRICADE') ? BARRICADE : 'Barricade',
+        51 => defined('PARANORMAL_SANCTUARY') ? PARANORMAL_SANCTUARY : 'Sanggar Paranormal'
     );
 
     return isset($types[$ref]) ? $types[$ref] : 'Error';

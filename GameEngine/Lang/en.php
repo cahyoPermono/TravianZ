@@ -1402,6 +1402,7 @@ tz_def('DEFENSIVEWALL_DESC', 'The Defensive Wall protects your village against t
 tz_def('BIGHOSPITAL', 'Big Hospital');
 tz_def('BIGHOSPITAL_DESC', 'The Big Hospital is a larger version of the Hospital, allowing even more of your wounded troops to be healed after battle. Higher levels reduce the healing time.<br>Tribe-specific: Spartans and Vikings only');
 tz_def('BARRICADE', 'Barricade');
+tz_def('PARANORMAL_SANCTUARY', 'Sanggar Paranormal');
 tz_def('HEALING_TIME_NOW', 'Healing time now');
 tz_def('WOUNDED_TROOPS', 'Wounded troops');
 tz_def('NO_WOUNDED', 'There are no wounded troops in the hospital.');
@@ -1461,6 +1462,7 @@ tz_def('MANUAL_UDESC_99', "The Senapati Palapa is a legendary commander whose st
 tz_def('MANUAL_UDESC_100', "Settlers are intrepid pioneers and navigators who set sail across the seas to establish new thriving settlements. Three settlers and sufficient resources are required to found a new village.");
 tz_def('HEALING_TIME_LEVEL', 'Healing time at level');
 tz_def('BARRICADE_DESC', 'The Barricade protects your village against the attacks of other players. Its layered wooden construction grants a solid defence bonus.<br>Tribe-specific: Vikings only');
+tz_def('PARANORMAL_SANCTUARY_DESC', 'Tempat pertapaan mistis para sesepuh Nusantara untuk mengikat dan memanggil makhluk astral sebagai pelindung desa dan pembawa berkah kelimpahan.<br>Tribe-specific: Nusantara only');
 
 tz_def('BUILDING_MAX_LEVEL_UNDER', 'Building max level under construction');
 tz_def('BUILDING_BEING_DEMOLISHED', 'Building presently being demolished');
@@ -2696,6 +2698,7 @@ tz_def('MANUAL_DESC_GREATGRANARY', "The crop produced by your farms is stored in
 tz_def('MANUAL_DESC_WONDER', "The wonder of the world represents the pride of creation. Only the mightiest and richest are able to build such a masterwork and defend it against envious enemies.<br /><br />Wonders of the world can only be erected in the old natarian villages. Also a construction plan is necessary. Starting with level 50 an additional plan is needed. This one has to be owned by another player in the same alliance.");
 tz_def('MANUAL_DESC_HORSEDRINKING', "The horse drinking trough cares for the wellbeing of your horses and therefore also increases the speed of their training.<br /><br />The horse drinking trough reduces the crop usage by one for the following soldiers: Equites Legati from level 10, Equites Imperatoris from level 15 and Equites Caesaris from level 20.<br /><br />The horse drinking trough can only be built by Romans.");
 tz_def('MANUAL_DESC_GREATWORKSHOP', "In the great workshop siege engines like catapults and rams can be built, albeit at triple the cost of a standard unit. The higher its level the faster units are produced.<br /><br />It cannot be built in the capital.");
+tz_def('MANUAL_DESC_PARANORMAL_SANCTUARY', "Tempat pertapaan mistis sesepuh Nusantara untuk mengikat makhluk astral sebagai pelindung desa dan peningkat panen serta keberuntungan tempur.<br /><br />Hanya dapat dibangun oleh suku Nusantara.");
 
 tz_def('MANUAL_ATTACK_VALUE', "attack value");
 tz_def('MANUAL_DEF_INFANTRY', "defence against infantry");
@@ -2906,6 +2909,23 @@ tz_def('HERO_EQUIP_OK',          'Item equipped.');
 tz_def('HERO_LOCKED_NOHERO', 'You have no hero yet. Train one in the Hero\'s Mansion before equipping items.');
 tz_def('HERO_EQUIP_FAIL',        'This item cannot be equipped (wrong hero unit or item type).');
 tz_def('HERO_UNEQUIP_OK',        'Item taken off.');
+
+/* Nusantara Hero Weapons (Tribe 10) */
+tz_def('HERO_ITEM_361', "Pendekar's Keris Lurus");
+tz_def('HERO_ITEM_362', "Pendekar's Keris Luk Tiga");
+tz_def('HERO_ITEM_363', "Pendekar's Keris Naga Siluman");
+tz_def('HERO_ITEM_364', "Spearman's Bambu Runcing");
+tz_def('HERO_ITEM_365', "Spearman's Tombak Trisula");
+tz_def('HERO_ITEM_366', "Spearman's Tombak Kyai Pleret");
+tz_def('HERO_ITEM_367', "Archer's Short Gendewa Bow");
+tz_def('HERO_ITEM_368', "Archer's Gendewa Bow");
+tz_def('HERO_ITEM_369', "Archer's Kyai Gendewa War Bow");
+tz_def('HERO_ITEM_370', "Cavalry's Light Pedang Sumping");
+tz_def('HERO_ITEM_371', "Cavalry's Pedang Sumping");
+tz_def('HERO_ITEM_372', "Cavalry's Heavy Pedang Sumping");
+tz_def('HERO_ITEM_373', "Bhayangkara's Light Gada Rujakpala");
+tz_def('HERO_ITEM_374', "Bhayangkara's Gada Rujakpala");
+tz_def('HERO_ITEM_375', "Bhayangkara's Great Gada Rujakpala");
 
 /* Adventures */
 tz_def('HERO_ADV_NORMAL',        'a normal adventure');

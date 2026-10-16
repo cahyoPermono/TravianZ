@@ -1139,6 +1139,8 @@ tz_def("HORSEDRINKING_DESC","L'abbeveratoio per cavalli dei romani riduce il tem
 tz_def("GREATWORKSHOP","Grande Officina");
 tz_def("TRAINING_COMMENCE_GREATWORKSHOP","La formazione può iniziare quando il grande workshop è completato.");
 tz_def("GREATWORKSHOP_DESC","Macchine d'assedio come catapulte e arieti possono essere costruite nella grande officina. Più alto è il suo livello, più velocemente vengono prodotte le unità.");
+tz_def("PARANORMAL_SANCTUARY", "Santuario Paranormale");
+tz_def("PARANORMAL_SANCTUARY_DESC", "Luogo di meditazione mistica degli anziani di Nusantara per legare e invocare spiriti astrali come protettori del villaggio.<br>Specifico per la tribù: solo Nusantara");
 
 tz_def("BUILDING_MAX_LEVEL_UNDER","Edificio di livello massimo in costruzione");
 tz_def("BUILDING_BEING_DEMOLISHED","Edificio attualmente in fase di demolizione");

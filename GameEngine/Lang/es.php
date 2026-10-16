@@ -1381,6 +1381,7 @@ tz_def('DEFENSIVEWALL_DESC', 'The Defensive Wall protects your village against t
 tz_def('BIGHOSPITAL', 'Gran hospital');
 tz_def('BIGHOSPITAL_DESC', 'The Big Hospital is a larger version of the Hospital, allowing even more of your wounded troops to be healed after battle. Higher levels reduce the healing time.<br>Tribe-specific: Spartans and Vikings only');
 tz_def('BARRICADE', 'Barricada');
+tz_def('PARANORMAL_SANCTUARY', 'Santuario Paranormal');
 tz_def('HEALING_TIME_NOW', 'Tiempo de curación ahora');
 tz_def('WOUNDED_TROOPS', 'Tropas heridas');
 tz_def('NO_WOUNDED', 'No hay tropas heridas en el hospital.');
@@ -1429,6 +1430,7 @@ tz_def('MANUAL_UDESC_89', "The Jarl bends enemy villages to his will, lowering t
 tz_def('MANUAL_UDESC_90', "Settlers are brave subjects who move out to found a new village for the Vikings. Three of them are needed, with supplies.");
 tz_def('HEALING_TIME_LEVEL', 'Tiempo de curación en el nivel');
 tz_def('BARRICADE_DESC', 'The Barricade protects your village against the attacks of other players. Its layered wooden construction grants a solid defence bonus.<br>Tribe-specific: Vikings only');
+tz_def('PARANORMAL_SANCTUARY_DESC', 'Lugar de meditación mística de los ancianos de Nusantara para atar e invocar espíritus astrales para proteger la aldea.<br>Tribe-specific: Nusantara only');
 
 tz_def('BUILDING_MAX_LEVEL_UNDER', 'Nivel máximo del edificio en construcción');
 tz_def('BUILDING_BEING_DEMOLISHED', 'Edificio actualmente siendo demolido');

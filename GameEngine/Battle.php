@@ -1056,6 +1056,20 @@ class Battle {
             }
         }
 
+        // Paranormal Spirit Defense (Suku Nusantara)
+        if ($DefenderWref > 0) {
+            require_once __DIR__ . '/Paranormal.php';
+            $spiritDef = Paranormal::getVillageDefense($DefenderWref);
+            if ($spiritDef['involve'] > 0) {
+                $dp += $spiritDef['dp'];
+                $cdp += $spiritDef['cdp'];
+                $involve += $spiritDef['involve'];
+                if ($DefenderID > 0) {
+                    $perOwnerDp[$DefenderID] = ($perOwnerDp[$DefenderID] ?? 0) + $spiritDef['dp'] + $spiritDef['cdp'];
+                }
+            }
+        }
+
         if ($DefenderID > 0) {
             $perOwnerDp[$DefenderID] = ($perOwnerDp[$DefenderID] ?? 0) + $own_dp + $own_cdp;
         }

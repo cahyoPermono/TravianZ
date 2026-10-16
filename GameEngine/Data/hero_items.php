@@ -316,6 +316,23 @@ $heroItemCatalog = array(
     206 => array('name' => 'Small Bandage',   'slot' => HSLOT_BAG, 'tier' => 1, 'bonus' => array(HB_HEAL_TROOP => 25)),  // heals 25% of hero's army
     207 => array('name' => 'Bandage',         'slot' => HSLOT_BAG, 'tier' => 2, 'bonus' => array(HB_HEAL_TROOP => 33)),  // heals 33% of hero's army
     208 => array('name' => 'Cage',            'slot' => HSLOT_BAG, 'tier' => 1, 'bonus' => array(HB_CAGE => 1)),         // traps 1 oasis animal per cage
+
+    // ===== Nusantara Weapons (361 - 375, Row 11 on items.png) =====
+    361 => array('name' => "Pendekar's Keris Lurus",        'slot' => HSLOT_RIGHT, 'tier' => 1, 'unit' => 91, 'bonus' => array(HB_FIGHT => 500,  HB_UNIT_BONUS => array('unit' => 91, 'per_unit' => 3))),
+    362 => array('name' => "Pendekar's Keris Luk Tiga",     'slot' => HSLOT_RIGHT, 'tier' => 2, 'unit' => 91, 'bonus' => array(HB_FIGHT => 1000, HB_UNIT_BONUS => array('unit' => 91, 'per_unit' => 4))),
+    363 => array('name' => "Pendekar's Keris Naga Siluman", 'slot' => HSLOT_RIGHT, 'tier' => 3, 'unit' => 91, 'bonus' => array(HB_FIGHT => 1500, HB_UNIT_BONUS => array('unit' => 91, 'per_unit' => 5))),
+    364 => array('name' => "Spearman's Bambu Runcing",      'slot' => HSLOT_RIGHT, 'tier' => 1, 'unit' => 92, 'bonus' => array(HB_FIGHT => 500,  HB_UNIT_BONUS => array('unit' => 92, 'per_unit' => 3))),
+    365 => array('name' => "Spearman's Tombak Trisula",     'slot' => HSLOT_RIGHT, 'tier' => 2, 'unit' => 92, 'bonus' => array(HB_FIGHT => 1000, HB_UNIT_BONUS => array('unit' => 92, 'per_unit' => 4))),
+    366 => array('name' => "Spearman's Tombak Kyai Pleret", 'slot' => HSLOT_RIGHT, 'tier' => 3, 'unit' => 92, 'bonus' => array(HB_FIGHT => 1500, HB_UNIT_BONUS => array('unit' => 92, 'per_unit' => 5))),
+    367 => array('name' => "Archer's Short Gendewa Bow",    'slot' => HSLOT_RIGHT, 'tier' => 1, 'unit' => 93, 'bonus' => array(HB_FIGHT => 500,  HB_UNIT_BONUS => array('unit' => 93, 'per_unit' => 3))),
+    368 => array('name' => "Archer's Gendewa Bow",          'slot' => HSLOT_RIGHT, 'tier' => 2, 'unit' => 93, 'bonus' => array(HB_FIGHT => 1000, HB_UNIT_BONUS => array('unit' => 93, 'per_unit' => 4))),
+    369 => array('name' => "Archer's Kyai Gendewa War Bow", 'slot' => HSLOT_RIGHT, 'tier' => 3, 'unit' => 93, 'bonus' => array(HB_FIGHT => 1500, HB_UNIT_BONUS => array('unit' => 93, 'per_unit' => 5))),
+    370 => array('name' => "Cavalry's Light Pedang Sumping",'slot' => HSLOT_RIGHT, 'tier' => 1, 'unit' => 95, 'bonus' => array(HB_FIGHT => 500,  HB_UNIT_BONUS => array('unit' => 95, 'per_unit' => 6))),
+    371 => array('name' => "Cavalry's Pedang Sumping",      'slot' => HSLOT_RIGHT, 'tier' => 2, 'unit' => 95, 'bonus' => array(HB_FIGHT => 1000, HB_UNIT_BONUS => array('unit' => 95, 'per_unit' => 8))),
+    372 => array('name' => "Cavalry's Heavy Pedang Sumping",'slot' => HSLOT_RIGHT, 'tier' => 3, 'unit' => 95, 'bonus' => array(HB_FIGHT => 1500, HB_UNIT_BONUS => array('unit' => 95, 'per_unit' => 10))),
+    373 => array('name' => "Bhayangkara's Light Gada Rujakpala", 'slot' => HSLOT_RIGHT, 'tier' => 1, 'unit' => 96, 'bonus' => array(HB_FIGHT => 500,  HB_UNIT_BONUS => array('unit' => 96, 'per_unit' => 9))),
+    374 => array('name' => "Bhayangkara's Gada Rujakpala",       'slot' => HSLOT_RIGHT, 'tier' => 2, 'unit' => 96, 'bonus' => array(HB_FIGHT => 1000, HB_UNIT_BONUS => array('unit' => 96, 'per_unit' => 12))),
+    375 => array('name' => "Bhayangkara's Great Gada Rujakpala", 'slot' => HSLOT_RIGHT, 'tier' => 3, 'unit' => 96, 'bonus' => array(HB_FIGHT => 1500, HB_UNIT_BONUS => array('unit' => 96, 'per_unit' => 15))),
 );
 
 /* Helmets 7-9 (culture) are HALVED on speed servers per the design sheet

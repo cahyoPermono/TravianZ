@@ -24,10 +24,17 @@ $css = "/* AUTO-GENERATED from GameEngine/Data/hero_items.php - regenerate via v
      . "img.adv_back{background-image:url('../img/hero/adv_back.gif');height:16px;width:16px;}\n";
 
 foreach ($heroItemCatalog as $iid => $def) {
-    $x = ($idx % $cols) * $cell;
-    $y = intdiv($idx, $cols) * $cell;
+    if ($iid >= 361 && $iid <= 375) {
+        // Dedicated Row 11 (y = 528px) for Nusantara weapons: items 361 to 375
+        $nIndex = 176 + ($iid - 361);
+        $x = ($nIndex % $cols) * $cell;
+        $y = intdiv($nIndex, $cols) * $cell;
+    } else {
+        $x = ($idx % $cols) * $cell;
+        $y = intdiv($idx, $cols) * $cell;
+        $idx++;
+    }
     $css .= ".heroT4Item.item{$iid}{background-position:-{$x}px -{$y}px;} /* {$def['name']} */\n";
-    $idx++;
 }
 file_put_contents(__DIR__ . '/../../css/hero_items.css', $css);
 echo "css/hero_items.css written: $idx items\n";
