@@ -22,6 +22,13 @@
 ##  Coloana "Expires in" a fost pastrata (nu exista in originalul T4).         ##
 #################################################################################
 
+if (!class_exists('HeroAdventure')) {
+    $enginePath = dirname(__DIR__, 2) . '/GameEngine/';
+    if (file_exists($enginePath . 'HeroAdventure.php')) {
+        require_once $enginePath . 'HeroAdventure.php';
+    }
+}
+
 $t4Adventures = new HeroAdventure();
 $t4Msg = '';
 

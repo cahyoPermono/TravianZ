@@ -19,6 +19,19 @@
 ## --------------------------------------------------------------------------- ##
 #################################################################################
 
+if (!class_exists('HeroAuction')) {
+    $enginePath = dirname(__DIR__, 2) . '/GameEngine/';
+    if (file_exists($enginePath . 'HeroAuction.php')) {
+        require_once $enginePath . 'HeroAuction.php';
+    }
+}
+if (!class_exists('HeroItems')) {
+    $enginePath = dirname(__DIR__, 2) . '/GameEngine/';
+    if (file_exists($enginePath . 'HeroItems.php')) {
+        require_once $enginePath . 'HeroItems.php';
+    }
+}
+
 $t4Auction = new HeroAuction();
 $t4Msg = '';
 

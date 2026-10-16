@@ -8697,14 +8697,17 @@ img.g50 {
 img.g50b {
     background-image: url("../../img/g/g50b.gif");
 }
-img.g51 {
+img.g51, .building.g51, div.village2 div#village_map img.g51 {
     background-image: url("../../img/g/g51.gif");
+    background-repeat: no-repeat;
 }
-img.g51b {
+img.g51b, .building.g51b, div.village2 div#village_map img.g51b {
     background-image: url("../../img/g/g51b.gif");
+    background-repeat: no-repeat;
 }
-img.g51Icon {
+img.g51Icon, .building.g51Icon, div.village2 div#village_map img.g51Icon {
     background-image: url("../../img/g/g51Icon.gif");
+    background-repeat: no-repeat;
 }
 img.g43 {
     background-image: url("../../img/g/g43.gif");

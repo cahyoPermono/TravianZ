@@ -20,17 +20,30 @@
 #################################################################################
 
 
+if (!class_exists('HeroItems')) {
+    $enginePath = dirname(__DIR__, 2) . '/GameEngine/';
+    if (file_exists($enginePath . 'HeroItems.php')) {
+        require_once $enginePath . 'HeroItems.php';
+    }
+}
+
 $t4HeroItems  = new HeroItems();
 $t4Silver     = $t4HeroItems->getSilver($session->uid);
 $isHeroPage   = !isset($id) || empty($id) || basename($_SERVER['PHP_SELF']) === 'hero.php';
 $baseUrl      = $isHeroPage ? 'hero.php' : 'build.php?id=' . $id;
 $sep          = $isHeroPage ? '?' : '&';
 
+$heroTabLabel = defined('HERO_T4_TAB_HERO') ? HERO_T4_TAB_HERO : (defined('HERO') ? HERO : 'Hero');
+$itemsTabLabel = defined('HERO_T4_TAB_ITEMS') ? HERO_T4_TAB_ITEMS : 'Items';
+$advTabLabel = defined('HERO_T4_TAB_ADVENTURES') ? HERO_T4_TAB_ADVENTURES : 'Adventures';
+$aucTabLabel = defined('HERO_T4_TAB_AUCTION') ? HERO_T4_TAB_AUCTION : 'Auctions';
+$silverLabel = defined('HERO_SILVER') ? HERO_SILVER : 'Silver';
+
 $t4Tabs = [
-    'hero'       => ['label' => HERO_T4_TAB_HERO,       'url' => $baseUrl],
-    'items'      => ['label' => HERO_T4_TAB_ITEMS,      'url' => $baseUrl . $sep . 't4tab=items'],
-    'adventures' => ['label' => HERO_T4_TAB_ADVENTURES, 'url' => $baseUrl . $sep . 't4tab=adventures'],
-    'auction'    => ['label' => HERO_T4_TAB_AUCTION,    'url' => $baseUrl . $sep . 't4tab=auction'],
+    'hero'       => ['label' => $heroTabLabel,       'url' => $baseUrl],
+    'items'      => ['label' => $itemsTabLabel,      'url' => $baseUrl . $sep . 't4tab=items'],
+    'adventures' => ['label' => $advTabLabel, 'url' => $baseUrl . $sep . 't4tab=adventures'],
+    'auction'    => ['label' => $aucTabLabel,    'url' => $baseUrl . $sep . 't4tab=auction'],
 ];
 
 $t4Tabs['land'] = [
@@ -47,6 +60,6 @@ $t4Tabs['land'] = [
             <a href="<?php echo $tab['url']; ?>" style="margin-right:14px;"><?php echo $tab['label']; ?></a>
         <?php } ?>
     <?php } ?>
-    <span style="float:right;"><b><?php echo HERO_SILVER; ?>:</b> <?php echo number_format($t4Silver); ?></span>
+    <span style="float:right;"><b><?php echo $silverLabel; ?>:</b> <?php echo number_format($t4Silver); ?></span>
     <div style="clear:both;"></div>
 </div>

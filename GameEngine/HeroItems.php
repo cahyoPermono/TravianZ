@@ -71,11 +71,18 @@ class HeroItems
             return self::$inventoryCache[$uid];
         }
 
+        if (!$this->db) {
+            return array();
+        }
+
         $stmt = $this->db->prepare(
             "SELECT id, uid, heroid, itemid, slot, stat_value, quantity, equipped, tstamp
                FROM " . TB_PREFIX . "hero_items
               WHERE uid = ? ORDER BY equipped DESC, slot ASC, itemid ASC"
         );
+        if (!$stmt) {
+            return array();
+        }
         $stmt->bind_param('i', $uid);
         $stmt->execute();
         $res  = $stmt->get_result();
@@ -114,7 +121,13 @@ class HeroItems
     public function getSilver($uid)
     {
         $uid  = (int) $uid;
+        if (!$this->db) {
+            return 0;
+        }
         $stmt = $this->db->prepare("SELECT silver FROM " . TB_PREFIX . "hero WHERE uid = ? LIMIT 1");
+        if (!$stmt) {
+            return 0;
+        }
         $stmt->bind_param('i', $uid);
         $stmt->execute();
         $stmt->bind_result($silver);

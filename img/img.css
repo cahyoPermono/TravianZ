@@ -306,8 +306,9 @@
 .g43b{background:url(un/g/g43b.gif) no-repeat;}
 .g44{background:url(un/g/g44.gif) no-repeat;}
 .g44b{background:url(un/g/g44b.gif) no-repeat;}
-.g51{background:url(un/g/g35.gif) no-repeat;}
-.g51b{background:url(un/g/g35b.gif) no-repeat;}
+.g51, img.g51, .building.g51{background:url(un/g/g51.gif) no-repeat;}
+.g51b, img.g51b, .building.g51b{background:url(un/g/g51b.gif) no-repeat;}
+.g51Icon, img.g51Icon{background:url(un/g/g51Icon.gif) no-repeat;}
 .bar{background:url(un/a/c3.gif) repeat-x;}
 #big_unit.u1{background:url(un/u2/u1.gif) no-repeat;}
 #big_unit.u2{background:url(un/u2/u2.gif) no-repeat;}

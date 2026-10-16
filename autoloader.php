@@ -24,6 +24,18 @@
 
     $clazz = str_replace(['App\\', '\\'], ['', '/'], $class);
 
+    // 1. Direct absolute lookup from repo root
+    $rootPath1 = __DIR__ . '/src/' . $clazz . '.php';
+    if (file_exists($rootPath1)) {
+        include_once $rootPath1;
+        return true;
+    }
+    $rootPath2 = __DIR__ . '/GameEngine/' . $clazz . '.php';
+    if (file_exists($rootPath2)) {
+        include_once $rootPath2;
+        return true;
+    }
+
     $class_found = false;
 
     for ($i = 0; $i < 5; $i++) {
@@ -51,6 +63,7 @@
     if (!$class_found) {
         return false;
     }
+    return true;
 }
 
     spl_autoload_register('autoloadClass');

@@ -46,6 +46,7 @@ $autoprefix = '';
 for ($i = 0; $i < 5; $i++) {
     $autoprefix = str_repeat('../', $i);
     if (file_exists($autoprefix . 'autoloader.php')) {
+        include_once $autoprefix . 'autoloader.php';
         break;
     }
 }

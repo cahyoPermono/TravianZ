@@ -19,6 +19,17 @@
 ## --------------------------------------------------------------------------- ##
 #################################################################################
 
+if (!class_exists('HeroItems')) {
+    $enginePath = dirname(__DIR__, 2) . '/GameEngine/';
+    if (file_exists($enginePath . 'HeroItems.php')) {
+        require_once $enginePath . 'HeroItems.php';
+    }
+}
+
+if (!isset($t4HeroItems) || !is_object($t4HeroItems)) {
+    $t4HeroItems = new HeroItems();
+}
+
 $t4Msg = '';
 
 // Eroul poate schimba echipamentul doar cat timp e in sat (ca in Travian
