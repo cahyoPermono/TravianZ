@@ -255,12 +255,15 @@ class Units {
     private function validateTroopSelection($post) {
         global $village, $session;
 
-        $Gtribe = $session->tribe == 1 ? "" : $session->tribe - 1;
-        for($i = 1; $i < 12; $i++){
+        $tribe = (int)$session->tribe;
+        for($i = 1; $i <= 11; $i++){
             if(isset($post['t'.$i])){
-                if($i < 10) $troophave = $village->unitarray['u'.$Gtribe.$i];
-                if($i == 10) $troophave = $village->unitarray['u'.floor(intval($Gtribe) + 1) * $i];
-                if($i == 11) $troophave = $village->unitarray['hero'];
+                if($i <= 10) {
+                    $unitId = ($tribe - 1) * 10 + $i;
+                    $troophave = (int)($village->unitarray['u' . $unitId] ?? 0);
+                } else {
+                    $troophave = (int)($village->unitarray['hero'] ?? 0);
+                }
 
                 if(intval($post['t'.$i]) > $troophave) return "You can't send more units than you have";
                 if(intval($post['t'.$i]) < 0) return "You can't send negative units.";
@@ -710,7 +713,7 @@ class Units {
         global $form, $database, $village, $session;
 
         $data = $database->getA2b($post['timestamp_checksum']);
-        $Gtribe = ($session->tribe == 1) ? "" : $session->tribe - 1;
+        $tribe = (int)$session->tribe;
 
         /**
          * A DOUA verificare, cea care conteaza cu adevarat.
@@ -728,9 +731,11 @@ class Units {
             exit;
         }
 
-        for ($i = 1; $i < 10; $i++) {
+        for ($i = 1; $i <= 10; $i++) {
             if (isset($data['u'.$i])) {
-                if ($data['u'.$i] > $village->unitarray['u'.$Gtribe.$i]) {
+                $unitId = ($tribe - 1) * 10 + $i;
+                $troophave = (int)($village->unitarray['u' . $unitId] ?? 0);
+                if ($data['u'.$i] > $troophave) {
                     $form->addError("error", "You can't send more units than you have");
                     break;
                 }
@@ -742,8 +747,8 @@ class Units {
             }
         }
 
-		if($data['u11'] > $village->unitarray['hero']) $form->addError("error", "You can't send more units than you have");
-		if($data['u11'] < 0) $form->addError("error", "You can't send negative units.");   
+		if(($data['u11'] ?? 0) > ($village->unitarray['hero'] ?? 0)) $form->addError("error", "You can't send more units than you have");
+		if(($data['u11'] ?? 0) < 0) $form->addError("error", "You can't send negative units.");   
 		if($data['type'] != 1) $post['spy'] = 0; else $post['spy'] = $post['spy']?? 0;
         
         if($form->returnErrors() > 0){
@@ -961,7 +966,8 @@ class Units {
             $enforceoasis = $database->getOasisEnforceArray( $post['ckey'], 0 );
             if ( ( $enforce['from'] == $village->wid ) || ( $enforce['vref'] == $village->wid ) || ( $enforceoasis['conqured'] == $village->wid ) ) {
                 $to     = $database->getVillage( $enforce['from'] );
-                $Gtribe = ($ownerTribe = $database->getUserField( $to['owner'], 'tribe', 0)) == 1 ? "" : $ownerTribe - 1;
+                $ownerTribe = (int)$database->getUserField( $to['owner'], 'tribe', 0);
+                if ($ownerTribe <= 0) $ownerTribe = 1;
 
 				for ($i = 1; $i <= 10; $i++) {
 				if (!isset($post['t'.$i])) {
@@ -987,7 +993,9 @@ class Units {
 			break;
 		}
 
-			if ($post['t'.$i] > (int)$enforce['u'.$Gtribe.$i]) {
+            $unitId = ($ownerTribe - 1) * 10 + $i;
+            $enforceCount = (int)($enforce['u' . $unitId] ?? 0);
+			if ($post['t'.$i] > $enforceCount) {
 			$form->addError(
             "error",
             "You can't send back more units than you have"
@@ -996,11 +1004,12 @@ class Units {
 		}
 	}
                 if ( isset( $post['t11'] ) ) {
-                    if ( $post['t11'] > $enforce['hero'] ) {
+                    $heroCount = (int)($enforce['hero'] ?? 0);
+                    if ( (int)$post['t11'] > $heroCount ) {
                         $form->addError( "error", "You can't send back more units than you have" );
                     }
 
-                    if ( $post['t11'] < 0 ) {
+                    if ( (int)$post['t11'] < 0 ) {
                         $form->addError( "error", "You can't send back negative units." );
                     }
                 } else {
@@ -1011,7 +1020,8 @@ class Units {
                     $_SESSION['errorarray'] = $form->getErrors();
                     $_SESSION['valuearray'] = $_POST;
                     $database->releaseEnforceLock($post['ckey']);
-                    header( "Location: a2b.php" );
+                    $param = ($enforce['from'] == $village->wid) ? 'r' : 'w';
+                    header( "Location: a2b.php?" . $param . "=" . (int)$post['ckey'] );
                     exit;
                 } else {
 
