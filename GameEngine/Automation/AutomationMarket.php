@@ -59,7 +59,7 @@ trait AutomationMarket {
     private function marketCompleteDeliveries($time) {
         global $database, $units;
 
-        $q = "SELECT s.wood, s.clay, s.iron, s.crop, `to`, `from`, endtime, merchant, send, moveid FROM ".TB_PREFIX."movement m, ".TB_PREFIX."send s WHERE m.ref = s.id AND m.proc = 0 AND sort_type = 0 AND endtime < $time";
+        $q = "SELECT s.wood, s.clay, s.iron, s.crop, `to`, `from`, endtime, merchant, send, moveid FROM ".TB_PREFIX."movement m, ".TB_PREFIX."send s WHERE m.ref = s.id AND m.proc = 0 AND sort_type = 0 AND endtime <= $time";
         $dataarray = $database->query_return($q);
 
         foreach($dataarray as $data) {
@@ -113,7 +113,7 @@ trait AutomationMarket {
     private function marketCompleteResends($time) {
         global $database;
 
-        $q1 = "SELECT send, moveid, `to`, wood, clay, iron, crop, `from` FROM ".TB_PREFIX."movement WHERE proc = 0 and sort_type = 2 and endtime < $time";
+        $q1 = "SELECT send, moveid, `to`, wood, clay, iron, crop, `from` FROM ".TB_PREFIX."movement WHERE proc = 0 and sort_type = 2 and endtime <= $time";
         $dataarray1 = $database->query_return($q1);
 
         $vilIDs = [];

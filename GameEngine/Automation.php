@@ -24,23 +24,32 @@
 
 // make sure we only run the automation script once and wait until it's done,
 // so concurrent AJAX calls from many different users won't overload the server
-if ( !defined('AUTOMATION_MANUAL_RUN') ) {
-    if(defined('AUTOMATION_LOCK_FILE_NAME')){
-        if ( file_exists( AUTOMATION_LOCK_FILE_NAME ) ) {
-            // check that the file is not too old, in which case our PHP script hung
-            // and we need to remove the lock and run automation again
-            $fileTime = filemtime( AUTOMATION_LOCK_FILE_NAME );
-    
-            // allow for 60 seconds of old automation script processing time, which is still way too plenty
-            if ( ! $fileTime || time() - $fileTime > 60 ) {
-                @unlink( AUTOMATION_LOCK_FILE_NAME );
-            } else {
-                // automation file exists and is valid, don't run another automation
+$__lockHandle = null;
+if (!defined('AUTOMATION_MANUAL_RUN')) {
+    $__lockName = defined('AUTOMATION_LOCK_FILE_NAME') ? AUTOMATION_LOCK_FILE_NAME : 'automation.lck';
+    $__lockFile = (empty($__lockName) || $__lockName[0] === '/' || (strlen($__lockName) >= 2 && $__lockName[1] === ':'))
+        ? $__lockName
+        : dirname(__DIR__) . '/' . ltrim($__lockName, '/\\');
+
+    $__lockHandle = @fopen($__lockFile, 'c');
+    if ($__lockHandle !== false) {
+        // Non-blocking attempt first
+        if (!@flock($__lockHandle, LOCK_EX | LOCK_NB)) {
+            // Wait up to 2 seconds (20 x 100ms) for ongoing automation to complete
+            $__waited = 0;
+            $__acquired = false;
+            while ($__waited < 20) {
+                usleep(100000);
+                if (@flock($__lockHandle, LOCK_EX | LOCK_NB)) {
+                    $__acquired = true;
+                    break;
+                }
+                $__waited++;
+            }
+            if (!$__acquired) {
+                @fclose($__lockHandle);
                 exit;
             }
-        } else {
-            // create automation lock file
-            file_put_contents( AUTOMATION_LOCK_FILE_NAME, '' );
         }
     }
 }
@@ -271,6 +280,9 @@ class Automation {
 }
 $automation = new Automation;
 
-// remove automation lock file
-@unlink( AUTOMATION_LOCK_FILE_NAME );
+// release automation lock
+if ($__lockHandle !== null) {
+    @flock($__lockHandle, LOCK_UN);
+    @fclose($__lockHandle);
+}
 ?>

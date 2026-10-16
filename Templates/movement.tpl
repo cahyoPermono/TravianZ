@@ -45,7 +45,7 @@ if (!function_exists('renderMovementRow')) {
         echo '
         <tr>
             <td class="typ">
-                <a href="build.php?id=39">
+                <a href="build.php?id=39" title="' . $title . '">
                     <img
                         src="img/x.gif"
                         class="' . $action . '"
@@ -54,24 +54,20 @@ if (!function_exists('renderMovementRow')) {
                     />
                 </a>
 
-                <span class="' . $aclass . '">
+                <span class="' . $aclass . '" title="' . $title . '">
                     &raquo;
                 </span>
             </td>
 
             <td>
-                <div class="mov">
+                <div class="mov" title="' . $title . '">
                     <span class="' . $aclass . '">
                         ' . $count . '&nbsp;' . $short . '
                     </span>
                 </div>
 
                 <div class="dur_r">
-                    in&nbsp;
-                    <span id="timer' . ++$session->timer . '">
-                        ' . $generator->getTimeFormat($arrivalTime - time()) . '
-                    </span>
-                    &nbsp;' . HOURS . '
+                    in&nbsp;<span id="timer' . ++$session->timer . '">' . $generator->getTimeFormat(max(0, $arrivalTime - time())) . '</span>&nbsp;' . HOURS . '
                 </div>
             </td>
         </tr>';

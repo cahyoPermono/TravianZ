@@ -5,13 +5,39 @@ var timer=new Object();var ab=new Object();var bb=new Object();var cb=db();var e
 
 automation();
 function automation( callback ) {
+	var req = new XMLHttpRequest();
 	if ( typeof callback == 'function' ) {
-		xhttp.addEventListener("load", callback);
+		var executed = false;
+		var fire = function() {
+			if (!executed) {
+				executed = true;
+				callback();
+			}
+		};
+		req.addEventListener("load", fire);
+		req.addEventListener("error", fire);
+		req.addEventListener("abort", fire);
 	}
-	xhttp.open("GET", "GameEngine/Automation.php", true);
-	xhttp.send();
-	setTimeout(function(){ automation(); }, 30000);
+	req.open("GET", "GameEngine/Automation.php", true);
+	req.send();
+	if (!callback) {
+		setTimeout(function(){ automation(); }, 30000);
+	}
 }
+
+function triggerAutomationReload() {
+	if (window.reloading) return;
+	window.reloading = true;
+	setTimeout(function() {
+		automation( function() {
+			window.location.reload();
+		} );
+		setTimeout(function() {
+			window.location.reload();
+		}, 10000);
+	}, 2500);
+}
+
 function gb(){return hb('height');}
 function ib(){return hb('width');}
 function hb(jb){var kb=0,lb=0;if(typeof(window.innerWidth)=='number'){kb=window.innerWidth;lb=window.innerHeight;}
@@ -24,28 +50,25 @@ if(gmwds){gmwd();}
 }
 function nb(){return new Date().getTime();}
 function db(){return Math.round(nb()/1000);}
-function ob(pb){p=pb.innerHTML.split(":");qb=p[0]*3600+p[1]*60+p[2]*1;return qb;}
-function rb(s,sb){var tb,ub,vb;if(s>-2){tb=Math.floor(s/3600);ub=Math.floor(s/60)%60;vb=s%60;t=tb+":";if(ub<10){t+="0";}
-t+=ub+":";
-if(vb<10){t+="0";}
-t+=vb;
-} else {
-t='0:00:00';
-if (!window.reloading) {
-	// reload after automation is ran
-	automation( function() {
-		document.location.reload();
-	} );
-
-	// backup timer in case automation XHR fails
-	setTimeout(function() {
-		document.location.reload();
-	}, 15000);
-
-	window.reloading = true;
+function ob(pb){
+	var str = (pb.innerText || pb.textContent || pb.innerHTML || "").trim();
+	var p = str.split(":");
+	if (p.length < 3) return 0;
+	var qb = parseInt(p[0], 10)*3600 + parseInt(p[1], 10)*60 + parseInt(p[2], 10)*1;
+	return isNaN(qb) ? 0 : qb;
 }
-}
-return t;
+function rb(s,sb){
+	var tb,ub,vb,t;
+	if (s < 0) s = 0;
+	tb = Math.floor(s/3600);
+	ub = Math.floor(s/60)%60;
+	vb = s%60;
+	t = tb + ":";
+	if (ub < 10) t += "0";
+	t += ub + ":";
+	if (vb < 10) t += "0";
+	t += vb;
+	return t;
 }
 function fi2(qact,qact2,qact3){
 if(qact===undefined){
@@ -86,56 +109,31 @@ executeCounter();}
 function executeCounter(){
     for(var i in ab){
 	wb = db() - cb;
-	if (ab[i] && ab[i]['counter_time']) {
+	if (ab[i] && typeof ab[i]['counter_time'] === 'number') {
 		xb = rb(ab[i].counter_time + wb);
 	} else {
-		xb = 0;
+		xb = '0:00:00';
 	}
-	ab[i].node.innerHTML = xb;
+	if (ab[i] && ab[i].node) ab[i].node.innerHTML = xb;
     }
     for(i in bb){
+	if (!bb[i]) continue;
 	wb = db() - cb;
 	
-	if (bb[i] && bb[i]['counter_time']) {
+	if (typeof bb[i]['counter_time'] === 'number') {
 		yb = bb[i].counter_time - wb;
 	} else {
-		eb = 0;
 		yb = -1;
 	}
-	// console.log('yb: ' + yb);
-	if(eb == 0 && yb < 0){
+	if(yb <= 0){
+	    if (bb[i].node) bb[i].node.innerHTML = "0:00:00";
 	    bb[i] = null;
-	    eb = 1;
-	    if (!window.reloading) {
-	    	setTimeout(function() {
-					// reload after automation is ran
-					automation( function() {
-						window.location.href = window.location.href;
-					} );
-
-					// backup timer in case automation XHR fails
-					setTimeout(function() {
-						window.location.href = window.location.href;
-					}, 15000);
-				},1000);
-	    	window.reloading = true;
-	    }
+	    triggerAutomationReload();
 	}
-	//    eb = 1;
-	//    if(auto_reload == 1){
-	//	setTimeout("document.location.reload()",1000);
-	//    }
-	//    else if(auto_reload==0){
-	//	setTimeout("mreload()",1000);
-	//    }
-	//}
 	else{
-	    xb=rb(yb);
-	    bb[i].node.innerHTML = xb;
+	    xb = rb(yb);
+	    if (bb[i].node) bb[i].node.innerHTML = xb;
 	}
-	/*if(eb == 0 && yb >= 0){
-	    setTimeout("executeCounter()",1000);
-	}*/
     }
     setTimeout("executeCounter()",1000);
 }

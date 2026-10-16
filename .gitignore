@@ -47,4 +47,6 @@ var/log/access.log
 # Scratch and development temporary files
 scratch/
 cookies*.txt
+*.lck
+*.zip
 

@@ -40,7 +40,7 @@ trait AutomationBuildQueue {
              FROM
                 ".TB_PREFIX."bdata
             WHERE
-                timestamp < $time and master = 0"
+                timestamp <= $time and master = 0"
         );
 
         // preload village data
@@ -162,7 +162,7 @@ trait AutomationBuildQueue {
         $tdata = [];
         $abdata = [];
 
-        $q = "SELECT tech, vref, id FROM ".TB_PREFIX."research where timestamp < $time";
+        $q = "SELECT tech, vref, id FROM ".TB_PREFIX."research where timestamp <= $time";
         $dataarray = $database->query_return($q);
 
         foreach($dataarray as $data) {

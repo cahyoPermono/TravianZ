@@ -53,21 +53,58 @@ class Paranormal
     public static $tuyulDuration = 86400; // 24 jam
 
     /**
+     * Ensure the paranormal database table exists (self-healing for deployments)
+     */
+    public static function ensureTableExists()
+    {
+        global $database;
+        static $checked = false;
+        if ($checked) {
+            return;
+        }
+        $checked = true;
+
+        try {
+            $table = TB_PREFIX . "paranormal";
+            $database->query("CREATE TABLE IF NOT EXISTS `$table` (
+                `vref` int(11) NOT NULL,
+                `pocong` int(11) NOT NULL DEFAULT '0',
+                `kuntilanak` int(11) NOT NULL DEFAULT '0',
+                `genderuwo` int(11) NOT NULL DEFAULT '0',
+                `tuyul_until` int(11) NOT NULL DEFAULT '0',
+                `ritual_type` int(11) NOT NULL DEFAULT '0',
+                `ritual_end` int(11) NOT NULL DEFAULT '0',
+                PRIMARY KEY (`vref`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        } catch (\Throwable $e) {
+            error_log("Paranormal::ensureTableExists notice: " . $e->getMessage());
+        }
+    }
+
+    /**
      * Ambil data makhluk gaib desa
      */
     public static function getVillageSpirits($vref)
     {
         global $database;
         $vref = (int)$vref;
-        $table = TB_PREFIX . "paranormal";
-        $res = $database->query("SELECT * FROM `$table` WHERE `vref` = $vref LIMIT 1");
-        if ($res && ($row = mysqli_fetch_assoc($res))) {
-            return $row;
-        }
+        $default = array('vref' => $vref, 'pocong' => 0, 'kuntilanak' => 0, 'genderuwo' => 0, 'tuyul_until' => 0, 'ritual_type' => 0, 'ritual_end' => 0);
 
-        // Inisialisasi jika belum ada
-        $database->query("INSERT IGNORE INTO `$table` (`vref`, `pocong`, `kuntilanak`, `genderuwo`, `tuyul_until`) VALUES ($vref, 0, 0, 0, 0)");
-        return array('vref' => $vref, 'pocong' => 0, 'kuntilanak' => 0, 'genderuwo' => 0, 'tuyul_until' => 0);
+        try {
+            self::ensureTableExists();
+            $table = TB_PREFIX . "paranormal";
+            $res = $database->query("SELECT * FROM `$table` WHERE `vref` = $vref LIMIT 1");
+            if ($res && ($row = mysqli_fetch_assoc($res))) {
+                return $row;
+            }
+
+            // Inisialisasi jika belum ada
+            $database->query("INSERT IGNORE INTO `$table` (`vref`, `pocong`, `kuntilanak`, `genderuwo`, `tuyul_until`) VALUES ($vref, 0, 0, 0, 0)");
+            return $default;
+        } catch (\Throwable $e) {
+            error_log("Paranormal::getVillageSpirits error: " . $e->getMessage());
+            return $default;
+        }
     }
 
     /**
@@ -75,9 +112,13 @@ class Paranormal
      */
     public static function getUsedSlots($spirits)
     {
-        return ($spirits['pocong'] * self::$spiritStats[1]['slots'])
-             + ($spirits['kuntilanak'] * self::$spiritStats[2]['slots'])
-             + ($spirits['genderuwo'] * self::$spiritStats[3]['slots']);
+        $pocong = (int)($spirits['pocong'] ?? 0);
+        $kuntilanak = (int)($spirits['kuntilanak'] ?? 0);
+        $genderuwo = (int)($spirits['genderuwo'] ?? 0);
+
+        return ($pocong * self::$spiritStats[1]['slots'])
+             + ($kuntilanak * self::$spiritStats[2]['slots'])
+             + ($genderuwo * self::$spiritStats[3]['slots']);
     }
 
     /**
@@ -102,78 +143,84 @@ class Paranormal
             return;
         }
 
-        $vref = (int)$village->wid;
-        $level = $building->getTypeLevel(51);
-        if ($level < 1) {
-            return;
-        }
+        try {
+            self::ensureTableExists();
 
-        $spirits = self::getVillageSpirits($vref);
-        $maxCap = self::getMaxCapacity($level);
-        $usedSlots = self::getUsedSlots($spirits);
-
-        $action = isset($post['action']) ? $post['action'] : '';
-
-        if ($action === 'summon') {
-            $type = (int)($post['spirit_type'] ?? 0);
-            $amount = max(0, (int)($post['amount'] ?? 0));
-
-            if (!isset(self::$spiritStats[$type]) || $amount <= 0) {
+            $vref = (int)$village->wid;
+            $level = $building->getTypeLevel(51);
+            if ($level < 1) {
                 return;
             }
 
-            $slotPerUnit = self::$spiritStats[$type]['slots'];
-            $neededSlots = $amount * $slotPerUnit;
+            $spirits = self::getVillageSpirits($vref);
+            $maxCap = self::getMaxCapacity($level);
+            $usedSlots = self::getUsedSlots($spirits);
 
-            if ($usedSlots + $neededSlots > $maxCap) {
-                // Melebihi kapasitas slot gaib
-                return;
+            $action = isset($post['action']) ? $post['action'] : '';
+
+            if ($action === 'summon') {
+                $type = (int)($post['spirit_type'] ?? 0);
+                $amount = max(0, (int)($post['amount'] ?? 0));
+
+                if (!isset(self::$spiritStats[$type]) || $amount <= 0) {
+                    return;
+                }
+
+                $slotPerUnit = self::$spiritStats[$type]['slots'];
+                $neededSlots = $amount * $slotPerUnit;
+
+                if ($usedSlots + $neededSlots > $maxCap) {
+                    // Melebihi kapasitas slot gaib
+                    return;
+                }
+
+                $cost = self::$spiritStats[$type]['cost'];
+                $reqWood = $cost['wood'] * $amount;
+                $reqClay = $cost['clay'] * $amount;
+                $reqIron = $cost['iron'] * $amount;
+                $reqCrop = $cost['crop'] * $amount;
+
+                if ($village->awood >= $reqWood && $village->aclay >= $reqClay && $village->airon >= $reqIron && $village->acrop >= $reqCrop) {
+                    // Potong sumber daya
+                    $database->modifyResource($vref, $reqWood, $reqClay, $reqIron, $reqCrop, 0);
+
+                    $field = ($type === 1) ? 'pocong' : (($type === 2) ? 'kuntilanak' : 'genderuwo');
+                    $table = TB_PREFIX . "paranormal";
+                    $database->query("UPDATE `$table` SET `$field` = `$field` + $amount WHERE `vref` = $vref");
+
+                    header("Location: build.php?id=" . (int)($post['id'] ?? 0) . "&msg=summon_ok");
+                    exit;
+                }
+            } elseif ($action === 'tuyul') {
+                // Ritual Tuyul
+                $cost = self::$tuyulCost;
+                if ($village->awood >= $cost['wood'] && $village->aclay >= $cost['clay'] && $village->airon >= $cost['iron'] && $village->acrop >= $cost['crop']) {
+                    $database->modifyResource($vref, $cost['wood'], $cost['clay'], $cost['iron'], $cost['crop'], 0);
+
+                    $now = time();
+                    $curUntil = max($now, (int)($spirits['tuyul_until'] ?? 0));
+                    $newUntil = $curUntil + self::$tuyulDuration;
+
+                    $table = TB_PREFIX . "paranormal";
+                    $database->query("UPDATE `$table` SET `tuyul_until` = $newUntil WHERE `vref` = $vref");
+
+                    header("Location: build.php?id=" . (int)($post['id'] ?? 0) . "&msg=tuyul_ok");
+                    exit;
+                }
+            } elseif ($action === 'dismiss') {
+                $type = (int)($post['spirit_type'] ?? 0);
+                $amount = max(0, (int)($post['amount'] ?? 0));
+                if ($amount > 0 && in_array($type, [1, 2, 3], true)) {
+                    $field = ($type === 1) ? 'pocong' : (($type === 2) ? 'kuntilanak' : 'genderuwo');
+                    $table = TB_PREFIX . "paranormal";
+                    $database->query("UPDATE `$table` SET `$field` = GREATEST(0, `$field` - $amount) WHERE `vref` = $vref");
+
+                    header("Location: build.php?id=" . (int)($post['id'] ?? 0) . "&msg=dismiss_ok");
+                    exit;
+                }
             }
-
-            $cost = self::$spiritStats[$type]['cost'];
-            $reqWood = $cost['wood'] * $amount;
-            $reqClay = $cost['clay'] * $amount;
-            $reqIron = $cost['iron'] * $amount;
-            $reqCrop = $cost['crop'] * $amount;
-
-            if ($village->awood >= $reqWood && $village->aclay >= $reqClay && $village->airon >= $reqIron && $village->acrop >= $reqCrop) {
-                // Potong sumber daya
-                $database->modifyResource($vref, $reqWood, $reqClay, $reqIron, $reqCrop, 0);
-
-                $field = ($type === 1) ? 'pocong' : (($type === 2) ? 'kuntilanak' : 'genderuwo');
-                $table = TB_PREFIX . "paranormal";
-                $database->query("UPDATE `$table` SET `$field` = `$field` + $amount WHERE `vref` = $vref");
-
-                header("Location: build.php?id=" . (int)($post['id'] ?? 0) . "&msg=summon_ok");
-                exit;
-            }
-        } elseif ($action === 'tuyul') {
-            // Ritual Tuyul
-            $cost = self::$tuyulCost;
-            if ($village->awood >= $cost['wood'] && $village->aclay >= $cost['clay'] && $village->airon >= $cost['iron'] && $village->acrop >= $cost['crop']) {
-                $database->modifyResource($vref, $cost['wood'], $cost['clay'], $cost['iron'], $cost['crop'], 0);
-
-                $now = time();
-                $curUntil = max($now, (int)$spirits['tuyul_until']);
-                $newUntil = $curUntil + self::$tuyulDuration;
-
-                $table = TB_PREFIX . "paranormal";
-                $database->query("UPDATE `$table` SET `tuyul_until` = $newUntil WHERE `vref` = $vref");
-
-                header("Location: build.php?id=" . (int)($post['id'] ?? 0) . "&msg=tuyul_ok");
-                exit;
-            }
-        } elseif ($action === 'dismiss') {
-            $type = (int)($post['spirit_type'] ?? 0);
-            $amount = max(0, (int)($post['amount'] ?? 0));
-            if ($amount > 0 && in_array($type, [1, 2, 3], true)) {
-                $field = ($type === 1) ? 'pocong' : (($type === 2) ? 'kuntilanak' : 'genderuwo');
-                $table = TB_PREFIX . "paranormal";
-                $database->query("UPDATE `$table` SET `$field` = GREATEST(0, `$field` - $amount) WHERE `vref` = $vref");
-
-                header("Location: build.php?id=" . (int)($post['id'] ?? 0) . "&msg=dismiss_ok");
-                exit;
-            }
+        } catch (\Throwable $e) {
+            error_log("Paranormal::procPost error: " . $e->getMessage());
         }
     }
 
@@ -187,25 +234,30 @@ class Paranormal
             return ['dp' => 0, 'cdp' => 0, 'involve' => 0];
         }
 
-        $spirits = self::getVillageSpirits($vref);
-        $totalSpirits = (int)$spirits['pocong'] + (int)$spirits['kuntilanak'] + (int)$spirits['genderuwo'];
-        if ($totalSpirits <= 0) {
+        try {
+            $spirits = self::getVillageSpirits($vref);
+            $totalSpirits = (int)($spirits['pocong'] ?? 0) + (int)($spirits['kuntilanak'] ?? 0) + (int)($spirits['genderuwo'] ?? 0);
+            if ($totalSpirits <= 0) {
+                return ['dp' => 0, 'cdp' => 0, 'involve' => 0];
+            }
+
+            $dp = ((int)$spirits['pocong'] * self::$spiritStats[1]['def_i'])
+                + ((int)$spirits['kuntilanak'] * self::$spiritStats[2]['def_i'])
+                + ((int)$spirits['genderuwo'] * self::$spiritStats[3]['def_i']);
+
+            $cdp = ((int)$spirits['pocong'] * self::$spiritStats[1]['def_c'])
+                 + ((int)$spirits['kuntilanak'] * self::$spiritStats[2]['def_c'])
+                 + ((int)$spirits['genderuwo'] * self::$spiritStats[3]['def_c']);
+
+            return [
+                'dp' => $dp,
+                'cdp' => $cdp,
+                'involve' => $totalSpirits
+            ];
+        } catch (\Throwable $e) {
+            error_log("Paranormal::getVillageDefense error: " . $e->getMessage());
             return ['dp' => 0, 'cdp' => 0, 'involve' => 0];
         }
-
-        $dp = ((int)$spirits['pocong'] * self::$spiritStats[1]['def_i'])
-            + ((int)$spirits['kuntilanak'] * self::$spiritStats[2]['def_i'])
-            + ((int)$spirits['genderuwo'] * self::$spiritStats[3]['def_i']);
-
-        $cdp = ((int)$spirits['pocong'] * self::$spiritStats[1]['def_c'])
-             + ((int)$spirits['kuntilanak'] * self::$spiritStats[2]['def_c'])
-             + ((int)$spirits['genderuwo'] * self::$spiritStats[3]['def_c']);
-
-        return [
-            'dp' => $dp,
-            'cdp' => $cdp,
-            'involve' => $totalSpirits
-        ];
     }
 
     /**
@@ -225,34 +277,39 @@ class Paranormal
         if ($vref <= 0) return $res;
         $casualtyRatio = min(1.0, max(0.0, (float)$casualtyRatio));
 
-        $spirits = self::getVillageSpirits($vref);
-        $totalSpirits = (int)$spirits['pocong'] + (int)$spirits['kuntilanak'] + (int)$spirits['genderuwo'];
-        if ($totalSpirits <= 0) return $res;
+        try {
+            $spirits = self::getVillageSpirits($vref);
+            $totalSpirits = (int)($spirits['pocong'] ?? 0) + (int)($spirits['kuntilanak'] ?? 0) + (int)($spirits['genderuwo'] ?? 0);
+            if ($totalSpirits <= 0) return $res;
 
-        $res['troops'] = [
-            'pocong' => (int)$spirits['pocong'],
-            'kuntilanak' => (int)$spirits['kuntilanak'],
-            'genderuwo' => (int)$spirits['genderuwo']
-        ];
-        $res['total_troops'] = $totalSpirits;
+            $res['troops'] = [
+                'pocong' => (int)$spirits['pocong'],
+                'kuntilanak' => (int)$spirits['kuntilanak'],
+                'genderuwo' => (int)$spirits['genderuwo']
+            ];
+            $res['total_troops'] = $totalSpirits;
 
-        if ($casualtyRatio > 0) {
-            $deadP = (int)round((int)$spirits['pocong'] * $casualtyRatio);
-            $deadK = (int)round((int)$spirits['kuntilanak'] * $casualtyRatio);
-            $deadG = (int)round((int)$spirits['genderuwo'] * $casualtyRatio);
+            if ($casualtyRatio > 0) {
+                $deadP = (int)round((int)$spirits['pocong'] * $casualtyRatio);
+                $deadK = (int)round((int)$spirits['kuntilanak'] * $casualtyRatio);
+                $deadG = (int)round((int)$spirits['genderuwo'] * $casualtyRatio);
 
-            $res['dead'] = ['pocong' => $deadP, 'kuntilanak' => $deadK, 'genderuwo' => $deadG];
-            $res['total_dead'] = $deadP + $deadK + $deadG;
+                $res['dead'] = ['pocong' => $deadP, 'kuntilanak' => $deadK, 'genderuwo' => $deadG];
+                $res['total_dead'] = $deadP + $deadK + $deadG;
 
-            $newP = max(0, (int)$spirits['pocong'] - $deadP);
-            $newK = max(0, (int)$spirits['kuntilanak'] - $deadK);
-            $newG = max(0, (int)$spirits['genderuwo'] - $deadG);
+                $newP = max(0, (int)$spirits['pocong'] - $deadP);
+                $newK = max(0, (int)$spirits['kuntilanak'] - $deadK);
+                $newG = max(0, (int)$spirits['genderuwo'] - $deadG);
 
-            $table = TB_PREFIX . "paranormal";
-            $database->query("UPDATE `$table` SET `pocong` = $newP, `kuntilanak` = $newK, `genderuwo` = $newG WHERE `vref` = $vref");
+                $table = TB_PREFIX . "paranormal";
+                $database->query("UPDATE `$table` SET `pocong` = $newP, `kuntilanak` = $newK, `genderuwo` = $newG WHERE `vref` = $vref");
+            }
+
+            return $res;
+        } catch (\Throwable $e) {
+            error_log("Paranormal::applyCasualties error: " . $e->getMessage());
+            return $res;
         }
-
-        return $res;
     }
 
     /**
@@ -262,9 +319,13 @@ class Paranormal
     {
         $vref = (int)$vref;
         if ($vref <= 0) return 1.0;
-        $spirits = self::getVillageSpirits($vref);
-        if (!empty($spirits['tuyul_until']) && (int)$spirits['tuyul_until'] > time()) {
-            return 1.15;
+        try {
+            $spirits = self::getVillageSpirits($vref);
+            if (!empty($spirits['tuyul_until']) && (int)$spirits['tuyul_until'] > time()) {
+                return 1.15;
+            }
+        } catch (\Throwable $e) {
+            error_log("Paranormal::getRaidMultiplier error: " . $e->getMessage());
         }
         return 1.0;
     }

@@ -852,7 +852,7 @@ trait AutomationBattleResolution {
                 AND
                 ".TB_PREFIX."attacks.attack_type != 2
                 AND
-                endtime < $time
+                endtime <= $time
             ORDER BY endtime ASC";
         return $database->query_return($q);
     }

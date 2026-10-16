@@ -41,7 +41,7 @@ trait AutomationTroopMovements {
                 AND
                 ".TB_PREFIX."attacks.attack_type = 2
                 AND
-                endtime < $time";
+                endtime <= $time";
         $dataarray = $database->query_return($q);
 
         if ($dataarray && count($dataarray)) {
@@ -223,7 +223,7 @@ trait AutomationTroopMovements {
                 AND
                 ".TB_PREFIX."movement.sort_type = 4
                 AND
-                endtime < $time";
+                endtime <= $time";
         $dataarray = $database->query_return($q);
 
         if ($dataarray && count($dataarray)) {
@@ -266,7 +266,7 @@ trait AutomationTroopMovements {
         }
 
         // Settlers
-        $q = "SELECT `to`, moveid FROM ".TB_PREFIX."movement where ref = 0 and proc = '0' and sort_type = '4' and endtime < $time";
+        $q = "SELECT `to`, moveid FROM ".TB_PREFIX."movement where ref = 0 and proc = '0' and sort_type = '4' and endtime <= $time";
         $dataarray = $database->query_return($q);
         if ($dataarray && count($dataarray)) {
             foreach($dataarray as $data) {
@@ -287,7 +287,7 @@ trait AutomationTroopMovements {
         global $database;
 
         $time = microtime(true);
-        $q = "SELECT `to`, `from`, moveid, starttime, ref FROM ".TB_PREFIX."movement where proc = 0 and sort_type = 5 and endtime < $time";
+        $q = "SELECT `to`, `from`, moveid, starttime, ref FROM ".TB_PREFIX."movement where proc = 0 and sort_type = 5 and endtime <= $time";
 
         $dataarray = $database->query_return($q);
         $fieldIDs = [];

@@ -509,15 +509,22 @@ if (@is_file($__cronMarker)) {
 }
 
 if (!$__cronActive) {
-	$__automationLock = @fopen(AUTOMATION_LOCK_FILE_NAME, 'c');
+	$__lockName = defined('AUTOMATION_LOCK_FILE_NAME') ? AUTOMATION_LOCK_FILE_NAME : 'automation.lck';
+	$__automationLockPath = (empty($__lockName) || $__lockName[0] === '/' || (strlen($__lockName) >= 2 && $__lockName[1] === ':'))
+		? $__lockName
+		: dirname(__DIR__) . '/' . ltrim($__lockName, '/\\');
+	$__automationLock = @fopen($__automationLockPath, 'c');
 	if ($__automationLock !== false) {
 		if (@flock($__automationLock, LOCK_EX | LOCK_NB)) {
 			if (!defined('AUTOMATION_MANUAL_RUN')) {
 				define('AUTOMATION_MANUAL_RUN', true);
 			}
-			@touch(AUTOMATION_LOCK_FILE_NAME);
 			try {
-				include_once("Automation.php");
+				if (class_exists('Automation')) {
+					new Automation();
+				} else {
+					include_once __DIR__ . '/Automation.php';
+				}
 			} catch (\Throwable $e) {
 				error_log("Automation error: " . $e->getMessage());
 			}
