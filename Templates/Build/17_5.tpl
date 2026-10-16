@@ -16,6 +16,7 @@ global $database, $session, $village, $id;
 
 require_once __DIR__ . '/../../GameEngine/BlackMarket.php';
 require_once __DIR__ . '/../../GameEngine/Plague.php';
+require_once __DIR__ . '/../../GameEngine/HeroItems.php';
 
 $level = (int)$village->resarray['f'.$id];
 $silver = BlackMarket::getSilver((int)$session->uid);
@@ -28,12 +29,22 @@ $acrop = (int)$database->getCropAvailable($village->wid);
 $isPlagued = Plague::isVillageInfected($village->wid);
 $plagueInfo = $isPlagued ? Plague::getVillagePlague($village->wid) : null;
 
+$heroItemsObj = new HeroItems();
+$userInventory = $heroItemsObj->getInventory((int)$session->uid);
+$pawnableItems = [];
+foreach ($userInventory as $it) {
+    if (empty($it['equipped']) && empty($it['orphan'])) {
+        $pawnableItems[] = $it;
+    }
+}
+
 $flash = null;
 if (!empty($_SESSION['bm_flash'])) {
     $flash = $_SESSION['bm_flash'];
     unset($_SESSION['bm_flash']);
 }
 ?>
+<link rel="stylesheet" href="css/hero_items.css" type="text/css">
 
 <div id="build" class="gid17">
     <a href="#" onClick="return Popup(17,4);" class="build_logo">
@@ -286,6 +297,119 @@ if (!empty($_SESSION['bm_flash'])) {
                 </td>
             </tr>
         </table>
+    </div>
+
+    <!-- PILAR 4: PEGADAIAN GELAP & JUAL BARANG BUKTI (HERO ITEM PAWN SHOP) -->
+    <div style="background: #faf6ee; border: 1px solid #cbb89d; border-radius: 6px; padding: 14px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
+        <h3 style="margin: 0 0 6px 0; color: #693206; font-size: 14px; border-bottom: 1px dashed #cbb89d; padding-bottom: 5px;">
+            🧺 4. Pegadaian Gelap & Jual Beli Barang Bukti <span style="font-size: 11px; color: #8a6d3b; font-weight: normal;">(Hero Item Pawn Shop — Tukar Barang Jadi Sumber Daya Instan)</span>
+        </h3>
+        <p style="font-size: 11px; color: #555; margin: 4px 0 10px 0;">
+            Punya perlengkapan senjata, zirah, atau perbekalan petualangan berlebih yang menganggur di tas? Gadaikan langsung ke tengkulak pasar gelap untuk mendapatkan pasokan <b>4 jenis sumber daya merata</b> secara instan ke gudang desa!
+            <br />
+            <span style="color: #8c4a17; font-size: 10px;">
+                <i>⚠️ Catatan Tengkulak: Karena ini barang panas tanpa surat resmi kekaisaran, tengkulak memotong komisi gelap <b>30%</b> (15% Uang Tutup Mulut Penyelundup + 10% Jatah Preman Keamanan Lapak + 5% Uang Rokok & Kopi Calo). Hasil bersih 70% langsung diselundupkan ke gudang desa.</i>
+            </span>
+        </p>
+
+        <?php if (empty($pawnableItems)): ?>
+            <div style="background: #fff; border: 1px dashed #cbb89d; border-radius: 4px; padding: 16px; text-align: center; color: #777; font-size: 12px;">
+                🎒 <b>Tas inventori Anda tidak memiliki barang yang bisa digadaikan.</b><br />
+                <span style="font-size: 11px; color: #999;">Semua barang mungkin sedang dipakai oleh Hero atau tas Anda sedang kosong. Kirim hero bertualang untuk mengumpulkan jarahan!</span>
+            </div>
+        <?php else: ?>
+            <div style="max-height: 380px; overflow-y: auto; border: 1px solid #e0d5c1; border-radius: 4px; background: #fff;">
+                <table cellpadding="6" cellspacing="0" style="width: 100%; font-size: 11px; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background: #f3ece0; border-bottom: 1px solid #d5c8b2;">
+                            <th style="text-align: left; padding: 6px 8px;">Barang Bukti</th>
+                            <th style="text-align: center; padding: 6px 4px; width: 65px;">Slot / Tier</th>
+                            <th style="text-align: center; padding: 6px 4px; width: 45px;">Stok</th>
+                            <th style="text-align: right; padding: 6px 6px; width: 85px;">Taksiran Kotor</th>
+                            <th style="text-align: right; padding: 6px 6px; width: 95px;">Potongan (30%)</th>
+                            <th style="text-align: right; padding: 6px 6px; width: 110px;">Hasil Bersih</th>
+                            <th style="text-align: center; padding: 6px 8px; width: 90px;">Aksi Gadai</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php
+                        $slotNames = [
+                            1 => 'Helm',
+                            2 => 'Zirah',
+                            3 => 'Senjata',
+                            4 => 'Tangan Kiri',
+                            5 => 'Sepatu',
+                            6 => 'Kuda',
+                            7 => 'Perbekalan'
+                        ];
+                        foreach ($pawnableItems as $pItem):
+                            $pItemid = (int)$pItem['itemid'];
+                            $pQty = (int)$pItem['quantity'];
+                            $pSlot = (int)($pItem['def']['slot'] ?? 7);
+                            $pTier = (int)($pItem['def']['tier'] ?? 1);
+                            $pIsBag = ($pSlot === 7);
+                            $appraisal = BlackMarket::getItemAppraisal($pItemid, 1);
+                            $bonusTxt = function_exists('heroItemBonusText') ? heroItemBonusText($pItemid) : '';
+                        ?>
+                        <tr style="border-bottom: 1px solid #f0e9dc;">
+                            <td style="padding: 6px 8px; vertical-align: middle;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span class="heroT4Item item<?php echo $pItemid; ?>" style="transform: scale(0.65); margin: -8px -6px; transform-origin: center; display: inline-block;"></span>
+                                    <div>
+                                        <b style="color: #333; font-size: 11px;"><?php echo htmlspecialchars($pItem['name']); ?></b>
+                                        <?php if (!empty($bonusTxt)): ?>
+                                            <div style="font-size: 9px; color: #888;"><?php echo htmlspecialchars($bonusTxt); ?></div>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            </td>
+                            <td style="text-align: center; vertical-align: middle;">
+                                <span style="font-size: 10px; color: #666;"><?php echo $slotNames[$pSlot] ?? 'Item'; ?></span><br />
+                                <?php if (!$pIsBag): ?>
+                                    <span style="font-size: 9px; background: #eceae5; padding: 1px 4px; border-radius: 3px; font-weight: bold; color: #555;">T<?php echo $pTier; ?></span>
+                                <?php else: ?>
+                                    <span style="font-size: 9px; background: #e4f0d0; padding: 1px 4px; border-radius: 3px; font-weight: bold; color: #3f5f22;">Bag</span>
+                                <?php endif; ?>
+                            </td>
+                            <td style="text-align: center; vertical-align: middle; font-weight: bold; color: #444;">
+                                <?php echo $pQty; ?>x
+                            </td>
+                            <td style="text-align: right; vertical-align: middle; color: #888; font-size: 10px;">
+                                <span style="text-decoration: line-through;"><?php echo number_format($appraisal['gross_total']); ?></span> res
+                                <div style="font-size: 9px; color: #aaa;">(<?php echo number_format($appraisal['gross_each']); ?>/res)</div>
+                            </td>
+                            <td style="text-align: right; vertical-align: middle; color: #b22222; font-size: 10px;" title="Tutup Mulut: -<?php echo number_format($appraisal['fee_tutup_mulut']); ?> | Preman: -<?php echo number_format($appraisal['fee_preman']); ?> | Rokok Calo: -<?php echo number_format($appraisal['fee_uang_kopi']); ?>">
+                                -<?php echo number_format($appraisal['fee_total']); ?> res
+                                <div style="font-size: 9px; color: #993333;">-30% jatah</div>
+                            </td>
+                            <td style="text-align: right; vertical-align: middle; color: #1e7e34;">
+                                <b style="font-size: 11px;">+<?php echo number_format($appraisal['net_total']); ?></b> res
+                                <div style="font-size: 9px; color: #28a745;">(+<?php echo number_format($appraisal['net_each']); ?> tiap res)</div>
+                            </td>
+                            <td style="text-align: center; vertical-align: middle;">
+                                <form method="POST" action="build.php" style="margin: 0;" onsubmit="return confirm('Gadaikan <?php echo addslashes($pItem['name']); ?> ke tengkulak Pasar Gelap seharga +<?php echo number_format($appraisal['net_total']); ?> total resource?');">
+                                    <input type="hidden" name="ft" value="bm_pawn_item">
+                                    <input type="hidden" name="id" value="<?php echo (int)$id; ?>">
+                                    <input type="hidden" name="row_id" value="<?php echo (int)$pItem['id']; ?>">
+                                    <?php if ($pIsBag && $pQty > 1): ?>
+                                        <div style="display: flex; justify-content: center; align-items: center; gap: 2px; margin-bottom: 3px;">
+                                            <input type="number" name="qty" value="1" min="1" max="<?php echo $pQty; ?>" style="width: 38px; font-size: 10px; padding: 1px 2px; text-align: center; border: 1px solid #ccc; border-radius: 2px;">
+                                            <span style="font-size: 9px; color: #888;">pcs</span>
+                                        </div>
+                                    <?php else: ?>
+                                        <input type="hidden" name="qty" value="1">
+                                    <?php endif; ?>
+                                    <button type="submit" style="background: #8a3b14; color: #fff; border: 1px solid #6b2a09; padding: 3px 8px; font-size: 10px; font-weight: bold; border-radius: 3px; cursor: pointer; white-space: nowrap;">
+                                        🤝 Gadai
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        <?php endif; ?>
     </div>
 </div>
 

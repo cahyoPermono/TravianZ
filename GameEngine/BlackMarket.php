@@ -330,6 +330,181 @@ class BlackMarket
     }
 
     /**
+     * 4. Hero Item Appraisal: Calculate item appraisal and humorous syndicate deductions.
+     * Total deduction: 30% (tutup mulut 15%, jatah preman 10%, uang rokok/kopi 5%).
+     * Net payout: 70% of gross value, distributed equally among 4 resources (Wood, Clay, Iron, Crop).
+     */
+    public static function getItemAppraisal(int $itemid, int $quantity = 1): array
+    {
+        global $heroItemCatalog;
+        if (!isset($heroItemCatalog)) {
+            include_once __DIR__ . '/Data/hero_items.php';
+        }
+
+        $quantity = max(1, (int)$quantity);
+        $item = $heroItemCatalog[$itemid] ?? null;
+
+        $itemName = function_exists('heroItemName') ? heroItemName($itemid) : ($item['name'] ?? ('Item #' . $itemid));
+        $tier = (int)($item['tier'] ?? 1);
+        $slot = (int)($item['slot'] ?? 0);
+
+        // Base gross value calculation in total resources (sum of 4 resources)
+        $unitGross = 1000;
+        if ($item !== null) {
+            if ($slot === (defined('HSLOT_BAG') ? HSLOT_BAG : 7)) {
+                // Consumables
+                switch ($itemid) {
+                    case 200: // Salep / Ointment
+                    case 206: // Small Bandages
+                        $unitGross = 200;
+                        break;
+                    case 208: // Cage / Kandang
+                        $unitGross = 320;
+                        break;
+                    case 207: // Large Bandages
+                        $unitGross = 400;
+                        break;
+                    case 201: // Scroll / Gulungan XP
+                        $unitGross = 600;
+                        break;
+                    case 203: // Tablets of Law
+                        $unitGross = 1200;
+                        break;
+                    case 204: // Book of Wisdom
+                        $unitGross = 5000;
+                        break;
+                    case 205: // Artwork
+                        $unitGross = 10000;
+                        break;
+                    case 202: // Bucket of Life / Ember Kehidupan
+                        $unitGross = 12000;
+                        break;
+                    default:
+                        $unitGross = 400;
+                        break;
+                }
+            } else {
+                // Equipment items based on tier
+                if ($tier === 1) {
+                    $unitGross = 4000; // 1,000 each res
+                } elseif ($tier === 2) {
+                    $unitGross = 10000; // 2,500 each res
+                } elseif ($tier === 3) {
+                    $unitGross = 24000; // 6,000 each res
+                } else {
+                    $unitGross = 4000;
+                }
+            }
+        }
+
+        $grossTotal = $unitGross * $quantity;
+        // Divide gross equally among 4 resources
+        $grossEach = (int)floor($grossTotal / 4);
+        $grossTotal = $grossEach * 4;
+
+        // Net payout: exactly 70% of gross, distributed equally across 4 resources
+        $netEach = (int)floor(($grossTotal * 0.70) / 4);
+        $netTotal = $netEach * 4;
+        $totalFee = $grossTotal - $netTotal;
+
+        // Humorous Syndicate Deductions Breakdown
+        // 1. Biaya Tutup Mulut Penyelundup (~15%)
+        $feeTutupMulut = (int)round($grossTotal * 0.15);
+        // 2. Jatah Preman Keamanan Lapak (~10%)
+        $feePreman = (int)round($grossTotal * 0.10);
+        // 3. Uang Rokok & Kopi Calo Gelap (balance to match exact totalFee)
+        $feeUangKopi = max(0, $totalFee - $feeTutupMulut - $feePreman);
+
+        return [
+            'itemid'          => $itemid,
+            'name'            => $itemName,
+            'tier'            => $tier,
+            'slot'            => $slot,
+            'quantity'        => $quantity,
+            'unit_gross'      => $unitGross,
+            'gross_total'     => $grossTotal,
+            'gross_each'      => $grossEach,
+            'fee_tutup_mulut' => $feeTutupMulut,
+            'fee_preman'      => $feePreman,
+            'fee_uang_kopi'   => $feeUangKopi,
+            'fee_total'       => $totalFee,
+            'fee_percent'     => 30,
+            'net_each'        => $netEach,
+            'net_total'       => $netTotal,
+        ];
+    }
+
+    /**
+     * Sell an unequipped hero item to the Black Market for 4 equal resources.
+     */
+    public static function sellHeroItem(int $uid, int $vref, int $rowId, int $quantity = 1): array
+    {
+        global $database;
+        $db = self::db();
+        $uid = (int)$uid;
+        $vref = (int)$vref;
+        $rowId = (int)$rowId;
+        $quantity = max(1, (int)$quantity);
+
+        if (!$db || $uid <= 0 || $vref <= 0 || $rowId <= 0) {
+            return ['success' => false, 'message' => 'Parameter penjualan barang tidak valid.'];
+        }
+
+        // Verify ownership and equipped status
+        $stmt = @mysqli_prepare($db, "SELECT id, uid, itemid, quantity, equipped FROM `" . TB_PREFIX . "hero_items` WHERE uid = ? AND id = ? LIMIT 1");
+        if (!$stmt) {
+            return ['success' => false, 'message' => 'Gagal membaca data inventori hero.'];
+        }
+        mysqli_stmt_bind_param($stmt, 'ii', $uid, $rowId);
+        mysqli_stmt_execute($stmt);
+        $res = mysqli_stmt_get_result($stmt);
+        $row = $res ? mysqli_fetch_assoc($res) : null;
+        mysqli_stmt_close($stmt);
+
+        if (!$row) {
+            return ['success' => false, 'message' => 'Barang tidak ditemukan di dalam tas inventori Anda.'];
+        }
+
+        if ((int)$row['equipped'] === 1) {
+            return ['success' => false, 'message' => 'Barang sedang dipakai oleh Hero! Lepaskan terlebih dahulu sebelum menggadaikannya ke Pasar Gelap.'];
+        }
+
+        $availQty = (int)$row['quantity'];
+        if ($availQty < $quantity) {
+            return ['success' => false, 'message' => 'Jumlah barang yang ingin dijual (' . $quantity . ') melebihi stok di tas (' . $availQty . ').'];
+        }
+
+        $itemid = (int)$row['itemid'];
+        $appraisal = self::getItemAppraisal($itemid, $quantity);
+        $netEach = (int)$appraisal['net_each'];
+        $netTotal = (int)$appraisal['net_total'];
+
+        // Remove item from inventory
+        if (!class_exists('HeroItems')) {
+            require_once __DIR__ . '/HeroItems.php';
+        }
+        $heroItems = new HeroItems();
+        if (!$heroItems->removeItem($uid, $rowId, $quantity)) {
+            return ['success' => false, 'message' => 'Gagal memotong barang dari inventori hero.'];
+        }
+
+        // Add 4 equal resources to the village
+        $database->modifyResource($vref, $netEach, $netEach, $netEach, $netEach, 1, true);
+
+        // Log transaction
+        $itemName = $appraisal['name'];
+        $details = "Gadai " . $quantity . "x " . $itemName . " -> Total " . number_format($netTotal) . " res (" . number_format($netEach) . " each). Potongan preman 30%: Tutup Mulut " . number_format($appraisal['fee_tutup_mulut']) . ", Preman " . number_format($appraisal['fee_preman']) . ", Rokok " . number_format($appraisal['fee_uang_kopi']);
+        self::logAction($uid, $vref, 'pawn_item', $details, 0);
+
+        return [
+            'success' => true,
+            'message' => "🤝 Transaksi gelap tuntas! " . $quantity . "x " . $itemName . " berhasil digadaikan ke tengkulak pasar gelap. " .
+                         "Gudang desa menerima +" . number_format($netEach) . " Kayu, Tanah Liat, Besi, dan Gandum (Total: " . number_format($netTotal) . " sumber daya). " .
+                         "Dipotong komisi tutup mulut penyelundup & jatah preman 30% (" . number_format($appraisal['fee_total']) . " res)."
+        ];
+    }
+
+    /**
      * Process POST requests from Black Market UI.
      */
     public static function procPost(array $post): void
@@ -357,6 +532,10 @@ class BlackMarket
         } elseif ($post['ft'] === 'bm_contraband') {
             $itemKey = trim($post['item_key'] ?? '');
             $result  = self::buyContraband($uid, $vref, $itemKey);
+        } elseif ($post['ft'] === 'bm_pawn_item') {
+            $rowId = (int)($post['row_id'] ?? 0);
+            $qty   = max(1, (int)($post['qty'] ?? 1));
+            $result = self::sellHeroItem($uid, $vref, $rowId, $qty);
         }
 
         if ($result !== null) {

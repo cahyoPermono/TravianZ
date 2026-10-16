@@ -325,3 +325,24 @@ table.t4items .t4none { color: #a5a19a; }
     <?php } ?>
     </tbody>
 </table>
+
+<?php
+$marketSlot = 0;
+if (isset($village) && isset($village->resarray)) {
+    for ($i = 19; $i <= 40; $i++) {
+        if (isset($village->resarray['f' . $i . 't']) && (int)$village->resarray['f' . $i . 't'] == 17) {
+            $marketSlot = $i;
+            break;
+        }
+    }
+}
+$marketLink = ($marketSlot > 0) ? "build.php?id={$marketSlot}&t=5" : "build.php?gid=17";
+?>
+<div style="margin-top:14px; padding:10px 14px; background:#fbf5e6; border:1px solid #d4a359; border-radius:4px; font-size:11px; line-height:1.5; color:#5c3b1e; display:flex; align-items:center; gap:10px;">
+    <span style="font-size:22px;">🧺</span>
+    <div>
+        <strong style="color:#773b06;">Punya perlengkapan atau barang tas berlebih?</strong><br>
+        Gadaikan item tak terpakai di <a href="<?php echo $marketLink; ?>" style="color:#9c4800; font-weight:bold; text-decoration:underline;">Pasar Gelap (Pasar &raquo; Tab 5)</a> untuk ditukar langsung menjadi 4 macam sumber daya (Kayu, Tanah Liat, Besi, Gandum) rata ke gudang desa!
+    </div>
+</div>
+
