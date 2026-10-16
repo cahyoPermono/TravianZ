@@ -29,8 +29,13 @@
 include_once("Session.php");
 include_once("Building.php");
 include_once("Market.php");
-include_once("GameEngine/Units.php");
+include_once(__DIR__ . "/Units.php");
 include_once("Technology.php");
+global $units;
+if (!isset($units) || !is_object($units)) {
+    $units = isset($GLOBALS['units']) && is_object($GLOBALS['units']) ? $GLOBALS['units'] : new Units();
+    $GLOBALS['units'] = $units;
+}
 include_once("Weather.php");
 include_once("Plague.php");
 include_once("Ormas.php");

@@ -37,6 +37,14 @@
 //), just delete the two entries in $bugOverrides below.
 // ============================================================================
 
+global $database, $session, $village, $generator, $building, $units, $id;
+if (!isset($building) || !is_object($building)) {
+    if (file_exists(__DIR__ . "/../../GameEngine/Building.php")) {
+        include_once(__DIR__ . "/../../GameEngine/Building.php");
+    }
+    $building = isset($GLOBALS['building']) && is_object($GLOBALS['building']) ? $GLOBALS['building'] : (class_exists('Building') ? new Building() : null);
+}
+
 //check if there is unit needed in the village
 
 $result      = mysqli_query($database->dblink, "SELECT * FROM " . TB_PREFIX . "units WHERE `vref` = " . (int) $village->wid . "");
@@ -148,8 +156,8 @@ $renderTrainRow = function ($unitID, $unitData, $unitName, $units_array, $bugOpt
 
 	//-- If available resources combined are not enough, remove NPC button
 	$total_required = (int) ($data['wood'] + $data['clay'] + $data['iron'] + $data['crop']);
-	if ($session->userinfo['gold'] >= 3 && $building->getTypeLevel(17) >= 1 && $village->atotal >= $total_required) {
-		$row .= "|<a href=\"build.php?gid=17&t=3&r1=" . $data['wood'] . "&r2=" . $data['clay'] . "&r3=" . $data['iron'] . "&r4=" . $data['crop'] . "\" title=\"NPC trade\"><img class=\"npc\" src=\"img/x.gif\" alt=\"NPC trade\" title=\"NPC trade\" /></a>";
+	if ($session->userinfo['gold'] >= 3 && isset($building) && is_object($building) && $building->getTypeLevel(17) >= 1 && $village->atotal >= $total_required) {
+		$row .= "|<a href=\"build.php?gid=17&t=3&r1=" . $data['wood'] . "&r2=" . $data['clay'] . "&r3=" . $data['iron'] . "&r4=" . $crop . "\" title=\"NPC trade\"><img class=\"npc\" src=\"img/x.gif\" alt=\"NPC trade\" title=\"NPC trade\" /></a>";
 	}
 
 	$row .=         "</div>";

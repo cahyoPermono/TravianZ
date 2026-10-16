@@ -17,8 +17,23 @@
 ##  License        : TravianZ Project                                          ##
 ##  Copyright      : TravianZ (c) 2010-2026. All rights reserved.              ##
 ## --------------------------------------------------------------------------- ##
-#################################################################################
-
+global $database, $session, $village, $generator, $building, $units, $technology, $heroes;
+if (!isset($building) || !is_object($building)) {
+    if (file_exists(__DIR__ . "/../../GameEngine/Building.php")) {
+        include_once(__DIR__ . "/../../GameEngine/Building.php");
+    }
+    $building = isset($GLOBALS['building']) && is_object($GLOBALS['building']) ? $GLOBALS['building'] : (class_exists('Building') ? new Building() : null);
+}
+if (!isset($units) || !is_object($units)) {
+    $units = isset($GLOBALS['units']) && is_object($GLOBALS['units']) ? $GLOBALS['units'] : (class_exists('Units') ? new Units() : null);
+    if ($units) $GLOBALS['units'] = $units;
+}
+if ((!isset($heroes) || !is_array($heroes)) && isset($units) && is_object($units)) {
+    $heroes = $units->Hero($session->uid, 1) ?: [];
+}
+if (!isset($heroes) || !is_array($heroes)) {
+    $heroes = [];
+}
 ?>
 
 
@@ -117,7 +132,7 @@ $renderReviveRow = function ($hero_datarow, $name, $wood, $clay, $iron, $crop, $
 	$html .=         $training_time;
 
 	//-- If available resources combined are not enough, remove NPC button
-	if ($session->userinfo['gold'] >= 3 && $building->getTypeLevel(17) >= 1 && $village->atotal >= $total_required) {
+	if ($session->userinfo['gold'] >= 3 && isset($building) && is_object($building) && $building->getTypeLevel(17) >= 1 && $village->atotal >= $total_required) {
 		$html .= "|<a href=\"build.php?gid=17&t=3&r1=" . $wood . "&r2=" . $clay . "&r3=" . $iron . "&r4=" . $crop . "\" title=\"NPC trade\"><img class=\"npc\" src=\"img/x.gif\" alt=\"NPC trade\" title=\"NPC trade\" /></a>";
 	}
 
@@ -140,6 +155,9 @@ $renderReviveRow = function ($hero_datarow, $name, $wood, $clay, $iron, $crop, $
 
 // check if there is a hero in revive already
 $reviving = $training = false;
+$mansionLevel   = isset($database) && is_object($database) ? (int) $database->getFieldLevelInVillage($village->wid, 37) : 0;
+$discountRate   = defined('HERO_MANSION_REVIVE_DISCOUNT') ? (float)HERO_MANSION_REVIVE_DISCOUNT : 0.025;
+$mansionDiscount = min(0.50, $mansionLevel * $discountRate);
 
 foreach ($heroes as $hero_datarow) {
 	if ($hero_datarow['inrevive']) {

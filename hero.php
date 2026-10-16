@@ -11,11 +11,12 @@ $start_timer = $generator->pageLoadTimeStart();
 use App\Utils\AccessLogger;
 
 include_once("GameEngine/Village.php");
+include_once("GameEngine/Building.php");
 include_once("GameEngine/Technology.php");
 include_once("GameEngine/Units.php");
 AccessLogger::logRequest();
 
-global $units, $technology, $database, $session, $village, $generator;
+global $units, $technology, $database, $session, $village, $generator, $building;
 
 if (!isset($session) || !is_object($session) || $session->uid <= 0) {
     header("Location: login.php");
@@ -29,9 +30,13 @@ if ((!defined('HERO_FROM_START') || HERO_FROM_START) && class_exists('Units')) {
 
 if (!isset($units) || !is_object($units)) {
     $units = isset($GLOBALS['units']) && is_object($GLOBALS['units']) ? $GLOBALS['units'] : new Units();
+    $GLOBALS['units'] = $units;
 }
 if (!isset($technology) || !is_object($technology)) {
     $technology = isset($GLOBALS['technology']) && is_object($GLOBALS['technology']) ? $GLOBALS['technology'] : new Technology();
+}
+if (!isset($building) || !is_object($building)) {
+    $building = isset($GLOBALS['building']) && is_object($GLOBALS['building']) ? $GLOBALS['building'] : (class_exists('Building') ? new Building() : null);
 }
 
 $hero_info = $units->Hero($session->uid);
@@ -120,16 +125,9 @@ if ($hero_info) {
     // Navigation tabs (Hero, Items, Adventures, Auction)
     include_once("Templates/Build/37_t4nav.tpl");
 
-    // Revive check if hero is dead
-    $isDead = false;
-    if ($hero_info === false && !empty($heroes)) {
-        foreach ($heroes as $hdata) {
-            if ($hdata['dead'] == 1) {
-                $isDead = true;
-                break;
-            }
-        }
-    }
+    // Revive check if hero is dead or currently reviving
+    $isDead = (is_array($hero_info) && (!empty($hero_info['dead']) || !empty($hero_info['inrevive'])))
+        || (!empty($heroes) && array_reduce($heroes, fn($c, $h) => $c || !empty($h['dead']) || !empty($h['inrevive']), false));
 
     if ($t4tab === 'adventures') {
         include_once("Templates/Build/37_adventures.tpl");

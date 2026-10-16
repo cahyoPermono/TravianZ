@@ -1546,5 +1546,6 @@ class Units {
 	}
 };
 $units = new Units;
+$GLOBALS['units'] = $units;
 
 ?>

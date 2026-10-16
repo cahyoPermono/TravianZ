@@ -19,6 +19,11 @@
 ## --------------------------------------------------------------------------- ##
 #################################################################################
 
+        global $units, $technology, $database, $session, $village, $generator;
+        if (!isset($units) || !is_object($units)) {
+            $units = isset($GLOBALS['units']) && is_object($GLOBALS['units']) ? $GLOBALS['units'] : new Units();
+            $GLOBALS['units'] = $units;
+        }
         $hero_info = $units->Hero($session->uid);
         $heroes = $units->Hero($session->uid, 1);
         $define['reset_level'] = 3; // Until which level you are able to reset your points
@@ -169,28 +174,25 @@
             $include_revive = false;
             if (isset($heroes) && is_array($heroes) && count($heroes)) {
                 foreach ( $heroes as $hdata ) {
-                    if ( $hdata['dead'] == 1 ) {
+                    if ( !empty($hdata['dead']) || !empty($hdata['inrevive']) ) {
                         $include_revive = true;
                     }
 
-                    if ( $hdata['inrevive'] == 1 ) {
+                    if ( !empty($hdata['inrevive']) ) {
                         $name1            = $hdata['name'];
                         $include_training = false;
                     }
                 }
             }
 
-            if($hero_info === false && $include_revive){
-                include_once("37_revive.tpl");
-            }
+            $isHeroDead = $include_revive || (is_array($hero_info) && !empty($hero_info['dead']));
+            $isHeroInRevive = (is_array($hero_info) && !empty($hero_info['inrevive']));
+            $isHeroInTraining = (is_array($hero_info) && !empty($hero_info['intraining']) && $hero_info['trainingtime'] > time());
+            $isHeroAlive = (is_array($hero_info) && empty($hero_info['dead']) && empty($hero_info['inrevive']) && empty($hero_info['intraining']) && $hero_info['trainingtime'] <= time());
 
-            if ($hero_info === false && $include_training) {
-                include_once("37_train.tpl");
-            } else if(is_array($hero_info) && $hero_info['intraining'] == 1) {
-                // FIX: fara is_array(), cand eroul nu exista ($hero_info === false)
-                // si $include_training e false, ramura asta accesa false['intraining']
-                // -> "Trying to access array offset on false" la fiecare afisare.
-
+            if ($isHeroDead || $isHeroInRevive) {
+                include("37_revive.tpl");
+            } elseif ($isHeroInTraining) {
 		    $timeleft = $generator->getTimeFormat($hero_info['trainingtime'] - time());
 		?>
 	<table id="distribution" cellpadding="1" cellspacing="1">
@@ -213,11 +215,11 @@
             </tr>
     </table>
 		<?php
-		}
-
-        if($hero_info !== false AND $hero_info['dead'] == 0 AND $hero_info['trainingtime'] <= time() AND $hero_info['inrevive'] == 0 AND $hero_info['intraining'] == 0){
-            include("37_hero.tpl");
-        }
+            } elseif ($isHeroAlive) {
+                include("37_hero.tpl");
+            } else {
+                include("37_train.tpl");
+            }
         }
         include ("upgrade.tpl"); ?>
         

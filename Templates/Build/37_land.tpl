@@ -18,6 +18,11 @@
 ##  Copyright      : TravianZ (c) 2010-2026. All rights reserved.              ##
 ## --------------------------------------------------------------------------- ##
 #################################################################################
+	global $database, $session, $village, $units, $bid45;
+	if (!isset($units) || !is_object($units)) {
+		$units = isset($GLOBALS['units']) && is_object($GLOBALS['units']) ? $GLOBALS['units'] : new Units();
+		$GLOBALS['units'] = $units;
+	}
 
 	$oasisarray = $database->getOasis($village->wid);
 

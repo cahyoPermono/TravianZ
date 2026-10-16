@@ -25,6 +25,11 @@ use App\Utils\AccessLogger;
 ob_start();
 include_once( "GameEngine/Village.php" );
 include_once( "GameEngine/Units.php" );
+global $units;
+if (!isset($units) || !is_object($units)) {
+    $units = isset($GLOBALS['units']) && is_object($GLOBALS['units']) ? $GLOBALS['units'] : new Units();
+    $GLOBALS['units'] = $units;
+}
 AccessLogger::logRequest();
 
 /**
@@ -299,6 +304,10 @@ if ($session->goldclub == 1) {
 else $create = 0;
 
 if (isset($_POST['a']) && ($_POST['a'] === 'new' || $_POST['a'] == 533374) && isset($_POST['id']) && (int)$_POST['id'] === 39) {
+    if (!isset($units) || !is_object($units)) {
+        $units = isset($GLOBALS['units']) && is_object($GLOBALS['units']) ? $GLOBALS['units'] : new Units();
+        $GLOBALS['units'] = $units;
+    }
     $units->Settlers($_POST);
 }
 
