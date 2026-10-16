@@ -94,7 +94,7 @@ class Paranormal
             self::ensureTableExists();
             $table = TB_PREFIX . "paranormal";
             $res = $database->query("SELECT * FROM `$table` WHERE `vref` = $vref LIMIT 1");
-            if ($res && ($row = mysqli_fetch_assoc($res))) {
+            if ($res instanceof \mysqli_result && ($row = mysqli_fetch_assoc($res))) {
                 return $row;
             }
 

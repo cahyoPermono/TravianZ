@@ -42,14 +42,14 @@ if (defined('NEW_FUNCTIONS_HERO_T4') && NEW_FUNCTIONS_HERO_T4) {
         <td colspan="2"><?= $action?></td>
     </tr></thead>
     <tbody class="units">
-        <tr><th>&nbsp;</th><td style="width:40px;"><img src="img/x.gif" class="unit uhero" title="<?php echo U0; ?>"></td><td>&nbsp;</td></tr>
-        <tr><th><?= TROOPS?></th><td>1</td><td>&nbsp;</td></tr>
+        <tr><th>&nbsp;</th><td style="width:40px;"><img src="img/x.gif" class="unit uhero" title="<?php echo defined('U0') ? U0 : 'Hero'; ?>"></td><td>&nbsp;</td></tr>
+        <tr><th><?= defined('TROOPS') ? TROOPS : 'Troops' ?></th><td>1</td><td>&nbsp;</td></tr>
     </tbody>
     <tbody class="infos"><tr>
-        <th><?= ARRIVAL?></th>
+        <th><?= defined('ARRIVAL') ? ARRIVAL : 'Arrival' ?></th>
         <td colspan="2">
             <div class="in small"><span id="timer<?= $session->timer?>"><?= $generator->getTimeFormat($m['endtime']-time())?></span> h</div>
-            <div class="at"><?= $dt[0]!='today'?ON.' '.$dt[0].' ':''?><?= AT?> <?= $dt[1]?></div>
+            <div class="at"><?= $dt[0]!='today'?(defined('ON')?ON:'on').' '.$dt[0].' ':''?><?= defined('AT')?AT:'at'?> <?= $dt[1]?></div>
         </td>
     </tr></tbody>
 </table>
@@ -60,10 +60,10 @@ if (defined('NEW_FUNCTIONS_HERO_T4') && NEW_FUNCTIONS_HERO_T4) {
 <?php foreach ($outgoing as $m):
     $session->timer++;
     $atk = (int)$m['attack_type'];
-    if ($atk == 1) $action = SCOUTING;
-    elseif ($atk == 2) $action = REINFORCEMENTFOR;
-    elseif ($atk == 3) $action = ATTACK_ON;
-    elseif ($atk == 4) $action = RAID_ON;
+    if ($atk == 1) $action = defined('SCOUTING') ? SCOUTING : 'Scouting';
+    elseif ($atk == 2) $action = defined('REINFORCEMENTFOR') ? REINFORCEMENTFOR : 'Reinforcement';
+    elseif ($atk == 3) $action = defined('ATTACK_ON') ? ATTACK_ON : 'Attack on';
+    elseif ($atk == 4) $action = defined('RAID_ON') ? RAID_ON : 'Raid on';
     else $action = '';
 
     $to = $database->isVillageOases($m['to'])? $database->getOMInfo($m['to']) : $database->getMInfo($m['to']);
@@ -80,28 +80,28 @@ if (defined('NEW_FUNCTIONS_HERO_T4') && NEW_FUNCTIONS_HERO_T4) {
     <tbody class="units">
         <tr><th>&nbsp;</th>
             <?php for($i=$start;$i<$start+10;$i++):?><td><img src="img/x.gif" class="unit u<?= $i?>" title="<?= $technology->getUnitName($i)?>"></td><?php endfor;?>
-            <?php if($m['t11']):?><td><img src="img/x.gif" class="unit uhero" title="<?php echo U0; ?>"></td><?php endif;?>
+            <?php if($m['t11']):?><td><img src="img/x.gif" class="unit uhero" title="<?php echo defined('U0') ? U0 : 'Hero'; ?>"></td><?php endif;?>
         </tr>
-        <tr><th><?= TROOPS?></th>
+        <tr><th><?= defined('TROOPS') ? TROOPS : 'Troops' ?></th>
             <?php for($i=1;$i<($m['t11']?12:11);$i++): $v = isset($m['t'.$i])? $m['t'.$i] : 0;?><td class="<?= $v==0?'none':''?>"><?= $v?></td><?php endfor;?>
         </tr>
     </tbody>
 
     <?php if (defined('NEW_FUNCTIONS_DISPLAY_CATAPULT_TARGET') && NEW_FUNCTIONS_DISPLAY_CATAPULT_TARGET && $m['t8']>0 && $atk==3 &&!$database->isVillageOases($m['to'])):?>
     <tbody><tr>
-        <th><?= CATAPULT_TARGET?></th>
+        <th><?= defined('CATAPULT_TARGET') ? CATAPULT_TARGET : 'Catapult Target' ?></th>
         <td style="text-align:center" colspan="5"><?= $m['ctar1']==0?'Random':Building::procResType($m['ctar1'])?></td>
         <td style="text-align:center" colspan="<?= $m['t11']?6:5?>"><?= $m['ctar2']==99?'Random':($m['ctar2']==0?'-':Building::procResType($m['ctar2']))?></td>
     </tr></tbody>
     <?php endif;?>
 
     <tbody class="infos"><tr>
-        <th><?= ARRIVAL?></th>
+        <th><?= defined('ARRIVAL') ? ARRIVAL : 'Arrival' ?></th>
         <td colspan="<?= $colspan?>">
             <div class="in small"><span id="timer<?= $session->timer?>"><?= $generator->getTimeFormat($m['endtime']-time())?></span> h</div>
-            <div class="at"><?= $dt[0]!='today'?ON.' '.$dt[0].' ':''?><?= AT?> <?= $dt[1]?></div>
+            <div class="at"><?= $dt[0]!='today'?(defined('ON')?ON:'on').' '.$dt[0].' ':''?><?= defined('AT')?AT:'at'?> <?= $dt[1]?></div>
             <?php if(($m['starttime']+90)>time()):?>
-                <div class="abort"><a href="build.php?id=<?= $_GET['id']?>&mode=troops&cancel=1&moveid=<?= $m['moveid']?>"><img src="img/x.gif" class="del"></a></div>
+                <div class="abort"><a href="build.php?id=<?= isset($_GET['id']) ? (int)$_GET['id'] : 39?>&mode=troops&cancel=1&moveid=<?= (int)$m['moveid']?>"><img src="img/x.gif" class="del"></a></div>
             <?php endif;?>
         </td>
     </tr></tbody>
@@ -115,18 +115,18 @@ foreach ($settlers as $s):
 <table class="troop_details" cellpadding="1" cellspacing="1">
     <thead><tr>
         <td class="role"><a href="karte.php?d=<?= $village->wid?>&c=<?= $generator->getMapCheck($village->wid)?>"><?= $village->vname?></a></td>
-        <td colspan="10"><a href="karte.php?d=<?= $s['to']?>&c=<?= $generator->getMapCheck($s['to'])?>"><?= FOUNDNEWVILLAGE?></a></td>
+        <td colspan="10"><a href="karte.php?d=<?= $s['to']?>&c=<?= $generator->getMapCheck($s['to'])?>"><?= defined('FOUNDNEWVILLAGE') ? FOUNDNEWVILLAGE : 'Founding New Village' ?></a></td>
     </tr></thead>
     <tbody class="units">
-        <tr><th>&nbsp;</th><?php for($i=$start;$i<$start+10;$i++):?><td><img src="img/x.gif" class="unit u<?= $i?>"></td><?php endfor;?></tr>
-        <tr><th><?= TROOPS?></th><?php for($i=1;$i<=10;$i++): $v=($i==10?3:0);?><td class="<?= $v==0?'none':''?>"><?= $v?></td><?php endfor;?></tr>
+        <tr><th>&nbsp;</th><?php for($i=$start;$i<$start+10;$i++):?><td><img src="img/x.gif" class="unit u<?= $i?>" title="<?= $technology->getUnitName($i) ?>" alt="<?= $technology->getUnitName($i) ?>"></td><?php endfor;?></tr>
+        <tr><th><?= defined('TROOPS') ? TROOPS : 'Troops' ?></th><?php for($i=1;$i<=10;$i++): $v=($i==10?3:0);?><td class="<?= $v==0?'none':''?>"><?= $v?></td><?php endfor;?></tr>
     </tbody>
     <tbody class="infos"><tr>
-        <th><?= ARRIVAL?></th><td colspan="10">
+        <th><?= defined('ARRIVAL') ? ARRIVAL : 'Arrival' ?></th><td colspan="10">
             <div class="in small"><span id="timer<?= $session->timer?>"><?= $generator->getTimeFormat($s['endtime']-time())?></span> h</div>
-            <div class="at small"><?= $dt[0]!='today'?ON.' '.$dt[0].' ':''?><?= AT?> <?= $dt[1]?></div>
+            <div class="at small"><?= $dt[0]!='today'?(defined('ON')?ON:'on').' '.$dt[0].' ':''?><?= defined('AT')?AT:'at'?> <?= $dt[1]?></div>
             <?php if(($s['starttime']+90)>time()):?>
-                <div class="abort"><a href="build.php?id=<?= $_GET['id']?>&mode=troops&cancel=1&moveid=<?= $s['moveid']?>"><img src="img/x.gif" class="del"></a></div>
+                <div class="abort"><a href="build.php?id=<?= isset($_GET['id']) ? (int)$_GET['id'] : 39?>&mode=troops&cancel=1&moveid=<?= (int)$s['moveid']?>"><img src="img/x.gif" class="del"></a></div>
             <?php endif;?>
         </td>
     </tr></tbody>

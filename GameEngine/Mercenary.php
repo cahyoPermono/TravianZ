@@ -27,8 +27,16 @@ class Mercenary
             return $database->dblink;
         }
         static $db = null;
-        if ($db === null) {
-            $db = @mysqli_connect(SQL_SERVER, SQL_USER, SQL_PASS, SQL_DB, SQL_PORT);
+        if ($db === null && defined('SQL_SERVER') && defined('SQL_USER') && defined('SQL_PASS') && defined('SQL_DB')) {
+            $port = defined('SQL_PORT') ? (int)SQL_PORT : 3306;
+            try {
+                $conn = @mysqli_connect(SQL_SERVER, SQL_USER, SQL_PASS, SQL_DB, $port);
+                if ($conn instanceof \mysqli) {
+                    $db = $conn;
+                }
+            } catch (\Throwable $e) {
+                // Silently ignore fallback connection error
+            }
         }
         return $db;
     }

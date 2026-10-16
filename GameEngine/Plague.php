@@ -36,9 +36,13 @@ class Plague {
         static $fallbackDb = null;
         if ($fallbackDb === null && defined('SQL_SERVER') && defined('SQL_USER') && defined('SQL_PASS') && defined('SQL_DB')) {
             $port = defined('SQL_PORT') ? (int)SQL_PORT : 3306;
-            $conn = @mysqli_connect(SQL_SERVER, SQL_USER, SQL_PASS, SQL_DB, $port);
-            if ($conn instanceof \mysqli) {
-                $fallbackDb = $conn;
+            try {
+                $conn = @mysqli_connect(SQL_SERVER, SQL_USER, SQL_PASS, SQL_DB, $port);
+                if ($conn instanceof \mysqli) {
+                    $fallbackDb = $conn;
+                }
+            } catch (\Throwable $e) {
+                // Silently ignore fallback connection error
             }
         }
         return $fallbackDb;

@@ -1098,25 +1098,44 @@ class Units {
         // scope-ul metodei, deci $need_cps = null si "$cps >= $need_cps" trecea mereu -
         // verificarea de puncte de cultura la intemeierea satului era ocolita
         // server-side (doar UI-ul o respecta). Importam exact tabloul folosit.
-        global ${'cp'.CP};
+        $mode = defined('CP') ? (int)CP : 1;
+        global ${'cp'.$mode};
+        if (!isset(${'cp'.$mode})) {
+            require_once dirname(__FILE__) . '/Data/cp.php';
+        }
 
-        $mode = CP;
-        $total = count($database->getProfileVillages($session->uid));
+        $villages = $database->getProfileVillages($session->uid);
+        $total = is_array($villages) ? count($villages) : 1;
         $need_cps = isset(${'cp'.$mode}[$total + 1]) ? ${'cp'.$mode}[$total + 1] : PHP_INT_MAX;
-        $cps = $session->cp;
+        $cps = isset($session->cp) ? (int)$session->cp : 0;
         $rallypoint = $database->getResourceLevel($village->wid);
-        
-        //-- Prevent user from founding a new village if there are not enough settlers or the player put an invalid village ID or an already occupied one
-        //-- fix by AL-Kateb - Semplified and additions by iopietro
-        if ($rallypoint['f39'] > 0 && $village->unitarray['u'.$session->tribe.'0'] >= 3 && isset($post['s']) && ($newvillage = $database->getMInfo($post['s']))['id'] > 0 && $newvillage['occupied'] == 0 && $newvillage['oasistype'] == 0) {
-            if ($cps >= $need_cps) {
-                $troopsTime = $this->getWalkingTroopsTime($village->wid, $newvillage['id'], 0, 0, [300], 0);
+        $rpLevel = (isset($rallypoint['f39']) && is_numeric($rallypoint['f39'])) ? (int)$rallypoint['f39'] : 0;
+
+        $tribe = isset($session->tribe) ? (int)$session->tribe : 1;
+        $settlerKey = 'u' . $tribe . '0';
+        $settlerCount = isset($village->unitarray[$settlerKey]) ? (int)$village->unitarray[$settlerKey] : 0;
+
+        $sId = isset($post['s']) && is_numeric($post['s']) ? (int)$post['s'] : 0;
+        $newvillage = $sId > 0 ? $database->getMInfo($sId) : null;
+        $validTile = ($newvillage && is_array($newvillage) && !empty($newvillage['id']) && empty($newvillage['occupied']) && empty($newvillage['oasistype']));
+
+        if ($rpLevel > 0 && $settlerCount >= 3 && $validTile) {
+            $hasResources = ($village->awood >= 750 && $village->aclay >= 750 && $village->airon >= 750 && $village->acrop >= 750);
+            if ($cps >= $need_cps && $hasResources) {
+                $troopsTime = $this->getWalkingTroopsTime($village->wid, (int)$newvillage['id'], 0, 0, [300], 0);
                 $time = $database->getArtifactsValueInfluence($session->uid, $village->wid, 2, $troopsTime);
-                
-                $unit = ($session->tribe * 10);
+
+                $unit = ($tribe * 10);
                 $database->modifyResource($village->wid, 750, 750, 750, 750, 0);
                 $database->modifyUnit($village->wid, [$unit], [3], [0]);
-                $database->addMovement(5, $village->wid, $post['s'], 0, time(), time() + $time);
+                $database->addMovement(5, $village->wid, $sId, 0, time(), time() + $time);
+
+                // Update in-memory state
+                $village->awood = max(0, $village->awood - 750);
+                $village->aclay = max(0, $village->aclay - 750);
+                $village->airon = max(0, $village->airon - 750);
+                $village->acrop = max(0, $village->acrop - 750);
+                $village->unitarray[$settlerKey] = max(0, $settlerCount - 3);
             }
             header("Location: build.php?id=39");
             exit;

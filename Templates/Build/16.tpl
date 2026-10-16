@@ -154,6 +154,51 @@ $hasRally = $village->resarray['f39'] > 0;
     </table>
     <?php endif; ?>
 
+    <!-- SANGGAR PARANORMAL ASTRAL SPIRITS -->
+    <?php
+    require_once __DIR__ . '/../../GameEngine/Paranormal.php';
+    $spirits = Paranormal::getVillageSpirits($village->wid);
+    $hasSanggar = (isset($building) && method_exists($building, 'getTypeLevel') && $building->getTypeLevel(51) > 0);
+    $pocongCount = (int)($spirits['pocong'] ?? 0);
+    $kuntiCount = (int)($spirits['kuntilanak'] ?? 0);
+    $genderuwoCount = (int)($spirits['genderuwo'] ?? 0);
+    $tuyulActive = !empty($spirits['tuyul_until']) && (int)$spirits['tuyul_until'] > time();
+    $hasSpirits = ($pocongCount > 0 || $kuntiCount > 0 || $genderuwoCount > 0 || $tuyulActive);
+
+    if ($hasSpirits || $hasSanggar):
+        $totDef = Paranormal::getVillageDefense($village->wid);
+    ?>
+    <table class="troop_details" cellpadding="1" cellspacing="1">
+        <thead><tr>
+            <td class="role"><a href="build.php?gid=51" style="color: #6366f1; font-weight: bold;">🔮 Sanggar Gaib</a></td>
+            <td colspan="4"><a href="build.php?gid=51">Pasukan Gaib Nusantara (Sanggar Paranormal)</a></td>
+        </tr></thead>
+        <tbody class="units">
+            <tr>
+                <th>&nbsp;</th>
+                <td title="Pocong: 40 Def Inf / 20 Def Kav (1 slot)" style="font-size:11px; text-align:center;">👻 Pocong</td>
+                <td title="Kuntilanak: 20 Def Inf / 60 Def Kav (1 slot)" style="font-size:11px; text-align:center;">👰‍♀️ Kuntilanak</td>
+                <td title="Genderuwo: 75 Def Inf / 75 Def Kav (2 slot)" style="font-size:11px; text-align:center;">👹 Genderuwo</td>
+                <td title="Tuyul: +15% Jarahan Raid" style="font-size:11px; text-align:center;">🕯️ Khodam Tuyul</td>
+            </tr>
+            <tr>
+                <th><?= defined('TROOPS') ? TROOPS : 'Pasukan' ?></th>
+                <td class="<?= $pocongCount == 0 ? 'none' : '' ?>" style="text-align:center; font-weight:bold;"><?= number_format($pocongCount) ?></td>
+                <td class="<?= $kuntiCount == 0 ? 'none' : '' ?>" style="text-align:center; font-weight:bold;"><?= number_format($kuntiCount) ?></td>
+                <td class="<?= $genderuwoCount == 0 ? 'none' : '' ?>" style="text-align:center; font-weight:bold;"><?= number_format($genderuwoCount) ?></td>
+                <td class="<?= !$tuyulActive ? 'none' : '' ?>" style="text-align:center; font-weight:bold; color: <?= $tuyulActive ? '#16a34a' : 'inherit' ?>;"><?= $tuyulActive ? 'Aktif (+15%)' : 'Tidak Aktif' ?></td>
+            </tr>
+        </tbody>
+        <tbody class="infos"><tr><th><?= defined('UPKEEP') ? UPKEEP : 'Konsumsi' ?></th><td colspan="4">
+            <div class="sup" style="color:#6366f1; font-weight:bold;">
+                0 <img class="r4" src="img/x.gif" alt="Gandum"> <?= defined('PER_HR') ? PER_HR : '/jam' ?>
+                <span style="font-weight:normal; font-size:10px; color:#64748b; margin-left:6px;">(Pertahanan: 🛡️ <?= number_format($totDef['dp']) ?> Inf / 🐎 <?= number_format($totDef['cdp']) ?> Kav)</span>
+            </div>
+            <div class="sback"><a href="build.php?gid=51" style="color:#6366f1; font-weight:bold;">Kelola di Sanggar</a></div>
+        </td></tr></tbody>
+    </table>
+    <?php endif; ?>
+
     <?php
     // split my reinforcements
     $enforcevill = []; $enforceoasis = [];

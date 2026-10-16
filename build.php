@@ -298,7 +298,9 @@ if ($session->goldclub == 1) {
 }
 else $create = 0;
 
-if(isset($_POST['a']) == 533374 && isset($_POST['id']) == 39) $units->Settlers($_POST);
+if (isset($_POST['a']) && ($_POST['a'] === 'new' || $_POST['a'] == 533374) && isset($_POST['id']) && (int)$_POST['id'] === 39) {
+    $units->Settlers($_POST);
+}
 
 /**
  * Anularea unei miscari din rally point (linkul "x" din 16_walking.tpl).
