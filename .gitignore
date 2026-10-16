@@ -48,5 +48,4 @@ var/log/access.log
 scratch/
 cookies*.txt
 *.lck
-*.zip
 
