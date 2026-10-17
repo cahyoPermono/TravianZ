@@ -2218,14 +2218,31 @@ class BotAI {
             return ['status' => 'error', 'message' => 'Bot tidak dapat menyerang desanya sendiri atau target tidak valid.'];
         }
 
+        // Prepare fair distribution tracking across all members and villages of the target alliance
+        $playerAttackCounts = [];
+        $villageAttackCounts = [];
+        $targetVillagesByPlayer = [];
+        if ($isAllianceTarget) {
+            foreach ($targetVillages as $tv) {
+                $pUid = (int)$tv['owner'];
+                $vWref = (int)$tv['wref'];
+                if (!isset($playerAttackCounts[$pUid])) {
+                    $playerAttackCounts[$pUid] = 0;
+                    $targetVillagesByPlayer[$pUid] = [];
+                }
+                $targetVillagesByPlayer[$pUid][] = $tv;
+                $villageAttackCounts[$vWref] = 0;
+            }
+        }
+
         // Select bots to dispatch
         $selectedBots = [];
-        if ($botUid === 'all' || strpos((string)$botUid, 'alliance:') === 0) {
+        if ($botUid === 'all' || strpos((string)$botUid, 'alliance:') === 0 || $isAllianceTarget) {
             $selectedBots = $bots;
         } elseif (is_numeric($botUid) && (int)$botUid > 0) {
             $selectedBots = $bots;
         } else {
-            // Closest single bot to first target village
+            // Closest single bot to target village
             $firstTv = $targetVillages[0];
             foreach ($bots as &$b) {
                 $b['dist'] = self::getDistance($b['x'], $b['y'], $firstTv['x'], $firstTv['y']);
@@ -2245,18 +2262,49 @@ class BotAI {
             $tribeUnits = self::getTribeUnits($bTribe);
 
             // Determine target village for this bot
-            if ($isAllianceTarget) {
-                // Find closest village in enemy alliance for this bot
+            if ($isAllianceTarget && !empty($playerAttackCounts)) {
+                // Fair round-robin / load-balanced distribution across all members (orang-orang) of the alliance
+                // 1. Find the minimum attack count among all players in the target alliance
+                $minPlayerAttacks = min($playerAttackCounts);
+
+                // 2. Filter players who currently have received the least attacks
+                $eligiblePlayerUids = array_keys(array_filter($playerAttackCounts, function($cnt) use ($minPlayerAttacks) {
+                    return $cnt === $minPlayerAttacks;
+                }));
+
+                // 3. Among eligible players, pick the best target village for this bot
+                // Prioritize rotating villages of that player, then closest distance
                 $assignedTarget = null;
-                $bestDist = 999999;
-                foreach ($targetVillages as $tv) {
-                    $d = self::getDistance($bot['x'], $bot['y'], $tv['x'], $tv['y']);
-                    if ($d < $bestDist) {
-                        $bestDist = $d;
-                        $assignedTarget = $tv;
-                        $assignedTarget['dist'] = $d;
+                $bestScore = 999999999;
+                $chosenPlayerUid = null;
+
+                foreach ($eligiblePlayerUids as $pUid) {
+                    foreach ($targetVillagesByPlayer[$pUid] as $tv) {
+                        $vWref = (int)$tv['wref'];
+                        $vAttacks = $villageAttackCounts[$vWref] ?? 0;
+                        $dist = self::getDistance($bot['x'], $bot['y'], $tv['x'], $tv['y']);
+
+                        // Score: rotate among villages, then closest
+                        $score = ($vAttacks * 10000) + $dist;
+                        if ($score < $bestScore) {
+                            $bestScore = $score;
+                            $assignedTarget = $tv;
+                            $assignedTarget['dist'] = $dist;
+                            $chosenPlayerUid = $pUid;
+                        }
                     }
                 }
+
+                // Fallback in case of any edge case
+                if ($assignedTarget === null) {
+                    $assignedTarget = $targetVillages[0];
+                    $assignedTarget['dist'] = self::getDistance($bot['x'], $bot['y'], $assignedTarget['x'], $assignedTarget['y']);
+                    $chosenPlayerUid = (int)$assignedTarget['owner'];
+                }
+
+                // Increment attack counts for both the chosen player and chosen village
+                $playerAttackCounts[$chosenPlayerUid]++;
+                $villageAttackCounts[(int)$assignedTarget['wref']] = ($villageAttackCounts[(int)$assignedTarget['wref']] ?? 0) + 1;
                 $currentTarget = $assignedTarget;
             } else {
                 $currentTarget = $targetVillages[0];
@@ -2477,9 +2525,9 @@ class BotAI {
         if ($attackType === 2) {
             $summaryMsg = "🛡️ <b>BANTUAN BERTAHAN BERHASIL DIKERAHKAN!</b> Sebanyak " . count($dispatchedReports) . " bot meluncurkan bala bantuan pasukan ke {$targetUser}!";
         } elseif ($isAllianceTarget && $attackerAllianceInfo !== null) {
-            $summaryMsg = "⚔️ <b>PERANG ALIANSI PECAH!</b> Aliansi [{$attackerAllianceInfo['tag']}] {$attackerAllianceInfo['name']} mengerahkan " . count($dispatchedReports) . " bot untuk menyerang Aliansi [{$targetAlliance['tag']}] {$targetAlliance['name']}!";
+            $summaryMsg = "⚔️ <b>PERANG ALIANSI PECAH!</b> Aliansi [{$attackerAllianceInfo['tag']}] {$attackerAllianceInfo['name']} mengerahkan " . count($dispatchedReports) . " bot untuk menyerang seluruh anggota Aliansi [{$targetAlliance['tag']}] {$targetAlliance['name']} secara merata!";
         } elseif ($isAllianceTarget) {
-            $summaryMsg = "🎯 <b>SERANGAN MASSAL KE ALIANSI!</b> Sebanyak " . count($dispatchedReports) . " bot meluncurkan serangan ke desa-desa Aliansi [{$targetAlliance['tag']}] {$targetAlliance['name']}!";
+            $summaryMsg = "🎯 <b>SERANGAN MASSAL KE ALIANSI!</b> Sebanyak " . count($dispatchedReports) . " bot dikerahkan untuk menggempur seluruh anggota Aliansi [{$targetAlliance['tag']}] {$targetAlliance['name']} secara merata!";
         } else {
             $summaryMsg = "🎯 Berhasil memerintahkan " . count($dispatchedReports) . " bot untuk melancarkan serangan ke {$targetUser}!";
         }

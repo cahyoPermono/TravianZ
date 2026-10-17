@@ -253,17 +253,17 @@ class Technology {
 	}
 
 	public function maxUnit($unit,$great=false) {
-		$unit = "u" . $unit;
-		global $village, $$unit, $database;
+		$unitStr = "u" . $unit;
+		global $village, $$unitStr, $database, $session, $building, $u99_trap;
 		
-		$unitarray = $$unit;
+		$isTrap = ($unit == 99 || $unitStr == "u99") && ((isset($session->tribe) && $session->tribe == 3) || (isset($building) && $building->getTypeLevel(36) > 0));
+		$unitarray = $isTrap ? ($u99_trap ?? $$unitStr) : $$unitStr;
 		$res = $database->getVillage($village->wid, 0, false);
 		if($res['wood'] > $res['maxstore']) $res['wood'] = $res['maxstore'];
 		if($res['clay'] > $res['maxstore']) $res['clay'] = $res['maxstore'];
 		if($res['iron'] > $res['maxstore']) $res['iron'] = $res['maxstore'];
 		if($res['crop'] > $res['maxcrop']) $res['crop'] = $res['maxcrop'];
 			
-		
 		$woodcalc = floor($res['wood'] / ($unitarray['wood'] * ($great ? 3 : 1)));
 		$claycalc = floor($res['clay'] / ($unitarray['clay'] * ($great ? 3 : 1)));
 		$ironcalc = floor($res['iron'] / ($unitarray['iron'] * ($great ? 3 : 1)));
@@ -271,8 +271,6 @@ class Technology {
 		if($res['crop'] > 0) $cropcalc = floor($res['crop'] / ($unitarray['crop'] * ($great ? 3 : 1)));
 		else $cropcalc = 0;
 
-		global $session;
-		$isTrap = ($unit == "u99" && (isset($session->tribe) && $session->tribe == 3));
 		if(!$isTrap) $popcalc = floor($village->getProd("crop") / $unitarray['pop']);		
 		else $popcalc = $village->getProd("crop");
 	
@@ -280,10 +278,11 @@ class Technology {
 	}
 
 	public function maxUnitPlus($unit,$great=false) {
-		$unit = "u" . $unit;	
-		global $village, $$unit, $database;
+		$unitStr = "u" . $unit;	
+		global $village, $$unitStr, $database, $session, $building, $u99_trap;
 		
-		$unitarray = $$unit;
+		$isTrap = ($unit == 99 || $unitStr == "u99") && ((isset($session->tribe) && $session->tribe == 3) || (isset($building) && $building->getTypeLevel(36) > 0));
+		$unitarray = $isTrap ? ($u99_trap ?? $$unitStr) : $$unitStr;
 		$res = $database->getVillage($village->wid);
 		$totalres = $res['wood'] + $res['clay'] + $res['iron'] + $res['crop'];
 		$totalresunit = ($unitarray['wood'] * ($great ? 3 : 1)) + ($unitarray['clay'] * ($great ? 3 : 1)) + ($unitarray['iron'] * ($great ? 3 : 1)) + ($unitarray['crop'] * ($great ? 3 : 1));
@@ -592,23 +591,25 @@ class Technology {
 	}
 
     private function trainUnit($unit, $amt, $great = false) {
-		global $database, ${'u'.$unit}, $village, $session;
+		global $database, ${'u'.$unit}, $village, $session, $building, $u99_trap;
 		
 		if (!$database->getTrainingLock($village->wid)) return;
 		try {
-		if($this->getTech($unit) || $unit % 10 <= 1 || ($unit == 99 && isset($session->tribe) && $session->tribe == 3)) {
+		$isTrap = ($unit == 99 && ((isset($session->tribe) && $session->tribe == 3) || (isset($building) && $building->getTypeLevel(36) > 0)));
+		if($this->getTech($unit) || $unit % 10 <= 1 || $isTrap) {
 			if(!$this->checkTrainingBuilding($unit)) return;
 			
 			$each = $this->getTrainingTime($unit, $great);
 			$amt = $this->getMaxTrainable($unit, $amt, $great);
 			
-			$wood = ${'u'.$unit}['wood'] * $amt * ($great ? 3 : 1);
-			$clay = ${'u'.$unit}['clay'] * $amt * ($great ? 3 : 1);
-			$iron = ${'u'.$unit}['iron'] * $amt * ($great ? 3 : 1);
-			$crop = ${'u'.$unit}['crop'] * $amt * ($great ? 3 : 1);
+			$unitData = $isTrap ? ($u99_trap ?? ${'u'.$unit}) : ${'u'.$unit};
+			$wood = $unitData['wood'] * $amt * ($great ? 3 : 1);
+			$clay = $unitData['clay'] * $amt * ($great ? 3 : 1);
+			$iron = $unitData['iron'] * $amt * ($great ? 3 : 1);
+			$crop = $unitData['crop'] * $amt * ($great ? 3 : 1);
 
 			if($database->modifyResource($village->wid, $wood , $clay, $iron, $crop, 0) && $amt > 0) {
-				$database->trainUnit($village->wid, $unit + ($great ? 1000 : 0), $amt, ${'u'.$unit}['pop'], $each, 0);
+				$database->trainUnit($village->wid, $unit + ($great ? 1000 : 0), $amt, $unitData['pop'], $each, 0);
 			}
 		}
 		} finally {
@@ -1005,9 +1006,9 @@ class Technology {
 	}
 
 	private function getMaxTrainable($unit, $amt, $great) {
-		global $database, $village, $bid36, $session;
+		global $database, $village, $bid36, $session, $building;
 		
-		$isTrap = ($unit == 99 && (isset($session->tribe) && $session->tribe == 3));
+		$isTrap = ($unit == 99 && ((isset($session->tribe) && $session->tribe == 3) || (isset($building) && $building->getTypeLevel(36) > 0)));
 		if($unit % 10 == 0 || ($unit % 10 == 9 && !$isTrap)) {
 			if($this->maxUnit($unit, $great) < $amt) $amt = 0;
 			else
@@ -1031,7 +1032,9 @@ class Technology {
 		            }
 		        }
 		        $max1 = $max - ($village->unitarray['u99'] + $train_amt);
-		        if($max1 < $amt) $amt = 0;
+		        $maxAffordable = $this->maxUnit(99, $great);
+		        $maxAllowed = max(0, min($max1, $maxAffordable));
+		        if($amt > $maxAllowed) $amt = $maxAllowed;
 		    }
 		}
 		

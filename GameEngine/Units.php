@@ -1269,7 +1269,8 @@ class Units {
     }
 
     public function deletePrisoners($id){
-        global $village, $database, $session, $building, $bid19, $u99;
+        global $village, $database, $session, $building, $bid19, $u99, $u99_trap;
+        $trapData = $u99_trap ?? $u99;
         
         $prisoner = $database->getPrisonersByID($id);
         $troops = 0;
@@ -1287,8 +1288,8 @@ class Units {
             
             //Reset traps
             $database->modifyUnit($village->wid, ["99", "99o"], [$troops, $troops], [0, 0]);            
-            $repairDuration = $database->getArtifactsValueInfluence($session->uid, $village->wid, 5, round(($bid19[max($building->getTypeLevel(36, $village->wid), 1)]['attri'] / 100) * $u99['time'] / SPEED));
-            $database->trainUnit($village->wid, 99, $troops, $u99['pop'], $repairDuration, 0);           
+            $repairDuration = $database->getArtifactsValueInfluence($session->uid, $village->wid, 5, round(($bid19[max($building->getTypeLevel(36, $village->wid), 1)]['attri'] / 100) * $trapData['time'] / SPEED));
+            $database->trainUnit($village->wid, 99, $troops, $trapData['pop'], $repairDuration, 0);           
             
             $database->deletePrisoners($prisoner['id']);
         }else if($prisoner['from'] == $village->wid){    
@@ -1305,8 +1306,8 @@ class Units {
             $database->modifyUnit($prisoner['wref'], ["99", "99o"], [$troops, $troops], [0, 0]);   
             
             if(($troops = round($troops / 3)) > 0){
-                $repairDuration = $database->getArtifactsValueInfluence($prisonersToOwner, $prisoner['wref'], 5, round(($bid19[max($building->getTypeLevel(36, $prisoner['wref']), 1)]['attri'] / 100) * $u99['time'] / SPEED));
-                $database->trainUnit($prisoner['wref'], 99, $troops, $u99['pop'], $repairDuration, 0);
+                $repairDuration = $database->getArtifactsValueInfluence($prisonersToOwner, $prisoner['wref'], 5, round(($bid19[max($building->getTypeLevel(36, $prisoner['wref']), 1)]['attri'] / 100) * $trapData['time'] / SPEED));
+                $database->trainUnit($prisoner['wref'], 99, $troops, $trapData['pop'], $repairDuration, 0);
             }                       
             
             $database->deletePrisoners($prisoner['id']);

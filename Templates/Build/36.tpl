@@ -68,7 +68,9 @@ $currentCap = $level > 0? (int)$bid36[$level]['attri'] * TRAPPER_CAPACITY : 0;
         $max = min($max, $max1 - ((int)$village->unitarray['u99'] + $train_amt));
         if ($max < 0) $max = 0;
 
-        $time = $database->getArtifactsValueInfluence($session->uid, $village->wid, 5, round(($bid19[$level]['attri'] / 100) * ${'u99'}['time'] / SPEED));
+        global $u99_trap;
+        $trapTime = $u99_trap['time'] ?? (${'u99'}['time'] ?? 600);
+        $time = $database->getArtifactsValueInfluence($session->uid, $village->wid, 5, round(($bid19[$level]['attri'] / 100) * $trapTime / SPEED));
    ?>
     <form method="POST" name="snd" action="build.php">
         <input type="hidden" name="id" value="<?php echo (int)$id;?>" />

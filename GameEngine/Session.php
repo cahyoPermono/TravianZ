@@ -570,6 +570,8 @@ function __construct() {
 		$this->villages = $_SESSION[$cacheKeyVillages]['data'];
 
         $this->tribe = $this->userarray['tribe'];
+        global $u99, $u99_trap, $u99_nusantara;
+        $u99 = ($this->tribe == 3) ? $u99_trap : $u99_nusantara;
         $this->isAdmin = $this->access >= MODERATOR;
 
         // T4-style hero from start: ensure starter hero is created if enabled
