@@ -219,7 +219,11 @@ class Units {
                 (int) ($session->uid ?? 0));   // accepta si "Nume (x|y)"
 
         if (!empty($vid)) {
-            if($isOasis = $database->isVillageOases($vid)){
+            require_once __DIR__ . '/Bastion.php';
+            if (Bastion::isBastionVillage($vid) && !Bastion::isEventActive()) {
+                $disabled = "disabled=disabled";
+                $disabledr = "disabled=disabled";
+            } elseif($isOasis = $database->isVillageOases($vid)){
                 $too = $database->getOasisField($vid, "conqured");
                 if($too == 0) $disabled = $disabledr ="disabled=disabled";
                 else
@@ -352,6 +356,12 @@ class Units {
         // jucator protejat prin PROTECTED_PLAYERS
         if($this->isProtectedTarget($villageOwner, isset($_POST['c']) ? $_POST['c'] : 0)) {
             return "This player is protected from attacks.";
+        }
+
+        // Jaga Benteng Kuno (0|0): jangan bisa diserang jika event belum aktif
+        require_once __DIR__ . '/Bastion.php';
+        if (Bastion::isBastionVillage($id) && !Bastion::isEventActive()) {
+            return "Gerbang Benteng Kuno (0|0) masih terkunci rapat dalam masa damai. Benteng belum bisa diserang sebelum jadwal event resmi dimulai!";
         }
 
         //check if attacking same village that units are in
@@ -725,6 +735,16 @@ class Units {
          */
         if (($sitterError = $this->sitterMissionError($data['type'] ?? 0)) !== "") {
             $form->addError("error", $sitterError);
+            $_SESSION['errorarray'] = $form->getErrors();
+            $_SESSION['valuearray'] = $_POST;
+            header("Location: a2b.php");
+            exit;
+        }
+
+        // Blokir jika target adalah Benteng Kuno (0|0) namun event belum aktif
+        require_once __DIR__ . '/Bastion.php';
+        if (!empty($data['to_vid']) && Bastion::isBastionVillage($data['to_vid']) && !Bastion::isEventActive()) {
+            $form->addError("error", "Gerbang Benteng Kuno (0|0) masih terkunci rapat dalam masa damai. Benteng belum bisa diserang sebelum jadwal event resmi dimulai!");
             $_SESSION['errorarray'] = $form->getErrors();
             $_SESSION['valuearray'] = $_POST;
             header("Location: a2b.php");
@@ -1396,7 +1416,14 @@ class Units {
         // T4 hero port (Phase 5): boots (>20 tiles), pennant (own villages)
         // and standard (ally villages) shorten the trip when the hero rides
         // along. Returns the input unchanged when NEW_FUNCTIONS_HERO_T4 is off.
-        return HeroBattleBonus::adjustTravelTime($owner, $unitArray[10] ?? 0, $from, $to, $walkTime);
+        $walkTime = HeroBattleBonus::adjustTravelTime($owner, $unitArray[10] ?? 0, $from, $to, $walkTime);
+
+        // Ancient Bastion (King of the Hill) Speed Buff (+15% faster = duration / 1.15)
+        if (class_exists('Bastion') && Bastion::hasSpeedBuff((int)$owner)) {
+            $walkTime = max(1, (int)round($walkTime / 1.15));
+        }
+
+        return $walkTime;
     }
     
     public function startRaidList($post){   

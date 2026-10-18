@@ -345,6 +345,9 @@ class Village {
 		if (class_exists('Ormas')) {
 			$amount *= Ormas::getProductionMultiplier((int)$this->wid, $type);
 		}
+		if (class_exists('Bastion')) {
+			$amount *= Bastion::getProductionMultiplier((int)$this->wid, $type);
+		}
 
 		return round($amount * SPEED);
 	}

@@ -63,6 +63,18 @@ if (!$isOasis && !empty($basearray['occupied'])) {
     }
 }
 
+$isBastion = false;
+$bastionEvent = null;
+if (!$isOasis && ((int)$d === 20201 || ($basearray['x'] == 0 && $basearray['y'] == 0))) {
+    if (class_exists('Bastion') || file_exists(__DIR__ . '/../../GameEngine/Bastion.php')) {
+        require_once __DIR__ . '/../../GameEngine/Bastion.php';
+        if (Bastion::isBastionVillage((int)$d)) {
+            $isBastion = true;
+            $bastionEvent = Bastion::getEvent();
+        }
+    }
+}
+
 // ---------- 1. FIELD ----------
 $fieldMap = array(
     1=>'3-3-3-9', 2=>'3-4-5-6', 3=>'4-4-4-6', 4=>'4-5-3-6',
@@ -128,6 +140,8 @@ function renderReports($database,$generator,$session,$d,$limit,$typeMap=null){
 <h1><?php
 if ($isBanditCamp) {
     echo htmlspecialchars($banditData['name']);
+} elseif ($isBastion) {
+    echo '🏰 ' . htmlspecialchars($basearray['name']);
 } elseif (!$isOasis) {
     echo !$basearray['occupied']? ABANDVALLEY : $basearray['name'];
 } else {
@@ -135,6 +149,35 @@ if ($isBanditCamp) {
 }
 echo ' '.$coords;
 ?></h1>
+
+<?php if ($isBastion) { 
+    $bStatus = (int)($bastionEvent['status'] ?? 0);
+    $latestWinner = class_exists('Bastion') ? Bastion::getLatestWinner() : null;
+    $statusText = '🕊️ Masa Damai / Cooldown';
+    $statusBg = '#e2e8f0';
+    $statusColor = '#334155';
+    if ($bStatus === 1) {
+        $statusText = '⚔️ EVENT PEREBUTAN AKTIF (King of the Hill)';
+        $statusBg = '#fee2e2';
+        $statusColor = '#991b1b';
+    } elseif ($bStatus === 2) {
+        $winName = $latestWinner ? $latestWinner['alliance_name'] . ' [' . $latestWinner['alliance_tag'] . ']' : 'Aliansi Pemenang';
+        $statusText = '🏆 KEMENANGAN: ' . $winName . ' (Buff Aliansi Aktif)';
+        $statusBg = '#fef3c7';
+        $statusColor = '#92400e';
+    } elseif ($bStatus === 3) {
+        $nextSt = Bastion::getNextScheduledStartTime($bastionEvent, true);
+        $timeStr = $nextSt ? ' (' . date('d M H:i', $nextSt) . ' WIB)' : '';
+        $statusText = '⏳ EVENT TERJADWAL' . $timeStr;
+        $statusBg = '#e0f2fe';
+        $statusColor = '#075985';
+    }
+?>
+<div style="margin: 6px 0 10px 0; padding: 7px 12px; background: <?php echo $statusBg; ?>; border: 1px solid rgba(0,0,0,0.12); border-radius: 6px; font-weight: bold; color: <?php echo $statusColor; ?>; font-size: 11px; display: flex; justify-content: space-between; align-items: center;">
+    <span>🏰 <b>Benteng Kuno (0|0)</b> &nbsp;|&nbsp; <?php echo $statusText; ?></span>
+    <a href="bastion.php" style="color: <?php echo $statusColor; ?>; text-decoration: underline; font-weight: bold; font-size: 11px;">Buka Balai Benteng &raquo;</a>
+</div>
+<?php } ?>
 
 <?php if ($isBanditCamp) { ?>
 <div style="margin: 6px 0 10px 0; padding: 6px 10px; background: #fff3cd; border: 1px solid #ffeeba; border-radius: 4px; font-weight: bold; color: #856404; font-size: 11px;">
@@ -152,6 +195,18 @@ echo ' '.$coords;
     $glowColor = ($bTier === 4) ? 'rgba(192, 57, 43, 0.55)' : (($bTier === 3) ? 'rgba(142, 68, 173, 0.55)' : (($bTier === 2) ? 'rgba(41, 128, 185, 0.55)' : 'rgba(39, 174, 96, 0.55)'));
 ?>
 <img src="<?php echo $campImg; ?>" id="detailed_map" alt="<?php echo htmlspecialchars($banditData['name']); ?>" title="<?php echo htmlspecialchars($banditData['name']); ?>" style="width: 300px; height: 264px; object-fit: contain; background: transparent; border: none; filter: drop-shadow(0 6px 14px <?php echo $glowColor; ?>);" />
+<?php } elseif ($isBastion) { 
+    $bastionImg = "img/bastion/ancient_bastion.jpg";
+?>
+<div style="position: relative; display: inline-block;">
+    <img src="<?php echo $bastionImg; ?>" id="detailed_map" alt="Benteng Kuno (0|0)" title="Benteng Kuno (0|0)" style="width: 300px; height: 264px; object-fit: cover; border-radius: 8px; border: 2px solid #78350f; box-shadow: 0 4px 14px rgba(0,0,0,0.35);" />
+    <div style="position: absolute; bottom: 8px; left: 8px; right: 8px; background: rgba(0,0,0,0.85); color: #fef08a; padding: 4px 8px; border-radius: 5px; font-size: 10px; font-weight: bold; border: 1px solid rgba(254, 240, 138, 0.4); text-shadow: 0 1px 2px #000; display: flex; justify-content: space-between; align-items: center;">
+        <span>🏰 BENTENG KUNO (0|0)</span>
+        <?php if (!empty($latestWinner)): ?>
+            <span style="color:#fde047; font-weight:normal; font-size:9.5px;">🏆 Juara: <b style="color:#fff;"><?php echo htmlspecialchars($latestWinner['alliance_tag']); ?></b> (<?php echo htmlspecialchars($latestWinner['leader_username']); ?>)</span>
+        <?php endif; ?>
+    </div>
+</div>
 <?php } elseif($uinfo && $uinfo['owner']==3 && $uinfo['name']==PLANVILLAGE){?>
 <img src="img/x.gif" id="detailed_map" class="f99" alt="<?php echo PLANVILLAGE;?>">
 <?php } else {
@@ -193,6 +248,90 @@ echo ' '.$coords;
     }
     if (!$hasGuards) {
         echo '<tr><td colspan="3" style="color: #27ae60; font-weight: bold;">Seluruh penjaga telah ditumpas!</td></tr>';
+    }
+    ?>
+    </tbody></table>
+
+    <table class="tableNone rep"><thead><tr><th><?php echo REPORT;?>:</th></tr></thead><tbody>
+    <?php
+    $limit = 'ntype < 8 OR ntype > 17';
+    renderReports($database, $generator, $session, $d, $limit);
+    ?>
+    </tbody></table>
+
+<?php } elseif ($isBastion) { 
+    $holderAllyId = (int)($bastionEvent['holder_alliance'] ?? 0);
+    $holderUid = (int)($bastionEvent['holder_uid'] ?? 0);
+    $holdStart = (int)($bastionEvent['hold_start_time'] ?? 0);
+    $holdDur = (int)($bastionEvent['hold_duration'] ?? Bastion::DEFAULT_HOLD_DURATION);
+    
+    $holderName = 'Penjaga Kuno (Natars)';
+    $holderAllyName = '-';
+    if ($holderUid > 0) {
+        $uRow = $database->dblink->query("SELECT username FROM " . TB_PREFIX . "users WHERE id = $holderUid LIMIT 1");
+        if ($uRow && $ur = $uRow->fetch_assoc()) $holderName = $ur['username'];
+    }
+    if ($holderAllyId > 0) {
+        $aRow = $database->dblink->query("SELECT name, tag FROM " . TB_PREFIX . "alidata WHERE id = $holderAllyId LIMIT 1");
+        if ($aRow && $ar = $aRow->fetch_assoc()) $holderAllyName = '<a href="allianz.php?aid=' . $holderAllyId . '">' . htmlspecialchars($ar['name']) . ' [' . htmlspecialchars($ar['tag']) . ']</a>';
+    }
+
+    $holdProgress = '-';
+    if ($bastionEvent['status'] == Bastion::STATUS_ACTIVE && $holderAllyId > 0 && $holdStart > 0) {
+        $elapsed = time() - $holdStart;
+        $remaining = max(0, $holdDur - $elapsed);
+        $holdProgress = '<span style="color:#b91c1c; font-weight:bold;">' . gmdate('H:i:s', $elapsed) . '</span> / ' . round($holdDur / 3600) . ' Jam (Sisa: ' . gmdate('H:i:s', $remaining) . ')';
+    }
+    
+    $garrison = Bastion::getAllStationedTroops();
+?>
+    <table id="village_info" class="tableNone"><tbody>
+        <tr><th>Kategori</th><td><b style="color: #b91c1c;">Benteng Kuno (King of the Hill)</b></td></tr>
+        <tr><th>Penguasa Saat Ini</th><td><?php echo ($holderUid > 0 ? '<a href="spieler.php?uid='.$holderUid.'">'.htmlspecialchars($holderName).'</a>' : htmlspecialchars($holderName)); ?></td></tr>
+        <tr><th>Aliansi Penguasa</th><td><?php echo $holderAllyName; ?></td></tr>
+        <?php if ($bastionEvent['status'] == Bastion::STATUS_ACTIVE && $holderAllyId > 0): ?>
+        <tr><th>Waktu Bertahan</th><td><?php echo $holdProgress; ?></td></tr>
+        <?php endif; ?>
+        <?php if (!empty($latestWinner)): ?>
+        <tr><th>🏆 Juara Bertahan</th><td>
+            <a href="allianz.php?aid=<?php echo (int)$latestWinner['alliance_id']; ?>"><b><?php echo htmlspecialchars($latestWinner['alliance_name']); ?> [<?php echo htmlspecialchars($latestWinner['alliance_tag']); ?>]</b></a>
+            <div style="font-size:10px; color:#64748b; margin-top:2px;">
+                Panglima: <a href="spieler.php?uid=<?php echo (int)$latestWinner['leader_uid']; ?>"><?php echo htmlspecialchars($latestWinner['leader_username']); ?></a> 
+                &bull; Season #<?php echo (int)$latestWinner['season']; ?>
+            </div>
+        </td></tr>
+        <tr><th>Waktu Kemenangan</th><td><?php echo date('d M Y H:i', (int)$latestWinner['win_time']); ?> WIB</td></tr>
+        <?php if ((int)$latestWinner['buff_until'] > time()): ?>
+        <tr><th>Berkah Kedaulatan</th><td><span style="color:#16a34a; font-weight:bold;">Aktif (+10% Res, +15% Speed)</span> hingga <?php echo date('d M H:i', (int)$latestWinner['buff_until']); ?> WIB</td></tr>
+        <?php endif; ?>
+        <?php endif; ?>
+        <tr><th>Total Pasukan</th><td><b><?php echo number_format($garrison['total'] + $garrison['hero']); ?> Unit</b></td></tr>
+    </tbody></table>
+
+    <table id="troop_info" class="tableNone"><thead><tr><th colspan="3">Pasukan Penjaga Benteng (Garrison):</th></tr></thead><tbody>
+    <?php
+    $hasBastionGuards = false;
+    $bastionWarsimLink = rtrim(HOMEPAGE, '/') . '/warsim.php?target=5';
+    if (!empty($garrison['breakdown'])) {
+        foreach ($garrison['breakdown'] as $unitId => $count) {
+            if ($count > 0) {
+                $hasBastionGuards = true;
+                $uName = defined('U' . $unitId) ? constant('U' . $unitId) : "Unit $unitId";
+                $bastionWarsimLink .= '&amp;u' . $unitId . '=' . (int)$count;
+                echo '<tr><td class="ico"><img class="unit u' . $unitId . '" src="img/x.gif" alt="' . htmlspecialchars($uName) . '"></td>'
+                   . '<td class="val">' . number_format($count) . '</td>'
+                   . '<td class="desc">' . htmlspecialchars($uName) . '</td></tr>';
+            }
+        }
+    }
+    if ($garrison['hero'] > 0) {
+        $hasBastionGuards = true;
+        echo '<tr><td class="ico"><img class="unit uhero" src="img/x.gif" alt="Hero"></td>'
+           . '<td class="val">' . number_format($garrison['hero']) . '</td>'
+           . '<td class="desc">Hero / Pahlawan</td></tr>';
+    }
+    if (!$hasBastionGuards) {
+        echo '<tr><td colspan="3" style="color: #16a34a; font-weight: bold; text-align: center; padding: 8px;">Benteng sedang kosong tanpa pasukan bertahan!</td></tr>';
     }
     ?>
     </tbody></table>
@@ -279,9 +418,40 @@ echo ' '.$coords;
 
 <table id="options" class="tableNone"><thead><tr><th><?php echo OPTION;?></th></tr></thead><tbody>
 <tr><td><a href="karte.php?z=<?php echo $d;?>">&raquo; <?php echo CENTREMAP;?>.</a></td></tr>
-<?php if ($isBanditCamp) { ?>
+<?php if ($isBastion) { 
+    $isBActive = ((int)($bastionEvent['status'] ?? 0) === Bastion::STATUS_ACTIVE);
+?>
+<tr><td>
+    <a href="bastion.php" style="color: #b91c1c; font-weight: bold;">&raquo; 🏰 Masuk ke Balai Benteng Kuno (Status &amp; Buff Aliansi)</a>
+</td></tr>
 <tr><td class="none">
-    <?php if ($village->resarray['f39'] > 0) { ?>
+    <?php if ($isBActive) { ?>
+        <?php if (!empty($village->resarray['f39'])) { ?>
+            <a href="a2b.php?s=2&z=<?php echo $d; ?>" style="color: #c0392b; font-weight: bold;">&raquo; ⚔️ Serang / Rebut Benteng Kuno (Attack)</a>
+        <?php } else { ?>
+            &raquo; ⚔️ Serang Benteng Kuno (<?php echo BUILDRALLY; ?>)
+        <?php } ?>
+    <?php } else { ?>
+        <span style="color: #94a3b8; font-weight: bold;">&raquo; ⚔️ Serang / Rebut Benteng Kuno (Gerbang Terkunci - Event Belum Aktif)</span>
+    <?php } ?>
+</td></tr>
+<tr><td class="none">
+    <?php if ($isBActive) { ?>
+        <?php if (!empty($village->resarray['f39'])) { ?>
+            <a href="a2b.php?s=2&z=<?php echo $d; ?>" style="color: #0284c7; font-weight: bold;">&raquo; 🛡️ Kirim Bala Bantuan ke Benteng (Reinforce)</a>
+        <?php } else { ?>
+            &raquo; 🛡️ Kirim Bala Bantuan (<?php echo BUILDRALLY; ?>)
+        <?php } ?>
+    <?php } else { ?>
+        <span style="color: #94a3b8; font-weight: bold;">&raquo; 🛡️ Kirim Bala Bantuan ke Benteng (Gerbang Terkunci - Event Belum Aktif)</span>
+    <?php } ?>
+</td></tr>
+<?php if (!empty($hasBastionGuards) && !empty($bastionWarsimLink)): ?>
+<tr><td><a href="<?php echo $bastionWarsimLink; ?>">&raquo; 🧮 Buka Simulasi Tempur Lawan Penjaga (Combat Simulator)</a></td></tr>
+<?php endif; ?>
+<?php } elseif ($isBanditCamp) { ?>
+<tr><td class="none">
+    <?php if (!empty($village->resarray['f39'])) { ?>
         <a href="a2b.php?s=2&z=<?php echo $d; ?>" style="color: #c0392b; font-weight: bold;">&raquo; ⚔️ Serbu / Jarah Sarang Ini (Raid)</a>
     <?php } else { ?>
         &raquo; ⚔️ Serbu Sarang Ini (<?php echo BUILDRALLY; ?>)

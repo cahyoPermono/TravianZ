@@ -160,6 +160,17 @@ $idUser      = isset($_SESSION['id_user']) ? (int)$_SESSION['id_user'] : 0;
 	</p>
 	<?php } ?>
 
+	<!-- Benteng Kuno (The Ancient Bastion) -->
+	<?php
+	$bastionEvent = class_exists('Bastion') ? Bastion::getEvent() : [];
+	$bastionActive = !empty($bastionEvent) && (int)($bastionEvent['status'] ?? 0) === 1;
+	?>
+	<p>
+		<a href="bastion.php" style="color: #b91c1c; font-weight: bold;">
+			🏰 Benteng Kuno (0|0) <?php if ($bastionActive): ?><span style="color:#ef4444; font-size:9px; background:#fee2e2; padding:1px 4px; border-radius:3px;">● LIVE</span><?php endif; ?>
+		</a>
+	</p>
+
     <!-- Plus / Support / Custom links -->
     <p>
 

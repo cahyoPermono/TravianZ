@@ -263,6 +263,14 @@ class Automation {
                 error_log("Ormas error: " . $e->getMessage());
             }
         }
+
+        // Ancient Bastion (King of the Hill): Process 12h hold timer & bot events
+        try {
+            require_once __DIR__ . '/Bastion.php';
+            Bastion::processTick();
+        } catch (\Throwable $e) {
+            error_log("Bastion error: " . $e->getMessage());
+        }
     }
 
     /**

@@ -837,7 +837,7 @@ trait DatabaseVillageQueries {
                     break;
                     
             // villages without starvation data, Support, Nature, Natars, Taskmaster, Multihunter are all excluded
-            case 7: $q = "SELECT * FROM " . TB_PREFIX . "vdata WHERE starv = 0 and owner > 5";
+            case 7: $q = "SELECT * FROM " . TB_PREFIX . "vdata WHERE starv = 0 and owner > 5 and wref > 0";
                     break;
         }
 
@@ -2368,6 +2368,9 @@ trait DatabaseVillageQueries {
 		// mysqli_real_escape_string nu protejeaza contextul numeric:
 		// "5 OR 1=1" ar trece neschimbat. Conversia la intreg il opreste.
 		$wref = (int) $wref;
+		if ($wref <= 0) {
+			return 0;
+		}
 
 	    global $bid4, $bid8, $bid9, $technology;
 
@@ -2379,30 +2382,38 @@ trait DatabaseVillageQueries {
 
         $basecrop = $grainmill = $bakery = $cropo = 0;
 		$owner = $this->getVrefField($wref, 'owner', $use_cache);
-		$bonus = $this->getUserField($owner, 'b4', 0);
+		$bonus = $owner ? $this->getUserField($owner, 'b4', 0) : 0;
 
 		$buildarray = $this->getResourceLevel($wref);
+		if (empty($buildarray) || !is_array($buildarray)) {
+			self::$cropProductionStarvationValueCache[$wref] = 0;
+			return 0;
+		}
+
 		$cropholder = [];
 		for($i = 1; $i <= 38; $i++){
-			if($buildarray['f'.$i.'t'] == 4) array_push($cropholder, 'f'.$i);
-			if($buildarray['f'.$i.'t'] == 8) $grainmill = $buildarray['f'.$i];
-			if($buildarray['f'.$i.'t'] == 9) $bakery = $buildarray['f'.$i];
+			$ftype = (int)($buildarray['f'.$i.'t'] ?? 0);
+			if($ftype == 4) array_push($cropholder, 'f'.$i);
+			if($ftype == 8) $grainmill = (int)($buildarray['f'.$i] ?? 0);
+			if($ftype == 9) $bakery = (int)($buildarray['f'.$i] ?? 0);
 		}
 		
 		$q = "SELECT type FROM `" . TB_PREFIX . "odata` WHERE conqured = ".(int) $wref;
 		$oasis = $this->query_return($q);
-		foreach($oasis as $oa){
-			switch($oa['type']) {
-                case 3:
-                case 6:
-                case 9:
-                case 10:
-                case 11:
-                    $cropo++;
-                    break;
-                case 12:
-                    $cropo += 2;
-                    break;
+		if (!empty($oasis) && is_array($oasis)) {
+			foreach($oasis as $oa){
+				switch($oa['type'] ?? 0) {
+					case 3:
+					case 6:
+					case 9:
+					case 10:
+					case 11:
+						$cropo++;
+						break;
+					case 12:
+						$cropo += 2;
+						break;
+				}
 			}
 		}
 		

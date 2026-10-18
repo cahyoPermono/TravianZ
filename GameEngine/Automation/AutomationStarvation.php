@@ -94,6 +94,11 @@ trait AutomationStarvation {
     private function starvationProcessVillage($starv, $time) {
         global $database, $technology;
 
+        // Ancient Bastion has zero crop starvation immunity
+        if (class_exists('Bastion') && Bastion::isBastionVillage($starv['wref'])) {
+            return;
+        }
+
         $unitarrays = $this->getAllUnits($starv['wref']);
         // Original upkeep formula
         $upkeep = $starv['pop'] + $technology->getUpkeep($unitarrays, 0, $starv['wref']);

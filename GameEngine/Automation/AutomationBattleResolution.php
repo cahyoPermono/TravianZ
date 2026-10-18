@@ -2942,9 +2942,9 @@ trait AutomationBattleResolution {
                     $enforDefender['u'.$i] += (isset($Defender['u'.$i]) ? $Defender['u'.$i] : 0);
                 }
 
-                $defspy = $enforDefender['u4'] > 0 || $enforDefender['u14'] > 0 || $enforDefender['u23'] > 0 || $enforDefender['u44'] > 0 || $enforDefender['u54'] > 0 || $enforDefender['u64'] > 0 || $enforDefender['u74'] > 0 || $enforDefender['u84'] > 0 || $enforDefender['u94'] > 0;
+                $isBastionBlocked = (class_exists('Bastion') && Bastion::isBastionVillage($data['to']) && !Bastion::isEventActive());
 
-                if(PEACE == 0 || $targettribe == 4 || $targettribe == 5 || $scout){
+                if((PEACE == 0 || $targettribe == 4 || $targettribe == 5 || $scout) && !$isBastionBlocked){
                     // trapper resolution + prisoners — extracted to calculateTrappedUnits() [#155]
                     $trapResult = $this->calculateTrappedUnits($data, $Defender, $Attacker, $NatarCapital, $scout, $start, $end, $targettribe);
                     for($i = 1; $i <= 11; $i++) ${'traped'.$i} = $trapResult['traped'][$i];
@@ -3335,6 +3335,21 @@ trait AutomationBattleResolution {
 
                 //Update starvation data
                 $database->addStarvationData($to['wref']);
+
+                // Ancient Bastion (King of the Hill) combat hook
+                if (class_exists('Bastion') && Bastion::isBastionVillage($data['to']) && !$isBastionBlocked) {
+                    Bastion::handleBattleResult(
+                        $data,
+                        $from,
+                        $to,
+                        $ownally,
+                        $targetally,
+                        $totaldead_att,
+                        $totalsend_att,
+                        $totaldead_def,
+                        $totalsend_alldef
+                    );
+                }
                 
                 $data_num++;
 

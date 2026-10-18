@@ -199,9 +199,9 @@ trait DatabaseHeroQueries {
                 $dbarray = $result;
                 if(isset($dbarray['hero'])) {
                     $this->query("UPDATE ".TB_PREFIX."enforcement SET hero=0 WHERE `from` = ".$wid);
-                    for ($i=0;$i<50;$i++) {
-                        if($dbarray['u'.$i]>0) {
-                            $delDef=false;
+                    for ($i = 1; $i <= 50; $i++) {
+                        if(!empty($dbarray['u'.$i])) {
+                            $delDef = false;
                             break;
                         }
                     }
@@ -223,9 +223,9 @@ trait DatabaseHeroQueries {
             foreach($dbarray as $defoasis) {
                 if($defoasis['hero']>0) {
                     $this->query("UPDATE ".TB_PREFIX."enforcement SET hero=0 WHERE `from` = ".$defoasis['from']);
-                    for ($i=0;$i<50;$i++) {
-                        if($dbarray['u'.$i]>0) {
-                            $delDef=false;
+                    for ($i = 1; $i <= 50; $i++) {
+                        if(!empty($defoasis['u'.$i])) {
+                            $delDef = false;
                             break;
                         }
                     }

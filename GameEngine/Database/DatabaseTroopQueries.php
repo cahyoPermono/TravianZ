@@ -41,19 +41,24 @@ trait DatabaseTroopQueries {
         $troops_o = 0;
         $o_unit   = $this->getUnit($vref, $use_cache);
 
-        for ( $i = 1; $i < 51; $i ++ ) {
-            $troops_o += $o_unit[ 'u'.$i ];
+        if (!empty($o_unit) && is_array($o_unit)) {
+            for ( $i = 1; $i < 51; $i ++ ) {
+                $troops_o += (int)($o_unit[ 'u'.$i ] ?? 0);
+            }
+            $troops_o += (int)($o_unit['hero'] ?? 0);
         }
 
-        $troops_o += $o_unit['hero'];
         $o_unit2 = $this->getEnforceVillage($vref, 0, $use_cache);
 
-        foreach ($o_unit2 as $o_unit) {
-            for ( $i = 1; $i < 51; $i ++ ) {
-                $troops_o += $o_unit[ 'u'.$i ];
+        if (!empty($o_unit2) && is_array($o_unit2)) {
+            foreach ($o_unit2 as $o_unit) {
+                if (is_array($o_unit)) {
+                    for ( $i = 1; $i < 51; $i ++ ) {
+                        $troops_o += (int)($o_unit[ 'u'.$i ] ?? 0);
+                    }
+                    $troops_o += (int)($o_unit['hero'] ?? 0);
+                }
             }
-
-            $troops_o += $o_unit['hero'];
         }
 
         self::$oasisTroopsCountCache[$vref] = $troops_o;
@@ -301,11 +306,12 @@ trait DatabaseTroopQueries {
 
         $dbarray     = $this->getUnit( $vid );
         $totalunits  = 0;
-        for ( $i = 1; $i <= 100; $i ++ ) {
-            $totalunits += $dbarray[ 'u' . $i ];
+        if (!empty($dbarray) && is_array($dbarray)) {
+            for ( $i = 1; $i <= 100; $i ++ ) {
+                $totalunits += (int)($dbarray[ 'u' . $i ] ?? 0);
+            }
+            $totalunits += (int)($dbarray['hero'] ?? 0);
         }
-        
-        $totalunits += $dbarray['hero'];
         if(!$mode) return $totalunits;
       
         $movingunits      = $this->getVillageMovement( $vid );
@@ -315,13 +321,15 @@ trait DatabaseTroopQueries {
         $start            = ( $ownertribe - 1 ) * 10 + 1;
         $end              = ( $ownertribe * 10 );
 
-        for ( $i = $start; $i <= $end; $i ++ ) {
-            $totalunits += $movingunits[ 'u' . $i ] ?? 0;
-            $totalunits += $reinforcingunits[ 'u' . $i ] ?? 0;
+        if (is_array($movingunits) || is_array($reinforcingunits)) {
+            for ( $i = $start; $i <= $end; $i ++ ) {
+                $totalunits += (int)($movingunits[ 'u' . $i ] ?? 0);
+                $totalunits += (int)($reinforcingunits[ 'u' . $i ] ?? 0);
+            }
         }
 
-        $totalunits += $movingunits['hero'] ?? 0;
-        $totalunits += $reinforcingunits['hero'] ?? 0;
+        $totalunits += (int)($movingunits['hero'] ?? 0);
+        $totalunits += (int)($reinforcingunits['hero'] ?? 0);
 
 		return $totalunits;
 	}
