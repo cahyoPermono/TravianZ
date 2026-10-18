@@ -182,8 +182,8 @@ if (!empty($botRow[0])) {
         $database->query("UPDATE " . TB_PREFIX . "fdata SET f21 = 3, f21t = 19 WHERE vref = $bWid");
     }
 
-    // Give sufficient resources to train 1 basic unit
-    $database->query("UPDATE " . TB_PREFIX . "vdata SET wood = 1000, clay = 1000, iron = 1000, crop = 1000 WHERE wref = $bWid");
+    // Give sufficient resources to train 1 basic unit and reset lastupdate to now
+    $database->query("UPDATE " . TB_PREFIX . "vdata SET wood = 1000, clay = 1000, iron = 1000, crop = 1000, lastupdate = " . time() . " WHERE wref = $bWid");
 
     // Clear existing training queue for clean measurement
     $database->query("DELETE FROM " . TB_PREFIX . "training WHERE vref = $bWid");
@@ -204,10 +204,11 @@ if (!empty($botRow[0])) {
         assertTrue((int)$trainCheck[0]['amt'] > 0, "Queued amount is > 0");
         assertTrue((int)$trainCheck[0]['eachtime'] >= 3, "Training duration eachtime is natural (>= 3s)");
 
-        // Verify resources were deducted
-        $afterVdata = $database->getVillage($bWid);
-        assertTrue((float)$afterVdata['wood'] < 1000, "Village wood was genuinely deducted for training");
-        assertTrue((float)$afterVdata['clay'] < 1000, "Village clay was genuinely deducted for training");
+        // Verify resources were deducted directly from vdata table
+        $afterRow = $database->query_return("SELECT wood, clay, iron, crop FROM " . TB_PREFIX . "vdata WHERE wref = $bWid LIMIT 1");
+        $afterVdata = $afterRow[0] ?? [];
+        assertTrue((float)$afterVdata['wood'] < 1000, "Village wood was genuinely deducted for training (was: " . ($afterVdata['wood'] ?? 'null') . ")");
+        assertTrue((float)$afterVdata['clay'] < 1000, "Village clay was genuinely deducted for training (was: " . ($afterVdata['clay'] ?? 'null') . ")");
 
         echo "PASS: BotAI::processTrain queued troops naturally into training table and deducted resources!" . PHP_EOL;
     }

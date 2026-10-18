@@ -214,5 +214,67 @@ assertEqual(50, $cavTotal, "Must dispatch exactly 50 troops");
 assertTrue($cavAttack['t5'] > 0, "Must include cavalry troops (u75 -> slot t5)");
 assertEqual(100, $mock->unitsData[100]['u71'] + $mock->unitsData[100]['u75'], "Village troops properly deducted to 100 remaining without phantom units");
 echo "PASS: Test 3 (Partial army dispatch respects composition without phantom units) passed!" . PHP_EOL;
+// TEST 4: Bot has Rams (u77) and Catapults (u78). Admin orders RAID (attack_type = 4).
+// Verify Rams and Catapults are NEVER dispatched in a Raid!
+$mock->unitsData[100] = [
+    'vref' => 100,
+    'u71' => 50,  // Hoplite (slot 1)
+    'u72' => 0, 'u73' => 0, 'u74' => 0,
+    'u75' => 20,  // Rider (slot 5)
+    'u76' => 0,
+    'u77' => 15,  // Spartan Ram (slot 7)
+    'u78' => 10,  // Spartan Catapult (slot 8)
+    'u79' => 0, 'u80' => 0,
+    'hero' => 0
+];
+$resRaid = BotAI::orderAttack(10, "cahyo", 4, 100, 'balanced'); // attack_type = 4 (Raid)
+assertEqual('success', $resRaid['status'], "Raid orderAttack must succeed");
+$raidAttack = $mock->attacks[3];
+assertEqual(0, (int)$raidAttack['t7'], "Rams (t7) must NEVER be dispatched in a Raid!");
+assertEqual(0, (int)$raidAttack['t8'], "Catapults (t8) must NEVER be dispatched in a Raid!");
+assertEqual(15, (int)$mock->unitsData[100]['u77'], "Rams must remain safely at home in village");
+assertEqual(10, (int)$mock->unitsData[100]['u78'], "Catapults must remain safely at home in village");
+echo "PASS: Test 4 (Rams & Catapults strictly excluded from Raid) passed!" . PHP_EOL;
+
+// TEST 5: Bot has Rams (u77) and Catapults (u78). Admin orders NORMAL ATTACK (attack_type = 3) with composition 'siege'.
+// Verify Rams and Catapults ARE dispatched in Normal Attack!
+$mock->unitsData[100] = [
+    'vref' => 100,
+    'u71' => 50,  // Hoplite (slot 1)
+    'u72' => 0, 'u73' => 0, 'u74' => 0,
+    'u75' => 20,  // Rider (slot 5)
+    'u76' => 0,
+    'u77' => 15,  // Spartan Ram (slot 7)
+    'u78' => 10,  // Spartan Catapult (slot 8)
+    'u79' => 0, 'u80' => 0,
+    'hero' => 0
+];
+$resNormal = BotAI::orderAttack(10, "cahyo", 3, 50, 'siege'); // attack_type = 3 (Normal Attack)
+assertEqual('success', $resNormal['status'], "Normal attack orderAttack must succeed");
+$normalAttack = $mock->attacks[4];
+assertEqual(3, (int)$normalAttack['type'], "Attack type must be 3 (Normal Attack)");
+assertTrue((int)$normalAttack['t7'] > 0 || (int)$normalAttack['t8'] > 0, "Rams and/or Catapults MUST be dispatched in Normal Attack with siege composition");
+echo "PASS: Test 5 (Rams & Catapults properly dispatched in Normal Attack) passed!" . PHP_EOL;
+
+// TEST 6: Admin orders RAID (attack_type = 4) but with composition 'siege'.
+// Even if composition is 'siege', Raid must strictly disallow rams and catapults!
+$mock->unitsData[100] = [
+    'vref' => 100,
+    'u71' => 50,  // Hoplite (slot 1)
+    'u72' => 0, 'u73' => 0, 'u74' => 0,
+    'u75' => 20,  // Rider (slot 5)
+    'u76' => 0,
+    'u77' => 15,  // Spartan Ram (slot 7)
+    'u78' => 10,  // Spartan Catapult (slot 8)
+    'u79' => 0, 'u80' => 0,
+    'hero' => 0
+];
+$resRaidSiege = BotAI::orderAttack(10, "cahyo", 4, 30, 'siege'); // attack_type = 4 (Raid)
+assertEqual('success', $resRaidSiege['status'], "Raid with siege composition request must succeed");
+$raidSiegeAttack = $mock->attacks[5];
+assertEqual(0, (int)$raidSiegeAttack['t7'], "Rams (t7) must NEVER be dispatched in a Raid even if composition was siege!");
+assertEqual(0, (int)$raidSiegeAttack['t8'], "Catapults (t8) must NEVER be dispatched in a Raid even if composition was siege!");
+echo "PASS: Test 6 (Raid with requested siege composition safely defaults to non-siege) passed!" . PHP_EOL;
 
 echo "ALL BotOrderAttackTroopCapTest passed successfully!" . PHP_EOL;
+

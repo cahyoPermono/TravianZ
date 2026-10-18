@@ -992,6 +992,9 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
                         <option value="3">💀 Normal Attack (Serangan Tempur Penuh)</option>
                         <option value="2">🛡️ Bantuan Bertahan (Reinforcement ke Sekutu)</option>
                     </select>
+                    <span style="font-size:10px; color:#94a3b8; display:block; margin-top:3px;">
+                        💡 <b>Info:</b> Ram &amp; Catapult <u>hanya</u> akan dibawa pada <b>Normal Attack</b>. Pada <b>Raid</b>, senjata pengepungan ditinggal di desa agar perampokan bergerak cepat.
+                    </span>
                 </div>
 
                 <div class="botm-form-group">

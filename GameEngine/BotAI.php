@@ -1585,23 +1585,40 @@ class BotAI {
 
         $homeUnits = $res[0];
 
-        // Identify combat-eligible troop pools
-        $combatRoles = ['basic', 'inf_def', 'inf_adv', 'cav_light', 'cav_def', 'cav_heavy', 'ram', 'catapult'];
-        $availableCombat = [];
-        $totalCombatAvailable = 0;
+        $ramNum = $tribeUnits['ram'] ?? null;
+        $catNum = $tribeUnits['catapult'] ?? null;
+        $siegeUnits = array_values(array_filter([$ramNum, $catNum]));
 
-        foreach ($combatRoles as $role) {
+        // Distinguish non-siege combat units (infantry & cavalry) vs siege units (rams & catapults)
+        $nonSiegeRoles = ['basic', 'inf_def', 'inf_adv', 'cav_light', 'cav_def', 'cav_heavy'];
+        $availableNonSiege = [];
+        $totalNonSiegeAvailable = 0;
+
+        foreach ($nonSiegeRoles as $role) {
             if (isset($tribeUnits[$role])) {
                 $uNum = $tribeUnits[$role];
                 $cnt = (int)($homeUnits['u' . $uNum] ?? 0);
                 if ($cnt > 0) {
-                    $availableCombat[$uNum] = $cnt;
-                    $totalCombatAvailable += $cnt;
+                    $availableNonSiege[$uNum] = $cnt;
+                    $totalNonSiegeAvailable += $cnt;
                 }
             }
         }
 
-        // Anti-suicide & Home Garrison Protection:
+        $availableSiege = [];
+        $totalSiegeAvailable = 0;
+        foreach (['ram', 'catapult'] as $role) {
+            if (isset($tribeUnits[$role])) {
+                $uNum = $tribeUnits[$role];
+                $cnt = (int)($homeUnits['u' . $uNum] ?? 0);
+                if ($cnt > 0) {
+                    $availableSiege[$uNum] = $cnt;
+                    $totalSiegeAvailable += $cnt;
+                }
+            }
+        }
+
+        $totalCombatAvailable = $totalNonSiegeAvailable + $totalSiegeAvailable;
         $deployableCombat = max(0, $totalCombatAvailable - $homeReserve);
         if ($deployableCombat < $minAttackForce) {
             return null; // Garnisun pertahanan rumah wajib dipertahankan; sisa pasukan tempur belum cukup untuk menyerang
@@ -1932,13 +1949,14 @@ class BotAI {
         }
 
         // =========================================================================
-        // TROOP DISPATCH & CALCULATION
+        // ATTACK TYPE & TROOP DISPATCH CALCULATION
         // =========================================================================
+        // Calculate tentative target party size based on deployable surplus:
         if ($isRevenge) {
             // Retaliation strike: Send ~50% of deployable surplus (up to 150 troops)
             $targetPartySize = min(150, max($minAttackForce, (int)floor($deployableCombat * 0.50)));
         } elseif ($dynamicScaling) {
-            // Dynamic scaling raid: ~35% of deployable surplus, up to 100 troops
+            // Dynamic scaling attack: ~35% of deployable surplus, up to 100 troops
             $targetPartySize = min(100, max($minAttackForce, (int)floor($deployableCombat * 0.35)));
         } else {
             // Legacy cap
@@ -1946,7 +1964,32 @@ class BotAI {
         }
         $targetPartySize = min($targetPartySize, $deployableCombat);
 
-        // Allocate raid quotas across available combat units strictly within deployableCombat
+        // Rule: Rams and Catapults are ONLY used in Normal Attacks (Type 3). In Raids (Type 4), siege weapons
+        // are NEVER brought because they do zero structural damage in raids and severely slow down the march speed.
+        // A bot only mounts a Normal Attack assault if it has siege weapons AND an overwhelming strike force (>= 80 troops).
+        $hasSiege = ($totalSiegeAvailable > 0);
+        $canSiegeAssault = ($hasSiege && $targetPartySize >= 80);
+
+        if ($canSiegeAssault) {
+            $attackType = 3; // Full assault with siege weapons (Normal Attack)
+            $availableCombat = $availableNonSiege + $availableSiege;
+            $totalCombatAvailable = $totalNonSiegeAvailable + $totalSiegeAvailable;
+        } else {
+            $attackType = 4; // Raid (Type 4) - strictly NO rams or catapults!
+            $availableCombat = $availableNonSiege;
+            $totalCombatAvailable = $totalNonSiegeAvailable;
+
+            // Recalculate deployable non-siege troops
+            $deployableNonSiege = max(0, $totalNonSiegeAvailable - $homeReserve);
+            if ($deployableNonSiege < $minAttackForce) {
+                return null; // Pasukan non-siege tidak cukup untuk melakukan raid tanpa melanggar kuota garnisun
+            }
+            $deployableCombat = $deployableNonSiege;
+            $targetPartySize = min($targetPartySize, $deployableCombat);
+        }
+        $attackTypeName = ($attackType === 3) ? 'Normal Attack' : 'Raid';
+
+        // Allocate quotas across available combat units strictly within deployableCombat
         $dispatched = [];
         $dispatchedSpeeds = [];
         $totalDispatched = 0;
@@ -1965,16 +2008,28 @@ class BotAI {
         // Guarantee minimum troops while strictly respecting deployableCombat
         if ($totalDispatched < $minAttackForce && $totalDispatched < $deployableCombat) {
             $primaryUnit = key($availableCombat);
-            $maxCanAdd = min(
-                $availableCombat[$primaryUnit] - ($dispatched[$primaryUnit] ?? 0),
-                $deployableCombat - $totalDispatched,
-                $minAttackForce - $totalDispatched
-            );
-            if ($maxCanAdd > 0) {
-                $dispatched[$primaryUnit] = ($dispatched[$primaryUnit] ?? 0) + $maxCanAdd;
-                $totalDispatched += $maxCanAdd;
-                if (!in_array(self::getUnitSpeed($primaryUnit), $dispatchedSpeeds, true)) {
-                    $dispatchedSpeeds[] = self::getUnitSpeed($primaryUnit);
+            if ($primaryUnit !== null) {
+                $maxCanAdd = min(
+                    $availableCombat[$primaryUnit] - ($dispatched[$primaryUnit] ?? 0),
+                    $deployableCombat - $totalDispatched,
+                    $minAttackForce - $totalDispatched
+                );
+                if ($maxCanAdd > 0) {
+                    $dispatched[$primaryUnit] = ($dispatched[$primaryUnit] ?? 0) + $maxCanAdd;
+                    $totalDispatched += $maxCanAdd;
+                    if (!in_array(self::getUnitSpeed($primaryUnit), $dispatchedSpeeds, true)) {
+                        $dispatchedSpeeds[] = self::getUnitSpeed($primaryUnit);
+                    }
+                }
+            }
+        }
+
+        // Safety guarantee: If raid, purge any siege units that could have slipped in
+        if ($attackType === 4 && !empty($dispatched)) {
+            foreach ($siegeUnits as $su) {
+                if (isset($dispatched[$su])) {
+                    $totalDispatched -= $dispatched[$su];
+                    unset($dispatched[$su]);
                 }
             }
         }
@@ -2012,27 +2067,6 @@ class BotAI {
                 $database->query("UPDATE " . TB_PREFIX . "units SET hero = hero - 1 WHERE vref = $wid AND hero > 0");
             }
         }
-
-        // Determine attack type:
-        // Default to Raid (Type 4) for bot attacks & revenge to cushion casualties and prevent army extinction.
-        // Only use Normal Attack (Type 3) if bot has overwhelming force (>= 80 troops) AND includes siege equipment (rams/catapults).
-        $hasSiege = false;
-        $siegeUnits = array_merge(
-            isset($tribeUnits['ram']) ? [$tribeUnits['ram']] : [],
-            isset($tribeUnits['catapult']) ? [$tribeUnits['catapult']] : []
-        );
-        foreach ($siegeUnits as $su) {
-            if (!empty($dispatched[$su]) && $dispatched[$su] > 0) {
-                $hasSiege = true;
-                break;
-            }
-        }
-
-        $attackType = 4; // Default to Raid (Type 4) to prevent total extinction
-        if ($totalDispatched >= 80 && $hasSiege) {
-            $attackType = 3; // Full assault with siege weapons
-        }
-        $attackTypeName = ($attackType === 3) ? 'Normal Attack' : 'Raid';
 
         $attackId = $database->addAttack(
             $wid,
@@ -2324,10 +2358,33 @@ class BotAI {
             $res = $database->query_return("SELECT {$colsSql}, hero FROM " . TB_PREFIX . "units WHERE vref = $bWid LIMIT 1");
             $homeUnits = !empty($res[0]) ? $res[0] : [];
 
+            $baseUnit = ($bTribe - 1) * 10;
+            $settlerU = $baseUnit + 10;
+            $chiefU = $baseUnit + 9;
+            $ramU = $tribeUnits['ram'] ?? null;
+            $catU = $tribeUnits['catapult'] ?? null;
+            $siegeUnits = array_values(array_filter([$ramU, $catU]));
+
             // Fetch available regular combat units at home (strictly only troops the bot actually owns, NO auto-provisioning)
+            // Rules:
+            // 1. Settlers (slot 10) never participate in attacks or raids.
+            // 2. Chiefs (slot 9) only participate in Normal Attacks (Type 3) to conquer villages.
+            // 3. Rams and Catapults ONLY participate in Normal Attacks (Type 3).
+            //    In Raids (Type 4) or Reinforcements (Type 2), siege units are strictly excluded
+            //    because they have no raid function and severely slow down movement speed.
             $availableUnits = [];
             $totalAvailable = 0;
             foreach ($tribeUnits['all'] as $uNum) {
+                if ($uNum === $settlerU) {
+                    continue;
+                }
+                if ($uNum === $chiefU && $attackType !== 3) {
+                    continue;
+                }
+                if (in_array($uNum, $siegeUnits, true) && $attackType !== 3) {
+                    continue;
+                }
+
                 $cur = (int)($homeUnits['u' . $uNum] ?? 0);
                 if ($cur > 0) {
                     $availableUnits[$uNum] = $cur;
@@ -2382,7 +2439,9 @@ class BotAI {
                     $isInf   = in_array($uNum, array_filter([$basicU, $defU, $advU]), true);
                     $isDef   = in_array($uNum, array_filter([$defU, $cavDefU, $basicU]), true);
 
-                    if ($isScout) {
+                    if ($composition === 'siege' && $attackType !== 3) {
+                        $w = $isCav ? 1.5 : ($isInf ? 1.0 : 0.8);
+                    } elseif ($isScout) {
                         $w = 0.05; // Do not send scouts unless only scouts are available
                     } elseif ($composition === 'cavalry') {
                         $w = $isCav ? 5.0 : ($isInf ? 1.0 : 0.5);
@@ -2436,6 +2495,16 @@ class BotAI {
 
             // Filter out any 0 amounts
             $dispatched = array_filter($dispatched, function($cnt) { return $cnt > 0; });
+
+            // Strict enforcement: Rams and Catapults can ONLY march on Normal Attacks ($attackType === 3).
+            // In Raids ($attackType === 4), purge any siege units that might have been included.
+            if ($attackType !== 3 && !empty($dispatched)) {
+                foreach ($siegeUnits as $su) {
+                    if (isset($dispatched[$su])) {
+                        unset($dispatched[$su]);
+                    }
+                }
+            }
 
             if (empty($dispatched) && !$heroAvailable) {
                 continue;
