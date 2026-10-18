@@ -99,7 +99,7 @@ trait AutomationBattleResolution {
                 
                 if ($isSecondRow) {
                     if ($tbid > 0) {
-                        $info_cat .= "<tbody class=\"goods\"><tr><th>".INFORMATION."</th><td colspan=\"11\">
+                        $info_cat .= "<tbody class=\"goods\"><tr><th>".(defined('INFORMATION') ? INFORMATION : 'Information')."</th><td colspan=\"11\">
 					<img class=\"unit u".$catp_pic."\" src=\"img/x.gif\" alt=\"".rc_tok('RC_CATAPULT')."\" title=\"".rc_tok('RC_CATAPULT')."\" /> ".rc_bld($tbgid, $can_destroy)." <b>".rc_tok('RC_DESTROYED')."</b>.";
                     }
                     
@@ -122,7 +122,7 @@ trait AutomationBattleResolution {
             elseif($newLevel == $tblevel){
                 if($isSecondRow) {
                     if ($tbid > 0) {
-                        $info_cat .= "<tbody class=\"goods\"><tr><th>".INFORMATION."</th><td colspan=\"11\">
+                        $info_cat .= "<tbody class=\"goods\"><tr><th>".(defined('INFORMATION') ? INFORMATION : 'Information')."</th><td colspan=\"11\">
 					<img class=\"unit u".$catp_pic."\" src=\"img/x.gif\" alt=\"".rc_tok('RC_CATAPULT')."\" title=\"".rc_tok('RC_CATAPULT')."\" /> ".rc_bld($tbgid, $can_destroy)." ".rc_tok('RC_NOT_DAMAGED')."</td></tr></tbody>";
                     }
                 } else {
@@ -162,7 +162,7 @@ trait AutomationBattleResolution {
                 }
                 
                 if ($isSecondRow) {
-                    $info_cat .= "<tbody class=\"goods\"><tr><th>".INFORMATION."</th><td colspan=\"11\">
+                    $info_cat .= "<tbody class=\"goods\"><tr><th>".(defined('INFORMATION') ? INFORMATION : 'Information')."</th><td colspan=\"11\">
 					<img class=\"unit u".$catp_pic."\" src=\"img/x.gif\" alt=\"".rc_tok('RC_CATAPULT')."\" title=\"".rc_tok('RC_CATAPULT')."\" /> ".rc_bld($tbgid, $can_destroy).$info_cata;
                     
                     // embassy level was changed
@@ -184,7 +184,7 @@ trait AutomationBattleResolution {
             if(!isset($info_cat) || empty($info_cat) || $info_cat == ","){
                 $info_cat = "".$catp_pic.", ".rc_tok('RC_NO_BUILDINGS');
             }else if(strpos($info_cat, rc_tok('RC_NO_BUILDINGS')) === false){
-                $info_cat .= "<tbody class=\"goods\"><tr><th>".INFORMATION."</th><td colspan=\"11\">
+                $info_cat .= "<tbody class=\"goods\"><tr><th>".(defined('INFORMATION') ? INFORMATION : 'Information')."</th><td colspan=\"11\">
                           <img class=\"unit u".$catp_pic."\" src=\"img/x.gif\" alt=\"".rc_tok('RC_CATAPULT')."\" title=\"".rc_tok('RC_CATAPULT')."\" /> ".rc_tok('RC_NO_BUILDINGS').".</td></tr></tbody>";
             }       
         }
@@ -711,11 +711,12 @@ trait AutomationBattleResolution {
 
         // --- Village conquered ---
         $villname = addslashes($database->getVillageField($data['to'], 'name'));
-        $artifact = reset($database->getOwnArtefactInfo($data['to']));
+        $ownArtefacts = $database->getOwnArtefactInfo($data['to']);
+        $artifact = !empty($ownArtefacts) ? reset($ownArtefacts) : null;
 
         $info_chief = $chief_pic . ',' . rc_tok('RC_INHABITANTS_JOIN', $villname);
 
-        if ($artifact['vref'] == $data['to']) {
+        if (!empty($artifact) && isset($artifact['vref']) && $artifact['vref'] == $data['to']) {
             $database->claimArtefact($data['to'], $data['to'], $database->getVillageField($data['from'], 'owner'));
         }
 
@@ -885,21 +886,28 @@ trait AutomationBattleResolution {
     private function buildScoutReport($data, $spy_pic, $isoasis, $targettribe, $crannySpy, $totwood, $totclay, $totiron, $totcrop) {
         global $database;
         $info_spy = "";
-                        if ($data['spy'] == 1){
-                            $info_spy = "".$spy_pic.",<div class=\"res\"><img class=\"r1\" src=\"img/x.gif\" alt=\"".LUMBER."\" title=\"".LUMBER."\" />".round($totwood)." |
-				 <img class=\"r2\" src=\"img/x.gif\" alt=\"".CLAY."\" title=\"".CLAY."\" />".round($totclay)." |
-				 <img class=\"r3\" src=\"img/x.gif\" alt=\"".IRON."\" title=\"".IRON."\" />".round($totiron)." |
-				 <img class=\"r4\" src=\"img/x.gif\" alt=\"".CROP."\" title=\"".CROP."\" />".round($totcrop)."</div>
+        $lblLumber = defined('LUMBER') ? LUMBER : 'Lumber';
+        $lblClay = defined('CLAY') ? CLAY : 'Clay';
+        $lblIron = defined('IRON') ? IRON : 'Iron';
+        $lblCrop = defined('CROP') ? CROP : 'Crop';
+        if ($data['spy'] == 1){
+            $info_spy = "".$spy_pic.",<div class=\"res\"><img class=\"r1\" src=\"img/x.gif\" alt=\"".$lblLumber."\" title=\"".$lblLumber."\" />".round($totwood)." |
+				 <img class=\"r2\" src=\"img/x.gif\" alt=\"".$lblClay."\" title=\"".$lblClay."\" />".round($totclay)." |
+				 <img class=\"r3\" src=\"img/x.gif\" alt=\"".$lblIron."\" title=\"".$lblIron."\" />".round($totiron)." |
+				 <img class=\"r4\" src=\"img/x.gif\" alt=\"".$lblCrop."\" title=\"".$lblCrop."\" />".round($totcrop)."</div>
 				 <div class=\"carry\"><img class=\"car\" src=\"img/x.gif\" alt=\"".rc_tok('CARRY')."\" title=\"".rc_tok('CARRY')."\" />".rc_tok('RC_TOTAL_RESOURCES')." ".round($totwood+$totclay+$totiron+$totcrop)."</div>
 	";
-                        }else if($data['spy'] == 2){
+        }else if($data['spy'] == 2){
                             if ($isoasis == 0){
                                 $walllevel = $database->getFieldLevelInVillage($data['to'], '31, 32, 33, 42, 43, 47, 50');
                                 $residencelevel = $database->getFieldLevelInVillage($data['to'], 25);
                                 $palacelevel = $database->getFieldLevelInVillage($data['to'], 26);
-                                $residenceimg = "<img src=\"".GP_LOCATE."img/g/g25.gif\" height=\"20\" width=\"15\" alt=\"".RESIDENCE."\" title=\"".RESIDENCE."\" />";
-                                $palaceimg = "<img src=\"".GP_LOCATE."img/g/g26.gif\" height=\"20\" width=\"15\" alt=\"".PALACE."\" title=\"".PALACE."\" />";
-                                $crannyimg = "<img src=\"".GP_LOCATE."img/g/g23.gif\" height=\"20\" width=\"15\" alt=\"".CRANNY."\" title=\"".CRANNY."\" />";
+                                $lblResidence = defined('RESIDENCE') ? RESIDENCE : 'Residence';
+                                $lblPalace = defined('PALACE') ? PALACE : 'Palace';
+                                $lblCranny = defined('CRANNY') ? CRANNY : 'Cranny';
+                                $residenceimg = "<img src=\"".GP_LOCATE."img/g/g25.gif\" height=\"20\" width=\"15\" alt=\"".$lblResidence."\" title=\"".$lblResidence."\" />";
+                                $palaceimg = "<img src=\"".GP_LOCATE."img/g/g26.gif\" height=\"20\" width=\"15\" alt=\"".$lblPalace."\" title=\"".$lblPalace."\" />";
+                                $crannyimg = "<img src=\"".GP_LOCATE."img/g/g23.gif\" height=\"20\" width=\"15\" alt=\"".$lblCranny."\" title=\"".$lblCranny."\" />";
                                 $wallgids = array(1 => 31, 2 => 32, 3 => 33, 6 => 43, 7 => 42, 8 => 47, 9 => 50);
                                 $wallgid = isset($wallgids[$targettribe]) ? $wallgids[$targettribe] : 31;
                                 $wallimg = "<img src=\"".GP_LOCATE."img/g/g".$wallgid."Icon.gif\" height=\"20\" width=\"15\" alt=\"".rc_tok('RC_WALL')."\" title=\"".rc_tok('RC_WALL')."\" />";
@@ -1116,7 +1124,7 @@ trait AutomationBattleResolution {
         } else {
             if (isset($village_destroyed) && $village_destroyed == 1 && $can_destroy == 1) {
                 if (strpos($info_cat, rc_tok('RC_VILLAGE_DESTROYED')) === false) {
-                    $info_cat .= "<tbody class=\"goods\"><tr><th>".INFORMATION."</th><td colspan=\"11\">"
+                    $info_cat .= "<tbody class=\"goods\"><tr><th>".(defined('INFORMATION') ? INFORMATION : 'Information')."</th><td colspan=\"11\">"
                                . "<img class=\"unit u".$catp_pic."\" src=\"img/x.gif\" alt=\"".rc_tok('RC_CATAPULT')."\" title=\"".rc_tok('RC_CATAPULT')."\" />"
                                . " ".rc_tok('RC_VILLAGE_DESTROYED')."</td></tr></tbody>";
                 }
@@ -1809,7 +1817,7 @@ trait AutomationBattleResolution {
      * @param array $attackRow The attack row (t1..t11, tribe-relative).
      * @param int   $owntribe  Attacker tribe (1..5).
      * @param int   $isoasis   0 for a village target, otherwise an oasis.
-     * @return array { Attacker, start, end, u, catp_pic, ram_pic, chief_pic, spy_pic, hero_pic }
+     * @return array Associative array containing keys: Attacker, start, end, u, catp_pic, ram_pic, chief_pic, spy_pic, hero_pic
      */
     private function buildAttackerUnits(array $attackRow, $owntribe, $isoasis) {
         $Attacker = [];
@@ -1861,7 +1869,7 @@ trait AutomationBattleResolution {
      * targets. Pure behaviour-preserving extraction (issue #155).
      *
      * @param int $wref Defending village/oasis wref.
-     * @return array { Defender, enforDefender, enforcementarray }
+     * @return array Associative array containing keys: Defender, enforDefender, enforcementarray
      */
     private function buildDefenderUnits($wref) {
         global $database;
@@ -1909,8 +1917,7 @@ trait AutomationBattleResolution {
      * Pure behaviour-preserving extraction (refactor for issue #155).
      *
      * @param array $data Current attack row.
-     * @return array {isoasis, AttackArrivalTime, AttackerWref, DefenderWref,
-     *                NatarCapital, AttackerID, owntribe, ownally, from, fromF}
+     * @return array Associative array containing keys: isoasis, AttackArrivalTime, AttackerWref, DefenderWref, NatarCapital, AttackerID, owntribe, ownally, from, fromF
      */
     private function resolveAttackContext($data) {
         global $database;

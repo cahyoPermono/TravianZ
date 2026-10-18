@@ -115,7 +115,7 @@ $hasRally = $village->resarray['f39'] > 0;
         </tbody>
         <tbody class="infos"><tr><th><?= UPKEEP ?></th><td colspan="<?= $colspan ?>">
             <div class="sup"><?= $technology->getUpkeep($e,$tribe) ?><img class="r4" src="img/x.gif"> <?= PER_HR ?></div>
-            <div class="sback"><?php if(!$isTaskmaster): ?><a href="a2b.php?w=<?= $e['id'] ?>"><?= SEND_BACK ?></a><?php elseif (defined('NEW_FUNCTIONS_HERO_T4') && NEW_FUNCTIONS_HERO_T4): ?><a href="a2b.php?releaseanimals=<?= $e['id'] ?>" onclick="return confirm('<?= defined('HERO_RELEASE_CONFIRM') ? HERO_RELEASE_CONFIRM : 'Release these animals? They will be gone for good.' ?>');"><?= defined('HERO_RELEASE_ANIMALS') ? HERO_RELEASE_ANIMALS : 'Release' ?></a><?php else: ?><span class="none"><b><?= SEND_BACK ?></b></span><?php endif; ?></div>
+            <div class="sback"><?php if(!$isTaskmaster): ?><a href="a2b.php?w=<?= $e['id'] ?>"><?= SEND_BACK ?></a><?php if ($owner == $session->uid && !empty($e['hero'])): ?> | <a href="build.php?id=<?= $id ?>&amp;setherohome=<?= $e['id'] ?>" style="color:#0284c7; font-weight:bold;" onclick="return confirm('Pindahkan desa asal Hero ke desa ini?');">📍 Jadikan Desa Asal Hero</a><?php endif; ?><?php elseif (defined('NEW_FUNCTIONS_HERO_T4') && NEW_FUNCTIONS_HERO_T4): ?><a href="a2b.php?releaseanimals=<?= $e['id'] ?>" onclick="return confirm('<?= defined('HERO_RELEASE_CONFIRM') ? HERO_RELEASE_CONFIRM : 'Release these animals? They will be gone for good.' ?>');"><?= defined('HERO_RELEASE_ANIMALS') ? HERO_RELEASE_ANIMALS : 'Release' ?></a><?php else: ?><span class="none"><b><?= SEND_BACK ?></b></span><?php endif; ?></div>
         </td></tr></tbody>
     </table>
     <?php endforeach; ?>

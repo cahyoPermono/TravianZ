@@ -144,14 +144,14 @@ trait AutomationTroopMovements {
         if($data['t11'] > 0 && !$isoasis && !$troopsPresent) {
         	//check if we're sending a hero between own villages
             if($AttackerID == $DefenderID) {
-                //check if there's a Mansion at target village
-                if($this->getTypeLevel(37, $data['to']) > 0){
-                    //don't reinforce, addunit instead
-                    $database->modifyUnit($data['to'], ["hero"], [1], [1]);
-                    $heroid = $database->getHeroField($DefenderID, 'heroid');
-                    $database->modifyHero("wref", $data['to'], $heroid);
-                    $HeroTransfer = 1;
+                //don't reinforce, addunit instead (transfers home village to target village even without Hero's Mansion)
+                $database->modifyUnit($data['to'], ["hero"], [1], [1]);
+                $heroid = $database->getHeroField($DefenderID, 'heroid');
+                $database->modifyHero("wref", $data['to'], $heroid);
+                if (method_exists($database, 'clearHeroCache')) {
+                    $database->clearHeroCache();
                 }
+                $HeroTransfer = 1;
             }
         }
 

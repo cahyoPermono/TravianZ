@@ -350,6 +350,51 @@ if(isset($_GET['mode']) && $_GET['mode'] == 'troops' && isset($_GET['cancel']) &
     exit();
 }
 
+/**
+ * Pindahkan desa asal Hero ke desa saat ini dari daftar bantuan di Titik Temu (Rally Point).
+ * Berlaku jika Hero sedang berada di desa ini sebagai bala bantuan dari sesama desa milik pemain.
+ */
+if (isset($_GET['setherohome']) && is_numeric($_GET['setherohome'])) {
+    $enforceId = (int)$_GET['setherohome'];
+    $enforce = $database->getEnforceArray($enforceId, 0, false);
+
+    if (!empty($enforce) && (int)$enforce['vref'] === (int)$village->wid && (int)$enforce['hero'] > 0) {
+        $fromOwner = (int)$database->getVillageField($enforce['from'], 'owner');
+        if ($fromOwner === (int)$session->uid) {
+            // Cek apakah ada unit lain selain hero di baris enforcement ini
+            $otherTroops = 0;
+            for ($i = 1; $i <= 50; $i++) {
+                if (!empty($enforce['u' . $i]) && (int)$enforce['u' . $i] > 0) {
+                    $otherTroops += (int)$enforce['u' . $i];
+                }
+            }
+
+            // Hapus atau kurangi hero dari tabel enforcement
+            if ($otherTroops === 0) {
+                $database->query("DELETE FROM " . TB_PREFIX . "enforcement WHERE id = $enforceId");
+            } else {
+                $database->query("UPDATE " . TB_PREFIX . "enforcement SET hero = hero - 1 WHERE id = $enforceId");
+            }
+
+            // Tambahkan hero ke garnisun tetap desa saat ini
+            $database->modifyUnit($village->wid, ["hero"], [1], [1]);
+
+            // Update desa asal hero di tabel hero
+            $heroid = (int)$database->getHeroField($session->uid, 'heroid');
+            if ($heroid > 0) {
+                $database->modifyHero("wref", $village->wid, $heroid);
+            }
+            if (method_exists($database, 'clearHeroCache')) {
+                $database->clearHeroCache();
+            }
+        }
+    }
+
+    header("Location: " . $_SERVER['PHP_SELF'] . "?id=" . (isset($_GET['id']) ? (int) $_GET['id'] : 39));
+    exit();
+}
+
+
 ?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html>
