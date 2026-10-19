@@ -1167,6 +1167,7 @@ class Units {
 
     public function Hero($uid, $all = 0, $include_dead = false) {
         global $database;
+        self::cleanupDuplicateHeroes($uid);
         $heroarray = $database->getHero($uid, $all, $include_dead);
         $herodata = false;
         $singleHeroArrayID = 0;
@@ -1520,6 +1521,132 @@ class Units {
     }
 
 	/**
+	 * T4 Self-Healing: In Travian T4 (NEW_FUNCTIONS_HERO_T4 = true), each player
+	 * must have EXACTLY ONE hero. Legacy T3 mechanics (e.g. 37_train.tpl) could
+	 * insert duplicate hero rows when training a new hero unit while one was dead,
+	 * causing silver to drop to 0 and hiding the newly trained hero.
+	 * This method automatically consolidates duplicate hero rows, restores maximum
+	 * silver, transfers any newly trained unit/training status, and cleans up orphans.
+	 */
+	public static function cleanupDuplicateHeroes($uid) {
+		global $database;
+		$uid = (int) $uid;
+		if ($uid <= 0 || !isset($database) || !is_object($database) || !isset($database->dblink)) {
+			return;
+		}
+		if (!defined('NEW_FUNCTIONS_HERO_T4') || !NEW_FUNCTIONS_HERO_T4) {
+			return;
+		}
+
+		$res = mysqli_query($database->dblink, "SELECT * FROM " . TB_PREFIX . "hero WHERE uid = $uid ORDER BY heroid ASC");
+		if (!$res || mysqli_num_rows($res) <= 1) {
+			return;
+		}
+
+		$rows = [];
+		while ($row = mysqli_fetch_assoc($res)) {
+			$rows[] = $row;
+		}
+
+		// Identify primary row:
+		// Prioritize highest level, then highest experience, then lowest heroid (original row)
+		$primaryIndex = 0;
+		$maxLevel = -1;
+		$maxExp = -1;
+		$maxSilver = 0;
+
+		foreach ($rows as $idx => $r) {
+			$lvl = (int) ($r['level'] ?? 0);
+			$exp = (int) ($r['experience'] ?? 0);
+			$sil = (int) ($r['silver'] ?? 0);
+			if ($sil > $maxSilver) {
+				$maxSilver = $sil;
+			}
+			if ($lvl > $maxLevel || ($lvl === $maxLevel && $exp > $maxExp)) {
+				$maxLevel = $lvl;
+				$maxExp = $exp;
+				$primaryIndex = $idx;
+			}
+		}
+
+		$primary = $rows[$primaryIndex];
+		$primaryId = (int) $primary['heroid'];
+
+		$adoptedUnit = (int) $primary['unit'];
+		$adoptedDead = (int) $primary['dead'];
+		$adoptedHealth = (float) $primary['health'];
+		$adoptedInrevive = (int) ($primary['inrevive'] ?? 0);
+		$adoptedIntraining = (int) ($primary['intraining'] ?? 0);
+		$adoptedTrainingtime = (int) ($primary['trainingtime'] ?? 0);
+		$adoptedWref = (int) $primary['wref'];
+
+		$idsToDelete = [];
+		foreach ($rows as $r) {
+			$rId = (int) $r['heroid'];
+			if ($rId === $primaryId) {
+				continue;
+			}
+			$idsToDelete[] = $rId;
+
+			// If a secondary row was trained or alive while primary was dead:
+			// This happens when the user clicked Train on another unit (e.g. Theutates Thunder)
+			$isTrainedOrAlive = !empty($r['intraining']) 
+				|| (!empty($r['unit']) && $r['unit'] != $primary['unit'] && !empty($r['intraining']))
+				|| ($r['dead'] == 0 && $primary['dead'] == 1);
+
+			if ($isTrainedOrAlive) {
+				$adoptedUnit = (int) $r['unit'];
+				$adoptedDead = (int) $r['dead'];
+				$adoptedHealth = max($adoptedHealth, (float) $r['health']);
+				$adoptedIntraining = (int) ($r['intraining'] ?? 0);
+				$adoptedTrainingtime = (int) ($r['trainingtime'] ?? 0);
+				if (!empty($r['wref'])) {
+					$adoptedWref = (int) $r['wref'];
+				}
+			}
+		}
+
+		// If training time has already elapsed, mark hero alive and ready
+		if ($adoptedIntraining == 1 && $adoptedTrainingtime <= time()) {
+			$adoptedIntraining = 0;
+			$adoptedDead = 0;
+			$adoptedHealth = 100;
+		}
+
+		// Update primary row with consolidated data
+		$safeMaxSilver = (int) $maxSilver;
+		$qUpdate = "UPDATE " . TB_PREFIX . "hero SET 
+			silver = GREATEST(silver, $safeMaxSilver),
+			unit = $adoptedUnit,
+			dead = $adoptedDead,
+			health = $adoptedHealth,
+			inrevive = $adoptedInrevive,
+			intraining = $adoptedIntraining,
+			trainingtime = $adoptedTrainingtime,
+			wref = $adoptedWref
+			WHERE heroid = $primaryId";
+		mysqli_query($database->dblink, $qUpdate);
+
+		// If hero is alive and ready at home, ensure units garrison has hero = 1
+		if ($adoptedDead == 0 && $adoptedIntraining == 0 && $adoptedInrevive == 0 && $adoptedWref > 0) {
+			mysqli_query($database->dblink, "UPDATE " . TB_PREFIX . "units SET hero = 1 WHERE vref = $adoptedWref");
+		}
+
+		// Delete duplicate rows
+		if (!empty($idsToDelete)) {
+			$idList = implode(',', $idsToDelete);
+			mysqli_query($database->dblink, "DELETE FROM " . TB_PREFIX . "hero WHERE heroid IN ($idList) AND uid = $uid");
+		}
+
+		// Reset in-memory cache if DatabaseHeroQueries class exists
+		if (class_exists('DatabaseHeroQueries')) {
+			DatabaseHeroQueries::$heroCache = [];
+			DatabaseHeroQueries::$heroFieldCache = [];
+			DatabaseHeroQueries::$heroVillageCache = [];
+		}
+	}
+
+	/**
 	 * Create a starter hero for a player (T4-style hero from the start).
 	 *
 	 * @param int $uid User ID
@@ -1536,6 +1663,8 @@ class Units {
 		if ($uid <= 0 || $wid <= 0) {
 			return false;
 		}
+
+		self::cleanupDuplicateHeroes($uid);
 
 		$existing = $database->getHero($uid, 0, true);
 		if (!empty($existing)) {

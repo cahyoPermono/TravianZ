@@ -200,7 +200,7 @@ foreach ($heroes as $hero_datarow) {
 	$training_time  = $generator->getTimeFormat($timeToTrain);
 	$training_time2 = time() + $timeToTrain;
 
-	if ($hero_datarow['inrevive'] == 1) {
+	if ($hero_datarow['inrevive'] == 1 || $hero_datarow['intraining'] == 1) {
 		$timeleft = $generator->getTimeFormat($hero_datarow['trainingtime'] - time());
 		?>
     	<table id="distribution" cellpadding="1" cellspacing="1">
@@ -212,22 +212,19 @@ foreach ($heroes as $hero_datarow) {
 
             <tr>
 			<?php
-			// NOTE (pre-existing bug, kept unchanged): $name1 comes from
-			// the parent scope (37.tpl), where at this point in the flow it is
-			// 'unknown' - NOT the real name of this $hero_datarow. Same
-			// behavior as in the original file.
+			$hDisplayName = !empty($hero_datarow['name']) ? $hero_datarow['name'] : $name1;
 				   echo "<tr>
                 <td class=\"desc\">
 					<div class=\"tit\">
 						<img class=\"unit u".$hero_datarow['unit']."\" src=\"img/x.gif\" alt=\"".$name."\" title=\"".$name."\" />
-						$name ($name1)
+						$name ($hDisplayName)
 					</div>"
 			?>
 
             </tr>
     </table>
 		<?php
-	} elseif (!$reviving && $hero_datarow['dead'] == 1) {
+	} elseif (!$reviving && !$training && $hero_datarow['dead'] == 1) {
 		/**
 		 * Only a DEAD hero gets a revive row: $heroes holds every hero row of
 		 * the player, so without this guard a hero who is merely in training
@@ -273,14 +270,11 @@ foreach ($heroes as $hero_datarow) {
 
 
 	<?php
-	// NOTE: plain include() (not include_once), just like in the original. It
-	// is important to keep it that way - if 37_train.tpl has already been included from
-	// 37.tpl via an include_once earlier in the same request, PHP
-	// tracks the file as "already included" globally (regardless of what kind of
-	// include it was first brought in), so a subsequent include_once in
-	// 37.tpl will not re-run it. Changing to include_once here wouldn't be
-	// wrong per se, but I preferred not to change this detail at all.
+	// NOTE: Only include training in classic T3 mode where players can train up to 3 heroes.
+	// In T4 mode (NEW_FUNCTIONS_HERO_T4), each player has exactly 1 hero and must only revive it.
 	if (!$reviving && !$training) {
-		include("37_train.tpl");
+		if (!defined('NEW_FUNCTIONS_HERO_T4') || !NEW_FUNCTIONS_HERO_T4) {
+			include("37_train.tpl");
+		}
 	}
 	?>

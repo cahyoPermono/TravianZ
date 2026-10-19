@@ -72,6 +72,9 @@ $tzHeroT4 = defined('NEW_FUNCTIONS_HERO_T4') && NEW_FUNCTIONS_HERO_T4;
  * si eroul mort, de care avem nevoie pentru starea DEAD.
  */
 $tzHeroRow  = false;
+if (class_exists('Units')) {
+    Units::cleanupDuplicateHeroes($tzHeroUid);
+}
 $tzHeroRows = $database->getHero($tzHeroUid, 1);
 
 if (is_array($tzHeroRows) && count($tzHeroRows)) {

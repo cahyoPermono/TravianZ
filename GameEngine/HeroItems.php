@@ -124,7 +124,7 @@ class HeroItems
         if (!$this->db) {
             return 0;
         }
-        $stmt = $this->db->prepare("SELECT silver FROM " . TB_PREFIX . "hero WHERE uid = ? LIMIT 1");
+        $stmt = $this->db->prepare("SELECT MAX(silver) FROM " . TB_PREFIX . "hero WHERE uid = ?");
         if (!$stmt) {
             return 0;
         }
@@ -133,7 +133,7 @@ class HeroItems
         $stmt->bind_result($silver);
         $found = $stmt->fetch();
         $stmt->close();
-        return $found ? (int) $silver : 0;
+        return ($found && !is_null($silver)) ? (int) $silver : 0;
     }
 
     /* =========================================================================
@@ -379,7 +379,7 @@ class HeroItems
                 }
 
                 $give = $this->db->prepare(
-                    "UPDATE " . TB_PREFIX . "hero SET silver = silver + ? WHERE uid = ? LIMIT 1"
+                    "UPDATE " . TB_PREFIX . "hero SET silver = silver + ? WHERE uid = ? ORDER BY silver DESC LIMIT 1"
                 );
                 $give->bind_param('ii', $silver, $uid);
                 $give->execute();
@@ -393,7 +393,7 @@ class HeroItems
 
             } else {
                 $take = $this->db->prepare(
-                    "UPDATE " . TB_PREFIX . "hero SET silver = silver - ? WHERE uid = ? AND silver >= ? LIMIT 1"
+                    "UPDATE " . TB_PREFIX . "hero SET silver = silver - ? WHERE uid = ? AND silver >= ? ORDER BY silver DESC LIMIT 1"
                 );
                 $take->bind_param('iii', $silver, $uid, $silver);
                 $take->execute();
@@ -1180,7 +1180,7 @@ class HeroItems
             return true;
         }
         $stmt = $this->db->prepare(
-            "UPDATE " . TB_PREFIX . "hero SET silver = silver + ? WHERE uid = ? LIMIT 1"
+            "UPDATE " . TB_PREFIX . "hero SET silver = silver + ? WHERE uid = ? ORDER BY silver DESC LIMIT 1"
         );
         $stmt->bind_param('ii', $amount, $uid);
         $stmt->execute();
@@ -1202,7 +1202,7 @@ class HeroItems
         $stmt = $this->db->prepare(
             "UPDATE " . TB_PREFIX . "hero
                 SET silver = silver - ?
-              WHERE uid = ? AND silver >= ? LIMIT 1"
+              WHERE uid = ? AND silver >= ? ORDER BY silver DESC LIMIT 1"
         );
         $stmt->bind_param('iii', $amount, $uid, $amount);
         $stmt->execute();

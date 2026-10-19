@@ -27,6 +27,9 @@ if (!isset($session) || !is_object($session) || $session->uid <= 0) {
 if ((!defined('HERO_FROM_START') || HERO_FROM_START) && class_exists('Units')) {
     Units::createStarterHero($session->uid, (int)$village->wid, (int)$session->tribe, $session->username);
 }
+if (class_exists('Units')) {
+    Units::cleanupDuplicateHeroes($session->uid);
+}
 
 if (!isset($units) || !is_object($units)) {
     $units = isset($GLOBALS['units']) && is_object($GLOBALS['units']) ? $GLOBALS['units'] : new Units();
@@ -125,9 +128,9 @@ if ($hero_info) {
     // Navigation tabs (Hero, Items, Adventures, Auction)
     include_once("Templates/Build/37_t4nav.tpl");
 
-    // Revive check if hero is dead or currently reviving
-    $isDead = (is_array($hero_info) && (!empty($hero_info['dead']) || !empty($hero_info['inrevive'])))
-        || (!empty($heroes) && array_reduce($heroes, fn($c, $h) => $c || !empty($h['dead']) || !empty($h['inrevive']), false));
+    // Revive / Training check if hero is dead, currently reviving, or in training
+    $isDead = (is_array($hero_info) && (!empty($hero_info['dead']) || !empty($hero_info['inrevive']) || !empty($hero_info['intraining'])))
+        || (!empty($heroes) && array_reduce($heroes, fn($c, $h) => $c || !empty($h['dead']) || !empty($h['inrevive']) || !empty($h['intraining']), false));
 
     if ($t4tab === 'adventures') {
         include_once("Templates/Build/37_adventures.tpl");

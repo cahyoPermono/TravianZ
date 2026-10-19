@@ -180,7 +180,9 @@ $renderTrainRow = function ($unitID, $unitData, $unitName, $units_array, $bugOpt
 	return $row;
 };
 
-if ($count_hero < 3) {
+$maxHeroes = (defined('NEW_FUNCTIONS_HERO_T4') && NEW_FUNCTIONS_HERO_T4) ? 1 : 3;
+
+if ($count_hero < $maxHeroes) {
 
 	$output = "<table cellpadding=1 cellspacing=1 class=\"build_details\">
         <thead>
@@ -207,9 +209,10 @@ if ($count_hero < 3) {
 
 		// check for a valid unit value
 		if (in_array($_GET['train'], $validationArray)) {
-			if ($count_hero < 3) {
-				$unitID = $_GET['train'];
-				mysqli_query($database->dblink, "INSERT INTO " . TB_PREFIX . "hero (`uid`, `wref`, `regeneration`, `unit`, `name`, `level`, `points`, `experience`, `dead`, `health`, `attack`, `defence`, `attackbonus`, `defencebonus`, `trainingtime`, `autoregen`, `intraining`) VALUES (" . $database->escape($session->uid) . ", " . (int) $village->wid . ", 0, " . $unitID . ", '" . $database->escape($session->username) . "', 0, 5, 0, 0, 100, 0, 0, 0, 0, " . round((time() + ($unitData[$unitID]['time'] / SPEED) * 3)) . ", 50, 1)");
+			if ($count_hero < $maxHeroes) {
+				$unitID = (int) $_GET['train'];
+				$startSilver = (defined('NEW_FUNCTIONS_HERO_T4') && NEW_FUNCTIONS_HERO_T4) ? 100 : 0;
+				mysqli_query($database->dblink, "INSERT INTO " . TB_PREFIX . "hero (`uid`, `wref`, `regeneration`, `unit`, `name`, `level`, `points`, `experience`, `silver`, `dead`, `health`, `attack`, `defence`, `attackbonus`, `defencebonus`, `trainingtime`, `autoregen`, `intraining`) VALUES (" . $database->escape($session->uid) . ", " . (int) $village->wid . ", 0, " . $unitID . ", '" . $database->escape($session->username) . "', 0, 5, 0, " . $startSilver . ", 0, 100, 0, 0, 0, 0, " . round((time() + ($unitData[$unitID]['time'] / SPEED) * 3)) . ", 50, 1)");
 				mysqli_query($database->dblink, "UPDATE " . TB_PREFIX . "units SET `u$unitID` = `u$unitID` - 1 WHERE `vref` = " . (int) $village->wid);
 				mysqli_query($database->dblink, "
 					    UPDATE " . TB_PREFIX . "vdata
@@ -227,11 +230,8 @@ if ($count_hero < 3) {
 	}
 
 	echo $output;
-}
-// NOTE (pre-existing behavior, kept unchanged): if $count_hero >= 3,
-// $output is no longer created and no longer echoed - but the </table> below
-// is outside this if and is displayed unconditionally. In that case the file
-// generates an "orphan" </table>, without a corresponding <table>. This was also the case in
-// the original file.
 ?>
 </table>
+<?php
+}
+?>

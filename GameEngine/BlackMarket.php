@@ -64,14 +64,14 @@ class BlackMarket
         $db = self::db();
         if (!$db || $uid <= 0) return 0;
 
-        $stmt = @mysqli_prepare($db, "SELECT silver FROM `" . TB_PREFIX . "hero` WHERE uid = ? LIMIT 1");
+        $stmt = @mysqli_prepare($db, "SELECT MAX(silver) FROM `" . TB_PREFIX . "hero` WHERE uid = ?");
         if ($stmt) {
             mysqli_stmt_bind_param($stmt, 'i', $uid);
             mysqli_stmt_execute($stmt);
             mysqli_stmt_bind_result($stmt, $silver);
             $found = mysqli_stmt_fetch($stmt);
             mysqli_stmt_close($stmt);
-            return $found ? (int)$silver : 0;
+            return ($found && !is_null($silver)) ? (int)$silver : 0;
         }
         return 0;
     }
@@ -85,7 +85,7 @@ class BlackMarket
         $amount = (int)$amount;
         if (!$db || $uid <= 0 || $amount <= 0) return false;
 
-        $stmt = @mysqli_prepare($db, "UPDATE `" . TB_PREFIX . "hero` SET silver = silver - ? WHERE uid = ? AND silver >= ? LIMIT 1");
+        $stmt = @mysqli_prepare($db, "UPDATE `" . TB_PREFIX . "hero` SET silver = silver - ? WHERE uid = ? AND silver >= ? ORDER BY silver DESC LIMIT 1");
         if (!$stmt) return false;
 
         mysqli_stmt_bind_param($stmt, 'iii', $amount, $uid, $amount);
@@ -105,7 +105,7 @@ class BlackMarket
         $amount = (int)$amount;
         if (!$db || $uid <= 0 || $amount <= 0) return false;
 
-        $stmt = @mysqli_prepare($db, "UPDATE `" . TB_PREFIX . "hero` SET silver = silver + ? WHERE uid = ? LIMIT 1");
+        $stmt = @mysqli_prepare($db, "UPDATE `" . TB_PREFIX . "hero` SET silver = silver + ? WHERE uid = ? ORDER BY silver DESC LIMIT 1");
         if (!$stmt) return false;
 
         mysqli_stmt_bind_param($stmt, 'ii', $amount, $uid);
