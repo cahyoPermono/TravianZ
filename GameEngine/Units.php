@@ -1638,11 +1638,9 @@ class Units {
 			mysqli_query($database->dblink, "DELETE FROM " . TB_PREFIX . "hero WHERE heroid IN ($idList) AND uid = $uid");
 		}
 
-		// Reset in-memory cache if DatabaseHeroQueries class exists
-		if (class_exists('DatabaseHeroQueries')) {
-			DatabaseHeroQueries::$heroCache = [];
-			DatabaseHeroQueries::$heroFieldCache = [];
-			DatabaseHeroQueries::$heroVillageCache = [];
+		// Reset in-memory cache if Database instance exists
+		if (isset($database) && is_object($database) && method_exists($database, 'clearHeroCache')) {
+			$database->clearHeroCache();
 		}
 	}
 

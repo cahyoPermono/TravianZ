@@ -40,7 +40,8 @@
     <li><a href="manual.php?typ=3&amp;s=3">Infrastructure</a></li>
 </ul>
 
-<br>
+<li><a href="manual.php?typ=7&amp;s=1"><b>🏰 Ancient Bastion Event (Event Benteng Kuno)</b></a><br>Complete guide to the King of the Hill Ancient Bastion contest at coordinates (0|0), rules of conquest, 12-hour hold condition, and 3-day alliance buffs.</li><br>
+
 <?php if(NEW_FUNCTIONS_OASIS || NEW_FUNCTIONS_ALLIANCE_INVITATION || NEW_FUNCTIONS_EMBASSY_MECHANICS || NEW_FUNCTIONS_FORUM_POST_MESSAGE || NEW_FUNCTIONS_TRIBE_IMAGES || NEW_FUNCTIONS_MHS_IMAGES || NEW_FUNCTIONS_DISPLAY_ARTIFACT || NEW_FUNCTIONS_DISPLAY_WONDER || NEW_FUNCTIONS_VACATION || NEW_FUNCTIONS_DISPLAY_CATAPULT_TARGET || NEW_FUNCTIONS_MANUAL_NATURENATARS || NEW_FUNCTIONS_DISPLAY_LINKS || NEW_FUNCTIONS_MEDAL_3YEAR || NEW_FUNCTIONS_MEDAL_5YEAR || NEW_FUNCTIONS_MEDAL_10YEAR) { ?>
 <li><a href="manual.php?typ=13&amp;s=31">New features</a><br>These are new features that you will not find in the real version of the game Travian T3.6. Here you can get acquainted with all new features in more detail.</li><br>
 <?php } ?>

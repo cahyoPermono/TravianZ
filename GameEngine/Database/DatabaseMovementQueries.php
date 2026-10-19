@@ -621,8 +621,8 @@ trait DatabaseMovementQueries {
      * Used to modify prisoners through the inserted id
      * 
      * @param int $id The prisoner id where prisoners are in the database
-     * @param int $unit The type of the unit
-     * @param int $amount The amount of the unit you want to sum/subtract
+     * @param int|array $units The type of the unit or array of units
+     * @param int|array $amount The amount of the unit or array of amounts you want to sum/subtract
      * @param int $mode 0 for subtracting the inserted amount, 1 for adding it
      * @return bool Returns false on failure and true on success 
      */

@@ -566,6 +566,11 @@ $secondsUntilStart = $nextStartTime ? max(0, $nextStartTime - $now) : 0;
 						<div class="bastion-hero-subtitle">
 							Pusat Sumbu Peta <b>(0|0)</b> — Arena Perebutan Kedaulatan Aliansi. Pertahankan benteng selama <b>12 Jam</b> berturut-turut untuk memenangkan Berkah Kedaulatan seluruh kerajaan!
 						</div>
+						<div style="margin-top: 8px;">
+							<a href="manual.php?typ=7&amp;s=1" target="_blank" style="display:inline-flex; align-items:center; gap:5px; background:rgba(255,255,255,0.2); color:#fff; border:1px solid rgba(255,255,255,0.35); padding:4px 10px; border-radius:4px; font-size:11px; font-weight:bold; text-decoration:none;">
+								📖 Pelajari Detail &amp; Aturan Event di Buku Manual &raquo;
+							</a>
+						</div>
 					</div>
 				</div>
 

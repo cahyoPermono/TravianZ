@@ -17,6 +17,7 @@
 	<li><a href="manual.php?typ=11&amp;gid=24"><?php echo MANUAL_NF_T_24; ?></a> <?php echo NEW_FUNCTIONS_MEDAL_5YEAR ? "<b><font color='Green'>".MANUAL_NF_ENABLED."</font></b>" : "<b><font color='Red'>".MANUAL_NF_DISABLED."</font></b>"; ?></li>
 	<li><a href="manual.php?typ=11&amp;gid=25"><?php echo MANUAL_NF_T_25; ?></a> <?php echo NEW_FUNCTIONS_MEDAL_10YEAR ? "<b><font color='Green'>".MANUAL_NF_ENABLED."</font></b>" : "<b><font color='Red'>".MANUAL_NF_DISABLED."</font></b>"; ?></li>
 	<li><a href="manual.php?typ=11&amp;gid=26"><?php echo MANUAL_NF_T_26; ?></a> <?php echo NEW_FUNCTIONS_SPECIAL_MEDALS_SYSTEM ? "<b><font color='Green'>".MANUAL_NF_ENABLED."</font></b>" : "<b><font color='Red'>".MANUAL_NF_DISABLED."</font></b>"; ?></li>
+	<li><a href="manual.php?typ=7&amp;s=1">🏰 Event Benteng Kuno (The Ancient Bastion 0|0)</a> <b><font color='Green'>Aktif</font></b></li>
 </ul>
 
 <map id="nav" name="nav">

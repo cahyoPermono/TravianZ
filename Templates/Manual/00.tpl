@@ -40,7 +40,8 @@
     <li><a href="manual.php?typ=3&amp;s=3"><?php echo INFRASTRUCTURE; ?></a></li>
 </ul>
 
-<br>
+<li><a href="manual.php?typ=7&amp;s=1"><b>🏰 Event Benteng Kuno (The Ancient Bastion)</b></a><br>Panduan lengkap event perebutan Benteng Kuno di pusat peta (0|0), aturan main King of the Hill, syarat kemenangan bertahan 12 jam, dan berkah aliansi 3 hari.</li><br>
+
 <?php if(NEW_FUNCTIONS_OASIS || NEW_FUNCTIONS_ALLIANCE_INVITATION || NEW_FUNCTIONS_EMBASSY_MECHANICS || NEW_FUNCTIONS_FORUM_POST_MESSAGE || NEW_FUNCTIONS_TRIBE_IMAGES || NEW_FUNCTIONS_MHS_IMAGES || NEW_FUNCTIONS_DISPLAY_ARTIFACT || NEW_FUNCTIONS_DISPLAY_WONDER || NEW_FUNCTIONS_VACATION || NEW_FUNCTIONS_DISPLAY_CATAPULT_TARGET || NEW_FUNCTIONS_MANUAL_NATURENATARS || NEW_FUNCTIONS_DISPLAY_LINKS || NEW_FUNCTIONS_MEDAL_3YEAR || NEW_FUNCTIONS_MEDAL_5YEAR || NEW_FUNCTIONS_MEDAL_10YEAR) { ?>
 <li><a href="manual.php?typ=13&amp;s=31"><?php echo NEW_FEATURES; ?></a><br><?php echo MANUAL_NEW_FEATURES_DESC; ?></li><br>
 <?php } ?>

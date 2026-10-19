@@ -424,6 +424,9 @@ echo ' '.$coords;
 <tr><td>
     <a href="bastion.php" style="color: #b91c1c; font-weight: bold;">&raquo; 🏰 Masuk ke Balai Benteng Kuno (Status &amp; Buff Aliansi)</a>
 </td></tr>
+<tr><td>
+    <a href="manual.php?typ=7&amp;s=1" target="_blank" style="color: #4f46e5; font-weight: bold;">&raquo; 📖 Panduan Lengkap Event Benteng Kuno (Buku Manual)</a>
+</td></tr>
 <tr><td class="none">
     <?php if ($isBActive) { ?>
         <?php if (!empty($village->resarray['f39'])) { ?>

@@ -48,13 +48,18 @@ tz_load_language(LANG);
 	<body class="manual">
 <?php
 
-if (isset($_GET['s']) && !ctype_digit((string)$_GET['s'])) {
+$isBastion = (isset($_GET['typ']) && ((string)$_GET['typ'] === '7' || (string)$_GET['typ'] === 'bastion')) || (isset($_GET['s']) && (string)$_GET['s'] === 'bastion');
+
+if (isset($_GET['s']) && !ctype_digit((string)$_GET['s']) && $_GET['s'] !== 'bastion') {
 	$_GET['s'] = "0";
 }
-if (isset($_GET['typ']) && !ctype_digit((string)$_GET['typ'])) {
+if (isset($_GET['typ']) && !ctype_digit((string)$_GET['typ']) && $_GET['typ'] !== 'bastion') {
 	$_GET['typ'] = null;
 }
-if(!isset($_GET['typ']) && !isset($_GET['s'])) {
+if ($isBastion) {
+	include("Templates/Manual/bastion.tpl");
+}
+else if(!isset($_GET['typ']) && !isset($_GET['s'])) {
 	include("Templates/Manual/00.tpl");
 }
 else if (!isset($_GET['typ']) && $_GET['s'] == 1) {
