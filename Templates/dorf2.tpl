@@ -44,6 +44,199 @@ if (!function_exists('getFieldData')) {
 
 <?php
 /**
+ * Detect all active building processes (Construction, Training, Research, Smithy, Armoury, Celebration, Demolition)
+ */
+$activeBuildings = array();
+$gidToFields = array();
+
+// Map field slots (19-38) to building types (gid)
+for ($f = 19; $f <= 38; $f++) {
+    $t = isset($village->resarray['f'.$f.'t']) ? (int)$village->resarray['f'.$f.'t'] : 0;
+    if ($t > 0) {
+        if (!isset($gidToFields[$t])) {
+            $gidToFields[$t] = array();
+        }
+        $gidToFields[$t][] = $f;
+    }
+}
+$gidToFields[16] = array(39); // Rally Point
+if (isset($village->resarray['f40t']) && (int)$village->resarray['f40t'] > 0) {
+    $gidToFields[(int)$village->resarray['f40t']] = array(40);
+}
+if (isset($village->resarray['f99t']) && (int)$village->resarray['f99t'] == 40) {
+    $gidToFields[40] = array(99); // World Wonder
+}
+
+// 1. Town Hall Celebrations (GID 24)
+$celTime = isset($village->currentcel) ? (int)$village->currentcel : 0;
+if ($celTime <= time() && isset($village->wid) && isset($database)) {
+    $celTime = (int)$database->getVillageField($village->wid, 'celebration');
+}
+if ($celTime > time() && !empty($gidToFields[24])) {
+    foreach ($gidToFields[24] as $f) {
+        $activeBuildings[$f] = array(
+            'class' => 'anim-celebrating',
+            'label' => defined('CELEBRATIONS') ? CELEBRATIONS . '...' : 'Holding celebration...',
+            'icon'  => '🎉'
+        );
+    }
+}
+
+// 2. Academy Research & Smithy / Armoury Upgrades
+if (!empty($village->researching) && is_array($village->researching)) {
+    foreach ($village->researching as $res) {
+        $prefix = substr($res['tech'], 0, 1);
+        if ($prefix === 't' && !empty($gidToFields[22])) { // Academy
+            foreach ($gidToFields[22] as $f) {
+                $activeBuildings[$f] = array(
+                    'class' => 'anim-researching',
+                    'label' => defined('RESEARCH') ? RESEARCH . '...' : 'Researching...',
+                    'icon'  => '📚'
+                );
+            }
+        } elseif ($prefix === 'b' && !empty($gidToFields[12])) { // Blacksmith
+            foreach ($gidToFields[12] as $f) {
+                $activeBuildings[$f] = array(
+                    'class' => 'anim-smithing',
+                    'label' => defined('UPGRADING') ? UPGRADING . ' (Weapon)...' : 'Forging weapons...',
+                    'icon'  => '🔥'
+                );
+            }
+        } elseif ($prefix === 'a' && !empty($gidToFields[13])) { // Armoury
+            foreach ($gidToFields[13] as $f) {
+                $activeBuildings[$f] = array(
+                    'class' => 'anim-armoring',
+                    'label' => defined('UPGRADING') ? UPGRADING . ' (Armor)...' : 'Forging armor...',
+                    'icon'  => '🛡️'
+                );
+            }
+        }
+    }
+}
+
+// 3. Troop Training
+$trainQueue = (!empty($village->wid) && isset($database)) ? $database->getTraining($village->wid) : array();
+if (!empty($trainQueue) && is_array($trainQueue)) {
+    global $unitsbytype;
+    if (!isset($unitsbytype)) {
+        include_once("GameEngine/Data/unitdata.php");
+    }
+    $ownerTribe = (int)($session->tribe ?? 0);
+    foreach ($trainQueue as $train) {
+        $unit = (int)$train['unit'];
+        $isGreat = $unit > 1000;
+        $baseUnit = $isGreat ? $unit - 1000 : $unit;
+
+        $targetGid = 0;
+        $actLabel = defined('TRAINING') ? TRAINING . '...' : 'Training troops...';
+        $actIcon = '⚔️';
+
+        if ($baseUnit == 99 && $ownerTribe == 3) {
+            $targetGid = 36; // Trapper
+            $actIcon = '🪤';
+            $actLabel = 'Setting traps...';
+        } elseif (isset($unitsbytype['expansion']) && in_array($baseUnit, $unitsbytype['expansion'])) {
+            if (!empty($gidToFields[25])) $targetGid = 25;
+            elseif (!empty($gidToFields[26])) $targetGid = 26;
+            elseif (!empty($gidToFields[44])) $targetGid = 44;
+            $actIcon = '👑';
+            $actLabel = 'Training settlers/leaders...';
+        } elseif (isset($unitsbytype['siege']) && in_array($baseUnit, $unitsbytype['siege'])) {
+            $targetGid = $isGreat ? 49 : 21;
+            $actIcon = '⚙️';
+            $actLabel = 'Building siege engines...';
+        } elseif (isset($unitsbytype['cavalry']) && in_array($baseUnit, $unitsbytype['cavalry'])) {
+            $targetGid = $isGreat ? 30 : 20;
+            $actIcon = '🐎';
+            $actLabel = 'Training cavalry...';
+        } else {
+            $targetGid = $isGreat ? 29 : 19;
+            $actIcon = '⚔️';
+            $actLabel = 'Training infantry...';
+        }
+
+        if ($targetGid > 0 && !empty($gidToFields[$targetGid])) {
+            foreach ($gidToFields[$targetGid] as $f) {
+                $activeBuildings[$f] = array(
+                    'class' => 'anim-training',
+                    'label' => $actLabel,
+                    'icon'  => $actIcon
+                );
+            }
+        }
+    }
+}
+
+// 4. Hospital Healing
+if (isset($database) && method_exists($database, 'getHealing') && !empty($village->wid)) {
+    $healingQueue = $database->getHealing($village->wid);
+    if (!empty($healingQueue)) {
+        foreach (array(46, 48) as $hGid) {
+            if (!empty($gidToFields[$hGid])) {
+                foreach ($gidToFields[$hGid] as $f) {
+                    $activeBuildings[$f] = array(
+                        'class' => 'anim-training',
+                        'label' => 'Healing wounded troops...',
+                        'icon'  => '🩹'
+                    );
+                }
+            }
+        }
+    }
+}
+
+// 5. Hero Reviving / Training
+if (!empty($gidToFields[37]) && isset($session->uid, $database) && method_exists($database, 'getHero')) {
+    $heroData = $database->getHero($session->uid, 0, true);
+    if (!empty($heroData)) {
+        $h = isset($heroData['uid']) ? $heroData : (isset($heroData[0]) ? $heroData[0] : null);
+        if ($h && (int)$h['wref'] === (int)$village->wid && ((int)$h['inrevive'] === 1 || (int)($h['intraining'] ?? 0) === 1) && (int)$h['trainingtime'] > time()) {
+            foreach ($gidToFields[37] as $f) {
+                $activeBuildings[$f] = array(
+                    'class' => 'anim-training',
+                    'label' => 'Reviving hero...',
+                    'icon'  => '👑'
+                );
+            }
+        }
+    }
+}
+
+// 6. Demolition
+if (isset($database) && method_exists($database, 'getDemolition') && !empty($village->wid)) {
+    $demolition = $database->getDemolition($village->wid);
+    if (!empty($demolition) && isset($demolition[0]['buildnumber']) && (int)$demolition[0]['buildnumber'] > 0) {
+        $demolishedField = (int)$demolition[0]['buildnumber'];
+        $activeBuildings[$demolishedField] = array(
+            'class' => 'anim-demolishing',
+            'label' => defined('DEMOLITION') ? DEMOLITION . '...' : 'Demolishing...',
+            'icon'  => '💥'
+        );
+        if (!empty($gidToFields[15])) {
+            foreach ($gidToFields[15] as $f) {
+                $activeBuildings[$f] = array(
+                    'class' => 'anim-constructing',
+                    'label' => defined('DEMOLITION') ? DEMOLITION . '...' : 'Overseeing demolition...',
+                    'icon'  => '🔨'
+                );
+            }
+        }
+    }
+}
+
+// 7. Construction / Upgrade in Progress (HIGHEST PRIORITY)
+if (!empty($building->buildArray) && is_array($building->buildArray)) {
+    foreach ($building->buildArray as $job) {
+        $fieldId = (int)$job['field'];
+        $activeBuildings[$fieldId] = array(
+            'class' => 'anim-constructing',
+            'label' => defined('BUILDING_UPGRADING') ? trim(BUILDING_UPGRADING, ':') . '...' : 'Upgrading...',
+            'icon'  => '🔨'
+        );
+    }
+}
+
+/**
  * Determină titlul zidului
  */
 if ($building->walling()) {
@@ -64,6 +257,10 @@ if ($building->walling()) {
                   " Level " .
                   (int)$village->resarray['f40'];
     }
+}
+
+if (isset($activeBuildings[40])) {
+    $wtitle .= " (" . $activeBuildings[40]['label'] . ")";
 }
 ?>
 
@@ -146,6 +343,10 @@ for ($t = 19; $t <= 39; $t++) {
                 $title = Building::procResType(40);
             }
 
+            if (isset($activeBuildings[99])) {
+                $title .= " (" . $activeBuildings[99]['label'] . ")";
+            }
+
             echo '<area href="build.php?id=99"
                         title="' . safeHTML($title) . '"
                         coords="190,170,80"
@@ -171,6 +372,10 @@ for ($t = 19; $t <= 39; $t++) {
         if ($t == 39 && $field['level'] == 0) {
             $title = "Rally Point building site";
         }
+    }
+
+    if (isset($activeBuildings[$t])) {
+        $title .= " (" . $activeBuildings[$t]['label'] . ")";
     }
 
     echo '<area href="build.php?id=' . $t . '"
@@ -228,7 +433,10 @@ if ($building->walling()) {
 
 <!-- ===================== VILLAGE MAP ===================== -->
 
-<div id="village_map" class="<?php echo safeHTML($vmapc); ?>">
+<?php
+$animDisabledClass = (isset($_COOKIE['tz_no_anim']) && $_COOKIE['tz_no_anim'] === '1') ? ' anim-disabled' : '';
+?>
+<div id="village_map" class="<?php echo safeHTML($vmapc . $animDisabledClass); ?>">
 
 <?php
 
@@ -284,8 +492,14 @@ for ($i = 1; $i <= 20; $i++) {
         }
     }
 
+    $animClass = '';
+    if (isset($activeBuildings[$fieldId])) {
+        $animClass = ' ' . $activeBuildings[$fieldId]['class'];
+        $text .= ' (' . $activeBuildings[$fieldId]['label'] . ')';
+    }
+
     echo '<img src="img/x.gif"
-               class="building d' . $i . ' ' . safeHTML($img) . '"
+               class="building d' . $i . ' ' . safeHTML($img) . $animClass . '"
                alt="' . safeHTML($text) . '" />';
 
     /**
@@ -330,13 +544,19 @@ if (
 /**
  * Rally Point
  */
+$rpAnimClass = isset($activeBuildings[39]) ? ' ' . $activeBuildings[39]['class'] : '';
+$rpText = 'Rally Point Level ' . (int)$village->resarray['f39'];
+if (isset($activeBuildings[39])) {
+    $rpText .= ' (' . $activeBuildings[39]['label'] . ')';
+}
+
 if ((int)$village->resarray['f39'] == 0) {
 
     if ($building->rallying()) {
 
         echo '<img src="img/x.gif"
-                   class="dx1 g16b"
-                   alt="Rally Point Level ' . (int)$village->resarray['f39'] . '" />';
+                   class="dx1 g16b' . $rpAnimClass . '"
+                   alt="' . safeHTML($rpText) . '" />';
 
     } else {
 
@@ -348,8 +568,8 @@ if ((int)$village->resarray['f39'] == 0) {
 } else {
 
     echo '<img src="img/x.gif"
-               class="dx1 g16"
-               alt="Rally Point Level ' . (int)$village->resarray['f39'] . '" />';
+               class="dx1 g16' . $rpAnimClass . '"
+               alt="' . safeHTML($rpText) . '" />';
 }
 ?>
 
@@ -378,32 +598,67 @@ if (
      */
     include_once('GameEngine/Data/ww_tribe.php');
     $wwClass = tz_ww_tribe_class($village->owner_tribe ?? $session->tribe ?? 0);
+    $wwAnimClass = isset($activeBuildings[99]) ? ' ' . $activeBuildings[99]['class'] : '';
+    $wwText = 'Worldwonder';
+    if (isset($activeBuildings[99])) {
+        $wwText .= ' (' . $activeBuildings[99]['label'] . ')';
+    }
 
     if ($wwLevel >= 0 && $wwLevel <= 19) {
-        echo '<img class="ww g40' . $wwClass . '" src="img/x.gif" alt="Worldwonder">';
+        echo '<img class="ww g40' . $wwClass . $wwAnimClass . '" src="img/x.gif" alt="' . safeHTML($wwText) . '">';
     }
 
     if ($wwLevel >= 20 && $wwLevel <= 39) {
-        echo '<img class="ww g40_1' . $wwClass . '" src="img/x.gif" alt="Worldwonder">';
+        echo '<img class="ww g40_1' . $wwClass . $wwAnimClass . '" src="img/x.gif" alt="' . safeHTML($wwText) . '">';
     }
 
     if ($wwLevel >= 40 && $wwLevel <= 59) {
-        echo '<img class="ww g40_2' . $wwClass . '" src="img/x.gif" alt="Worldwonder">';
+        echo '<img class="ww g40_2' . $wwClass . $wwAnimClass . '" src="img/x.gif" alt="' . safeHTML($wwText) . '">';
     }
 
     if ($wwLevel >= 60 && $wwLevel <= 79) {
-        echo '<img class="ww g40_3' . $wwClass . '" src="img/x.gif" alt="Worldwonder">';
+        echo '<img class="ww g40_3' . $wwClass . $wwAnimClass . '" src="img/x.gif" alt="' . safeHTML($wwText) . '">';
     }
 
     if ($wwLevel >= 80 && $wwLevel <= 99) {
-        echo '<img class="ww g40_4' . $wwClass . '" src="img/x.gif" alt="Worldwonder">';
+        echo '<img class="ww g40_4' . $wwClass . $wwAnimClass . '" src="img/x.gif" alt="' . safeHTML($wwText) . '">';
     }
 
     if ($wwLevel == 100) {
-        echo '<img class="ww g40_5' . $wwClass . '" src="img/x.gif" alt="Worldwonder">';
+        echo '<img class="ww g40_5' . $wwClass . $wwAnimClass . '" src="img/x.gif" alt="' . safeHTML($wwText) . '">';
     }
 }
 ?>
+
+    <!-- ===================== BUILDING ACTIVITY BADGES ===================== -->
+    <div id="building_activities">
+<?php
+for ($i = 1; $i <= 20; $i++) {
+    $fieldId = $i + 18;
+    if ($village->natar == 1 && in_array($fieldId, $natarVillageSkip)) {
+        continue;
+    }
+    if (isset($activeBuildings[$fieldId])) {
+        $act = $activeBuildings[$fieldId];
+        echo '<div class="bld-activity d' . $i . ' ' . safeHTML($act['class']) . '" title="' . safeHTML($act['label']) . '">'
+            . '<span class="bld-badge"><span class="badge-icon">' . $act['icon'] . '</span></span>'
+            . '</div>';
+    }
+}
+if (isset($activeBuildings[39])) {
+    $act = $activeBuildings[39];
+    echo '<div class="bld-activity dx1 ' . safeHTML($act['class']) . '" title="' . safeHTML($act['label']) . '">'
+        . '<span class="bld-badge"><span class="badge-icon">' . $act['icon'] . '</span></span>'
+        . '</div>';
+}
+if (isset($activeBuildings[99])) {
+    $act = $activeBuildings[99];
+    echo '<div class="bld-activity d40 ' . safeHTML($act['class']) . '" title="' . safeHTML($act['label']) . '">'
+        . '<span class="bld-badge"><span class="badge-icon">' . $act['icon'] . '</span></span>'
+        . '</div>';
+}
+?>
+    </div>
 
     <!-- ===================== LEVELS ===================== -->
 
@@ -478,3 +733,28 @@ if ((int)$village->resarray['f99t'] != 0) {
      }
      ?>
      onclick="vil_levels_toggle()" />
+
+<!-- Toggle building animations -->
+<div id="anim_switch"
+     class="<?php echo (isset($_COOKIE['tz_no_anim']) && $_COOKIE['tz_no_anim'] === '1') ? 'off' : 'on'; ?>"
+     title="Toggle Building Animations"
+     onclick="vil_anim_toggle(this)">
+    <span class="anim-icon">&#9889;</span>
+</div>
+<script type="text/javascript">
+function vil_anim_toggle(btn) {
+    var vmap = document.getElementById('village_map');
+    if (!vmap) return;
+    var isDisabled = vmap.classList.toggle('anim-disabled');
+    if (btn) {
+        if (isDisabled) {
+            btn.classList.remove('on');
+            btn.classList.add('off');
+        } else {
+            btn.classList.remove('off');
+            btn.classList.add('on');
+        }
+    }
+    document.cookie = 'tz_no_anim=' + (isDisabled ? '1' : '0') + '; path=/; max-age=31536000';
+}
+</script>

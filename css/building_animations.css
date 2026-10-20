@@ -1,0 +1,433 @@
+/* ==========================================================================
+   TRAVIANZ - VILLAGE VIEW (DORF2) BUILDING ACTIVITY ANIMATIONS
+   --------------------------------------------------------------------------
+   Provides smooth, GPU-accelerated CSS animations for buildings that are:
+   - Under construction / upgrade (All buildings)
+   - Forging weapons in Blacksmith (Smithy)
+   - Upgrading armor in Armoury
+   - Training troops / cavalry / siege / expansion / trapper / hospital
+   - Conducting unit / technology research in Academy
+   - Holding celebrations in Town Hall
+   - Reviving / training heroes in Hero's Mansion
+   - Undergoing demolition
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Base Performance & Acceleration Setup
+   -------------------------------------------------------------------------- */
+div.village2 div#village_map img.building[class*="anim-"],
+div.village2 div#village_map img.dx1[class*="anim-"],
+div.village2 div#village_map img.ww[class*="anim-"] {
+    transform-origin: 50% 85%;
+    will-change: transform, filter;
+    backface-visibility: hidden;
+}
+
+/* --------------------------------------------------------------------------
+   2. Building Graphic Keyframe Animations
+   -------------------------------------------------------------------------- */
+
+/* --- 2.1 CONSTRUCTING / UPGRADING (Scaffolding pulse & building bounce) --- */
+@keyframes tz-constructing-pulse {
+    0%, 100% {
+        transform: translateY(0);
+        filter: brightness(1) drop-shadow(0 0 2px rgba(255, 185, 45, 0.3));
+    }
+    50% {
+        transform: translateY(-2px);
+        filter: brightness(1.18) drop-shadow(0 0 9px rgba(255, 185, 45, 0.85));
+    }
+}
+
+div.village2 div#village_map img.anim-constructing {
+    animation: tz-constructing-pulse 1.8s ease-in-out infinite;
+}
+
+/* --- 2.2 BLACKSMITH / SMITHY (Fire flicker & forge strike vibration) --- */
+@keyframes tz-forge-flicker {
+    0%, 100% {
+        transform: translateY(0) rotate(0deg);
+        filter: brightness(1) drop-shadow(0 0 3px rgba(255, 80, 0, 0.45));
+    }
+    18% {
+        transform: translateY(-1px) rotate(-0.6deg);
+        filter: brightness(1.28) drop-shadow(0 0 10px rgba(255, 110, 15, 0.9));
+    }
+    38% {
+        transform: translateY(0) rotate(0.4deg);
+        filter: brightness(1.12) drop-shadow(0 0 5px rgba(255, 60, 10, 0.55));
+    }
+    60% {
+        transform: translateY(-1.5px) rotate(-0.3deg);
+        filter: brightness(1.36) drop-shadow(0 0 12px rgba(255, 140, 25, 0.98));
+    }
+    82% {
+        transform: translateY(0) rotate(0deg);
+        filter: brightness(1.08) drop-shadow(0 0 4px rgba(255, 90, 15, 0.6));
+    }
+}
+
+div.village2 div#village_map img.anim-smithing {
+    animation: tz-forge-flicker 1.4s ease-in-out infinite;
+}
+
+/* --- 2.3 ARMOURY (Steel hammer shine & metallic shimmer) --- */
+@keyframes tz-armour-glint {
+    0%, 100% {
+        transform: scale(1);
+        filter: brightness(1) drop-shadow(0 0 2px rgba(160, 190, 240, 0.4));
+    }
+    30% {
+        transform: scale(1.018);
+        filter: brightness(1.26) drop-shadow(0 0 10px rgba(190, 220, 255, 0.88));
+    }
+    50% {
+        transform: scale(1);
+        filter: brightness(1.05) drop-shadow(0 0 4px rgba(140, 170, 220, 0.5));
+    }
+    72% {
+        transform: scale(1.012);
+        filter: brightness(1.22) drop-shadow(0 0 8px rgba(180, 210, 255, 0.78));
+    }
+}
+
+div.village2 div#village_map img.anim-armoring {
+    animation: tz-armour-glint 1.6s ease-in-out infinite;
+}
+
+/* --- 2.4 MILITARY TRAINING (Barracks / Stables / Workshop drill cadence) --- */
+@keyframes tz-drill-marching {
+    0%, 100% {
+        transform: translateX(0) translateY(0);
+        filter: drop-shadow(0 0 3px rgba(210, 40, 40, 0.45));
+    }
+    25% {
+        transform: translateX(-1px) translateY(-1.2px);
+        filter: drop-shadow(0 0 8px rgba(230, 50, 50, 0.8));
+    }
+    50% {
+        transform: translateX(0) translateY(0);
+        filter: drop-shadow(0 0 4px rgba(200, 30, 30, 0.55));
+    }
+    75% {
+        transform: translateX(1px) translateY(-1.2px);
+        filter: drop-shadow(0 0 8px rgba(230, 50, 50, 0.8));
+    }
+}
+
+div.village2 div#village_map img.anim-training {
+    animation: tz-drill-marching 1.1s ease-in-out infinite;
+}
+
+/* --- 2.5 ACADEMY RESEARCH (Arcane discovery & insight cyan pulse) --- */
+@keyframes tz-arcane-pulse {
+    0%, 100% {
+        transform: translateY(0);
+        filter: brightness(1) drop-shadow(0 0 3px rgba(0, 160, 255, 0.35));
+    }
+    50% {
+        transform: translateY(-2px);
+        filter: brightness(1.24) drop-shadow(0 0 12px rgba(0, 190, 255, 0.9));
+    }
+}
+
+div.village2 div#village_map img.anim-researching {
+    animation: tz-arcane-pulse 2.2s ease-in-out infinite;
+}
+
+/* --- 2.6 TOWN HALL CELEBRATION (Jubilee golden shimmer & cheer bounce) --- */
+@keyframes tz-festival-cheer {
+    0%, 100% {
+        transform: scale(1) translateY(0);
+        filter: brightness(1) drop-shadow(0 0 3px rgba(255, 215, 0, 0.4));
+    }
+    25% {
+        transform: scale(1.02) translateY(-2px) rotate(-0.5deg);
+        filter: brightness(1.22) drop-shadow(0 0 9px rgba(255, 190, 0, 0.85));
+    }
+    50% {
+        transform: scale(1) translateY(0);
+        filter: brightness(1.1) drop-shadow(0 0 5px rgba(255, 230, 80, 0.65));
+    }
+    75% {
+        transform: scale(1.02) translateY(-2px) rotate(0.5deg);
+        filter: brightness(1.26) drop-shadow(0 0 10px rgba(255, 160, 0, 0.9));
+    }
+}
+
+div.village2 div#village_map img.anim-celebrating {
+    animation: tz-festival-cheer 1.6s ease-in-out infinite;
+}
+
+/* --- 2.7 DEMOLITION (Tremor, rubble dust & quiver) --- */
+@keyframes tz-demolish-tremor {
+    0%, 100% {
+        transform: translate(0, 0);
+        filter: brightness(0.95);
+    }
+    20% {
+        transform: translate(-1.5px, 1px);
+        filter: brightness(1.1) drop-shadow(0 0 6px rgba(220, 100, 50, 0.75));
+    }
+    40% {
+        transform: translate(1px, -1px);
+        filter: brightness(0.95);
+    }
+    60% {
+        transform: translate(-1px, -1px);
+        filter: brightness(1.14) drop-shadow(0 0 8px rgba(235, 120, 60, 0.85));
+    }
+    80% {
+        transform: translate(1.5px, 0.5px);
+        filter: brightness(0.95);
+    }
+}
+
+div.village2 div#village_map img.anim-demolishing {
+    animation: tz-demolish-tremor 0.7s ease-in-out infinite;
+}
+
+
+/* --------------------------------------------------------------------------
+   3. Floating Activity Badges Layer
+   -------------------------------------------------------------------------- */
+
+div.village2 div#village_map #building_activities {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none; /* Mouse events pass straight to imagemap below! */
+    z-index: 105;
+}
+
+div.village2 div#village_map .bld-activity {
+    position: absolute;
+    width: 75px;
+    height: 100px;
+    pointer-events: none;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+div.village2 div#village_map .bld-activity.dx1 {
+    width: 69px;
+    height: 120px;
+}
+
+div.village2 div#village_map .bld-activity.d40 {
+    width: 214px;
+}
+
+/* Badge container */
+.bld-badge {
+    position: relative;
+    top: -12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(18, 20, 24, 0.88);
+    border: 1.5px solid rgba(255, 255, 255, 0.85);
+    box-shadow: 0 2px 7px rgba(0, 0, 0, 0.5);
+    animation: tz-badge-float 2s ease-in-out infinite;
+    cursor: default;
+}
+
+.bld-badge .badge-icon {
+    font-size: 13px;
+    line-height: 1;
+    display: inline-block;
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5));
+}
+
+@keyframes tz-badge-float {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-4px);
+    }
+}
+
+/* Badge color themes */
+.bld-activity.anim-constructing .bld-badge {
+    border-color: #f5b025;
+    box-shadow: 0 0 9px rgba(245, 176, 37, 0.85);
+    background: radial-gradient(circle, rgba(130, 85, 0, 0.95), rgba(28, 20, 5, 0.96));
+}
+
+.bld-activity.anim-smithing .bld-badge {
+    border-color: #ff6a00;
+    box-shadow: 0 0 10px rgba(255, 106, 0, 0.9);
+    background: radial-gradient(circle, rgba(160, 45, 0, 0.95), rgba(35, 12, 0, 0.96));
+}
+
+.bld-activity.anim-armoring .bld-badge {
+    border-color: #8bb8e8;
+    box-shadow: 0 0 9px rgba(139, 184, 232, 0.85);
+    background: radial-gradient(circle, rgba(40, 75, 130, 0.95), rgba(10, 22, 42, 0.96));
+}
+
+.bld-activity.anim-training .bld-badge {
+    border-color: #e63946;
+    box-shadow: 0 0 9px rgba(230, 57, 70, 0.85);
+    background: radial-gradient(circle, rgba(150, 25, 35, 0.95), rgba(32, 6, 12, 0.96));
+}
+
+.bld-activity.anim-researching .bld-badge {
+    border-color: #00b4d8;
+    box-shadow: 0 0 10px rgba(0, 180, 216, 0.9);
+    background: radial-gradient(circle, rgba(0, 90, 150, 0.95), rgba(0, 22, 45, 0.96));
+}
+
+.bld-activity.anim-celebrating .bld-badge {
+    border-color: #ffd166;
+    box-shadow: 0 0 10px rgba(255, 209, 102, 0.9);
+    background: radial-gradient(circle, rgba(170, 125, 0, 0.95), rgba(35, 28, 5, 0.96));
+}
+
+.bld-activity.anim-demolishing .bld-badge {
+    border-color: #e76f51;
+    box-shadow: 0 0 8px rgba(231, 111, 81, 0.85);
+    background: radial-gradient(circle, rgba(145, 55, 35, 0.95), rgba(38, 16, 10, 0.96));
+}
+
+/* Micro-animations inside badges */
+.bld-activity.anim-constructing .badge-icon {
+    animation: tz-hammer-swing 1.2s ease-in-out infinite;
+    transform-origin: 70% 70%;
+}
+
+@keyframes tz-hammer-swing {
+    0%, 100% {
+        transform: rotate(0deg);
+    }
+    30% {
+        transform: rotate(-25deg);
+    }
+    50% {
+        transform: rotate(15deg);
+    }
+}
+
+.bld-activity.anim-smithing .badge-icon {
+    animation: tz-fire-dance 0.9s ease-in-out infinite alternate;
+}
+
+@keyframes tz-fire-dance {
+    0% {
+        transform: scale(0.95) rotate(-3deg);
+        filter: drop-shadow(0 0 2px #ff4500);
+    }
+    100% {
+        transform: scale(1.15) rotate(3deg);
+        filter: drop-shadow(0 0 6px #ffa500);
+    }
+}
+
+.bld-activity.anim-training .badge-icon {
+    animation: tz-swords-clash 1.3s ease-in-out infinite;
+}
+
+@keyframes tz-swords-clash {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.2);
+    }
+}
+
+.bld-activity.anim-researching .badge-icon {
+    animation: tz-sparkle-spin 2.4s ease-in-out infinite;
+}
+
+@keyframes tz-sparkle-spin {
+    0%, 100% {
+        transform: rotate(0deg) scale(1);
+    }
+    50% {
+        transform: rotate(8deg) scale(1.15);
+    }
+}
+
+
+/* --------------------------------------------------------------------------
+   4. Animation Toggle Switch Button
+   -------------------------------------------------------------------------- */
+
+div.village2 #anim_switch {
+    position: absolute;
+    left: 474px;
+    top: 443px;
+    width: 20px;
+    height: 17px;
+    cursor: pointer;
+    z-index: 500;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.75);
+    border: 1px solid #717171;
+    font-size: 11px;
+    line-height: 1;
+    transition: all 0.2s ease;
+    user-select: none;
+    box-sizing: border-box;
+}
+
+div.village2 #anim_switch:hover {
+    background: #ffffff;
+    box-shadow: 0 0 6px rgba(255, 185, 45, 0.85);
+    border-color: #cca020;
+}
+
+div.village2 #anim_switch.on .anim-icon {
+    color: #e69500;
+    filter: drop-shadow(0 0 2px rgba(230, 150, 0, 0.8));
+}
+
+div.village2 #anim_switch.off {
+    opacity: 0.45;
+    background: #dedede;
+    border-color: #999;
+}
+
+div.village2 #anim_switch.off .anim-icon {
+    color: #666;
+    filter: grayscale(1);
+}
+
+
+/* --------------------------------------------------------------------------
+   5. Disabled Animations State & Accessibility
+   -------------------------------------------------------------------------- */
+
+div.village2 div#village_map.anim-disabled img.building,
+div.village2 div#village_map.anim-disabled img.dx1,
+div.village2 div#village_map.anim-disabled img.ww {
+    animation: none !important;
+    filter: none !important;
+    transform: none !important;
+}
+
+div.village2 div#village_map.anim-disabled #building_activities {
+    display: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    div.village2 div#village_map img.building[class*="anim-"],
+    div.village2 div#village_map img.dx1[class*="anim-"],
+    div.village2 div#village_map img.ww[class*="anim-"],
+    div.village2 div#village_map .bld-badge,
+    div.village2 div#village_map .badge-icon {
+        animation: none !important;
+        transform: none !important;
+    }
+}

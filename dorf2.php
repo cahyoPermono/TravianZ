@@ -61,6 +61,7 @@ else $building->procBuild($_GET);
 	<link href='".GP_LOCATE."lang/en/lang.css?e21d2' rel='stylesheet' type='text/css' />";
 	?>
 	<link href="css/mobile_engine.css?v=20261016_g51" rel="stylesheet" type="text/css" />
+	<link href="css/building_animations.css?v=20261020" rel="stylesheet" type="text/css" />
 	<script type="text/javascript">
 
 		window.addEvent('domready', start);
