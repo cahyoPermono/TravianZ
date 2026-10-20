@@ -35,14 +35,16 @@ trait AutomationMedals {
             return;
         }
 
-        // Exclude BANNED (0), MH (8), ADMIN (9)
-        $userFilter = "id > 5 AND access NOT IN (0,8,9)";
+        // Respect INCLUDE_ADMIN: when enabled, admin (access 9) is included in medals
+        $maxAccess = (defined('INCLUDE_ADMIN') && INCLUDE_ADMIN) ? "10" : "8";
+        $userFilter = "id > 5 AND access > 0 AND access < " . $maxAccess;
 
         $week = $this->getNextMedalWeek('medal');
         $allyweek = $this->getNextMedalWeek('allimedal');
 
         $this->awardPlayerMedals($week, $userFilter);
-        $this->resetWeeklyStats('users', $userFilter, "ap=0, dp=0, Rc=0, clp=0, RR=0");
+        // Reset weekly stats for all active players (including admin)
+        $this->resetWeeklyStats('users', "id > 5 AND access > 0", "ap=0, dp=0, Rc=0, clp=0, RR=0");
         $this->awardAllianceMedals($allyweek);
         $this->resetWeeklyStats('alidata', '', "ap=0, dp=0, RR=0, clp=0");
 
