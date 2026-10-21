@@ -2611,26 +2611,40 @@ trait AutomationBattleResolution {
                         // losses when the hero comes home alive; revived units
                         // are written back to the attacks row (the source
                         // returnunitsComplete reads on arrival). No-op when off.
-                        $returningTroops = HeroBattleBonus::applyBandages($from['owner'], $returningTroops, $dead, (int) $data['ref']);
+                        $totalHealed = 0;
+                        $returningTroops = HeroBattleBonus::applyBandages($from['owner'], $returningTroops, $dead, (int) $data['ref'], $totalHealed);
                         $troopsTime = $units->getWalkingTroopsTime($from['wref'], $to['wref'], $from['owner'], $owntribe, $returningTroops, 1, 't');
                         $endtime = $database->getArtifactsValueInfluence($from['owner'], $from['wref'], 2, $troopsTime);
                         $endtime += $AttackArrivalTime;
                         // T4 hero port (Phase 5): the map shortens the return
                         // leg when the SURVIVING hero travels home. No-op when off.
                         $endtime = HeroBattleBonus::adjustReturnEndtime($from['owner'], $returningTroops['t11'], $AttackArrivalTime, $endtime);
+
+                        $attNoticeData = $data2;
+                        if ($totalHealed > 0) {
+                            $parts = explode(',', $attNoticeData);
+                            // In $data2: index 13..22 are attacker casualties (1-indexed t1..t10)
+                            for ($k = 1; $k <= 10; $k++) {
+                                if (isset($parts[12 + $k])) {
+                                    $parts[12 + $k] = (int)($dead[$k] ?? 0);
+                                }
+                            }
+                            $attNoticeData = implode(',', $parts) . ',BANDAGE:' . (int)$totalHealed;
+                        }
+
                         if($type == 1){
 							if($from['owner'] == 3){ // fix natar report by ronix
 								$database->addNotice($to['owner'], $to['wref'], $targetally, 20, '' . addslashes($from['name']) . ' scouts ' . addslashes($to['name']) . '', $data2, $AttackArrivalTime);
 							}elseif($totaldead_att == 0 && $totaltraped_att == 0){
-								$database->addNotice($from['owner'], $to['wref'], $ownally, 18, '' . addslashes($from['name']) . ' scouts ' . addslashes($to['name']) . '', $data2, $AttackArrivalTime);
+								$database->addNotice($from['owner'], $to['wref'], $ownally, 18, '' . addslashes($from['name']) . ' scouts ' . addslashes($to['name']) . '', $attNoticeData, $AttackArrivalTime);
 							}else{
-								$database->addNotice($from['owner'], $to['wref'], $ownally, 21, '' . addslashes($from['name']) . ' scouts ' . addslashes($to['name']) . '', $data2, $AttackArrivalTime);
+								$database->addNotice($from['owner'], $to['wref'], $ownally, 21, '' . addslashes($from['name']) . ' scouts ' . addslashes($to['name']) . '', $attNoticeData, $AttackArrivalTime);
 							}
 						}else{
 							if((empty($totaldead_att) || $totaldead_att == 0) && (empty($totaltraped_att) || $totaltraped_att == 0)){
-								$database->addNotice($from['owner'], $to['wref'], $ownally, 1, '' . addslashes($from['name']) . ' attacks ' . addslashes($to['name']) . '', $data2, $AttackArrivalTime);
+								$database->addNotice($from['owner'], $to['wref'], $ownally, 1, '' . addslashes($from['name']) . ' attacks ' . addslashes($to['name']) . '', $attNoticeData, $AttackArrivalTime);
 							}else{
-								$database->addNotice($from['owner'], $to['wref'], $ownally, 2, '' . addslashes($from['name']) . ' attacks ' . addslashes($to['name']) . '', $data2, $AttackArrivalTime);
+								$database->addNotice($from['owner'], $to['wref'], $ownally, 2, '' . addslashes($from['name']) . ' attacks ' . addslashes($to['name']) . '', $attNoticeData, $AttackArrivalTime);
 							}
 						}
 

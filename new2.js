@@ -185,7 +185,7 @@ function Popup(i, j, game_url)
 	var layer = $('iframe_layer');
 
 	$('frame_box').empty();
-	$('frame_box').innerHTML = "<iframe frameborder=\"0\" id=\"Frame\" src=\"" + game_url + "manual.php?typ=" + i + "&s=" + j + "\" width=\"412\" height=\"440\" border=\"0\"></iframe>";
+	$('frame_box').innerHTML = "<iframe frameborder=\"0\" id=\"Frame\" src=\"" + game_url + "manual.php?typ=" + i + "&s=" + j + "\" width=\"412\" height=\"440\" border=\"0\" scrolling=\"auto\" style=\"overflow-y:auto;\"></iframe>";
 
 	$('iframe_layer').fireEvent('show');
 

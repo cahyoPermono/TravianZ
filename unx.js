@@ -173,7 +173,7 @@ function Popup(i,j,sc){
 			iframeHeight = 440,
 			iframeWidth  = 412;
 
-		var tc='<div class="popup3">'+'<a href="#" onClick="Close(); return false;"><img src="img/x.gif" border="1" class="popup4" alt="Move"></a>'+'<iframe frameborder="0" id="Frame" style="top: auto" src="manual.php?'+sc+'='+i+'&typ='+j+'" width="412" height="440" border="0"></iframe>'+'</div>';
+		var tc='<div class="popup3">'+'<a href="#" onClick="Close(); return false;"><img src="img/x.gif" border="1" class="popup4" alt="Move"></a>'+'<iframe frameborder="0" id="Frame" style="top: auto; overflow-y: auto;" src="manual.php?'+sc+'='+i+'&typ='+j+'" width="412" height="440" border="0" scrolling="auto"></iframe>'+'</div>';
 		pb.innerHTML=tc;uc();
 	}
 	vc();

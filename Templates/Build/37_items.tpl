@@ -307,9 +307,13 @@ table.t4items .t4none { color: #a5a19a; }
                 <form action="" method="POST" class="t4form">
                     <input type="hidden" name="rowid" value="<?php echo (int) $t4Row['id']; ?>">
                     <?php if ($t4IsBag) { ?>
-                        <input type="hidden" name="t4action" value="useitem">
-                        <input type="text" name="qty" value="1" class="t4qtynum">
-                        <button type="submit" class="t4btn"><?php echo HERO_USE_ITEM; ?></button>
+                        <?php if (in_array((int)$t4Row['itemid'], [206, 207], true)) { ?>
+                            <span class="t4badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-weight:bold; padding:3px 7px; border-radius:4px; font-size:10px;" title="Item ini otomatis aktif dalam pertempuran saat Hero ikut menyerang dan selamat.">🛡️ Aktif Otomatis</span>
+                        <?php } else { ?>
+                            <input type="hidden" name="t4action" value="useitem">
+                            <input type="text" name="qty" value="1" class="t4qtynum">
+                            <button type="submit" class="t4btn"><?php echo HERO_USE_ITEM; ?></button>
+                        <?php } ?>
                     <?php } elseif ($t4AwayReason === '') { ?>
                         <input type="hidden" name="t4action" value="equip">
                         <button type="submit" class="t4btn"><?php echo HERO_EQUIP; ?></button>

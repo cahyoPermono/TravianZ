@@ -44,6 +44,23 @@ tz_load_language(LANG);
 	<link href="<?php echo GP_LOCATE; ?>travian.css?f4b7d" rel="stylesheet" type="text/css" />
 	<link href="<?php echo GP_LOCATE; ?>lang/en/lang.css" rel="stylesheet" type="text/css" />
 	<link href="css/mobile_engine.css?v=20261009_m2" rel="stylesheet" type="text/css" />
+	<style type="text/css">
+		html {
+			overflow-y: auto !important;
+			overflow-x: hidden !important;
+			height: 100% !important;
+		}
+		body, body.manual {
+			overflow-y: auto !important;
+			overflow-x: hidden !important;
+			height: auto !important;
+			min-height: 100% !important;
+			position: relative !important;
+			-webkit-overflow-scrolling: touch !important;
+			padding: 10px 15px 40px 15px !important;
+			box-sizing: border-box !important;
+		}
+	</style>
 	   </head>
 	<body class="manual">
 <?php

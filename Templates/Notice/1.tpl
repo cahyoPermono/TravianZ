@@ -308,6 +308,27 @@ if (!empty($dataarray[288]) && !empty($dataarray[289])) {
 </tbody>
 <?php }
 
+// Bandage healing notice (T4 hero port)
+$healedByBandage = 0;
+foreach ($dataarray as $entry) {
+    if (is_string($entry) && strpos($entry, 'BANDAGE:') === 0) {
+        $healedByBandage = (int) substr($entry, 8);
+        break;
+    }
+}
+if ($healedByBandage > 0) {
+?>
+<tbody class="goods">
+<tr>
+<th><?php echo INFORMATION; ?></th>
+<td colspan="<?php echo $colspan; ?>">
+<span style="color:#15803d; font-weight:bold;">🩹 Pembalut (Bandage):</span>
+Sebanyak <b><?php echo $healedByBandage; ?></b> prajurit berhasil disembuhkan dan pulang ke desa bersama Hero.
+</td>
+</tr>
+</tbody>
+<?php }
+
 if (!empty($dataarray[287])) {
 ?>
 <tbody class="goods">
@@ -318,7 +339,8 @@ if (!empty($dataarray[287])) {
 </td>
 </tr>
 </tbody>
-<?php } elseif (empty($dataarray[268]) && empty($dataarray[269])) { ?>
+<?php }
+if (empty($dataarray[268]) && empty($dataarray[269])) { ?>
 <tbody class="goods">
 <tr>
 <th><?php echo BOUNTY; ?></th>
@@ -335,8 +357,8 @@ if (!empty($dataarray[287])) {
 </td>
 </tr>
 </tbody>
-</table>
 <?php } ?>
+</table>
 
 <?php
 // ======================== DEFENDER LOOP ========================

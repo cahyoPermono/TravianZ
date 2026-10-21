@@ -1,9 +1,9 @@
-﻿@CHARSET "UTF-8";
+@CHARSET "UTF-8";
 
 /* --- Scrollbarantiwackler --- */
 body {overflow-y:scroll;}
 
-body.manual {overflow-y: hidden; }
+body.manual {overflow-y: auto; }
 
 
 /* Layout */

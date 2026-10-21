@@ -27,7 +27,8 @@ $now = time();
     font-family: Verdana, Arial, Helvetica, sans-serif;
     color: #333;
     line-height: 1.5;
-    padding: 4px;
+    padding: 4px 4px 50px 4px;
+    overflow: visible;
 }
 .b-card {
     background: #ffffff;

@@ -322,10 +322,11 @@ class HeroBattleBonus
      *                         back there or they would vanish on arrival.
      * @return array The adjusted returning-troops array.
      */
-    public static function applyBandages($uid, array $returning, array $dead, $attackRef = 0)
+    public static function applyBandages($uid, array $returning, array &$dead, $attackRef = 0, &$totalHealedOut = 0)
     {
         global $database;
 
+        $totalHealedOut = 0;
         if (!self::enabled() || (int) ($returning['t11'] ?? 0) <= 0) {
             return $returning;
         }
@@ -354,21 +355,58 @@ class HeroBattleBonus
             if ($stack['qty'] <= 0) {
                 continue;
             }
-            $budget = $stack['qty'];
+            $budget = (int) $stack['qty'];
             $used   = 0;
 
-            for ($i = 1; $i <= 10 && $budget > 0; $i++) {
+            // Total casualties across all regular unit slots (1..10)
+            $totalLost = 0;
+            for ($i = 1; $i <= 10; $i++) {
+                $totalLost += isset($dead[$i]) ? max(0, (int) $dead[$i]) : 0;
+            }
+            if ($totalLost <= 0) {
+                break;
+            }
+
+            // Calculate total healable units based on bandage percentage
+            $pct = (int) $stack['pct'];
+            $totalHealable = (int) round($totalLost * $pct / 100);
+            if ($totalLost >= 2 && $totalHealable < 1) {
+                $totalHealable = 1;
+            }
+            $totalHealable = min($totalHealable, $totalLost);
+            $allowedHeal  = min($totalHealable, $budget);
+
+            if ($allowedHeal <= 0) {
+                continue;
+            }
+
+            // Prioritize units with highest casualties first (tiebreaker: higher unit tier)
+            $unitIndices = range(1, 10);
+            usort($unitIndices, function($a, $b) use ($dead) {
+                $lossA = isset($dead[$a]) ? (int)$dead[$a] : 0;
+                $lossB = isset($dead[$b]) ? (int)$dead[$b] : 0;
+                if ($lossA === $lossB) {
+                    return $b - $a;
+                }
+                return $lossB - $lossA;
+            });
+
+            foreach ($unitIndices as $i) {
+                if ($allowedHeal <= 0) {
+                    break;
+                }
                 $lost = isset($dead[$i]) ? (int) $dead[$i] : 0;
                 if ($lost <= 0) {
                     continue;
                 }
-                $healable = (int) floor($lost * $stack['pct'] / 100);
-                $healed   = min($healable, $budget);
+                $healed = min($lost, $allowedHeal);
                 if ($healed <= 0) {
                     continue;
                 }
+
                 $returning['t' . $i] = (int) ($returning['t' . $i] ?? 0) + $healed;
-                $dead[$i]           -= $healed; // a unit is only healed once across stacks
+                $dead[$i]           -= $healed;
+                $allowedHeal        -= $healed;
                 $budget             -= $healed;
                 $used               += $healed;
                 $healedPerUnit[$i]   = ($healedPerUnit[$i] ?? 0) + $healed;
@@ -378,6 +416,8 @@ class HeroBattleBonus
                 $heroItems->removeItem((int) $uid, $stack['id'], $used);
             }
         }
+
+        $totalHealedOut = array_sum($healedPerUnit);
 
         // Persist the revived units into the attacks row: it is the source of
         // truth returnunitsComplete hands back to the village on arrival.
