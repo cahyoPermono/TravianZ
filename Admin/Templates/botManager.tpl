@@ -513,11 +513,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
             . "• Pasukan berlebih dipangkas: <b>" . number_format($result['troops_trimmed'] ?? 0) . "</b> unit (Sisa total server: <b>" . number_format($result['total_troops_after'] ?? 0) . "</b> unit).<br>"
             . "• Bangunan & populasi dinormalkan: <b>" . ($result['pop_adjusted_bots'] ?? 0) . "</b> desa bot (Ladang lvl 2, MB lvl 3, Warehouse/Barracks lvl 1, gedung lanjut seperti Stable/Workshop dicopot, pop ~48-56/desa).";
     }
+    // 10. SAVE BOT GROWTH & EXPANSION SETTINGS
+    elseif ($action === 'save_bot_settings') {
+        $maxPop = max(200, min(5000, (int)($_POST['bot_max_pop'] ?? 800)));
+        $maxBuildingLvl = max(10, min(20, (int)($_POST['bot_max_building_level'] ?? 15)));
+        $maxVillages = max(1, min(5, (int)($_POST['bot_max_villages'] ?? 2)));
+        $expansionEnabled = !empty($_POST['bot_expansion_enabled']);
+
+        BotAI::saveConfig([
+            'BOT_AI_MAX_POP' => $maxPop,
+            'BOT_AI_MAX_BUILDING_LEVEL' => $maxBuildingLvl,
+            'BOT_AI_MAX_VILLAGES' => $maxVillages,
+            'BOT_AI_EXPANSION_ENABLED' => $expansionEnabled,
+        ]);
+
+        $flashSuccess = "⚙️ <b>Pengaturan Bot AI Berhasil Disimpan!</b><br>"
+            . "• Batas Populasi (Cap Pop): <b>$maxPop</b> pop/desa<br>"
+            . "• Batas Level Bangunan: <b>Level $maxBuildingLvl</b><br>"
+            . "• Ekspansi Desa ke-2: <b>" . ($expansionEnabled ? "Aktif (Maks $maxVillages Desa/Bot)" : "Nonaktif") . "</b> (Berjalan secara natural via Padepokan Lvl 10, pelatihan 3 Pionir, CP, dan perjalanan perintis).";
+    }
 }
 
 // ==============================================================================
 // FETCH CURRENT ACTIVE BOTS & STATS
 // ==============================================================================
+$botConfig = BotAI::getConfig();
+$currentMaxPop = (int)($botConfig['BOT_AI_MAX_POP'] ?? 800);
+$currentMaxLvl = (int)($botConfig['BOT_AI_MAX_BUILDING_LEVEL'] ?? 15);
+$currentMaxVil = (int)($botConfig['BOT_AI_MAX_VILLAGES'] ?? 2);
+$currentExpEnabled = !empty($botConfig['BOT_AI_EXPANSION_ENABLED'] ?? true);
+
 $botsQuery = "
     SELECT u.id, u.username, u.tribe, u.regtime, u.desc1, u.alliance,
            v.wref, v.name as vname, v.pop, v.wood, v.clay, v.iron, v.crop, v.maxstore, v.maxcrop,
@@ -917,6 +942,108 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
 
     </div>
 
+    <!-- Panel: Pengaturan Pertumbuhan Alami & Ekspansi Desa ke-2 -->
+    <div class="botm-panel" style="border-color:#10b981; background:linear-gradient(135deg, #064e3b 0%, #0b1220 100%); margin-bottom:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+            <h3 style="color:#34d399; margin:0;">⚙️ Pengaturan Pertumbuhan Alami &amp; Ekspansi Desa ke-2 (Bot Growth &amp; Expansion)</h3>
+            <span style="background:#065f46; color:#a7f3d0; border:1px solid #10b981; padding:3px 10px; border-radius:12px; font-size:11px; font-weight:600;">
+                🌱 Natural Progression Engine
+            </span>
+        </div>
+        <p class="desc" style="margin-top:6px;">
+            Admin dapat mengatur batas maksimal populasi per desa (mengganti batas lama 445 pop) dan mengaktifkan kemampuan bot AI untuk mendirikan <b>Desa ke-2</b> secara bertahap dan <b>100% natural</b> (membangun Padepokan level 10, melatih 3 pionir dengan sumber daya &amp; waktu antrian asli, mengumpulkan Culture Points/CP yang cukup, membawa 750 perbekalan, dan berjalan ke lahan baru).
+        </p>
+
+        <form method="post" action="admin.php?p=botManager">
+            <?php echo csrf_field(); ?>
+            <input type="hidden" name="bot_action" value="save_bot_settings">
+
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:14px; margin-bottom:14px;">
+                <div class="botm-form-group">
+                    <label>Batas Populasi Maksimal per Desa (Cap Pop):</label>
+                    <input type="number" name="bot_max_pop" id="bot_max_pop_input" class="botm-form-control" value="<?php echo $currentMaxPop; ?>" min="200" max="5000" required>
+                    <div class="quick-counts" style="margin-top:4px;">
+                        <button type="button" class="quick-btn" onclick="document.getElementById('bot_max_pop_input').value=450">450 Pop (Klasik)</button>
+                        <button type="button" class="quick-btn" onclick="document.getElementById('bot_max_pop_input').value=800">800 Pop (Standar)</button>
+                        <button type="button" class="quick-btn" onclick="document.getElementById('bot_max_pop_input').value=1200">1200 Pop (Besar)</button>
+                        <button type="button" class="quick-btn" onclick="document.getElementById('bot_max_pop_input').value=2000">2000 Pop (Metropolis)</button>
+                    </div>
+                    <span style="font-size:10px; color:#94a3b8; display:block; margin-top:3px;">
+                        💡 <b>Sebelumnya mentok di 445 pop</b> karena formula lama dibatasi. Kini bot dapat membangun gedung lanjutan: Penggilingan Gandum, Toko Roti, Penggergajian, Pabrik Bata, Pabrik Besi, Balai Kota, dan Balai Prajurit lanjutan.
+                    </span>
+                </div>
+
+                <div class="botm-form-group">
+                    <label>Batas Level Bangunan Maksimal:</label>
+                    <select name="bot_max_building_level" class="botm-form-control">
+                        <?php for ($lvl = 10; $lvl <= 20; $lvl++): ?>
+                            <option value="<?php echo $lvl; ?>" <?php echo $currentMaxLvl === $lvl ? 'selected' : ''; ?>>
+                                Level <?php echo $lvl; ?> <?php echo $lvl === 15 ? '(Rekomendasi)' : ($lvl === 20 ? '(Maksimal Game)' : ''); ?>
+                            </option>
+                        <?php endfor; ?>
+                    </select>
+                    <span style="font-size:10px; color:#94a3b8; display:block; margin-top:3px;">
+                        Level maksimal untuk ladang dan bangunan infrastruktur desa bot.
+                    </span>
+                </div>
+
+                <div class="botm-form-group">
+                    <label>Batas Maksimal Desa per Akun Bot:</label>
+                    <select name="bot_max_villages" class="botm-form-control">
+                        <option value="1" <?php echo $currentMaxVil === 1 ? 'selected' : ''; ?>>1 Desa (Hanya Ibukota Saja)</option>
+                        <option value="2" <?php echo $currentMaxVil === 2 ? 'selected' : ''; ?>>2 Desa (Ibukota + 1 Desa Baru - Rekomendasi)</option>
+                        <option value="3" <?php echo $currentMaxVil === 3 ? 'selected' : ''; ?>>3 Desa</option>
+                        <option value="4" <?php echo $currentMaxVil === 4 ? 'selected' : ''; ?>>4 Desa</option>
+                        <option value="5" <?php echo $currentMaxVil === 5 ? 'selected' : ''; ?>>5 Desa</option>
+                    </select>
+                    <span style="font-size:10px; color:#94a3b8; display:block; margin-top:3px;">
+                        Menentukan berapa desa yang boleh didirikan oleh satu akun bot.
+                    </span>
+                </div>
+
+                <div class="botm-form-group">
+                    <label>Status Fitur Ekspansi Alami:</label>
+                    <div style="background:#0f172a; padding:10px 12px; border-radius:6px; border:1px solid #1e293b; margin-top:2px;">
+                        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:#f8fafc; font-weight:bold; font-size:12px;">
+                            <input type="checkbox" name="bot_expansion_enabled" value="1" <?php echo $currentExpEnabled ? 'checked' : ''; ?> style="width:16px; height:16px; cursor:pointer;">
+                            <span>Aktifkan Ekspansi Desa Baru (Desa ke-2)</span>
+                        </label>
+                        <span style="font-size:10px; color:#6ee7b7; display:block; margin-top:4px;">
+                            Jika dicentang, bot yang memenuhi syarat akan mendirikan desa baru secara otomatis dan natural.
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Natural Steps Infographic Box -->
+            <div style="background:#022c22; border:1px solid #059669; border-radius:6px; padding:12px; margin-bottom:14px; font-size:11px; line-height:1.6; color:#a7f3d0;">
+                <b style="color:#34d399; font-size:12px;">🌱 Alur Natural Pembentukan Desa ke-2 (Tanpa Skip Tahapan):</b>
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:10px; margin-top:8px;">
+                    <div style="background:#064e3b; padding:8px 10px; border-radius:4px; border-left:3px solid #10b981;">
+                        <b style="color:#fff;">1. Padepokan (Residence)</b><br>
+                        Bot harus menaikkan Residence bertahap hingga Level 10 dengan biaya &amp; waktu konstruksi asli.
+                    </div>
+                    <div style="background:#064e3b; padding:8px 10px; border-radius:4px; border-left:3px solid #10b981;">
+                        <b style="color:#fff;">2. Pelatihan 3 Pionir</b><br>
+                        Dilatih satu per satu di antrian pelatihan, memakan biaya ribuan kayu, tanah, besi, gandum, &amp; waktu riil.
+                    </div>
+                    <div style="background:#064e3b; padding:8px 10px; border-radius:4px; border-left:3px solid #10b981;">
+                        <b style="color:#fff;">3. Poin Budaya (Culture Points)</b><br>
+                        Bot wajib mengumpulkan CP dari bangunan &amp; Balai Kota sebelum diizinkan berekspansi.
+                    </div>
+                    <div style="background:#064e3b; padding:8px 10px; border-radius:4px; border-left:3px solid #10b981;">
+                        <b style="color:#fff;">4. Perbekalan &amp; Ekspedisi</b><br>
+                        Membawa 750 tiap SDA, berjalan melintasi peta ke lahan kosong dengan durasi tempuh asli pionir.
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-primary" style="background:#059669; border-color:#10b981; padding:9px 20px; font-weight:bold; cursor:pointer;">
+                💾 Simpan Pengaturan Pertumbuhan &amp; Desa ke-2
+            </button>
+        </form>
+    </div>
+
     <!-- Panel 3: Order Attack / Air Strike / Alliance War -->
     <div class="botm-panel" style="border-color:#b91c1c; background:linear-gradient(135deg, #130a10 0%, #0b1220 100%); margin-bottom:20px;">
         <h3 style="color:#f87171;">🎯 Perintahkan Bot AI Menyerang Target / Perang Aliansi</h3>
@@ -1196,6 +1323,7 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
                             <th>Nama Desa</th>
                             <th>Koordinat</th>
                             <th>Populasi</th>
+                            <th>Ekspansi / Status</th>
                             <th>Pasukan</th>
                             <th>Sumber Daya</th>
                             <th style="text-align:right;">Aksi</th>
@@ -1237,6 +1365,24 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
                                 </td>
                                 <td style="font-family:monospace; color:#fbbf24;"><?php echo $coords; ?></td>
                                 <td><b style="color:#4ade80;"><?php echo number_format((int)$b['pop']); ?></b></td>
+                                <td>
+                                    <?php
+                                        $expStatus = BotAI::getExpansionStatus((int)$b['id'], (int)($b['wref'] ?? 0), $tNum);
+                                        $vCount = $expStatus['villages'] ?? 1;
+                                        $vMax = $expStatus['max_villages'] ?? 2;
+                                    ?>
+                                    <div style="display:flex; align-items:center; gap:4px; margin-bottom:3px;">
+                                        <span style="background:#1e293b; color:#38bdf8; border:1px solid #334155; padding:1px 6px; border-radius:10px; font-size:10px; font-weight:bold;">
+                                            Desa <?php echo $vCount; ?>/<?php echo $vMax; ?>
+                                        </span>
+                                    </div>
+                                    <div style="font-size:10px; color:#cbd5e1; line-height:1.4;">
+                                        <?php echo htmlspecialchars($expStatus['status_text'] ?? '-'); ?>
+                                    </div>
+                                    <div style="font-size:9px; color:#64748b; margin-top:2px;">
+                                        CP: <b style="color:#f59e0b;"><?php echo number_format($expStatus['cp'] ?? 0); ?></b> / <?php echo number_format($expStatus['cp_needed'] ?? 2000); ?>
+                                    </div>
+                                </td>
                                 <td>
                                     <?php
                                         $vDetails = $unitsDetailsMap[$b['wref']] ?? [];
