@@ -29,14 +29,14 @@ assertTrue(defined('HERO_FROM_START') && HERO_FROM_START, "HERO_FROM_START must 
 
 // 2. Test unit mapping for all 8 playable tribes
 $expectedUnits = [
-    1  => 1,   // Romans -> Legionnaire
-    2  => 11,  // Teutons -> Clubswinger
-    3  => 21,  // Gauls -> Phalanx
-    6  => 51,  // Huns -> Mercenary
-    7  => 61,  // Egyptians -> Slave Militia
-    8  => 71,  // Spartans -> Hoplite
-    9  => 81,  // Vikings -> Thrall
-    10 => 91,  // Nusantara -> Pendekar Keris
+    1  => 6,   // Romans -> Equites Caesaris
+    2  => 16,  // Teutons -> Teutonic Knight
+    3  => 26,  // Gauls -> Haeduan
+    6  => 56,  // Huns -> Marauder
+    7  => 66,  // Egyptians -> Resheph Chariot
+    8  => 76,  // Spartans -> Elpida Rider
+    9  => 86,  // Vikings -> Einherjar
+    10 => 96,  // Nusantara -> Gajah Perang
 ];
 
 echo "Testing starter hero creation for each tribe...\n";

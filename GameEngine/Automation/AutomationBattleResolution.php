@@ -1101,7 +1101,10 @@ trait AutomationBattleResolution {
         $data, $dead11, $herosend_def, $deadhero, $unitstraped_att,
         $village_destroyed, $can_destroy, $catp_pic,
         $mercReport = null,
-        $defHeroReport = null
+        $defHeroReport = null,
+        $nus = 0,
+        $DefenderHeroesTotArray = null,
+        $DefenderHeroesDeadArray = null
     ) {
         if (!empty($scout)) {
             $data2 = ''.$from['owner'].','.$from['wref'].','.$owntribe.','.$unitssend_att.','.$unitsdead_att
@@ -1121,12 +1124,20 @@ trait AutomationBattleResolution {
                     .','.$info_ram.','.$info_cat.','.$info_chief.','.$info_spy
                     .','.$data['t11'].','.$dead11.','.$herosend_def.','.$deadhero
                     .',,'.$unitstraped_att;
+
+            if (!empty($nus) && !empty($unitssend_def[10])) {
+                $hSend = (int)($DefenderHeroesTotArray[10] ?? 0);
+                $hDead = (int)($DefenderHeroesDeadArray[10] ?? 0);
+                $sendStr = str_replace(',', ';', $unitssend_def[10]);
+                $deadStr = str_replace(',', ';', $unitsdead_def[10] ?? '0,0,0,0,0,0,0,0,0,0');
+                $data2 .= ',NUSREINF:' . $sendStr . ';' . $deadStr . ';' . $hSend . ';' . $hDead;
+            }
         } else {
             if (isset($village_destroyed) && $village_destroyed == 1 && $can_destroy == 1) {
                 if (strpos($info_cat, rc_tok('RC_VILLAGE_DESTROYED')) === false) {
                     $info_cat .= "<tbody class=\"goods\"><tr><th>".(defined('INFORMATION') ? INFORMATION : 'Information')."</th><td colspan=\"11\">"
-                               . "<img class=\"unit u".$catp_pic."\" src=\"img/x.gif\" alt=\"".rc_tok('RC_CATAPULT')."\" title=\"".rc_tok('RC_CATAPULT')."\" />"
-                               . " ".rc_tok('RC_VILLAGE_DESTROYED')."</td></tr></tbody>";
+                                . "<img class=\"unit u".$catp_pic."\" src=\"img/x.gif\" alt=\"".rc_tok('RC_CATAPULT')."\" title=\"".rc_tok('RC_CATAPULT')."\" />"
+                                . " ".rc_tok('RC_VILLAGE_DESTROYED')."</td></tr></tbody>";
                 }
             }
             $data2 = ''.$from['owner'].','.$from['wref'].','.$owntribe.','.$unitssend_att.','.$unitsdead_att
@@ -1185,6 +1196,17 @@ trait AutomationBattleResolution {
                 . ($defHeroReport['reason'] ?? '');
             $data2 .= $defHeroToken;
             $data_fail .= $defHeroToken;
+        }
+
+        if (!empty($nus) && !empty($unitssend_def[10])) {
+            $hSend = (int)($DefenderHeroesTotArray[10] ?? 0);
+            $hDead = (int)($DefenderHeroesDeadArray[10] ?? 0);
+            $sendStr = str_replace(',', ';', $unitssend_def[10]);
+            $deadStr = str_replace(',', ';', $unitsdead_def[10] ?? '0,0,0,0,0,0,0,0,0,0');
+            $data2 .= ',NUSREINF:' . $sendStr . ';' . $deadStr . ';' . $hSend . ';' . $hDead;
+            $sendFailStr = str_replace(',', ';', $unitssend_deff[10] ?? '?,?,?,?,?,?,?,?,?,?');
+            $deadFailStr = str_replace(',', ';', $unitsdead_deff[10] ?? '?,?,?,?,?,?,?,?,?,?');
+            $data_fail .= ',NUSREINF:' . $sendFailStr . ';' . $deadFailStr . ';' . $hSend . ';' . $hDead;
         }
 
         return ['data2' => $data2, 'data_fail' => $data_fail];
@@ -1421,7 +1443,7 @@ trait AutomationBattleResolution {
     private function applyReinforcementCasualties($data, $battlepart, $from, $to, $ownally, $AttackArrivalTime, $scout, array &$alldead, array &$DefenderHeroesDeadArray) {
         global $database;
 
-        $rom = $ger = $gal = $nat = $natar = $hun = $egy = $spa = $vik = 0;
+        $rom = $ger = $gal = $nat = $natar = $hun = $egy = $spa = $vik = $nus = 0;
 
         //kill other defence in village
         // ... once again, units could have changed, so we need to reselect
@@ -1445,12 +1467,13 @@ trait AutomationBattleResolution {
                 case 2: $ger = 1; break;
                 case 3: $gal = 1; break;
                 case 4: $nat = 1; break;
+                case 5: $natar = 1; break;
                 case 6: $hun = 1; break;
                 case 7: $egy = 1; break;
                 case 8: $spa = 1; break;
                 case 9: $vik = 1; break;
-                case 5:
-                default: $natar = 1; break;
+                case 10: $nus = 1; break;
+                default: break;
             }
 
             $enforceModificationsById = [];
@@ -1532,7 +1555,7 @@ trait AutomationBattleResolution {
             }
         }
 
-        return ['rom' => $rom, 'ger' => $ger, 'gal' => $gal, 'nat' => $nat, 'natar' => $natar, 'hun' => $hun, 'egy' => $egy, 'spa' => $spa, 'vik' => $vik];
+        return ['rom' => $rom, 'ger' => $ger, 'gal' => $gal, 'nat' => $nat, 'natar' => $natar, 'hun' => $hun, 'egy' => $egy, 'spa' => $spa, 'vik' => $vik, 'nus' => $nus];
     }
 
     /**
@@ -1598,7 +1621,7 @@ trait AutomationBattleResolution {
         $unitssend_def[0] = implode(",", $ownTroops);
         $unitssend_deff[0] = '?,?,?,?,?,?,?,?,?,?,';
 
-        for ($i = 1; $i <= 9; $i++) {
+        for ($i = 1; $i <= 10; $i++) {
             //Reinforcements
             $reinfTroops = array_slice($DefenderEnf, ($i - 1) * 10, 10);
             $totalsend_alldef += array_sum($reinfTroops);
@@ -3092,6 +3115,7 @@ trait AutomationBattleResolution {
                     $egy   = $tribesPresent['egy'];
                     $spa   = $tribesPresent['spa'];
                     $vik   = $tribesPresent['vik'];
+                    $nus   = $tribesPresent['nus'] ?? 0;
                     $totalsend_att = $data['t1']+$data['t2']+$data['t3']+$data['t4']+$data['t5']+$data['t6']+$data['t7']+$data['t8']+$data['t9']+$data['t10']+$data['t11'];              
                     
                     $DefenderHeroesTot = implode(",", $DefenderHeroesTotArray);
@@ -3112,7 +3136,7 @@ trait AutomationBattleResolution {
                     //Collecting informations for the report
                     $unitsdead_def[0] = implode(",", $ownDeadTroops);
                     $unitsdead_deff[0] = '?,?,?,?,?,?,?,?,?,?,';
-                    for($i = 1; $i <= 9; $i++){
+                    for($i = 1; $i <= 10; $i++){
                         //Counting reinforcements total dead troops
                         $deadTroops = array_slice($alldead, ($i - 1) * 10, 10);
                         $totaldead_alldef += array_sum($deadTroops);
@@ -3275,7 +3299,10 @@ trait AutomationBattleResolution {
                         $data, $dead11, $herosend_def, $deadhero, $unitstraped_att,
                         $village_destroyed, $can_destroy, $catp_pic,
                         $owndead['mercenary'] ?? null,
-                        $defHeroReport
+                        $defHeroReport,
+                        $nus,
+                        $DefenderHeroesTotArray,
+                        $DefenderHeroesDeadArray
                     );
                     $data2     = $report['data2'];
                     $data_fail = $report['data_fail'];

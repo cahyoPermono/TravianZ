@@ -1670,16 +1670,16 @@ class Units {
 		}
 
 		$basicUnits = [
-			1 => 1,   // Roman Legionnaire
-			2 => 11,  // Teuton Clubswinger
-			3 => 21,  // Gaul Phalanx
-			6 => 51,  // Hun Mercenary
-			7 => 61,  // Egyptian Slave Militia
-			8 => 71,  // Spartan Hoplite
-			9 => 81,  // Viking Thrall
-			10 => 91, // Nusantara Pendekar Keris
+			1 => 6,   // Roman Equites Caesaris
+			2 => 16,  // Teuton Teutonic Knight
+			3 => 26,  // Gaul Haeduan
+			6 => 56,  // Hun Marauder
+			7 => 66,  // Egyptian Resheph Chariot
+			8 => 76,  // Spartan Elpida Rider
+			9 => 86,  // Viking Einherjar
+			10 => 96, // Nusantara Gajah Perang
 		];
-		$unit = $basicUnits[$tribe] ?? 1;
+		$unit = $basicUnits[$tribe] ?? 6;
 		$now = time();
 		$cleanName = $database->escape($username);
 

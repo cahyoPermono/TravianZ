@@ -353,6 +353,18 @@ foreach ($defArray as $index => $value) {
     $target = ($index == 0 ? $targetTribe : $index) - 1;
     $start = $target * 10 + 1;
     $troopsStart = $index * 21 + 35;
+
+    // Safety guard: if reinforcement row has 0 troops and 0 heroes, skip to prevent phantom empty reinforcement
+    if ($index > 0) {
+        $reinfTroopSum = 0;
+        for ($k = $troopsStart; $k <= $troopsStart + 9; $k++) {
+            $reinfTroopSum += (int)($dataarray[$k] ?? 0);
+        }
+        $reinfHeroCount = (int)($dataarray[$heroIndex] ?? 0);
+        if ($reinfTroopSum === 0 && $reinfHeroCount === 0) {
+            continue;
+        }
+    }
 ?>
 <table cellpadding="1" cellspacing="1" class="defender">
 <thead>
@@ -412,6 +424,82 @@ if (!empty($dataarray[$heroIndex])) {
 <?php } ?>
 
 <?php
+// ======================== NUSANTARA REINFORCEMENT ========================
+$nusReinfData = null;
+foreach ($dataarray as $item) {
+    if (is_string($item) && strpos($item, 'NUSREINF:') === 0) {
+        $parts = explode(';', substr($item, 9));
+        if (count($parts) >= 20) {
+            $nusReinfData = [
+                'send' => array_slice($parts, 0, 10),
+                'dead' => array_slice($parts, 10, 10),
+                'hero_send' => (int)($parts[20] ?? 0),
+                'hero_dead' => (int)($parts[21] ?? 0)
+            ];
+        }
+        break;
+    }
+}
+
+if (!empty($nusReinfData)):
+?>
+<table cellpadding="1" cellspacing="1" class="defender">
+<thead>
+<tr>
+<td class="role"><?php echo DEFENDER; ?></td>
+<td colspan="<?php echo (!empty($nusReinfData['hero_send'])) ? 11 : 10; ?>">
+<?php echo REINFORCEMENT; ?>
+</td>
+</tr>
+</thead>
+
+<tbody class="units">
+<tr>
+<td>&nbsp;</td>
+
+<?php
+for ($i = 91; $i <= 100; $i++) {
+    $unitName = $technology->getUnitName($i);
+    echo "<td><img src=\"img/x.gif\" class=\"unit u$i\" title=\"$unitName\" alt=\"$unitName\" /></td>";
+}
+
+if (!empty($nusReinfData['hero_send'])) {
+    echo "<td><img src=\"img/x.gif\" class=\"unit uhero\" /></td>";
+}
+
+echo "</tr><tr><th>".TROOPS."</th>";
+
+for ($i = 0; $i < 10; $i++) {
+    $val = $nusReinfData['send'][$i] ?? '0';
+    echo ($val === '0' || $val === 0 || $val === '?')
+        ? ($val === '?' ? "<td class=\"none\">?</td>" : "<td class=\"none\">0</td>")
+        : "<td>".$val."</td>";
+}
+
+if (!empty($nusReinfData['hero_send'])) {
+    echo "<td>".$nusReinfData['hero_send']."</td>";
+}
+
+echo "</tr><tr><th>".CASUALTIES."</th>";
+
+for ($i = 0; $i < 10; $i++) {
+    $val = $nusReinfData['dead'][$i] ?? '0';
+    echo ($val === '0' || $val === 0 || $val === '?')
+        ? ($val === '?' ? "<td class=\"none\">?</td>" : "<td class=\"none\">0</td>")
+        : "<td>".$val."</td>";
+}
+
+if (!empty($nusReinfData['hero_send'])) {
+    $tdclass1 = ($nusReinfData['hero_dead'] == 0) ? 'class="none"' : '';
+    echo "<td $tdclass1>".$nusReinfData['hero_dead']."</td>";
+}
+?>
+</tr>
+</tbody>
+</table>
+<?php endif; ?>
+
+<?php
 // ======================== DEFENDER HERO CARD ========================
 $defHeroData = null;
 foreach ($dataarray as $item) {
@@ -435,7 +523,7 @@ foreach ($dataarray as $item) {
 }
 
 // Fallback for older reports without DEFHERO: token in CSV payload
-if ($defHeroData === null && !empty($defUid)) {
+if ($defHeroData === null && !empty($defUid) && !empty($database->dblink)) {
     $hQ = mysqli_query($database->dblink, "SELECT heroid, name, level, unit, health, dead, wref FROM " . TB_PREFIX . "hero WHERE uid = " . (int)$defUid . " LIMIT 1");
     if ($hQ && $hRow = mysqli_fetch_assoc($hQ)) {
         $wasDefending = !empty($dataarray[272]);
