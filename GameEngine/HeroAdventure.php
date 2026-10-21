@@ -382,6 +382,25 @@ class HeroAdventure
             $hero = $this->getLivingHero($uid);
             $cfg  = $heroAdventureConfig[(int) $data['difficulty']];
 
+            // Auto-rescue: Jika hero sempat salah dinyatakan mati oleh desync sesi/query saat petualangan aktif
+            if (!$hero) {
+                $stmt = $this->db->prepare("SELECT heroid FROM " . TB_PREFIX . "hero WHERE uid = ? LIMIT 1");
+                $stmt->bind_param('i', $uid);
+                $stmt->execute();
+                $hRow = $stmt->get_result()->fetch_assoc();
+                $stmt->close();
+                if ($hRow) {
+                    $stmt = $this->db->prepare("UPDATE " . TB_PREFIX . "hero SET dead = 0, health = 100 WHERE uid = ? LIMIT 1");
+                    $stmt->bind_param('i', $uid);
+                    $stmt->execute();
+                    $stmt->close();
+                    if (method_exists($database, 'clearHeroCache')) {
+                        $database->clearHeroCache();
+                    }
+                    $hero = $this->getLivingHero($uid);
+                }
+            }
+
             // Hero vanished/died meanwhile (edge case): close the adventure quietly.
             if (!$hero) {
                 $this->finishAdventure($data['advid']);
@@ -564,6 +583,20 @@ class HeroAdventure
             $stmt->bind_param('i', $home);
             $stmt->execute();
             $stmt->close();
+
+            // Pastikan hero tercatat hidup dan terhubung ke desa rumah
+            $homeOwner = (int) $database->getVillageField($home, 'owner');
+            if ($homeOwner > 0) {
+                $stmt = $this->db->prepare(
+                    "UPDATE " . TB_PREFIX . "hero SET dead = 0, health = IF(health > 0, health, 100), wref = ? WHERE uid = ? AND dead = 1 LIMIT 1"
+                );
+                $stmt->bind_param('ii', $home, $homeOwner);
+                $stmt->execute();
+                $stmt->close();
+                if (method_exists($database, 'clearHeroCache')) {
+                    $database->clearHeroCache();
+                }
+            }
 
             // Credit the loot (same pattern as returnunitsComplete).
             if ($data['wood'] + $data['clay'] + $data['iron'] + $data['crop'] > 0) {

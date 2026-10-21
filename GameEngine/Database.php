@@ -43,6 +43,9 @@ if (!$autoloader_found) {
 }
 
 include_once("config.php");
+if (!defined('NEW_FUNCTIONS_HERO_T4')) {
+    define('NEW_FUNCTIONS_HERO_T4', true);
+}
 
 // === Phase S1: the MYSQLi_DB class has been split into domain-specific traits (GameEngine/Database/) ===
 // The traits are in the global namespace, so they are included explicitly (the autoloader only maps the App\ namespace).

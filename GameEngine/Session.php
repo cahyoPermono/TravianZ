@@ -10,6 +10,8 @@ if (!defined('SITTER_PERM_REINF'))  define('SITTER_PERM_REINF',  4);
 if (!defined('SITTER_PERM_RES'))    define('SITTER_PERM_RES',    8);
 if (!defined('SITTER_PERM_GOLD'))   define('SITTER_PERM_GOLD',  16);
 if (!defined('SITTER_PERM_ALL'))    define('SITTER_PERM_ALL',   31);
+if (!defined('NEW_FUNCTIONS_HERO_T4')) define('NEW_FUNCTIONS_HERO_T4', true);
+
 
 
 #################################################################################
@@ -442,44 +444,75 @@ function __construct() {
     function CheckHeroReal() {
         global $database;
 
-        $villageIDs = implode(', ', $this->villages);
-
         if (!count($this->villages)) {
             $this->Logout();
             header('Location: login.php');
             exit;
         }
 
-        // Constantele de miscare pentru aventuri sunt definite in
-        // Data/hero_items.php, care se incarca doar la nevoie (din HeroItems,
-        // HeroAdventure etc.). Sesiunea poate rula inaintea lor, asa ca luam
-        // valorile cu rezerva in loc sa presupunem ca exista.
+        $uid = (int) $this->uid;
+        if ($uid <= 0) {
+            return;
+        }
+
         $advOut  = defined('MOVEMENT_ADVENTURE_OUT')  ? (int) MOVEMENT_ADVENTURE_OUT  : 20;
         $advBack = defined('MOVEMENT_ADVENTURE_BACK') ? (int) MOVEMENT_ADVENTURE_BACK : 21;
 
-        // Partea de aventuri se adauga DOAR cu functiile T4 pornite: pe un
-        // server care nu a rulat migrarea, tabela hero_adventure nu exista, iar
-        // o interogare esuata ar face herocount null - adica exact efectul pe
-        // care il reparam aici (eroul declarat disparut si ucis).
-        $adventureTerms = '';
-
-        if (defined('NEW_FUNCTIONS_HERO_T4') && NEW_FUNCTIONS_HERO_T4) {
-            $adventureTerms = '
-                +
-                IFNULL((SELECT COUNT(*) FROM ' . TB_PREFIX . 'movement
-                    WHERE ' . TB_PREFIX . 'movement.proc = 0
-                    AND ((' . TB_PREFIX . 'movement.sort_type = ' . $advOut . '
-                          AND ' . TB_PREFIX . 'movement.`from` IN(' . $villageIDs . '))
-                      OR (' . TB_PREFIX . 'movement.sort_type = ' . $advBack . '
-                          AND ' . TB_PREFIX . 'movement.`to` IN(' . $villageIDs . ')))), 0)
-                +
-                IFNULL((SELECT COUNT(*) FROM ' . TB_PREFIX . 'hero_adventure
-                    WHERE uid = ' . (int) $this->uid . ' AND status = 1), 0)';
+        // 1. ADVENTURE SAFETY & AUTO-RESCUE:
+        // Cek apakah hero pemain sedang dalam petualangan aktif (status 1 atau status 2 saat kembali).
+        $hasActiveAdventure = false;
+        $checkAdvQ = "SELECT a.id, a.status FROM " . TB_PREFIX . "hero_adventure a
+                      WHERE a.uid = $uid AND a.status IN (1, 2)
+                      LIMIT 1";
+        $checkAdvRes = @mysqli_query($database->dblink, $checkAdvQ);
+        if ($checkAdvRes && mysqli_num_rows($checkAdvRes) > 0) {
+            $activeMoveQ = "SELECT m.moveid FROM " . TB_PREFIX . "movement m
+                            JOIN " . TB_PREFIX . "hero_adventure a ON a.id = m.ref
+                            WHERE a.uid = $uid AND m.proc = 0 AND m.sort_type IN ($advOut, $advBack)
+                            LIMIT 1";
+            $activeMoveRes = @mysqli_query($database->dblink, $activeMoveQ);
+            if ($activeMoveRes && mysqli_num_rows($activeMoveRes) > 0) {
+                $hasActiveAdventure = true;
+            }
         }
+
+        if ($hasActiveAdventure) {
+            // Hero sedang berpetualang. Jika sebelumnya sempat salah dimatikan (dead=1),
+            // pulihkan langsung agar petualangan bisa diselesaikan secara normal!
+            $heroStateQ = "SELECT dead, health FROM " . TB_PREFIX . "hero WHERE uid = $uid LIMIT 1";
+            $hRes = @mysqli_query($database->dblink, $heroStateQ);
+            if ($hRes && ($hRow = mysqli_fetch_assoc($hRes))) {
+                if (!empty($hRow['dead'])) {
+                    @mysqli_query($database->dblink, "UPDATE " . TB_PREFIX . "hero SET dead = 0, health = 100 WHERE uid = $uid");
+                    if (method_exists($database, 'clearHeroCache')) {
+                        $database->clearHeroCache();
+                    }
+                }
+            }
+            // Hero aman sedang dalam misi petualangan; jangan bunuh!
+            return;
+        }
+
+        $villageIDs = implode(', ', array_map('intval', $this->villages));
+        if (empty($villageIDs)) {
+            return;
+        }
+
+        $adventureTerms = '
+            +
+            IFNULL((SELECT COUNT(*) FROM ' . TB_PREFIX . 'movement
+                WHERE ' . TB_PREFIX . 'movement.proc = 0
+                AND ((' . TB_PREFIX . 'movement.sort_type = ' . $advOut . '
+                      AND ' . TB_PREFIX . 'movement.`from` IN(' . $villageIDs . '))
+                  OR (' . TB_PREFIX . 'movement.sort_type = ' . $advBack . '
+                      AND ' . TB_PREFIX . 'movement.`to` IN(' . $villageIDs . ')))), 0)
+            +
+            IFNULL((SELECT COUNT(*) FROM ' . TB_PREFIX . 'hero_adventure
+                WHERE uid = ' . $uid . ' AND status = 1), 0)';
 
         $q = '
             SELECT
-                IFNULL((SELECT SUM(hero) FROM ' . TB_PREFIX . 'enforcement WHERE `from` IN(' . $villageIDs . ')), 0) +
+                IFNULL((SELECT SUM(hero) FROM ' . TB_PREFIX . 'enforcement WHERE `from` IN(' . $villageIDs . ') OR `vref` IN(' . $villageIDs . ')), 0) +
                 IFNULL((SELECT SUM(hero) FROM ' . TB_PREFIX . 'units WHERE `vref` IN(' . $villageIDs . ')), 0) +
                 IFNULL((SELECT SUM(t11) FROM ' . TB_PREFIX . 'prisoners WHERE `from` IN(' . $villageIDs . ')), 0) +
                 IFNULL((SELECT SUM(t11) FROM ' . TB_PREFIX . 'movement, ' . TB_PREFIX . 'attacks
@@ -495,7 +528,12 @@ function __construct() {
                 AS herocount';
 
         $qRes = @mysqli_query($database->dblink, $q);
-        $heroRow = $qRes ? mysqli_fetch_array($qRes, MYSQLI_ASSOC) : null;
+        // SAFETY GUARD: Jika query database gagal / timeout / error, JANGAN bunuh hero!
+        if (!$qRes) {
+            return;
+        }
+
+        $heroRow = mysqli_fetch_array($qRes, MYSQLI_ASSOC);
         $heroUnitRegisters = $heroRow ? (int)($heroRow['herocount'] ?? 0) : 0;
 
         $isHeroLivingOrRaising = $database->getHeroDeadReviveOrInTraining($this->uid);
