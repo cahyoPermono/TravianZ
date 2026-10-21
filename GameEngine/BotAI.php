@@ -22,12 +22,13 @@ class BotAI {
 
     /**
      * Retrieve Bot AI dynamic configuration setting.
-     * Priority:
+     * If $key is null, returns the entire configuration array.
+     * Priority for specific key:
      * 1. Prevention/bot_config.json (customized via Admin GUI)
      * 2. PHP Constant defined in config.php (e.g. BOT_AI_MAX_POP)
      * 3. Default fallback
      */
-    public static function getConfig(string $key, $default = null) {
+    public static function getConfig(?string $key = null, $default = null) {
         if (self::$runtimeConfig === null) {
             $configFile = __DIR__ . '/Prevention/bot_config.json';
             if (file_exists($configFile)) {
@@ -37,6 +38,10 @@ class BotAI {
             } else {
                 self::$runtimeConfig = [];
             }
+        }
+
+        if ($key === null) {
+            return self::$runtimeConfig;
         }
 
         if (array_key_exists($key, self::$runtimeConfig)) {

@@ -538,10 +538,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
 // FETCH CURRENT ACTIVE BOTS & STATS
 // ==============================================================================
 $botConfig = BotAI::getConfig();
-$currentMaxPop = (int)($botConfig['BOT_AI_MAX_POP'] ?? 800);
-$currentMaxLvl = (int)($botConfig['BOT_AI_MAX_BUILDING_LEVEL'] ?? 15);
-$currentMaxVil = (int)($botConfig['BOT_AI_MAX_VILLAGES'] ?? 2);
-$currentExpEnabled = !empty($botConfig['BOT_AI_EXPANSION_ENABLED'] ?? true);
+$currentMaxPop = (int)BotAI::getConfig('BOT_AI_MAX_POP', 800);
+$currentMaxLvl = (int)BotAI::getConfig('BOT_AI_MAX_BUILDING_LEVEL', 15);
+$currentMaxVil = (int)BotAI::getConfig('BOT_AI_MAX_VILLAGES', 2);
+$currentExpEnabled = !empty(BotAI::getConfig('BOT_AI_EXPANSION_ENABLED', true));
 
 $botsQuery = "
     SELECT u.id, u.username, u.tribe, u.regtime, u.desc1, u.alliance,

@@ -40,6 +40,10 @@ $saveSuccess = BotAI::saveConfig([
 ]);
 assertTrue($saveSuccess, "BotAI::saveConfig should return true");
 
+$allConfig = BotAI::getConfig();
+assertTrue(is_array($allConfig), "BotAI::getConfig() with 0 arguments must return array");
+assertEqual(1200, (int)($allConfig['BOT_AI_MAX_POP'] ?? 0), "BOT_AI_MAX_POP in array must be 1200");
+
 assertEqual(1200, (int)BotAI::getConfig('BOT_AI_MAX_POP'), "BOT_AI_MAX_POP should now be 1200");
 assertEqual(18, (int)BotAI::getConfig('BOT_AI_MAX_BUILDING_LEVEL'), "BOT_AI_MAX_BUILDING_LEVEL should now be 18");
 assertEqual(3, (int)BotAI::getConfig('BOT_AI_MAX_VILLAGES'), "BOT_AI_MAX_VILLAGES should now be 3");
