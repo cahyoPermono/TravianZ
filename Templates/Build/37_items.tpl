@@ -67,6 +67,10 @@ if (isset($_POST['t4action'], $_POST['rowid'])) {
                 ? HERO_UNEQUIP_OK : HERO_ITEM_USE_FAIL;
             break;
 
+        case 'toggle_active':
+            $t4Msg = $t4HeroItems->toggleItemActive($session->uid, $t4RowId);
+            break;
+
         case 'useitem':
             $t4Qty    = max(1, (int) ($_POST['qty'] ?? 1));
             $t4Result = $t4HeroItems->useItem($session->uid, $t4RowId, $t4Qty, $village->wid);
@@ -307,8 +311,19 @@ table.t4items .t4none { color: #a5a19a; }
                 <form action="" method="POST" class="t4form">
                     <input type="hidden" name="rowid" value="<?php echo (int) $t4Row['id']; ?>">
                     <?php if ($t4IsBag) { ?>
-                        <?php if (in_array((int)$t4Row['itemid'], [206, 207], true)) { ?>
-                            <span class="t4badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-weight:bold; padding:3px 7px; border-radius:4px; font-size:10px;" title="Item ini otomatis aktif dalam pertempuran saat Hero ikut menyerang dan selamat.">🛡️ Aktif Otomatis</span>
+                        <?php if (in_array((int)$t4Row['itemid'], [206, 207, 208], true)) { 
+                            $t4IsActive = ((int)($t4Row['stat_value'] ?? 0) === 0);
+                        ?>
+                            <input type="hidden" name="t4action" value="toggle_active">
+                            <div style="display:flex; flex-direction:column; align-items:center; gap:3px;">
+                                <?php if ($t4IsActive) { ?>
+                                    <span class="t4badge" style="background:#dcfce7; color:#15803d; border:1px solid #86efac; font-weight:bold; padding:2px 6px; border-radius:3px; font-size:10px;" title="Item ini AKTIF (akan otomatis digunakan saat Hero bertempur atau menyerang oasis).">🟢 Aktif (Siaga)</span>
+                                    <button type="submit" class="t4btn t4btn-off" style="font-size:10px; padding:2px 8px; cursor:pointer;" title="Klik untuk menonaktifkan agar tersimpan aman di tas dan tidak terpakai.">⏸️ Nonaktifkan</button>
+                                <?php } else { ?>
+                                    <span class="t4badge" style="background:#f3f4f6; color:#4b5563; border:1px solid #d1d5db; font-weight:bold; padding:2px 6px; border-radius:3px; font-size:10px;" title="Item ini NONAKTIF (tersimpan aman di tas dan tidak akan terpakai saat pertempuran/oasis).">⚪ Nonaktif (Disimpan)</span>
+                                    <button type="submit" class="t4btn" style="background:linear-gradient(#86efac, #22c55e); color:#14532d; border-color:#16a34a; font-size:10px; padding:2px 8px; font-weight:bold; cursor:pointer;" title="Klik untuk mengaktifkan kembali saat ingin digunakan.">🟢 Aktifkan</button>
+                                <?php } ?>
+                            </div>
                         <?php } else { ?>
                             <input type="hidden" name="t4action" value="useitem">
                             <input type="text" name="qty" value="1" class="t4qtynum">

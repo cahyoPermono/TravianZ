@@ -338,6 +338,9 @@ class HeroBattleBonus
             if ($row['orphan'] || $row['equipped'] == 1) {
                 continue;
             }
+            if ((int)($row['stat_value'] ?? 0) === 1) {
+                continue; // Inactive / paused by player
+            }
             if ((int) $row['itemid'] === 207) {
                 $stacks[0] = array('id' => (int) $row['id'], 'qty' => (int) $row['quantity'], 'pct' => 33);
             } elseif ((int) $row['itemid'] === 206) {
@@ -436,6 +439,128 @@ class HeroBattleBonus
         return $returning;
     }
 
+    /**
+     * Heal part of the defender's own fallen troops after a battle:
+     * up to pct% of own defense casualties are revived and remain in the village,
+     * consuming ONE bandage per healed unit.
+     * Applies only when the defender's hero participated in defense and survived.
+     *
+     * @param int   $uid             Defending player ID.
+     * @param array $owndead         [unitIndex => dead count] (modified by reference).
+     * @param int   $start           First unit index for defender's tribe.
+     * @param int   $end             Last unit index for defender's tribe.
+     * @param int   $totalHealedOut  [out] Total units revived.
+     * @return void
+     */
+    public static function applyDefenderBandages($uid, array &$owndead, $start, $end, &$totalHealedOut = 0)
+    {
+        $totalHealedOut = 0;
+        if (!self::enabled() || (int)$uid <= 0) {
+            return;
+        }
+
+        $heroItems = new HeroItems();
+        $stacks = array();
+        foreach ($heroItems->getInventory((int) $uid) as $row) {
+            if ($row['orphan'] || $row['equipped'] == 1) {
+                continue;
+            }
+            if ((int)($row['stat_value'] ?? 0) === 1) {
+                continue; // inactive / paused by player
+            }
+            if ((int) $row['itemid'] === 207) {
+                $stacks[0] = array('id' => (int) $row['id'], 'qty' => (int) $row['quantity'], 'pct' => 33);
+            } elseif ((int) $row['itemid'] === 206) {
+                $stacks[1] = array('id' => (int) $row['id'], 'qty' => (int) $row['quantity'], 'pct' => 25);
+            }
+        }
+        if (empty($stacks)) {
+            return;
+        }
+        ksort($stacks);
+
+        // Calculate total casualties across own defense units
+        $totalDead = 0;
+        for ($i = $start; $i <= $end; $i++) {
+            $totalDead += max(0, (int)($owndead[$i] ?? 0));
+        }
+
+        if ($totalDead <= 0) {
+            return;
+        }
+
+        // Determine best percentage available and total bandages
+        $bestPct = 0;
+        $totalBandages = 0;
+        foreach ($stacks as $s) {
+            if ($s['pct'] > $bestPct) {
+                $bestPct = $s['pct'];
+            }
+            $totalBandages += $s['qty'];
+        }
+
+        if ($totalBandages <= 0) {
+            return;
+        }
+
+        // Calculate total healable units based on bandage percentage
+        $healBudget = (int) round($totalDead * ($bestPct / 100));
+        if ($healBudget === 0 && $totalDead >= 2 && $totalBandages > 0) {
+            $healBudget = 1;
+        }
+        $healBudget = min($healBudget, $totalBandages, $totalDead);
+
+        if ($healBudget <= 0) {
+            return;
+        }
+
+        // Sort unit slots by highest casualties first for maximum healing value
+        $slots = [];
+        for ($i = $start; $i <= $end; $i++) {
+            $lost = max(0, (int)($owndead[$i] ?? 0));
+            if ($lost > 0) {
+                $slots[] = ['unit' => $i, 'dead' => $lost];
+            }
+        }
+        usort($slots, function ($a, $b) {
+            return $b['dead'] <=> $a['dead'];
+        });
+
+        $remainingBudget = $healBudget;
+        $healedSlots = [];
+        foreach ($slots as $slot) {
+            if ($remainingBudget <= 0) break;
+            $canHeal = min($slot['dead'], $remainingBudget);
+            if ($canHeal > 0) {
+                $healedSlots[$slot['unit']] = $canHeal;
+                $remainingBudget -= $canHeal;
+            }
+        }
+
+        $totalHealed = array_sum($healedSlots);
+        if ($totalHealed <= 0) {
+            return;
+        }
+
+        // Deduct from bandage stacks
+        $toConsume = $totalHealed;
+        foreach ($stacks as $stack) {
+            if ($toConsume <= 0) break;
+            $use = min($toConsume, $stack['qty']);
+            if ($use > 0) {
+                $heroItems->removeItem((int) $uid, (int) $stack['id'], $use);
+                $toConsume -= $use;
+            }
+        }
+
+        // Apply heals directly to $owndead (reduces casualties)
+        foreach ($healedSlots as $unitIndex => $healedCount) {
+            $owndead[$unitIndex] = max(0, (int)$owndead[$unitIndex] - $healedCount);
+        }
+
+        $totalHealedOut = $totalHealed;
+    }
+
     /* =========================================================================
      *  CAGES (oasis animal capture)
      * ===================================================================== */
@@ -484,6 +609,9 @@ class HeroBattleBonus
         $cageRow = null;
         foreach ($heroItems->getInventory((int) $uid) as $row) {
             if (!$row['orphan'] && (int) $row['itemid'] === 208 && $row['equipped'] == 0) {
+                if ((int)($row['stat_value'] ?? 0) === 1) {
+                    continue; // Inactive / paused by player
+                }
                 $cageRow = $row;
                 break;
             }

@@ -810,6 +810,47 @@ class HeroItems
     }
 
     /**
+     * Toggle active/inactive status for automatic combat consumables (Bandages 206/207, Cage 208).
+     * Stored in hero_items.stat_value:
+     *   0 = Active (default, will automatically trigger in battle/oasis)
+     *   1 = Inactive / Paused (saved in bag, will NOT trigger in battle/oasis)
+     */
+    public function toggleItemActive($uid, $rowId)
+    {
+        $uid   = (int) $uid;
+        $rowId = (int) $rowId;
+        $row   = $this->findRowById($uid, $rowId);
+        if (!$row || $row['orphan']) {
+            return defined('HERO_ITEM_NOT_FOUND') ? HERO_ITEM_NOT_FOUND : 'Item not found.';
+        }
+        $itemid = (int) $row['itemid'];
+        if (!in_array($itemid, [206, 207, 208], true)) {
+            return defined('HERO_ITEM_USE_FAIL') ? HERO_ITEM_USE_FAIL : 'This item cannot be toggled.';
+        }
+        $current = (int) ($row['stat_value'] ?? 0);
+        $newVal  = ($current === 1) ? 0 : 1; // 0 = Active, 1 = Inactive / Paused
+
+        $stmt = $this->db->prepare(
+            "UPDATE " . TB_PREFIX . "hero_items SET stat_value = ? WHERE uid = ? AND id = ? LIMIT 1"
+        );
+        if (!$stmt) {
+            return 'Database error.';
+        }
+        $stmt->bind_param('iii', $newVal, $uid, $rowId);
+        $stmt->execute();
+        $stmt->close();
+
+        $this->invalidateCaches($uid);
+
+        $name = $row['name'] ?? 'Item';
+        if ($newVal === 0) {
+            return "✅ {$name} sekarang AKTIF (siaga digunakan otomatis saat pertempuran / menangkap hewan di oasis).";
+        } else {
+            return "⏸️ {$name} sekarang NONAKTIF (tersimpan aman di tas dan tidak akan terpakai).";
+        }
+    }
+
+    /**
      * Remove quantity from an owned row (used by useItem, auction listing).
      * Deletes the row when the stack reaches zero. Returns true on success.
      */

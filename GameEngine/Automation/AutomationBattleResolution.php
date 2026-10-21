@@ -1336,7 +1336,7 @@ trait AutomationBattleResolution {
      *                           'deadherodef' = defender hero losses).
      * @return array Map of dead own troops: keys are the unit index (int) plus 'hero'.
      */
-    private function applyOwnDefenceCasualties($data, $targettribe, $battlepart) {
+    private function applyOwnDefenceCasualties($data, $targettribe, $battlepart, $defHeroSurvived = false, &$totalDefHealedOut = 0) {
         global $database;
 		
         // FIX: final guard against invalid SQL column names. The main loop
@@ -1360,12 +1360,26 @@ trait AutomationBattleResolution {
             return $owndead;
         }
 
+        for ($i = $start; $i <= $end; $i++) {
+            if ($unitlist) {
+                $owndead[$i] = round($battlepart[2] * ($unitlist['u'.$i] ?? 0));
+            }
+        }
+
+        // T4 hero port: defender bandages heal own defense casualties if defender hero participated and survived
+        $totalDefHealedOut = 0;
+        if ($defHeroSurvived) {
+            $defOwner = (int) $database->getVillageField($data['to'], 'owner');
+            if ($defOwner > 0) {
+                HeroBattleBonus::applyDefenderBandages($defOwner, $owndead, $start, $end, $totalDefHealedOut);
+            }
+        }
+
         $unitModifications_units = [];
         $unitModifications_amounts = [];
         $unitModifications_modes = [];
         for ($i = $start; $i <= $end; $i++) {
             if ($unitlist) {
-                $owndead[$i] = round($battlepart[2] * ($unitlist['u'.$i] ?? 0));
                 $unitModifications_units[] = $i;
                 $unitModifications_amounts[] = $owndead[$i];
                 $unitModifications_modes[] = 0;
@@ -3006,6 +3020,7 @@ trait AutomationBattleResolution {
                     }
                     
                     // check if our hero is defending the village, if so, verify living status before adding
+                    $defHeroParticipated = false;
                     if (isset($Defender['hero']) && $Defender['hero'] > 0) {
                         // Guard against zombie/desynced hero: if hero record is dead or has 0 HP, do not allow defense
                         if (empty($defHeroRowPre) || (int)($defHeroRowPre['dead'] ?? 0) === 1 || (float)($defHeroRowPre['health'] ?? 0) <= 0) {
@@ -3015,6 +3030,7 @@ trait AutomationBattleResolution {
                             $DefendersHeroID[] = (int)$defHeroRowPre['heroid'];
                             // collecting information for the battle report
                             $herosend_def += $Defender['hero'];
+                            $defHeroParticipated = true;
                         }
                     }
 
@@ -3115,8 +3131,11 @@ trait AutomationBattleResolution {
                     // with zero behavior change (0 + amount === the previous auto-vivified null + amount).
                     $alldead['hero'] = 0;
 
+                    // check if defender hero survived
+                    $defHeroSurvived = (!empty($defHeroParticipated) && (empty($battlepart['deadherodef']) || (int)$battlepart['deadherodef'] === 0));
+                    $totalDefHealed = 0;
                     //kill own defence — extracted to applyOwnDefenceCasualties() [#155]
-                    $owndead = $this->applyOwnDefenceCasualties($data, $targettribe, $battlepart);
+                    $owndead = $this->applyOwnDefenceCasualties($data, $targettribe, $battlepart, $defHeroSurvived, $totalDefHealed);
 
                     //kill other defence in village (reinforcements) — extracted to applyReinforcementCasualties() [#155]
                     $tribesPresent = $this->applyReinforcementCasualties($data, $battlepart, $from, $to, $ownally, $AttackArrivalTime, $scout, $alldead, $DefenderHeroesDeadArray);
@@ -3320,6 +3339,9 @@ trait AutomationBattleResolution {
                     );
                     $data2     = $report['data2'];
                     $data_fail = $report['data_fail'];
+                    if ($totalDefHealed > 0) {
+                        $data2 .= ',DEFBANDAGE:' . (int)$totalDefHealed;
+                    }
 
                     // notify the defender of the incoming battle/scout — extracted to sendBattleNotifications() [#155]
                     $this->sendBattleNotifications($scout, $battlepart, $from, $to, $targetally, $data2, $AttackArrivalTime, $unitsdead_att, $unitssend_att, $defspy, $info_troop, $totalsend_alldef, $totalsend_att, $totaldead_att, $totaltraped_att, $totaldead_alldef);

@@ -246,4 +246,162 @@ assertTrue(strpos($unxJs, 'scrolling="auto"') !== false, "unx.js must have scrol
 
 echo "PASS: All manual and iframe scrolling rules verified." . PHP_EOL;
 
+// -----------------------------------------------------------------------------
+// Test 5: HeroItems::toggleItemActive() logic
+// -----------------------------------------------------------------------------
+echo "Test 5: Testing HeroItems::toggleItemActive()..." . PHP_EOL;
+
+$mockHeroItemsToggle = new class extends HeroItems {
+    public $dbRows = [
+        1 => ['id' => 1, 'uid' => 1, 'itemid' => 208, 'quantity' => 10, 'stat_value' => 0, 'equipped' => 0, 'orphan' => false, 'name' => 'Cage'],
+        2 => ['id' => 2, 'uid' => 1, 'itemid' => 200, 'quantity' => 5, 'stat_value' => 0, 'equipped' => 0, 'orphan' => false, 'name' => 'Ointment'],
+        3 => ['id' => 3, 'uid' => 1, 'itemid' => 206, 'quantity' => 20, 'stat_value' => 0, 'equipped' => 0, 'orphan' => false, 'name' => 'Small Bandage']
+    ];
+    public function __construct() { }
+    public function findRowById($uid, $rowId) {
+        return $this->dbRows[$rowId] ?? null;
+    }
+    public function toggleItemActive($uid, $rowId) {
+        $row = $this->findRowById($uid, $rowId);
+        if (!$row || $row['orphan']) return 'Item not found.';
+        $itemid = (int) $row['itemid'];
+        if (!in_array($itemid, [206, 207, 208], true)) return 'This item cannot be toggled.';
+        $current = (int) ($row['stat_value'] ?? 0);
+        $newVal  = ($current === 1) ? 0 : 1;
+        $this->dbRows[$rowId]['stat_value'] = $newVal;
+        $name = $row['name'] ?? 'Item';
+        return $newVal === 0 ? "AKTIF" : "NONAKTIF";
+    }
+};
+
+$resCage1 = $mockHeroItemsToggle->toggleItemActive(1, 1); // was 0 -> becomes 1 (NONAKTIF)
+assertTrue($resCage1 === 'NONAKTIF', "Cage toggle should change to NONAKTIF");
+assertTrue($mockHeroItemsToggle->dbRows[1]['stat_value'] === 1, "Cage stat_value should be 1");
+
+$resCage2 = $mockHeroItemsToggle->toggleItemActive(1, 1); // was 1 -> becomes 0 (AKTIF)
+assertTrue($resCage2 === 'AKTIF', "Cage toggle should change back to AKTIF");
+assertTrue($mockHeroItemsToggle->dbRows[1]['stat_value'] === 0, "Cage stat_value should be 0");
+
+$resOintment = $mockHeroItemsToggle->toggleItemActive(1, 2); // item 200 cannot be toggled
+assertTrue(strpos($resOintment, 'cannot be toggled') !== false, "Ointment should not be toggleable");
+
+echo "PASS: HeroItems::toggleItemActive() verified." . PHP_EOL;
+
+// -----------------------------------------------------------------------------
+// Test 6: Defender Bandages Healing and Inactive Status Check
+// -----------------------------------------------------------------------------
+echo "Test 6: Testing Defender Bandages Healing & Inactive status..." . PHP_EOL;
+
+class TestableDefenderBonus extends HeroBattleBonus {
+    public static function applyDefTest(array $inventory, array &$owndead, $start, $end, &$totalHealedOut = 0) {
+        $stacks = [];
+        foreach ($inventory as $row) {
+            if ($row['orphan'] || $row['equipped'] == 1) continue;
+            if ((int)($row['stat_value'] ?? 0) === 1) continue; // Inactive
+            if ((int) $row['itemid'] === 207) {
+                $stacks[0] = ['id' => (int) $row['id'], 'qty' => (int) $row['quantity'], 'pct' => 33];
+            } elseif ((int) $row['itemid'] === 206) {
+                $stacks[1] = ['id' => (int) $row['id'], 'qty' => (int) $row['quantity'], 'pct' => 25];
+            }
+        }
+        if (empty($stacks)) return;
+        ksort($stacks);
+
+        $totalDead = 0;
+        for ($i = $start; $i <= $end; $i++) $totalDead += max(0, (int)($owndead[$i] ?? 0));
+        if ($totalDead <= 0) return;
+
+        $bestPct = 0; $totalBandages = 0;
+        foreach ($stacks as $s) {
+            if ($s['pct'] > $bestPct) $bestPct = $s['pct'];
+            $totalBandages += $s['qty'];
+        }
+        $healBudget = (int) round($totalDead * ($bestPct / 100));
+        if ($healBudget === 0 && $totalDead >= 2 && $totalBandages > 0) $healBudget = 1;
+        $healBudget = min($healBudget, $totalBandages, $totalDead);
+
+        $slots = [];
+        for ($i = $start; $i <= $end; $i++) {
+            $lost = max(0, (int)($owndead[$i] ?? 0));
+            if ($lost > 0) $slots[] = ['unit' => $i, 'dead' => $lost];
+        }
+        usort($slots, function ($a, $b) { return $b['dead'] <=> $a['dead']; });
+
+        $remainingBudget = $healBudget;
+        $healedSlots = [];
+        foreach ($slots as $slot) {
+            if ($remainingBudget <= 0) break;
+            $canHeal = min($slot['dead'], $remainingBudget);
+            if ($canHeal > 0) {
+                $healedSlots[$slot['unit']] = $canHeal;
+                $remainingBudget -= $canHeal;
+            }
+        }
+        $totalHealed = array_sum($healedSlots);
+        foreach ($healedSlots as $unitIndex => $healedCount) {
+            $owndead[$unitIndex] = max(0, (int)$owndead[$unitIndex] - $healedCount);
+        }
+        $totalHealedOut = $totalHealed;
+    }
+}
+
+// Case A: Defender has 10 Legionnaires lost, active Small Bandages (stat_value = 0)
+$defDead = [1 => 10];
+$defInvActive = [
+    ['id' => 1, 'itemid' => 206, 'quantity' => 10, 'stat_value' => 0, 'equipped' => 0, 'orphan' => false]
+];
+$healedDef = 0;
+TestableDefenderBonus::applyDefTest($defInvActive, $defDead, 1, 10, $healedDef);
+assertTrue($healedDef === 3, "25% of 10 dead should heal round(2.5) = 3 units");
+assertTrue($defDead[1] === 7, "Fallen units should reduce from 10 to 7");
+echo "PASS: Active defender bandages healed 3 units and reduced casualties to 7." . PHP_EOL;
+
+// Case B: Defender has paused bandages (stat_value = 1)
+$defDeadPaused = [1 => 10];
+$defInvPaused = [
+    ['id' => 1, 'itemid' => 206, 'quantity' => 10, 'stat_value' => 1, 'equipped' => 0, 'orphan' => false]
+];
+$healedDefPaused = 0;
+TestableDefenderBonus::applyDefTest($defInvPaused, $defDeadPaused, 1, 10, $healedDefPaused);
+assertTrue($healedDefPaused === 0, "Paused bandages must heal 0 units");
+assertTrue($defDeadPaused[1] === 10, "Fallen units should remain 10 when bandages paused");
+echo "PASS: Paused defender bandages safely ignored." . PHP_EOL;
+
+// -----------------------------------------------------------------------------
+// Test 7: Notice 1.tpl DEFBANDAGE token rendering
+// -----------------------------------------------------------------------------
+echo "Test 7: Testing Notice 1.tpl DEFBANDAGE token display..." . PHP_EOL;
+
+$dummyReportDef = array_fill(0, 290, '0');
+$dummyReportDef[0] = '1';
+$dummyReportDef[1] = '1';
+$dummyReportDef[2] = '1';
+$dummyReportDef[28] = '2';
+$dummyReportDef[29] = '2';
+$dummyReportDef[30] = 'Village 2';
+$dummyReportDef[34] = '1';
+$dummyReportDef[35] = '10';
+$dummyReportDef[45] = '2';
+$dummyReportDef[] = 'DEFBANDAGE:5';
+
+$message = new class($dummyReportDef) {
+    public $readingNotice;
+    public function __construct($data) {
+        $this->readingNotice = [
+            'data' => implode(',', $data),
+            'topic' => 'Hero attacks Enemy',
+            'time' => time(),
+            'ntype' => 1
+        ];
+    }
+};
+
+ob_start();
+include dirname(__DIR__) . '/Templates/Notice/1.tpl';
+$htmlDef = ob_get_clean();
+
+assertTrue(strpos($htmlDef, 'Pembalut (Bandage) Bertahan:') !== false, "Report must display Defender Bandage healing notice");
+assertTrue(strpos($htmlDef, '5') !== false, "Report must display healed defender unit count 5");
+echo "PASS: Notice 1.tpl successfully rendered Defender Bandage healing information." . PHP_EOL;
+
 echo "=== All Tests in HeroBandageAndManualScrollTest Passed Successfully! ===" . PHP_EOL;

@@ -310,10 +310,14 @@ if (!empty($dataarray[288]) && !empty($dataarray[289])) {
 
 // Bandage healing notice (T4 hero port)
 $healedByBandage = 0;
+$healedDefBandage = 0;
 foreach ($dataarray as $entry) {
-    if (is_string($entry) && strpos($entry, 'BANDAGE:') === 0) {
-        $healedByBandage = (int) substr($entry, 8);
-        break;
+    if (is_string($entry)) {
+        if (strpos($entry, 'BANDAGE:') === 0) {
+            $healedByBandage = (int) substr($entry, 8);
+        } elseif (strpos($entry, 'DEFBANDAGE:') === 0) {
+            $healedDefBandage = (int) substr($entry, 11);
+        }
     }
 }
 if ($healedByBandage > 0) {
@@ -322,8 +326,20 @@ if ($healedByBandage > 0) {
 <tr>
 <th><?php echo INFORMATION; ?></th>
 <td colspan="<?php echo $colspan; ?>">
-<span style="color:#15803d; font-weight:bold;">🩹 Pembalut (Bandage):</span>
-Sebanyak <b><?php echo $healedByBandage; ?></b> prajurit berhasil disembuhkan dan pulang ke desa bersama Hero.
+<span style="color:#15803d; font-weight:bold;">🩹 Pembalut (Bandage) Penyerang:</span>
+Sebanyak <b><?php echo $healedByBandage; ?></b> prajurit penyerang berhasil disembuhkan dan pulang ke desa bersama Hero.
+</td>
+</tr>
+</tbody>
+<?php }
+if ($healedDefBandage > 0) {
+?>
+<tbody class="goods">
+<tr>
+<th><?php echo INFORMATION; ?></th>
+<td colspan="<?php echo $colspan; ?>">
+<span style="color:#15803d; font-weight:bold;">🩹 Pembalut (Bandage) Bertahan:</span>
+Sebanyak <b><?php echo $healedDefBandage; ?></b> prajurit bertahan berhasil disembuhkan dan tetap hidup di desa oleh Hero.
 </td>
 </tr>
 </tbody>
