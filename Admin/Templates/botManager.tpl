@@ -519,18 +519,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
         $maxBuildingLvl = max(10, min(20, (int)($_POST['bot_max_building_level'] ?? 15)));
         $maxVillages = max(1, min(5, (int)($_POST['bot_max_villages'] ?? 2)));
         $expansionEnabled = !empty($_POST['bot_expansion_enabled']);
+        $paranormalEnabled = !empty($_POST['bot_paranormal_enabled']);
 
         BotAI::saveConfig([
             'BOT_AI_MAX_POP' => $maxPop,
             'BOT_AI_MAX_BUILDING_LEVEL' => $maxBuildingLvl,
             'BOT_AI_MAX_VILLAGES' => $maxVillages,
             'BOT_AI_EXPANSION_ENABLED' => $expansionEnabled,
+            'BOT_AI_PARANORMAL_ENABLED' => $paranormalEnabled,
         ]);
 
         $flashSuccess = "⚙️ <b>Pengaturan Bot AI Berhasil Disimpan!</b><br>"
             . "• Batas Populasi (Cap Pop): <b>$maxPop</b> pop/desa<br>"
             . "• Batas Level Bangunan: <b>Level $maxBuildingLvl</b><br>"
-            . "• Ekspansi Desa ke-2: <b>" . ($expansionEnabled ? "Aktif (Maks $maxVillages Desa/Bot)" : "Nonaktif") . "</b> (Berjalan secara natural via Padepokan Lvl 10, pelatihan 3 Pionir, CP, dan perjalanan perintis).";
+            . "• Ekspansi Desa ke-2: <b>" . ($expansionEnabled ? "Aktif (Maks $maxVillages Desa/Bot)" : "Nonaktif") . "</b> (Berjalan secara natural via Padepokan Lvl 10, pelatihan 3 Pionir, CP, dan perjalanan perintis).<br>"
+            . "• Sanggar Paranormal Nusantara: <b>" . ($paranormalEnabled ? "Aktif (Natural & Bertahap)" : "Nonaktif") . "</b> (Konstruksi GID 51 di slot 38, pemanggilan Pocong/Kunti/Genderuwo & ritual Tuyul sesuai sumber daya).";
     }
 }
 
@@ -542,6 +545,7 @@ $currentMaxPop = (int)BotAI::getConfig('BOT_AI_MAX_POP', 800);
 $currentMaxLvl = (int)BotAI::getConfig('BOT_AI_MAX_BUILDING_LEVEL', 15);
 $currentMaxVil = (int)BotAI::getConfig('BOT_AI_MAX_VILLAGES', 2);
 $currentExpEnabled = !empty(BotAI::getConfig('BOT_AI_EXPANSION_ENABLED', true));
+$currentParanormalEnabled = !empty(BotAI::getConfig('BOT_AI_PARANORMAL_ENABLED', true));
 
 $botsQuery = "
     SELECT u.id, u.username, u.tribe, u.regtime, u.desc1, u.alliance,
@@ -1013,6 +1017,19 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
                         </span>
                     </div>
                 </div>
+
+                <div class="botm-form-group">
+                    <label>Sanggar Paranormal (Suku Nusantara):</label>
+                    <div style="background:#0f172a; padding:10px 12px; border-radius:6px; border:1px solid #1e293b; margin-top:2px;">
+                        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:#f8fafc; font-weight:bold; font-size:12px;">
+                            <input type="checkbox" name="bot_paranormal_enabled" value="1" <?php echo $currentParanormalEnabled ? 'checked' : ''; ?> style="width:16px; height:16px; cursor:pointer;">
+                            <span>Aktifkan Sanggar Paranormal &amp; Khodam Nusantara</span>
+                        </label>
+                        <span style="font-size:10px; color:#c084fc; display:block; margin-top:4px;">
+                            Jika dicentang, bot suku Nusantara akan membangun Sanggar Paranormal (slot 38), memanggil Pocong, Kuntilanak, Genderuwo secara bertahap, dan ritual Tuyul bila ada surplus SDA.
+                        </span>
+                    </div>
+                </div>
             </div>
 
             <!-- Natural Steps Infographic Box -->
@@ -1034,6 +1051,29 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
                     <div style="background:#064e3b; padding:8px 10px; border-radius:4px; border-left:3px solid #10b981;">
                         <b style="color:#fff;">4. Perbekalan &amp; Ekspedisi</b><br>
                         Membawa 750 tiap SDA, berjalan melintasi peta ke lahan kosong dengan durasi tempuh asli pionir.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Natural Paranormal Infographic Box -->
+            <div style="background:#2e1065; border:1px solid #7c3aed; border-radius:6px; padding:12px; margin-bottom:14px; font-size:11px; line-height:1.6; color:#ddd6fe;">
+                <b style="color:#c4b5fd; font-size:12px;">👻 Alur Natural Sanggar Paranormal &amp; Khodam Nusantara (100% Organik, Tanpa Tiba-tiba Muncul):</b>
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:10px; margin-top:8px;">
+                    <div style="background:#3b0764; padding:8px 10px; border-radius:4px; border-left:3px solid #a855f7;">
+                        <b style="color:#fff;">1. Prasyarat &amp; Fondasi</b><br>
+                        Gedung Utama Lvl 3, Cranny Lvl 3, dan umur desa minimal 1.5 hari. Biaya konstruksi riil (150 kayu, 120 tanah, 160 besi, 80 gandum).
+                    </div>
+                    <div style="background:#3b0764; padding:8px 10px; border-radius:4px; border-left:3px solid #a855f7;">
+                        <b style="color:#fff;">2. Peningkatan Bertahap</b><br>
+                        Dibangun di slot 38 dan dinaikkan per level secara bergantian dengan fasilitas kota lain sesuai antrian tukang normal.
+                    </div>
+                    <div style="background:#3b0764; padding:8px 10px; border-radius:4px; border-left:3px solid #a855f7;">
+                        <b style="color:#fff;">3. Pemanggilan Arwah Alami</b><br>
+                        Hanya 1-2 makhluk gaib (Pocong/Kunti/Genderuwo) per siklus bila kapasitas slot cukup dan desa memiliki cadangan surplus SDA aman.
+                    </div>
+                    <div style="background:#3b0764; padding:8px 10px; border-radius:4px; border-left:3px solid #a855f7;">
+                        <b style="color:#fff;">4. Ritual Khodam Tuyul</b><br>
+                        Diaktifkan jika bot aktif merampok, Sanggar Lvl &gt;= 2, serta memiliki cadangan gandum &amp; bahan yang cukup (berkah jarahan +15% 24 jam).
                     </div>
                 </div>
             </div>
@@ -1409,6 +1449,28 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
                                             ⚔️ 0 Pasukan
                                         </span>
                                     <?php endif; ?>
+
+                                    <?php if ($tNum === 10):
+                                        $spStatus = BotAI::getParanormalStatus((int)$b['wref']);
+                                        if ($spStatus['level'] > 0 || $spStatus['used_slots'] > 0): ?>
+                                        <div style="margin-top:6px; font-size:10px; color:#c084fc; display:flex; flex-wrap:wrap; gap:3px;">
+                                            <span style="background:#3b0764; border:1px solid #7e22ce; padding:1px 5px; border-radius:3px;" title="Sanggar Paranormal Slot 38">
+                                                👻 Sanggar Lvl <?php echo $spStatus['level']; ?> (<?php echo $spStatus['used_slots']; ?>/<?php echo $spStatus['max_cap']; ?>)
+                                            </span>
+                                            <?php if ($spStatus['pocong'] > 0): ?>
+                                                <span style="background:#1e1b4b; border:1px solid #4338ca; padding:1px 4px; border-radius:3px; color:#a5b4fc;">Pocong: <?php echo $spStatus['pocong']; ?></span>
+                                            <?php endif; ?>
+                                            <?php if ($spStatus['kuntilanak'] > 0): ?>
+                                                <span style="background:#1e1b4b; border:1px solid #4338ca; padding:1px 4px; border-radius:3px; color:#a5b4fc;">Kunti: <?php echo $spStatus['kuntilanak']; ?></span>
+                                            <?php endif; ?>
+                                            <?php if ($spStatus['genderuwo'] > 0): ?>
+                                                <span style="background:#1e1b4b; border:1px solid #4338ca; padding:1px 4px; border-radius:3px; color:#a5b4fc;">Genderuwo: <?php echo $spStatus['genderuwo']; ?></span>
+                                            <?php endif; ?>
+                                            <?php if ($spStatus['tuyul_active']): ?>
+                                                <span style="background:#701a75; border:1px solid #c026d3; padding:1px 4px; border-radius:3px; color:#f0abfc;">Tuyul (+15% Raid)</span>
+                                            <?php endif; ?>
+                                        </div>
+                                    <?php endif; endif; ?>
                                 </td>
                                 <td class="res-pill">
                                     🌲 <?php echo number_format((int)$b['wood']); ?> |

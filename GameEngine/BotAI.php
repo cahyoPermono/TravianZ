@@ -146,7 +146,13 @@ class BotAI {
                 $botLogs[] = "Train: " . $trainResult;
             }
 
-            // 4. Automated Natural Village Expansion (Desa ke-2: Padepokan lvl 10, Pelatihan Settler & Pemukiman Alami)
+            // 4. Automated Nusantara Paranormal & Astral Spirits Management (Suku Nusantara)
+            $paranormalResult = self::processParanormal($bot);
+            if ($paranormalResult) {
+                $botLogs[] = "Paranormal: " . $paranormalResult;
+            }
+
+            // 5. Automated Natural Village Expansion (Desa ke-2: Padepokan lvl 10, Pelatihan Settler & Pemukiman Alami)
             $expansionResult = self::processExpansion($bot);
             if ($expansionResult) {
                 $botLogs[] = "Expansion: " . $expansionResult;
@@ -422,6 +428,7 @@ class BotAI {
         $ifLevel = (int)($fdata['f35'] ?? 0); // slot 35: Iron Foundry (type 7)
         $bsLevel = (int)($fdata['f36'] ?? 0); // slot 36: Blacksmith (type 12)
         $trLevel = (int)($fdata['f37'] ?? 0); // slot 37: Treasury (type 27)
+        $spLevel = ((int)($fdata['f38t'] ?? 0) === 51) ? (int)($fdata['f38'] ?? 0) : 0; // slot 38: Sanggar Paranormal (type 51, Nusantara)
 
         // Find minimum level among resource fields (f1..f18)
         $minFieldLevel = 999;
@@ -510,6 +517,21 @@ class BotAI {
             $database->query("UPDATE " . TB_PREFIX . "fdata SET f37 = 1, f37t = 27 WHERE vref = $wid");
             $upgraded = "Constructed Treasury (slot 37) lvl 1";
         }
+        // Nusantara: Cranny upgrade to lvl 3 as prerequisite for Sanggar Paranormal
+        elseif ($tribe === 10 && $crLevel < 3 && $mbLevel >= 3) {
+            $targetLevel = $crLevel + 1;
+            $database->query("UPDATE " . TB_PREFIX . "fdata SET f31 = $targetLevel, f31t = 23 WHERE vref = $wid");
+            $upgraded = "Upgraded Cranny (slot 31) to lvl $targetLevel (Prerequisite for Sanggar Paranormal)";
+        }
+        // Nusantara: Construct Sanggar Paranormal (GID 51) on slot 38 naturally
+        elseif ($tribe === 10 && self::getConfig('BOT_AI_PARANORMAL_ENABLED', true) && $spLevel < 1 && (int)($fdata['f38t'] ?? 0) === 0 && $mbLevel >= 3 && $crLevel >= 3 && $effectiveAgeDays >= 1.5 && $curWood >= 150 && $curClay >= 120 && $curIron >= 160 && $curCrop >= 80) {
+            $database->query("UPDATE " . TB_PREFIX . "fdata SET f38 = 1, f38t = 51 WHERE vref = $wid");
+            if (method_exists($database, 'modifyResource')) {
+                $database->modifyResource($wid, 150, 120, 160, 80, 0);
+            }
+            self::recountPop($wid);
+            return "Constructed Sanggar Paranormal (slot 38) lvl 1";
+        }
         // Phase 3: Progressive expansion (Resource Fields vs City Infrastructure)
         else {
             // Storage check: ensure Warehouse & Granary keep pace with resource fields
@@ -596,6 +618,9 @@ class BotAI {
                         }
                         if ($trLevel > 0 && $trLevel < min(20, $maxBuildingLvl)) {
                             $candidates[] = ['slot' => 37, 'type' => 27, 'lvl' => $trLevel + 1, 'name' => 'Treasury'];
+                        }
+                        if ($tribe === 10 && self::getConfig('BOT_AI_PARANORMAL_ENABLED', true) && $spLevel > 0 && $spLevel < min(20, $maxBuildingLvl) && (int)($fdata['f38t'] ?? 0) === 51) {
+                            $candidates[] = ['slot' => 38, 'type' => 51, 'lvl' => $spLevel + 1, 'name' => 'Sanggar Paranormal'];
                         }
                     }
 
@@ -994,6 +1019,7 @@ class BotAI {
         $stLvl = ($effectiveAgeDays >= 2.5) ? max(1, min(20, (int)floor(($effectiveAgeDays - 2.0) * 1.2))) : 0;
         $wsLvl = ($effectiveAgeDays >= 4.5) ? max(1, min(20, (int)floor(($effectiveAgeDays - 4.0) * 1.0))) : 0;
         $rsLvl = ($effectiveAgeDays >= 3.0) ? max(1, min(10, (int)floor(($effectiveAgeDays - 2.5) * 1.0))) : 0;
+        $spLvl = ($tribe === 10 && $effectiveAgeDays >= 1.5) ? max(1, min(20, (int)floor(($effectiveAgeDays - 1.0) * 1.0))) : 0;
 
         // Build full SQL update for fdata
         $setParts = [];
@@ -1017,10 +1043,37 @@ class BotAI {
         $setParts[] = $wsLvl > 0 ? "f23 = $wsLvl, f23t = 21" : "f23 = 0, f23t = 0";
         $setParts[] = $rsLvl > 0 ? "f30 = $rsLvl, f30t = 25" : "f30 = 0, f30t = 0";
 
+        // Sanggar Paranormal (slot 38, Nusantara tribe only)
+        if ($tribe === 10 && $spLvl > 0) {
+            $setParts[] = "f38 = $spLvl, f38t = 51";
+        }
+
         // Clear unused / unbuilt slots: f19, f24, f29, f32..f38
-        $unusedSlots = [19, 24, 29, 32, 33, 34, 35, 36, 37, 38];
+        $unusedSlots = [19, 24, 29, 32, 33, 34, 35, 36, 37];
+        if (!($tribe === 10 && $spLvl > 0)) {
+            $unusedSlots[] = 38;
+        }
         foreach ($unusedSlots as $us) {
             $setParts[] = "f{$us} = 0, f{$us}t = 0";
+        }
+
+        // Normalize astral spirits to building capacity
+        if ($tribe === 10 && class_exists('Paranormal')) {
+            Paranormal::ensureTableExists();
+            if ($spLvl <= 0) {
+                $database->query("UPDATE " . TB_PREFIX . "paranormal SET pocong = 0, kuntilanak = 0, genderuwo = 0 WHERE vref = $wid");
+            } else {
+                $maxCap = Paranormal::getMaxCapacity($spLvl);
+                $spirits = Paranormal::getVillageSpirits($wid);
+                $used = Paranormal::getUsedSlots($spirits);
+                if ($used > $maxCap) {
+                    $ratio = $maxCap / max(1, $used);
+                    $newP = (int)floor((int)($spirits['pocong'] ?? 0) * $ratio);
+                    $newK = (int)floor((int)($spirits['kuntilanak'] ?? 0) * $ratio);
+                    $newG = (int)floor((int)($spirits['genderuwo'] ?? 0) * $ratio);
+                    $database->query("UPDATE " . TB_PREFIX . "paranormal SET pocong = $newP, kuntilanak = $newK, genderuwo = $newG WHERE vref = $wid");
+                }
+            }
         }
 
         $database->query("UPDATE " . TB_PREFIX . "fdata SET " . implode(', ', $setParts) . " WHERE vref = $wid");
@@ -1483,6 +1536,185 @@ class BotAI {
             'settlers_queued' => $queuedSettlers,
             'in_progress' => !empty($inProgress),
             'status_text' => $statusText,
+        ];
+    }
+
+    /**
+     * Automated Nusantara Paranormal & Astral Spirits Management (Suku Nusantara - Tribe 10).
+     * 100% Natural mechanics:
+     * - Only applies to Nusantara tribe (tribe 10) with an existing Sanggar Paranormal (GID 51, lvl >= 1).
+     * - Strictly respects maximum astral spirit capacity based on building level (Paranormal::getMaxCapacity).
+     * - Consumes genuine village resources; leaves a safe economic reserve so village never starves.
+     * - Incremental, natural summoning batches (1 to 2 spirits per cycle, organic cadence).
+     * - Naturally activates Khodam Tuyul ritual (24h raid bounty) only when village has surplus resources and active raiding.
+     */
+    public static function processParanormal(array $bot): ?string {
+        global $database;
+
+        $tribe = (int)($bot['tribe'] ?? 0);
+        if ($tribe !== 10) {
+            return null;
+        }
+
+        if (!self::getConfig('BOT_AI_PARANORMAL_ENABLED', true)) {
+            return null;
+        }
+
+        if (!class_exists('Paranormal')) {
+            require_once __DIR__ . '/Paranormal.php';
+        }
+
+        $wid = (int)($bot['wref'] ?? $bot['wid'] ?? 0);
+        if ($wid <= 0) {
+            return null;
+        }
+
+        $spLevel = self::getBuildingLevel($wid, 51);
+        if ($spLevel < 1) {
+            return null;
+        }
+
+        Paranormal::ensureTableExists();
+        $spirits = Paranormal::getVillageSpirits($wid);
+        $maxCap = Paranormal::getMaxCapacity($spLevel);
+        $usedSlots = Paranormal::getUsedSlots($spirits);
+        $freeSlots = max(0, $maxCap - $usedSlots);
+
+        // Fetch current village resources
+        $vRes = method_exists($database, 'getVillageFields') ? $database->getVillageFields($wid, 'wood, clay, iron, crop', false) : null;
+        $curWood = (float)($vRes['wood'] ?? $bot['wood'] ?? 0);
+        $curClay = (float)($vRes['clay'] ?? $bot['clay'] ?? 0);
+        $curIron = (float)($vRes['iron'] ?? $bot['iron'] ?? 0);
+        $curCrop = (float)($vRes['crop'] ?? $bot['crop'] ?? 0);
+
+        // Safe reserve: keep at least 100 of each resource so normal village production/building isn't halted
+        $reserve = 100;
+        $availWood = max(0, $curWood - $reserve);
+        $availClay = max(0, $curClay - $reserve);
+        $availIron = max(0, $curIron - $reserve);
+        $availCrop = max(0, $curCrop - $reserve);
+
+        // 1. Natural Khodam Tuyul Ritual Activation (+15% raid bounty for 24h)
+        // Conditions: Sanggar Paranormal lvl >= 2, raid enabled, tuyul not active, plenty of surplus resources
+        $attacksEnabled = (bool)self::getConfig('BOT_AI_ENABLE_ATTACKS', true);
+        $tuyulUntil = (int)($spirits['tuyul_until'] ?? 0);
+        $tuyulCost = Paranormal::$tuyulCost; // 500 wood, 500 clay, 500 iron, 1000 crop
+
+        if ($attacksEnabled && $spLevel >= 2 && $tuyulUntil <= time()) {
+            if ($availWood >= $tuyulCost['wood'] && $availClay >= $tuyulCost['clay'] && $availIron >= $tuyulCost['iron'] && $availCrop >= $tuyulCost['crop']) {
+                // Organic activation chance
+                if (rand(1, 100) <= 40) {
+                    $database->modifyResource($wid, $tuyulCost['wood'], $tuyulCost['clay'], $tuyulCost['iron'], $tuyulCost['crop'], 0);
+                    $newUntil = time() + Paranormal::$tuyulDuration;
+                    $table = TB_PREFIX . "paranormal";
+                    $database->query("UPDATE `$table` SET `tuyul_until` = $newUntil WHERE `vref` = $wid");
+                    return "Activated Khodam Tuyul ritual (+15% raid bounty for 24 hours)";
+                }
+            }
+        }
+
+        // 2. Astral Spirits Summoning (Pocong, Kuntilanak, Genderuwo)
+        if ($freeSlots <= 0) {
+            return null; // Slot kapasitas penuh
+        }
+
+        // Natural cadence: don't summon on every single tick
+        if (rand(1, 100) > 50) {
+            return null;
+        }
+
+        // Build list of eligible spirits based on resources and slots
+        $candidates = [];
+
+        // Pocong (Type 1, 1 slot, def_i: 40, def_c: 20)
+        $pCost = Paranormal::$spiritStats[1]['cost'];
+        if ($freeSlots >= 1 && $availWood >= $pCost['wood'] && $availClay >= $pCost['clay'] && $availIron >= $pCost['iron'] && $availCrop >= $pCost['crop']) {
+            $curP = (int)($spirits['pocong'] ?? 0);
+            $curK = (int)($spirits['kuntilanak'] ?? 0);
+            $weight = ($curP <= $curK) ? 2 : 1;
+            for ($w = 0; $w < $weight; $w++) {
+                $candidates[] = 1;
+            }
+        }
+
+        // Kuntilanak (Type 2, 1 slot, def_i: 20, def_c: 60)
+        $kCost = Paranormal::$spiritStats[2]['cost'];
+        if ($freeSlots >= 1 && $availWood >= $kCost['wood'] && $availClay >= $kCost['clay'] && $availIron >= $kCost['iron'] && $availCrop >= $kCost['crop']) {
+            $curP = (int)($spirits['pocong'] ?? 0);
+            $curK = (int)($spirits['kuntilanak'] ?? 0);
+            $weight = ($curK <= $curP) ? 2 : 1;
+            for ($w = 0; $w < $weight; $w++) {
+                $candidates[] = 2;
+            }
+        }
+
+        // Genderuwo (Type 3, 2 slots, def_i: 75, def_c: 75, heavy defender)
+        if ($spLevel >= 3 && $freeSlots >= 2) {
+            $gCost = Paranormal::$spiritStats[3]['cost'];
+            if ($availWood >= $gCost['wood'] && $availClay >= $gCost['clay'] && $availIron >= $gCost['iron'] && $availCrop >= $gCost['crop']) {
+                $candidates[] = 3;
+            }
+        }
+
+        if (empty($candidates)) {
+            return null; // Tidak ada cukup sumber daya surplus
+        }
+
+        $chosenType = $candidates[array_rand($candidates)];
+        $stat = Paranormal::$spiritStats[$chosenType];
+        $slotNeeded = $stat['slots'];
+
+        // Natural batch size: 1 unit per cycle (or 2 if single-slot, slots >= 3, and abundant resources)
+        $batch = 1;
+        if ($slotNeeded == 1 && $freeSlots >= 3 && rand(1, 100) <= 25) {
+            $reqW2 = $stat['cost']['wood'] * 2;
+            $reqC2 = $stat['cost']['clay'] * 2;
+            $reqI2 = $stat['cost']['iron'] * 2;
+            $reqCr2 = $stat['cost']['crop'] * 2;
+            if ($availWood >= $reqW2 && $availClay >= $reqC2 && $availIron >= $reqI2 && $availCrop >= $reqCr2) {
+                $batch = 2;
+            }
+        }
+
+        $totalWood = $stat['cost']['wood'] * $batch;
+        $totalClay = $stat['cost']['clay'] * $batch;
+        $totalIron = $stat['cost']['iron'] * $batch;
+        $totalCrop = $stat['cost']['crop'] * $batch;
+
+        // Deduct genuine resources
+        $database->modifyResource($wid, $totalWood, $totalClay, $totalIron, $totalCrop, 0);
+
+        // Update paranormal table
+        $field = ($chosenType === 1) ? 'pocong' : (($chosenType === 2) ? 'kuntilanak' : 'genderuwo');
+        $table = TB_PREFIX . "paranormal";
+        $database->query("UPDATE `$table` SET `$field` = `$field` + $batch WHERE `vref` = $wid");
+
+        $newUsed = $usedSlots + ($slotNeeded * $batch);
+        return "Summoned natural astral spirit: {$batch}x {$stat['name']} (Slots: {$newUsed}/{$maxCap})";
+    }
+
+    /**
+     * Get paranormal status of a village (level, capacities, spirits, tuyul).
+     */
+    public static function getParanormalStatus(int $wid): array {
+        if (!class_exists('Paranormal')) {
+            require_once __DIR__ . '/Paranormal.php';
+        }
+        $spLevel = self::getBuildingLevel($wid, 51);
+        $spirits = Paranormal::getVillageSpirits($wid);
+        $maxCap = Paranormal::getMaxCapacity($spLevel);
+        $usedSlots = Paranormal::getUsedSlots($spirits);
+
+        return [
+            'level' => $spLevel,
+            'max_cap' => $maxCap,
+            'used_slots' => $usedSlots,
+            'free_slots' => max(0, $maxCap - $usedSlots),
+            'pocong' => (int)($spirits['pocong'] ?? 0),
+            'kuntilanak' => (int)($spirits['kuntilanak'] ?? 0),
+            'genderuwo' => (int)($spirits['genderuwo'] ?? 0),
+            'tuyul_active' => (!empty($spirits['tuyul_until']) && (int)$spirits['tuyul_until'] > time()),
+            'tuyul_until' => (int)($spirits['tuyul_until'] ?? 0),
         ];
     }
 

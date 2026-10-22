@@ -97,6 +97,12 @@ class Paranormal
             if ($res instanceof \mysqli_result && ($row = mysqli_fetch_assoc($res))) {
                 return $row;
             }
+            if (is_array($res) && !empty($res[0]) && is_array($res[0])) {
+                return $res[0];
+            }
+            if (is_array($res) && isset($res['vref'])) {
+                return $res;
+            }
 
             // Inisialisasi jika belum ada
             $database->query("INSERT IGNORE INTO `$table` (`vref`, `pocong`, `kuntilanak`, `genderuwo`, `tuyul_until`) VALUES ($vref, 0, 0, 0, 0)");
