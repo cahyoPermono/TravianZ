@@ -10,7 +10,6 @@ if (!defined('SITTER_PERM_REINF'))  define('SITTER_PERM_REINF',  4);
 if (!defined('SITTER_PERM_RES'))    define('SITTER_PERM_RES',    8);
 if (!defined('SITTER_PERM_GOLD'))   define('SITTER_PERM_GOLD',  16);
 if (!defined('SITTER_PERM_ALL'))    define('SITTER_PERM_ALL',   31);
-if (!defined('NEW_FUNCTIONS_HERO_T4')) define('NEW_FUNCTIONS_HERO_T4', true);
 
 
 
