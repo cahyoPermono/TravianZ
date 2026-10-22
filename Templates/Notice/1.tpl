@@ -219,39 +219,45 @@ if (!$spy && array_sum(array_map('intval', array_slice($dataarray, 274, 11))) > 
 
 <?php
 // ======================== SPECIAL ACTIONS ========================
-if (!empty($dataarray[262]) && !empty($dataarray[263])) {
+if (!empty($dataarray[263])) {
+    $ramUnit = (!empty($dataarray[262]) && is_numeric($dataarray[262])) ? (int)$dataarray[262] : (($tribe - 1) * 10 + 7);
+    $ramName = is_numeric($ramUnit) ? $technology->getUnitName($ramUnit) : (defined('U17') ? U17 : 'Ram');
 ?>
 <tbody class="goods">
 <tr>
 <th><?php echo INFORMATION; ?></th>
 <td colspan="<?php echo $colspan; ?>">
-<img class="unit u<?php echo $dataarray[262]; ?>" src="img/x.gif" alt="<?php echo U17; ?>" title="<?php echo U17; ?>" />
+<img class="unit u<?php echo $ramUnit; ?>" src="img/x.gif" alt="<?php echo htmlspecialchars($ramName); ?>" title="<?php echo htmlspecialchars($ramName); ?>" />
 <?php echo $dataarray[263]; ?>
 </td>
 </tr>
 </tbody>
 <?php }
 
-if (!empty($dataarray[264]) && !empty($dataarray[265])) {
+if (!empty($dataarray[265])) {
+    $catpUnit = (!empty($dataarray[264]) && is_numeric($dataarray[264])) ? (int)$dataarray[264] : (($tribe - 1) * 10 + 8);
+    $catpName = is_numeric($catpUnit) ? $technology->getUnitName($catpUnit) : (defined('U18') ? U18 : 'Catapult');
 ?>
 <tbody class="goods">
 <tr>
 <th><?php echo INFORMATION; ?></th>
 <td colspan="<?php echo $colspan; ?>">
-<img class="unit u<?php echo $dataarray[264]; ?>" src="img/x.gif" alt="<?php echo U18; ?>" title="<?php echo U18; ?>" />
+<img class="unit u<?php echo $catpUnit; ?>" src="img/x.gif" alt="<?php echo htmlspecialchars($catpName); ?>" title="<?php echo htmlspecialchars($catpName); ?>" />
 <?php echo $dataarray[265]; ?>
 </td>
 </tr>
 </tbody>
 <?php }
 
-if (!empty($dataarray[266]) && !empty($dataarray[267])) {
+if (!empty($dataarray[267])) {
+    $chiefUnit = (!empty($dataarray[266]) && is_numeric($dataarray[266])) ? (int)$dataarray[266] : (($tribe - 1) * 10 + 9);
+    $chiefName = is_numeric($chiefUnit) ? $technology->getUnitName($chiefUnit) : (defined('U19') ? U19 : 'Chief');
 ?>
 <tbody class="goods">
 <tr>
 <th><?php echo INFORMATION; ?></th>
 <td colspan="<?php echo $colspan; ?>">
-<img class="unit u<?php echo $dataarray[266]; ?>" src="img/x.gif" alt="<?php echo U19; ?>" title="<?php echo U19; ?>" />
+<img class="unit u<?php echo $chiefUnit; ?>" src="img/x.gif" alt="<?php echo htmlspecialchars($chiefName); ?>" title="<?php echo htmlspecialchars($chiefName); ?>" />
 <?php echo $dataarray[267]; ?>
 </td>
 </tr>

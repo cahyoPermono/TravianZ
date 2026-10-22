@@ -899,7 +899,7 @@ class Units {
     private function catapultInvalidBuildings($rallyPointLevel) {
         if ($rallyPointLevel >= 3 && $rallyPointLevel < 5) {
             $invalid = [];
-            for ($i = 1; $i <= 50; $i++) {
+            for ($i = 1; $i <= 51; $i++) {
                 if (!in_array($i, [10, 11])) $invalid[] = $i;
             }
             return $invalid;
@@ -907,7 +907,7 @@ class Units {
 
         if ($rallyPointLevel >= 5 && $rallyPointLevel < 10) {
             $invalid = [];
-            for ($i = 12; $i <= 50; $i++) $invalid[] = $i;
+            for ($i = 12; $i <= 51; $i++) $invalid[] = $i;
             return $invalid;
         }
 
@@ -928,7 +928,7 @@ class Units {
     private function normalizeCatapultTarget($target, $slot, $data, $rallyPointLevel, array $invalidBuildings) {
         if ($slot == 1) {
             if ($target != 0) {
-                if ($rallyPointLevel < 3 || $data['u8'] == 0 || in_array($target, $invalidBuildings) || $target < 0 || $target > 50) {
+                if ($rallyPointLevel < 3 || $data['u8'] == 0 || in_array($target, $invalidBuildings) || $target < 0 || $target > 51) {
                     return 0;
                 }
             }
@@ -940,7 +940,7 @@ class Units {
             if ($data['u8'] < 20 || $rallyPointLevel != 20) {
                 return 0;
             }
-            if (in_array($target, $invalidBuildings) || ($target < 0 || $target > 50 && $target != 99)) {
+            if (in_array($target, $invalidBuildings) || ($target < 0 || $target > 51 && $target != 99)) {
                 return 99;
             }
         }

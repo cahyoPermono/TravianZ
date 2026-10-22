@@ -39,12 +39,18 @@ trait AutomationBattleResolution {
                 $battlepart['catapults']['moraleBonus'] = 1;
             }
             
+            $catUpgrades = $battlepart['catapults']['upgrades'] ?? 1;
+            $catDurability = $battlepart['catapults']['durability'] ?? 1;
+            $catADRatio = $battlepart['catapults']['attackDefenseRatio'] ?? 1;
+            $catStrongerBld = $battlepart['catapults']['strongerBuildings'] ?? 1;
+            $catMorale = $battlepart['catapults']['moraleBonus'] ?? 1;
+
             $catapultsDamage = $battle->calculateCatapultsDamage($data['t8'],
-                                                                 $battlepart['catapults']['upgrades'],                                                                											   
-            											         $battlepart['catapults']['durability'],
-                                                                 $battlepart['catapults']['attackDefenseRatio'],                                                               
-            											         $battlepart['catapults']['strongerBuildings'],
-                                                                 $battlepart['catapults']['moraleBonus']);
+                                                                 $catUpgrades,
+                                                                 $catDurability,
+                                                                 $catADRatio,
+                                                                 $catStrongerBld,
+                                                                 $catMorale);
             
             $newLevel = $battle->calculateNewBuildingLevel($tblevel, $catapultsDamage / ($twoRowsCatapultSetup ? 2 : 1));
 
@@ -1863,15 +1869,15 @@ trait AutomationBattleResolution {
         $u     = ($owntribe - 1) * 10;
 
         if ($isoasis == 0) {
-            $catapult = [8, 18, 28, 48, 58, 68, 78, 88];
-            $ram      = [7, 17, 27, 47, 57, 67, 77, 87];
-            $chief    = [9, 19, 29, 49, 59, 69, 79, 89];
+            $catapult = [8, 18, 28, 48, 58, 68, 78, 88, 98];
+            $ram      = [7, 17, 27, 47, 57, 67, 77, 87, 97];
+            $chief    = [9, 19, 29, 49, 59, 69, 79, 89, 99];
         } else {
-            $catapult = [8, 18, 28, 38, 48, 58, 68, 78, 88];
-            $ram      = [7, 17, 27, 37, 47, 57, 67, 77, 87];
-            $chief    = [9, 19, 29, 39, 49, 59, 69, 79, 89];
+            $catapult = [8, 18, 28, 38, 48, 58, 68, 78, 88, 98];
+            $ram      = [7, 17, 27, 37, 47, 57, 67, 77, 87, 97];
+            $chief    = [9, 19, 29, 39, 49, 59, 69, 79, 89, 99];
         }
-        $spys = [4, 14, 23, 44, 52, 64, 74, 82];
+        $spys = [4, 14, 23, 44, 52, 64, 74, 82, 94];
 
         $catp_pic = $ram_pic = $chief_pic = $spy_pic = null;
 

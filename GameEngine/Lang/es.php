@@ -764,6 +764,21 @@ tz_def('U87', 'Ariete');
 tz_def('U88', 'Catapulta');
 tz_def('U89', 'Jarl');
 tz_def('U90', 'Colono vikingo');
+//NUSANTARA (TRIBE 10)
+tz_def('U91', 'Pendekar Keris');
+tz_def('U92', 'Prajurit Tombak');
+tz_def('U93', 'Pemanah Busur Gendewa');
+tz_def('U94', 'Telik Sandi');
+tz_def('U95', 'Kavaleri Berkuda');
+tz_def('U96', 'Gajah Perang Bhayangkara');
+tz_def('U97', 'Cetbang Pemecah Benteng');
+tz_def('U98', 'Meriam Kalantaka');
+tz_def('U99', 'Senapati Palapa');
+tz_def('U100', 'Pemukim Bahari');
+tz_def('TRIBE10_L1', 'Requisitos de tiempo moderados');
+tz_def('TRIBE10_L2', 'Ataque equilibrado y defensa marítima');
+tz_def('TRIBE10_L3', 'Caballería móvil y exploradores astutos');
+tz_def('TRIBE10_L4', 'Constructores de imperios versátiles');
 
 //INDEX.php
 tz_def('LOGIN', 'Iniciar sesión');
