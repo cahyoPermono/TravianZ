@@ -920,8 +920,8 @@ class Battle {
 
             $prevRefVerdict = isset($prevRefVerdicts[$defenders['id']]) ? $prevRefVerdicts[$defenders['id']] : null;
 
-            if ($prevRefVerdict === 1) {
-                $result['deadheroref'][$defenders['id']] = 1;
+            if ($prevRefVerdict !== null) {
+                $result['deadheroref'][$defenders['id']] = $prevRefVerdict;
                 continue;
             }
 
@@ -1933,7 +1933,7 @@ class Battle {
      * pierzi TOATE unitatile trimise eroul cade odata cu ele, indiferent de
      * echipament. Decizia vine din pierderile reale, calculate de apelant.
      */
-    if ($armyWipedOut || $hero_health <= $damage_health || $damage_health > 90) {
+    if ($armyWipedOut) {
 
         mysqli_query(
             $database->dblink,
@@ -1943,13 +1943,6 @@ class Battle {
              LIMIT 1"
         );
 
-        /**
-         * BUG REPARAT: se scria doar in tabela "hero". Coloana units.hero
-         * ramanea 1, deci eroul aparea in continuare in sat si in punctul de
-         * adunare, desi Conacul il arata mort.
-         *
-         * Il scoatem din toate satele proprietarului si din intaririle lui.
-         */
         $ownerRow = mysqli_fetch_assoc(mysqli_query(
             $database->dblink,
             "SELECT uid FROM " . TB_PREFIX . "hero WHERE heroid = " . $hero_id . " LIMIT 1"
@@ -1975,14 +1968,46 @@ class Battle {
     }
 
     /**
-     * BUG GASIT in audit: eroul supravietuise deja primul pass (pre-berbec)
-     * si isi luase daunele ACELUIA. Raportul recalculat aici confirma ca tot
-     * supravietuieste, deci nu se mai scrie nimic - altfel s-ar scadea health
-     * de doua ori pentru aceeasi lupta (exact dubla-scadere din issue #372
-     * pe care fix-ul original o repara pentru alte ramuri).
+     * Hero already survived the first pass (pre-ram/wall recalculation)
+     * and took damage from that pass. Confirm survival without re-checking
+     * health depletion against the already-reduced health (which would double-count damage).
      */
     if ($previousVerdict === 0) {
         return 0;
+    }
+
+    if ($hero_health <= $damage_health || $damage_health > 90) {
+
+        mysqli_query(
+            $database->dblink,
+            "UPDATE " . TB_PREFIX . "hero
+             SET dead = 1, health = 0
+             WHERE heroid = " . $hero_id . "
+             LIMIT 1"
+        );
+
+        $ownerRow = mysqli_fetch_assoc(mysqli_query(
+            $database->dblink,
+            "SELECT uid FROM " . TB_PREFIX . "hero WHERE heroid = " . $hero_id . " LIMIT 1"
+        ));
+
+        if ($ownerRow && (int) $ownerRow['uid'] > 0) {
+            $heroOwner = (int) $ownerRow['uid'];
+
+            mysqli_query($database->dblink,
+                "UPDATE " . TB_PREFIX . "units u
+                   JOIN " . TB_PREFIX . "vdata v ON v.wref = u.vref
+                    SET u.hero = 0
+                  WHERE v.owner = " . $heroOwner . " AND u.hero > 0");
+
+            mysqli_query($database->dblink,
+                "UPDATE " . TB_PREFIX . "enforcement e
+                   JOIN " . TB_PREFIX . "vdata v ON v.wref = e.`from`
+                    SET e.hero = 0
+                  WHERE v.owner = " . $heroOwner . " AND e.hero > 0");
+        }
+
+        return 1;
     }
 
     mysqli_query(

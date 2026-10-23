@@ -398,7 +398,7 @@ foreach ($defArray as $index => $value) {
     if ($value == 0) continue;
 
     $heroIndex = ($index == 0 ? 274 : 244 + ($index - 1));
-    $heroDeadIndex = ($index == 0 ? 1 : 9);
+    $heroDeadIndex = ($index == 0 ? 1 : 10);
 
     $target = ($index == 0 ? $targetTribe : $index) - 1;
     $start = $target * 10 + 1;

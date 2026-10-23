@@ -1497,6 +1497,7 @@ trait AutomationBattleResolution {
             }
 
             $enforceModificationsById = [];
+            $hasSurvivors = false;
             for ($i = $start; $i <= $end; $i++) {
                 if ($enforce['u'.$i] > '0') {
                     if (!isset($enforceModificationsById[$enforce['id']])) {
@@ -1516,7 +1517,9 @@ trait AutomationBattleResolution {
 
                     $alldead[$i] += $dead[$i];
 
-                    $wrong = $checkpoint != $enforce['u'.$i];
+                    if ($checkpoint < (int)$enforce['u'.$i]) {
+                        $hasSurvivors = true;
+                    }
                 } else {
                     $dead[$i] = 0;
                 }
@@ -1535,17 +1538,22 @@ trait AutomationBattleResolution {
                  * stale row hid the problem instead of preventing it.
                  *
                  * The dead count below is kept: it is what the reinforcement
-                 * report and $wrong (which decides whether the wiped-out
+                 * report and $hasSurvivors (which decides whether the wiped-out
                  * reinforcement row is deleted) are built from.
                  */
-                $dead['hero'] = $battlepart['deadheroref'][$enforce['id']];
+                $dead['hero'] = (isset($battlepart['deadheroref'][$enforce['id']]) ? (int)$battlepart['deadheroref'][$enforce['id']] : 0);
                 $alldead['hero'] += $dead['hero'];
-                $wrong = $dead['hero'] != $enforce['hero'];
+
+                if ($dead['hero'] < (int)$enforce['hero']) {
+                    $hasSurvivors = true;
+                }
 
                 //Collecting information for the report
                 // FIX: use the validated tribe for hero report indexing too.
                 $DefenderHeroesDeadArray[$tribe] = ($DefenderHeroesDeadArray[$tribe] ?? 0) + $dead['hero'];
             }
+
+            $wrong = $hasSurvivors;
 
             // modify enforce in DB
             foreach ($enforceModificationsById as $enforceId => $enforceArray) {
@@ -1570,8 +1578,8 @@ trait AutomationBattleResolution {
                 } else {
                     $database->addNotice($database->getVillageField($enforce['from'], "owner"), $from['wref'], $ownally, 17, 'Reinforcement in '.addslashes($to['name']).' was attacked', $data2, $AttackArrivalTime);
                 }
-                //delete reinf sting when its killed all.
-                if (!$wrong) $database->deleteReinf($enforce['id']);
+                //delete reinf entry ONLY when completely killed (no troops or hero survived)
+                if (!$hasSurvivors) $database->deleteReinf($enforce['id']);
             }
         }
 
@@ -3041,11 +3049,16 @@ trait AutomationBattleResolution {
                     }
 
                     // check if there are other heroes defending the village
+                    $defHeroEnforceId = 0;
                     if(count($enforcementarray) > 0){
                         foreach($enforcementarray as $enforcement){
                             if($enforcement['hero'] > 0){
-                                $heroOwner = $database->getVillageField($enforcement['from'], "owner");
+                                $heroOwner = (int)$database->getVillageField($enforcement['from'], "owner");
                                 $DefendersHeroID[] = $database->getHeroField($heroOwner, "heroid");
+                                if ($DefenderID > 0 && $heroOwner === (int)$DefenderID && !$defHeroParticipated) {
+                                    $defHeroParticipated = true;
+                                    $defHeroEnforceId = (int)$enforcement['id'];
+                                }
                             }                          
                         }
                     }
@@ -3275,10 +3288,13 @@ trait AutomationBattleResolution {
                     // assemble defender hero outcome for report
                     $defHeroReport = null;
                     if ($defHeroRowPre) {
-                        $wasDefending = ($herosend_def > 0);
+                        $wasDefending = ($herosend_def > 0) || $defHeroParticipated;
                         if ($wasDefending) {
                             $preHealth = (int)$defHeroRowPre['health'];
-                            if ($deadhero == 1) {
+                            $heroIsDead = ($herosend_def > 0)
+                                ? ($deadhero == 1)
+                                : (!empty($battlepart['deadheroref'][$defHeroEnforceId]));
+                            if ($heroIsDead) {
                                 $lostHp = $preHealth;
                                 $remHp  = 0;
                             } else {
@@ -3295,7 +3311,7 @@ trait AutomationBattleResolution {
                                 'lost_hp'   => $lostHp,
                                 'rem_hp'    => $remHp,
                                 'xp_gained' => (int)($defheroxp ?? 0),
-                                'is_dead'   => (int)$deadhero,
+                                'is_dead'   => $heroIsDead ? 1 : 0,
                                 'reason'    => 'fought'
                             ];
                         } else {
