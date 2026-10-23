@@ -125,7 +125,8 @@ if ($database->isVillageOases($dataarray[29])) {
 // ======================== HTML START ========================
 ?>
 <style>
-img.u91, img.u92, img.u93, img.u94, img.u95, img.u96, img.u97, img.u98, img.u99, img.u100 {
+img.u91, img.u92, img.u93, img.u94, img.u95, img.u96, img.u97, img.u98, img.u99, img.u100,
+.unit.u91, .unit.u92, .unit.u93, .unit.u94, .unit.u95, .unit.u96, .unit.u97, .unit.u98, .unit.u99, .unit.u100 {
     background-image: url('img/un/u/v10_nusantara2.gif?v=20261023c') !important;
 }
 </style>

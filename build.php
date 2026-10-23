@@ -412,15 +412,15 @@ if (isset($_GET['setherohome']) && is_numeric($_GET['setherohome'])) {
 	<script src="unx.js?f4b7h" type="text/javascript"></script>
 	<script src="new.js?ebe79" type="text/javascript"></script>
 	<link href="<?php echo GP_LOCATE; ?>lang/en/lang.css?f4b7d" rel="stylesheet" type="text/css" />
-	<link href="<?php echo GP_LOCATE; ?>lang/en/compact.css?v=20261016_g51" rel="stylesheet" type="text/css" />
+	<link href="<?php echo GP_LOCATE; ?>lang/en/compact.css?v=20261023c" rel="stylesheet" type="text/css" />
 	<?php
 	// GP_LOCATE contine deja pachetul efectiv: alegerea jucatorului cand
 	// e permisa si valida, altfel pachetul serverului (vezi config.php).
 	echo "
-		<link href='".GP_LOCATE."travian.css?v=20261016_g51' rel='stylesheet' type='text/css' />
+		<link href='".GP_LOCATE."travian.css?v=20261023c' rel='stylesheet' type='text/css' />
 		<link href='".GP_LOCATE."lang/en/lang.css?e21d2' rel='stylesheet' type='text/css' />";
 	?>
-	<link href="css/mobile_engine.css?v=20261016_g51" rel="stylesheet" type="text/css" />
+	<link href="css/mobile_engine.css?v=20261023c" rel="stylesheet" type="text/css" />
 	<script type="text/javascript">
 
 		window.addEvent('domready', start);

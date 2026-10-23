@@ -1639,9 +1639,24 @@ img.g51Icon, .building.g51Icon, div.village2 div#village_map img.g51Icon {
 }
 
 /* Nusantara Unit Sprite Fix (Transparent) */
-img.u91, img.u92, img.u93, img.u94, img.u95, img.u96, img.u97, img.u98, img.u99, img.u100 {
+img.u91, img.u92, img.u93, img.u94, img.u95, img.u96, img.u97, img.u98, img.u99, img.u100,
+.unit.u91, .unit.u92, .unit.u93, .unit.u94, .unit.u95, .unit.u96, .unit.u97, .unit.u98, .unit.u99, .unit.u100 {
   background-image: url("../img/un/u/v10_nusantara2.gif?v=20261023c") !important;
   background-repeat: no-repeat !important;
+  height: 16px !important;
+  width: 16px !important;
+  display: inline-block;
 }
+img.u91, .unit.u91 { background-position: 0 0 !important; }
+img.u92, .unit.u92 { background-position: -19px 0 !important; }
+img.u93, .unit.u93 { background-position: -38px 0 !important; }
+img.u94, .unit.u94 { background-position: -57px 0 !important; }
+img.u95, .unit.u95 { background-position: -76px 0 !important; }
+img.u96, .unit.u96 { background-position: -95px 0 !important; }
+img.u97, .unit.u97 { background-position: -114px 0 !important; }
+img.u98, .unit.u98 { background-position: -133px 0 !important; }
+img.u99, .unit.u99 { background-position: -152px 0 !important; }
+img.u100, .unit.u100 { background-position: -171px 0 !important; }
+
 
 
