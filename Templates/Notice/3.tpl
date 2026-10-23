@@ -81,6 +81,11 @@ if ($database->isVillageOases($dataarray[29])) {
 }
 
 ?>
+<style>
+img.u91, img.u92, img.u93, img.u94, img.u95, img.u96, img.u97, img.u98, img.u99, img.u100 {
+    background-image: url('img/un/u/v10_nusantara2.gif?v=20261023c') !important;
+}
+</style>
 
 <table cellpadding="1" cellspacing="1" id="report_surround">
 <thead>

@@ -1638,3 +1638,10 @@ img.g51Icon, .building.g51Icon, div.village2 div#village_map img.g51Icon {
   background-repeat: no-repeat !important;
 }
 
+/* Nusantara Unit Sprite Fix (Transparent) */
+img.u91, img.u92, img.u93, img.u94, img.u95, img.u96, img.u97, img.u98, img.u99, img.u100 {
+  background-image: url("../img/un/u/v10_nusantara2.gif?v=20261023c") !important;
+  background-repeat: no-repeat !important;
+}
+
+
