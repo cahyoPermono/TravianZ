@@ -299,10 +299,115 @@ if (!empty($_SESSION['bm_flash'])) {
         </table>
     </div>
 
-    <!-- PILAR 4: PEGADAIAN GELAP & JUAL BARANG BUKTI (HERO ITEM PAWN SHOP) -->
+    <!-- PILAR 4: BURSA PERBEKALAN HERO SELUNDUPAN (HERO CONSUMABLES BLACK MARKET) -->
+    <div style="background: #faf6ee; border: 1px solid #cbb89d; border-radius: 6px; padding: 14px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; border-bottom: 1px dashed #cbb89d; padding-bottom: 6px; margin-bottom: 8px;">
+            <h3 style="margin: 0; color: #693206; font-size: 14px;">
+                🪣 4. Bursa Perbekalan Hero Selundupan <span style="font-size: 11px; color: #8a6d3b; font-weight: normal;">(Hero Consumables — Bayar Pakai Silver)</span>
+            </h3>
+            <span style="font-size: 10.5px; background: #fff3cd; color: #856404; border: 1px solid #ffeeba; padding: 2px 8px; border-radius: 3px; font-weight: bold;">
+                ⚡ Instan Langsung Masuk Tas Hero
+            </span>
+        </div>
+        <p style="font-size: 11px; color: #555; margin: 4px 0 12px 0; line-height: 1.5;">
+            Butuh perbekalan darurat tanpa harus menunggu lelang berjam-jam atau berebut tawaran dengan pemain lain? Penyelundup pasar gelap menyediakan stok perbekalan hero siap pakai yang langsung diselundupkan ke tas hero Anda saat ini juga.
+            <br />
+            <span style="color: #8c4a17; font-size: 10px;">
+                <i>⚠️ Catatan Tengkulak: Karena perbekalan ini merupakan barang selundupan instan "tanpa antre", harganya memiliki margin pasar gelap yang lebih mahal dari harga pasaran lelang biasa.</i>
+            </span>
+        </p>
+
+        <?php
+        $heroConsumables = BlackMarket::getHeroConsumablesCatalog();
+        ?>
+        <div style="border: 1px solid #e0d5c1; border-radius: 4px; background: #fff; overflow-x: auto;">
+            <table cellpadding="6" cellspacing="0" style="width: 100%; font-size: 11px; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #f3ece0; border-bottom: 1px solid #d5c8b2;">
+                        <th style="text-align: center; width: 54px; padding: 6px 4px;">Icon</th>
+                        <th style="text-align: left; padding: 6px 8px;">Nama Perbekalan & Manfaat</th>
+                        <th style="text-align: center; width: 135px; padding: 6px 4px;">Harga Pasar Gelap</th>
+                        <th style="text-align: center; width: 95px; padding: 6px 4px;">Jumlah</th>
+                        <th style="text-align: right; width: 115px; padding: 6px 8px;">Aksi Beli</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php 
+                    $rowIdx = 0;
+                    foreach ($heroConsumables as $cItemId => $cItem): 
+                        $rowIdx++;
+                        $rowBg = ($rowIdx % 2 === 0) ? '#faf7f2' : '#ffffff';
+                        $uPrice = (int)$cItem['silver_price'];
+                        $minQ = (int)$cItem['min_qty'];
+                        $maxQ = (int)$cItem['max_qty'];
+                        $canAffordMin = ($silver >= ($uPrice * $minQ));
+                    ?>
+                    <tr style="background: <?php echo $rowBg; ?>; border-bottom: 1px solid #eee;">
+                        <td style="text-align: center; vertical-align: middle; padding: 6px 4px;">
+                            <div style="width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; background: #eceae5; border: 1px solid #d4cbb8; border-radius: 4px; overflow: hidden;">
+                                <span class="heroT4Item <?php echo $cItem['icon_class']; ?>" style="transform: scale(0.85); transform-origin: center center;" title="<?php echo htmlspecialchars($cItem['name']); ?>"></span>
+                            </div>
+                        </td>
+                        <td style="vertical-align: middle; padding: 6px 8px;">
+                            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                                <b style="color: #4a2808; font-size: 12px;"><?php echo htmlspecialchars($cItem['name']); ?></b>
+                                <span style="font-size: 10px; background: #eaf3db; color: #3b6311; border: 1px solid #c7dfa7; border-radius: 3px; padding: 1px 5px; font-weight: bold;">
+                                    <?php echo $cItem['badge']; ?>
+                                </span>
+                            </div>
+                            <div style="color: #666; font-size: 10px; margin-top: 3px; line-height: 1.35;">
+                                <?php echo htmlspecialchars($cItem['desc']); ?>
+                            </div>
+                            <div style="color: #999; font-size: 9.5px; margin-top: 2px;">
+                                <i>Pasaran Lelang Biasa: <?php echo htmlspecialchars($cItem['market_price']); ?></i>
+                            </div>
+                        </td>
+                        <td style="text-align: center; vertical-align: middle; padding: 6px 4px;">
+                            <span style="font-weight: bold; color: #b8860b; font-size: 12px;">
+                                💰 <?php echo number_format($uPrice); ?>
+                            </span>
+                            <span style="font-size: 10px; color: #888;">Silver / pcs</span>
+                        </td>
+                        <td style="text-align: center; vertical-align: middle; padding: 6px 4px;">
+                            <form method="POST" action="build.php" id="form_c_<?php echo $cItemId; ?>" style="margin: 0;" onsubmit="return confirm('Beli ' + document.getElementById('qty_<?php echo $cItemId; ?>').value + 'x <?php echo addslashes($cItem['name']); ?> seharga ' + (parseInt(document.getElementById('qty_<?php echo $cItemId; ?>').value) * <?php echo $uPrice; ?>).toLocaleString() + ' Silver?');">
+                                <input type="hidden" name="ft" value="bm_buy_consumable">
+                                <input type="hidden" name="id" value="<?php echo (int)$id; ?>">
+                                <input type="hidden" name="itemid" value="<?php echo $cItemId; ?>">
+                                
+                                <div style="display: flex; align-items: center; justify-content: center; gap: 2px;">
+                                    <input type="number" 
+                                           id="qty_<?php echo $cItemId; ?>" 
+                                           name="qty" 
+                                           value="<?php echo $minQ; ?>" 
+                                           min="<?php echo $minQ; ?>" 
+                                           max="<?php echo $maxQ; ?>" 
+                                           style="width: 52px; padding: 3px; font-size: 11px; text-align: center; border: 1px solid #ccc; border-radius: 3px;"
+                                           oninput="updateConsumableTotal(<?php echo $cItemId; ?>, <?php echo $uPrice; ?>)">
+                                </div>
+                                <div style="font-size: 9px; color: #888; margin-top: 2px;">
+                                    Total: <b id="total_lbl_<?php echo $cItemId; ?>" style="color: #693206;"><?php echo number_format($uPrice * $minQ); ?></b> Silver
+                                </div>
+                        </td>
+                        <td style="text-align: right; vertical-align: middle; padding: 6px 8px;">
+                                <button type="submit" 
+                                        id="btn_c_<?php echo $cItemId; ?>"
+                                        <?php if(!$canAffordMin) echo 'disabled'; ?>
+                                        style="background: <?php echo $canAffordMin ? '#2e6b38' : '#bbb'; ?>; color: #fff; border: 1px solid <?php echo $canAffordMin ? '#1e4b25' : '#aaa'; ?>; padding: 5px 10px; font-size: 11px; font-weight: bold; border-radius: 3px; cursor: <?php echo $canAffordMin ? 'pointer' : 'not-allowed'; ?>; white-space: nowrap; box-shadow: <?php echo $canAffordMin ? '0 1px 2px rgba(0,0,0,0.15)' : 'none'; ?>;">
+                                    <?php echo $canAffordMin ? '🛒 Beli Instan' : '❌ Silver Kurang'; ?>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- PILAR 5: PEGADAIAN GELAP & JUAL BARANG BUKTI (HERO ITEM PAWN SHOP) -->
     <div style="background: #faf6ee; border: 1px solid #cbb89d; border-radius: 6px; padding: 14px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
         <h3 style="margin: 0 0 6px 0; color: #693206; font-size: 14px; border-bottom: 1px dashed #cbb89d; padding-bottom: 5px;">
-            🧺 4. Pegadaian Gelap & Jual Beli Barang Bukti <span style="font-size: 11px; color: #8a6d3b; font-weight: normal;">(Hero Item Pawn Shop — Tukar Barang Jadi Sumber Daya Instan)</span>
+            🧺 5. Pegadaian Gelap & Jual Beli Barang Bukti <span style="font-size: 11px; color: #8a6d3b; font-weight: normal;">(Hero Item Pawn Shop — Tukar Barang Jadi Sumber Daya Instan)</span>
         </h3>
         <p style="font-size: 11px; color: #555; margin: 4px 0 10px 0;">
             Punya perlengkapan senjata, zirah, atau perbekalan petualangan berlebih yang menganggur di tas? Gadaikan langsung ke tengkulak pasar gelap untuk mendapatkan pasokan <b>4 jenis sumber daya merata</b> secara instan ke gudang desa!
@@ -414,6 +519,8 @@ if (!empty($_SESSION['bm_flash'])) {
 </div>
 
 <script type="text/javascript">
+var userSilverBalance = <?php echo (int)$silver; ?>;
+
 function updateLaunderPreview() {
     var amt = parseInt(document.getElementById('bm_amount').value) || 0;
     var preview = document.getElementById('bm_preview');
@@ -424,4 +531,40 @@ function updateLaunderPreview() {
     var yieldAmt = Math.floor(amt * 0.85);
     preview.innerText = yieldAmt.toLocaleString();
 }
+
+function updateConsumableTotal(itemId, unitPrice) {
+    var qtyInput = document.getElementById('qty_' + itemId);
+    var totalLbl = document.getElementById('total_lbl_' + itemId);
+    var btn = document.getElementById('btn_c_' + itemId);
+    
+    if (!qtyInput || !totalLbl) return;
+    
+    var qty = parseInt(qtyInput.value) || 0;
+    if (qty < 1) {
+        qty = 1;
+        qtyInput.value = 1;
+    }
+    var total = qty * unitPrice;
+    
+    totalLbl.innerText = total.toLocaleString();
+    
+    if (btn) {
+        if (total > userSilverBalance) {
+            btn.disabled = true;
+            btn.style.background = '#bbb';
+            btn.style.borderColor = '#aaa';
+            btn.style.cursor = 'not-allowed';
+            btn.style.boxShadow = 'none';
+            btn.innerText = '❌ Silver Kurang';
+        } else {
+            btn.disabled = false;
+            btn.style.background = '#2e6b38';
+            btn.style.borderColor = '#1e4b25';
+            btn.style.cursor = 'pointer';
+            btn.style.boxShadow = '0 1px 2px rgba(0,0,0,0.15)';
+            btn.innerText = '🛒 Beli Instan';
+        }
+    }
+}
 </script>
+

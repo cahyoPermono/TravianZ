@@ -330,7 +330,160 @@ class BlackMarket
     }
 
     /**
-     * 4. Hero Item Appraisal: Calculate item appraisal and humorous syndicate deductions.
+     * Hero Consumables Catalog for Black Market.
+     * Price is intentionally set with a black-market markup/premium (higher than auction market price)
+     * because items are delivered instantly into inventory without auction bidding or waiting.
+     */
+    public static function getHeroConsumablesCatalog(): array
+    {
+        return [
+            202 => [
+                'name'         => 'Ember Kehidupan (Bucket of Water)',
+                'desc'         => 'Menghidupkan kembali Hero yang gugur seketika dengan 100% darah (HP) tanpa biaya sumber daya dan tanpa waktu tunggu.',
+                'icon_class'   => 'item202',
+                'market_price' => '~400 - 600 Silver',
+                'silver_price' => 500,
+                'min_qty'      => 1,
+                'max_qty'      => 10,
+                'badge'        => '🔥 Sangat Langka',
+            ],
+            204 => [
+                'name'         => 'Kitab Kebijaksanaan (Book of Wisdom)',
+                'desc'         => 'Mereset seluruh alokasi poin atribut Hero seketika agar dapat didistribusikan ulang (Kekuatan Tempur, Bonus Serang/Bertahan, Sumber Daya).',
+                'icon_class'   => 'item204',
+                'market_price' => '~300 - 500 Silver',
+                'silver_price' => 800,
+                'min_qty'      => 1,
+                'max_qty'      => 10,
+                'badge'        => '✨ Reset Poin Atribut',
+            ],
+            205 => [
+                'name'         => 'Karya Seni Peradaban (Artwork)',
+                'desc'         => 'Memberikan bonus Culture Points (CP) seketika setara hasil produksi CP harian seluruh desa akun Anda (maksimal 2.500/5.000 CP).',
+                'icon_class'   => 'item205',
+                'market_price' => '~400 - 700 Silver',
+                'silver_price' => 1200,
+                'min_qty'      => 1,
+                'max_qty'      => 20,
+                'badge'        => '🏛️ Ekspansi Cepat',
+            ],
+            203 => [
+                'name'         => 'Tablet Hukum (Law Tablet)',
+                'desc'         => 'Memulihkan loyalitas desa sebesar +1% per tablet (bisa dinaikkan hingga 125% untuk benteng proteksi ekstra dari perebutan desa oleh musuh).',
+                'icon_class'   => 'item203',
+                'market_price' => '~15 - 25 Silver / pcs',
+                'silver_price' => 45,
+                'min_qty'      => 1,
+                'max_qty'      => 100,
+                'badge'        => '🛡️ Anti Penaklukan',
+            ],
+            208 => [
+                'name'         => 'Kandang Hewan Liar (Cage)',
+                'desc'         => 'Menjebak & menangkap 1 hewan buas di oasis per kandang saat hero menyerang, langsung menjadi penjaga desa gratis tanpa makan gandum.',
+                'icon_class'   => 'item208',
+                'market_price' => '~8 - 12 Silver / pcs',
+                'silver_price' => 20,
+                'min_qty'      => 1,
+                'max_qty'      => 200,
+                'badge'        => '🐯 Pertahanan Bebas Gandum',
+            ],
+            201 => [
+                'name'         => 'Gulungan Pengalaman (Scroll)',
+                'desc'         => 'Memberikan +10 EXP pengalaman hero per lembar secara instan untuk mempercepat kenaikan level hero.',
+                'icon_class'   => 'item201',
+                'market_price' => '~10 - 20 Silver / pcs',
+                'silver_price' => 35,
+                'min_qty'      => 1,
+                'max_qty'      => 200,
+                'badge'        => '⚡ Cepat Naik Level',
+            ],
+            200 => [
+                'name'         => 'Salep Penyembuh Luka (Ointment)',
+                'desc'         => 'Memulihkan +1% darah (HP) hero per salep secara instan (maksimal hingga 99% HP saat hero masih hidup).',
+                'icon_class'   => 'item200',
+                'market_price' => '~3 - 6 Silver / pcs',
+                'silver_price' => 12,
+                'min_qty'      => 1,
+                'max_qty'      => 300,
+                'badge'        => '❤️ Pemulihan Darah',
+            ],
+            207 => [
+                'name'         => 'Perban Tempur Besar (Bandage)',
+                'desc'         => 'Menyelamatkan dan mengobati 33% pasukan pendamping hero yang gugur dalam pertempuran setelah penyerangan.',
+                'icon_class'   => 'item207',
+                'market_price' => '~15 - 25 Silver / pcs',
+                'silver_price' => 40,
+                'min_qty'      => 1,
+                'max_qty'      => 100,
+                'badge'        => '🩹 Selamatkan 33% Pasukan',
+            ],
+            206 => [
+                'name'         => 'Perban Tempur Kecil (Small Bandage)',
+                'desc'         => 'Menyelamatkan dan mengobati 25% pasukan pendamping hero yang gugur dalam pertempuran setelah penyerangan.',
+                'icon_class'   => 'item206',
+                'market_price' => '~10 - 15 Silver / pcs',
+                'silver_price' => 25,
+                'min_qty'      => 1,
+                'max_qty'      => 100,
+                'badge'        => '🩹 Selamatkan 25% Pasukan',
+            ],
+        ];
+    }
+
+    /**
+     * Buy Hero Consumable items with Silver from the Black Market.
+     */
+    public static function buyHeroConsumable(int $uid, int $vref, int $itemid, int $quantity): array
+    {
+        $catalog = self::getHeroConsumablesCatalog();
+        if (!isset($catalog[$itemid])) {
+            return ['success' => false, 'message' => 'Pilihan perbekalan hero tidak valid.'];
+        }
+
+        $item = $catalog[$itemid];
+        $quantity = max(1, (int)$quantity);
+        $maxQty = (int)($item['max_qty'] ?? 100);
+        if ($quantity > $maxQty) {
+            return ['success' => false, 'message' => 'Jumlah pembelian melebihi batas maksimal transaksi (' . $maxQty . ' unit).'];
+        }
+
+        $unitPrice = (int)$item['silver_price'];
+        $totalCost = $unitPrice * $quantity;
+
+        $currentSilver = self::getSilver($uid);
+        if ($currentSilver < $totalCost) {
+            return [
+                'success' => false,
+                'message' => 'Koin Silver tidak mencukupi. Butuh ' . number_format($totalCost) . ' Silver (Saldo Anda: ' . number_format($currentSilver) . ' Silver).'
+            ];
+        }
+
+        if (!self::spendSilver($uid, $totalCost, "Black Market Hero Consumable: " . $item['name'] . " x" . $quantity)) {
+            return ['success' => false, 'message' => 'Gagal memproses transaksi pengurangan Silver.'];
+        }
+
+        require_once __DIR__ . '/HeroItems.php';
+        $heroItems = new HeroItems();
+        $addedId = $heroItems->addItem($uid, $itemid, $quantity);
+
+        if (!$addedId) {
+            // Refund silver if adding item fails
+            self::addSilver($uid, $totalCost);
+            return ['success' => false, 'message' => 'Terjadi kendala saat memasukkan barang ke tas inventori Hero. Koin Silver telah dikembalikan.'];
+        }
+
+        $details = "Bought " . $quantity . "x " . $item['name'] . " (item #" . $itemid . ") for " . $totalCost . " Silver";
+        self::logAction($uid, $vref, 'hero_consumable', $details, $totalCost);
+
+        return [
+            'success' => true,
+            'message' => "🤝 Transaksi penyelundup berhasil! +" . number_format($quantity) . "x " . $item['name'] . 
+                         " berhasil dibeli seharga " . number_format($totalCost) . " Silver dan telah masuk ke tas inventori Hero Anda!"
+        ];
+    }
+
+    /**
+     * 5. Hero Item Appraisal: Calculate item appraisal and humorous syndicate deductions.
      * Total deduction: 30% (tutup mulut 15%, jatah preman 10%, uang rokok/kopi 5%).
      * Net payout: 70% of gross value, distributed equally among 4 resources (Wood, Clay, Iron, Crop).
      */
@@ -532,6 +685,10 @@ class BlackMarket
         } elseif ($post['ft'] === 'bm_contraband') {
             $itemKey = trim($post['item_key'] ?? '');
             $result  = self::buyContraband($uid, $vref, $itemKey);
+        } elseif ($post['ft'] === 'bm_buy_consumable') {
+            $itemid = (int)($post['itemid'] ?? 0);
+            $qty    = max(1, (int)($post['qty'] ?? 1));
+            $result = self::buyHeroConsumable($uid, $vref, $itemid, $qty);
         } elseif ($post['ft'] === 'bm_pawn_item') {
             $rowId = (int)($post['row_id'] ?? 0);
             $qty   = max(1, (int)($post['qty'] ?? 1));
