@@ -162,8 +162,13 @@ if(!empty($id)){
 		include ("Templates/a2b/units_".$session->tribe.".tpl");
 		include("Templates/a2b/search.tpl");
 	}
-}else if(isset($delprisoners) && !empty($delprisoners)) $units->deletePrisoners($delprisoners);
-else if(isset($releaseanimals) && !empty($releaseanimals)){
+}else if(isset($delprisoners)){
+	if(!empty($delprisoners)){
+		$units->deletePrisoners($delprisoners);
+	}
+	header("Location: build.php?id=39");
+	exit;
+}else if(isset($releaseanimals) && !empty($releaseanimals)){
 	// T4 hero port: destroy captured animals, then back to the rally point.
 	$units->releaseNatureEnforcement($releaseanimals);
 	header("Location: build.php?id=39");

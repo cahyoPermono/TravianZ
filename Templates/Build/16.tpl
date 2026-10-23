@@ -257,11 +257,14 @@ $hasRally = $village->resarray['f39'] > 0;
         <?php endforeach; ?>
     <?php endif; ?>
 
-    <!-- PRISONERS (held by me) -->
+    <!-- PRISONERS (my troops captured in another village) -->
     <?php $p3 = $database->getPrisoners3($village->wid); if($p3): ?>
         <h4><?= PRISONERS ?></h4>
         <?php foreach($p3 as $p):
-            $colspan=10+$p['t11']; $tribe=$database->getUserField($database->getVillageField($p['from'],'owner'),'tribe',0); $start=($tribe-1)*10+1;
+            $colspan=10+(!empty($p['t11'])?1:0);
+            $owner = $database->getVillageField($p['from'],'owner');
+            $tribe = max(1, (int)$database->getUserField($owner,'tribe',0));
+            $start = ($tribe-1)*10+1;
         ?>
         <table class="troop_details" cellpadding="1" cellspacing="1">
             <thead><tr>
@@ -269,22 +272,25 @@ $hasRally = $village->resarray['f39'] > 0;
                 <td colspan="<?= $colspan ?>"><a href="karte.php?d=<?= $p['wref'] ?>"><?= PRISONERSIN ?> <?= $database->getVillageField($p['wref'],'name') ?></a></td>
             </tr></thead>
             <tbody class="units">
-                <tr><th>&nbsp;</th><?php for($i=$start;$i<$start+10;$i++): ?><td><img src="img/x.gif" class="unit u<?= $i ?>"></td><?php endfor; ?><?php if($p['t11']): ?><td><img src="img/x.gif" class="unit uhero"></td><?php endif; ?></tr>
-                <tr><th><?= TROOPS ?></th><?php for($i=1;$i<=10;$i++): ?><td class="<?= $p['t'.$i]==0?'none':'' ?>"><?= $p['t'.$i] ?></td><?php endfor; ?><?php if($p['t11']): ?><td><?= $p['t11'] ?></td><?php endif; ?></tr>
+                <tr><th>&nbsp;</th><?php for($i=$start;$i<$start+10;$i++): ?><td><img src="img/x.gif" class="unit u<?= $i ?>" title="<?= $technology->getUnitName($i) ?>"></td><?php endfor; ?><?php if(!empty($p['t11'])): ?><td><img src="img/x.gif" class="unit uhero" title="<?= $technology->getUnitName('hero') ?>"></td><?php endif; ?></tr>
+                <tr><th><?= TROOPS ?></th><?php for($i=1;$i<=10;$i++): ?><td class="<?= empty($p['t'.$i])?'none':'' ?>"><?= (int)($p['t'.$i] ?? 0) ?></td><?php endfor; ?><?php if(!empty($p['t11'])): ?><td><?= (int)$p['t11'] ?></td><?php endif; ?></tr>
             </tbody>
-            <tbody class="infos"><tr><th><?= UPKEEP ?></th><td colspan="<?= $colspan+1 ?>">
+            <tbody class="infos"><tr><th><?= UPKEEP ?></th><td colspan="<?= $colspan ?>">
                 <div class="sup"><?= $technology->getUpkeep($p,$tribe,0,1) ?><img class="r4" src="img/x.gif"> <?= PER_HR ?></div>
-                <div class="sback"><a href="a2b.php?delprisoners=<?= $p['id'] ?>"><?= KILL ?></a></div>
+                <div class="sback"><a href="a2b.php?delprisoners=<?= (int)$p['id'] ?>"><?= KILL ?></a></div>
             </td></tr></tbody>
         </table>
         <?php endforeach; ?>
     <?php endif; ?>
 
-    <!-- PRISONERS (my troops captured) -->
+    <!-- PRISONERS (enemy troops trapped in my village) -->
     <?php $p = $database->getPrisoners($village->wid); if($p): ?>
-        <h4><?= PRISONERS ?></h4>
+        <?php if(!$p3): ?><h4><?= PRISONERS ?></h4><?php endif; ?>
         <?php foreach($p as $pr):
-            $colspan=10+$pr['t11']; $tribe=$database->getUserField($database->getVillageField($pr['from'],'owner'),'tribe',0); $start=($tribe-1)*10+1;
+            $colspan=10+(!empty($pr['t11'])?1:0);
+            $owner = $database->getVillageField($pr['from'],'owner');
+            $tribe = max(1, (int)$database->getUserField($owner,'tribe',0));
+            $start = ($tribe-1)*10+1;
         ?>
         <table class="troop_details" cellpadding="1" cellspacing="1">
             <thead><tr>
@@ -292,12 +298,12 @@ $hasRally = $village->resarray['f39'] > 0;
                 <td colspan="<?= $colspan ?>"><a href="karte.php?d=<?= $pr['from'] ?>"><?= PRISONERSFROM ?> <?= $database->getVillageField($pr['from'],'name') ?></a></td>
             </tr></thead>
             <tbody class="units">
-                <tr><th>&nbsp;</th><?php for($i=$start;$i<$start+10;$i++): ?><td><img src="img/x.gif" class="unit u<?= $i ?>"></td><?php endfor; ?><?php if($pr['t11']): ?><td><img src="img/x.gif" class="unit uhero"></td><?php endif; ?></tr>
-                <tr><th><?= TROOPS ?></th><?php for($i=1;$i<=10;$i++): ?><td class="<?= $pr['t'.$i]==0?'none':'' ?>"><?= $pr['t'.$i] ?></td><?php endfor; ?><?php if($pr['t11']): ?><td><?= $pr['t11'] ?></td><?php endif; ?></tr>
+                <tr><th>&nbsp;</th><?php for($i=$start;$i<$start+10;$i++): ?><td><img src="img/x.gif" class="unit u<?= $i ?>" title="<?= $technology->getUnitName($i) ?>"></td><?php endfor; ?><?php if(!empty($pr['t11'])): ?><td><img src="img/x.gif" class="unit uhero" title="<?= $technology->getUnitName('hero') ?>"></td><?php endif; ?></tr>
+                <tr><th><?= TROOPS ?></th><?php for($i=1;$i<=10;$i++): ?><td class="<?= empty($pr['t'.$i])?'none':'' ?>"><?= (int)($pr['t'.$i] ?? 0) ?></td><?php endfor; ?><?php if(!empty($pr['t11'])): ?><td><?= (int)$pr['t11'] ?></td><?php endif; ?></tr>
             </tbody>
             <tbody class="infos"><tr><td colspan="<?= $colspan+1 ?>">
                 <div class="sup"><img class="r6" src="img/x.gif"></div>
-                <div class="sback"><a href="a2b.php?delprisoners=<?= $pr['id'] ?>"><?= SEND_BACK ?></a></div>
+                <div class="sback"><a href="a2b.php?delprisoners=<?= (int)$pr['id'] ?>"><?= SEND_BACK ?></a></div>
             </td></tr></tbody>
         </table>
         <?php endforeach; ?>

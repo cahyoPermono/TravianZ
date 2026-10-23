@@ -663,9 +663,7 @@ trait DatabaseMovementQueries {
             return [];
         }
 
-        // first of all, check if we should be using cache and whether the field
-        // required is already cached
-        if ($use_cache && !$array_passed && isset(self::$prisonersCache[$wid[0].$mode]) && is_array(self::$prisonersCache[$wid[0].$mode]) && !count(self::$prisonersCache[$wid[0].$mode])) {
+        if ($use_cache && !$array_passed && array_key_exists($wid[0].$mode, self::$prisonersCache)) {
             return self::$prisonersCache[$wid[0].$mode];
         } else if ($use_cache && $array_passed) {
             // check what we can return from cache
@@ -683,9 +681,6 @@ trait DatabaseMovementQueries {
                 // update remaining IDs to select and cache
                 $wid = $newWIDs;
             }
-        } else if ($use_cache && !$array_passed && ($cachedValue = self::returnCachedContent(self::$prisonersCache, $wid[0].$mode)) && !is_null($cachedValue)) {
-            // special case when we have empty arrays cached for this cache only
-            return $cachedValue;
         }
 
         if(!$mode) {
@@ -695,13 +690,10 @@ trait DatabaseMovementQueries {
         }
         $result = $this->mysqli_fetch_all(mysqli_query($this->dblink,$q));
 
-        // return a single value
+        // return array of prisoner records for this village
         if (!$array_passed) {
-            if (count($result) == 1) {
-                $result = $result[0];
-            }
-            self::$prisonersCache[$wid[0].$mode] = (count($result) ? [$result] : []);
-		} else {
+            self::$prisonersCache[$wid[0].$mode] = $result;
+        } else {
     if ($result && count($result)) {
         foreach ($result as $record) {
             $key = $record[($mode ? 'from' : 'wref')] . $mode;
@@ -785,5 +777,7 @@ trait DatabaseMovementQueries {
 		mysqli_query($this->dblink,$q);
 
 		self::$prisonersCache = [];
+		self::$prisonersCacheByID = [];
+		self::$prisonersCacheByVillageAndFromIDs = [];
 	}
 }

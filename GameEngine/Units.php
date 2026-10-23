@@ -1294,6 +1294,10 @@ class Units {
         $trapData = $u99_trap ?? $u99;
         
         $prisoner = $database->getPrisonersByID($id);
+        if (!$prisoner) {
+            header("Location: build.php?id=39");
+            exit;
+        }
         $troops = 0;
         if($prisoner['wref'] == $village->wid){
             $p_owner = $database->getVillageField($prisoner['from'], "owner");
