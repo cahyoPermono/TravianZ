@@ -164,7 +164,7 @@ $now = time();
                     <div style="margin-top:5px; font-size:11px; color:#1e40af;">
                         Jadwal: <b><?php echo htmlspecialchars($schedDesc); ?></b>
                         <?php if ($nextStartTime): ?>
-                            (Mulai: <?php echo date('d M Y pukul H:i', $nextStartTime); ?> WIB)
+                            (Mulai: <?php echo date('d M Y', $nextStartTime) . ' pukul ' . date('H:i', $nextStartTime); ?> WIB)
                         <?php endif; ?>
                     </div>
                 <?php elseif ($bStatus === 2): ?>

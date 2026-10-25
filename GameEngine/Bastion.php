@@ -355,7 +355,7 @@ class Bastion {
     /**
      * Start the Bastion event.
      */
-    public static function startEvent(int $guardianTroops = self::DEFAULT_GUARDIAN_TROOPS, int $holdDuration = self::DEFAULT_HOLD_DURATION, int $botInterval = self::DEFAULT_BOT_INTERVAL): bool {
+    public static function startEvent(int $guardianTroops = self::DEFAULT_GUARDIAN_TROOPS, int $holdDuration = self::DEFAULT_HOLD_DURATION, int $botInterval = self::DEFAULT_BOT_INTERVAL, bool $broadcast = true): bool {
         self::ensureTables();
         self::ensureBastionVillage($guardianTroops);
         $db = self::db();
@@ -383,8 +383,10 @@ class Bastion {
         self::addLog('event_start', 0, 0, 'Gerbang Benteng Kuno Telah Terbuka!', 
             "Pintu Benteng Kuno di pusat peta (0|0) telah resmi terbuka! Dijaga oleh $guardianTroops Penjaga Kuno. Aliansi mana pun yang berhasil menguasai dan mempertahankan benteng selama " . round($holdDuration / 3600) . " jam akan memenangkan Berkah Kedaulatan!");
 
-        // Siarkan pengumuman pembukaan benteng ke seluruh pemain (IGM & Chat Global)
-        self::broadcastEventStart($guardianTroops, $holdDuration);
+        // Siarkan pengumuman pembukaan benteng ke seluruh pemain (IGM & Chat Global) jika diaktifkan
+        if ($broadcast) {
+            self::broadcastEventStart($guardianTroops, $holdDuration);
+        }
 
         return (bool)$ok;
     }
@@ -422,13 +424,24 @@ class Bastion {
         $nextStart = self::calculateNextStartTime($mode, $scheduledTime, $day, $hour, $minute, $intervalDays, (int)($event['winner_time'] ?? 0));
 
         if ($mode > self::SCHEDULE_MANUAL && $nextStart !== null && $nextStart > $now) {
-            // Jadwal berada di masa depan: status otomatis menjadi STATUS_SCHEDULED (gerbang terkunci menanti jadwal)
-            $newStatus = self::STATUS_SCHEDULED;
-            $holderReset = ", `holder_alliance` = 0, `holder_uid` = 0, `hold_start_time` = 0, `buff_until` = 0";
+            // Jika event saat ini sedang aktif berlangsung, jangan putus event yang sedang berjalan
+            if ((int)($event['status'] ?? 0) === self::STATUS_ACTIVE) {
+                $newStatus = self::STATUS_ACTIVE;
+                $holderReset = "";
+            } else {
+                // Jadwal berada di masa depan: status otomatis menjadi STATUS_SCHEDULED (gerbang terkunci menanti jadwal)
+                $newStatus = self::STATUS_SCHEDULED;
+                $holderReset = ", `holder_alliance` = 0, `holder_uid` = 0, `hold_start_time` = 0, `buff_until` = 0";
+            }
         } elseif ($mode === self::SCHEDULE_MANUAL) {
-            // Mode manual: gerbang ditutup (damai)
-            $newStatus = self::STATUS_INACTIVE;
-            $holderReset = ", `holder_alliance` = 0, `holder_uid` = 0, `hold_start_time` = 0, `buff_until` = 0";
+            // Mode manual: jika event tidak sedang aktif, pastikan status inactive
+            if ((int)($event['status'] ?? 0) === self::STATUS_ACTIVE) {
+                $newStatus = self::STATUS_ACTIVE;
+                $holderReset = "";
+            } else {
+                $newStatus = self::STATUS_INACTIVE;
+                $holderReset = ", `holder_alliance` = 0, `holder_uid` = 0, `hold_start_time` = 0, `buff_until` = 0";
+            }
         } else {
             $newStatus = (int)($event['status'] ?? self::STATUS_INACTIVE);
             $holderReset = "";
@@ -692,39 +705,13 @@ class Bastion {
             return;
         }
 
-        // Self-healing safeguard: jika status ACTIVE tetapi ada jadwal di masa depan yang belum tiba,
-        // kembalikan status ke STATUS_SCHEDULED agar gerbang tetap tertutup sampai jadwal tiba.
-        if ($event['status'] == self::STATUS_ACTIVE) {
-            $schedMode = (int)($event['schedule_mode'] ?? self::SCHEDULE_MANUAL);
-            if ($schedMode > self::SCHEDULE_MANUAL) {
-                $futureStart = self::calculateNextStartTime(
-                    $schedMode,
-                    (int)($event['scheduled_start_time'] ?? 0),
-                    (int)($event['recurring_day'] ?? 6),
-                    (int)($event['recurring_hour'] ?? 19),
-                    (int)($event['recurring_minute'] ?? 0),
-                    (int)($event['recurring_interval_days'] ?? 7),
-                    (int)($event['winner_time'] ?? 0)
-                );
-                if ($futureStart !== null && $futureStart > $now) {
-                    @mysqli_query($db, "UPDATE `" . TB_PREFIX . "bastion_event` SET 
-                        `status` = " . self::STATUS_SCHEDULED . ", 
-                        `holder_alliance` = 0, 
-                        `holder_uid` = 0, 
-                        `hold_start_time` = 0 
-                        WHERE `id` = 1");
-                    self::ensureBastionVillage((int)($event['guardian_initial_troops'] ?: self::DEFAULT_GUARDIAN_TROOPS));
-                    return;
-                }
-            }
-        }
-
         // Cek Pembukaan Jadwal Otomatis jika status bukan ACTIVE
         if ($event['status'] != self::STATUS_ACTIVE) {
             $mode = (int)($event['schedule_mode'] ?? self::SCHEDULE_MANUAL);
             if ($mode > self::SCHEDULE_MANUAL) {
                 $lastStart = (int)($event['last_scheduled_start'] ?? 0);
                 $shouldStart = false;
+                $shouldBroadcast = true;
                 $reason = '';
 
                 if ($mode === self::SCHEDULE_ONEOFF) {
@@ -742,11 +729,23 @@ class Bastion {
                     $curHour = (int)date('G', $now);
                     $curMin = (int)date('i', $now);
 
-                    if ($curDay === $targetDay && $curHour === $targetHour && $curMin >= $targetMin) {
+                    // Cek apakah hari ini adalah hari target dan jam sudah mencapai atau melewati jadwal
+                    $timeReached = ($curDay === $targetDay && ($curHour > $targetHour || ($curHour === $targetHour && $curMin >= $targetMin)));
+                    $winnerTime = (int)($event['winner_time'] ?? 0);
+                    $wonToday = ($winnerTime > 0 && date('Y-m-d', $winnerTime) === date('Y-m-d', $now));
+
+                    if ($timeReached && !$wonToday) {
+                        $dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
                         if (date('Y-m-d', $lastStart) !== date('Y-m-d', $now)) {
+                            // Pembukaan normal pertama kali hari ini
                             $shouldStart = true;
-                            $dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+                            $shouldBroadcast = true;
                             $reason = "Jadwal mingguan otomatis (Setiap " . ($dayNames[$targetDay] ?? 'Hari') . " pukul " . sprintf('%02d:%02d', $targetHour, $targetMin) . " WIB)";
+                        } elseif ($event['status'] == self::STATUS_SCHEDULED) {
+                            // Pemulihan otomatis: event terjadwal hari ini yang sempat terkunci / belum aktif
+                            $shouldStart = true;
+                            $shouldBroadcast = false; // Broadcast sudah terkirim hari ini, jangan spam pemain
+                            $reason = "Melanjutkan event terjadwal hari " . ($dayNames[$targetDay] ?? 'Hari') . " pukul " . sprintf('%02d:%02d', $targetHour, $targetMin) . " WIB";
                         }
                     }
                 } elseif ($mode === self::SCHEDULE_INTERVAL) {
@@ -765,7 +764,7 @@ class Bastion {
                     $holdDuration = (int)($event['hold_duration'] ?: self::DEFAULT_HOLD_DURATION);
                     $botInterval = (int)($event['bot_attack_interval'] ?: self::DEFAULT_BOT_INTERVAL);
 
-                    self::startEvent($guardians, $holdDuration, $botInterval);
+                    self::startEvent($guardians, $holdDuration, $botInterval, $shouldBroadcast);
                     self::addLog('schedule_start', 0, 0, 'Gerbang Benteng Kuno Dibuka Sesuai Jadwal!', 
                         "Event Benteng Kuno resmi dimulai secara otomatis! ($reason).");
                     return;

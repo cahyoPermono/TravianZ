@@ -587,7 +587,7 @@ $secondsUntilStart = $nextStartTime ? max(0, $nextStartTime - $now) : 0;
 							</div>
 							<?php if ($nextStartTime): ?>
 								<div style="font-size: 12px; color: #bfdbfe; margin-top: 3px;">
-									Jadwal: <b><?php echo date('l, d F Y pukul H:i', $nextStartTime); ?> WIB</b>
+									Jadwal: <b><?php echo date('l, d F Y', $nextStartTime) . ' pukul ' . date('H:i', $nextStartTime); ?> WIB</b>
 								</div>
 							<?php endif; ?>
 							<div style="font-size: 11px; color: #93c5fd; margin-top: 5px;">
