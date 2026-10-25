@@ -220,9 +220,13 @@ class Units {
 
         if (!empty($vid)) {
             require_once __DIR__ . '/Bastion.php';
-            if (Bastion::isBastionVillage($vid) && !Bastion::isEventActive()) {
-                $disabled = "disabled=disabled";
-                $disabledr = "disabled=disabled";
+            if (Bastion::isBastionVillage($vid)) {
+                if (!Bastion::isEventActive()) {
+                    $disabled = "disabled=disabled";
+                    $disabledr = "disabled=disabled";
+                } elseif (!Bastion::canReinforce((int)($session->uid ?? 0), (int)($session->alliance ?? 0))) {
+                    $disabledr = "disabled=disabled";
+                }
             } elseif($isOasis = $database->isVillageOases($vid)){
                 $too = $database->getOasisField($vid, "conqured");
                 if($too == 0) $disabled = $disabledr ="disabled=disabled";
@@ -358,10 +362,16 @@ class Units {
             return "This player is protected from attacks.";
         }
 
-        // Jaga Benteng Kuno (0|0): jangan bisa diserang jika event belum aktif
+        // Jaga Benteng Kuno (0|0): jangan bisa diserang jika event belum aktif, dan batasi bala bantuan
         require_once __DIR__ . '/Bastion.php';
-        if (Bastion::isBastionVillage($id) && !Bastion::isEventActive()) {
-            return "Gerbang Benteng Kuno (0|0) masih terkunci rapat dalam masa damai. Benteng belum bisa diserang sebelum jadwal event resmi dimulai!";
+        if (Bastion::isBastionVillage($id)) {
+            if (!Bastion::isEventActive()) {
+                return "Gerbang Benteng Kuno (0|0) masih terkunci rapat dalam masa damai. Benteng belum bisa diserang sebelum jadwal event resmi dimulai!";
+            }
+            $missionType = (int)($_POST['c'] ?? 0);
+            if ($missionType === 2 && !Bastion::canReinforce((int)($session->uid ?? 0), (int)($session->alliance ?? 0))) {
+                return "Bala bantuan ke Benteng Kuno (0|0) hanya dapat dikirim jika aliansi Anda sedang menduduki benteng tersebut! Anda harus melancarkan serangan (Normal Attack) terlebih dahulu untuk merebut dan menduduki benteng.";
+            }
         }
 
         //check if attacking same village that units are in
@@ -741,14 +751,23 @@ class Units {
             exit;
         }
 
-        // Blokir jika target adalah Benteng Kuno (0|0) namun event belum aktif
+        // Blokir jika target adalah Benteng Kuno (0|0) namun event belum aktif atau bukan aliansi penguasa untuk bala bantuan
         require_once __DIR__ . '/Bastion.php';
-        if (!empty($data['to_vid']) && Bastion::isBastionVillage($data['to_vid']) && !Bastion::isEventActive()) {
-            $form->addError("error", "Gerbang Benteng Kuno (0|0) masih terkunci rapat dalam masa damai. Benteng belum bisa diserang sebelum jadwal event resmi dimulai!");
-            $_SESSION['errorarray'] = $form->getErrors();
-            $_SESSION['valuearray'] = $_POST;
-            header("Location: a2b.php");
-            exit;
+        if (!empty($data['to_vid']) && Bastion::isBastionVillage($data['to_vid'])) {
+            if (!Bastion::isEventActive()) {
+                $form->addError("error", "Gerbang Benteng Kuno (0|0) masih terkunci rapat dalam masa damai. Benteng belum bisa diserang sebelum jadwal event resmi dimulai!");
+                $_SESSION['errorarray'] = $form->getErrors();
+                $_SESSION['valuearray'] = $_POST;
+                header("Location: a2b.php");
+                exit;
+            }
+            if ((int)($data['type'] ?? 0) === 2 && !Bastion::canReinforce((int)($session->uid ?? 0), (int)($session->alliance ?? 0))) {
+                $form->addError("error", "Bala bantuan ke Benteng Kuno (0|0) hanya dapat dikirim jika aliansi Anda sedang menduduki benteng tersebut! Anda harus melancarkan serangan (Normal Attack) terlebih dahulu untuk merebut dan menduduki benteng.");
+                $_SESSION['errorarray'] = $form->getErrors();
+                $_SESSION['valuearray'] = $_POST;
+                header("Location: a2b.php");
+                exit;
+            }
         }
 
         for ($i = 1; $i <= 10; $i++) {

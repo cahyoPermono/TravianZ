@@ -531,6 +531,14 @@ $secondsUntilStart = $nextStartTime ? max(0, $nextStartTime - $now) : 0;
 			font-size: 9px;
 			font-weight: bold;
 		}
+		.tag-reinforce {
+			background: #e0e7ff;
+			color: #3730a3;
+			padding: 1px 4px;
+			border-radius: 3px;
+			font-size: 9px;
+			font-weight: bold;
+		}
 		.tag-bot {
 			background: #fef3c7;
 			color: #b45309;
@@ -885,6 +893,10 @@ $secondsUntilStart = $nextStartTime ? max(0, $nextStartTime - $now) : 0;
 										case 'repelled':
 											$tagClass = 'tag-repelled';
 											$tagText = 'Dihalau';
+											break;
+										case 'reinforce':
+											$tagClass = 'tag-reinforce';
+											$tagText = 'Bantuan';
 											break;
 										case 'bot_attack':
 										case 'bot_reinforce':

@@ -261,7 +261,7 @@ $now = time();
             <div class="b-step-num">4</div>
             <div>
                 <b>Bala Bantuan Aliansi (Reinforcements)</b><br />
-                Semua anggota dari aliansi penguasa benteng dapat mengirimkan pasukan bantuan ke (0|0). Kerja sama aliansi sangat vital untuk mempertahankan benteng dari gempuran musuh!
+                Bala bantuan <b>hanya dapat dikirim oleh anggota aliansi yang sedang menduduki Benteng Kuno</b>. Aliansi lain yang belum menguasai benteng tidak dapat mengirim bala bantuan dan wajib melancarkan serangan (Normal Attack) terlebih dahulu untuk merebut takhta benteng!
             </div>
         </div>
 

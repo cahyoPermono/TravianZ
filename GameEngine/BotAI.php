@@ -170,7 +170,13 @@ class BotAI {
                 $botLogs[] = "Defense: " . $defenseResult;
             }
 
-            // 7. Automated Raiding / Attacks (Hero included when available)
+            // 7. Automated Bastion Warfare (Benteng Kuno: Attack, Occupy, Defend, Counter-Attack)
+            $bastionResult = self::processBastionWarfare($bot);
+            if ($bastionResult) {
+                $botLogs[] = "Bastion: " . $bastionResult;
+            }
+
+            // 8. Automated Raiding / Attacks (Hero included when available)
             $attackResult = self::processAttack($bot);
             if ($attackResult) {
                 $botLogs[] = "Attack: " . $attackResult;
@@ -2197,6 +2203,368 @@ class BotAI {
         $durMins = round($duration / 60, 1);
 
         return "Bantuan bertahan ({$totalDispatched} pasukan [{$unitsDesc}]) dikirim ke sekutu '{$threatTarget['ally_username']}' ({$threatTarget['vname']} [{$threatTarget['x']}|{$threatTarget['y']}]) | Jarak: {$distRounded} | Tiba: {$durMins}m | Status: {$threatReason}";
+    }
+
+    /**
+     * Automated King of the Hill Warfare for Benteng Kuno (0|0 / wref 20201).
+     *
+     * Handles:
+     * 1. Bastion Defense / Reinforcement:
+     *    - STRICT RULE: ONLY allowed if bot's alliance is currently occupying Benteng Kuno.
+     *    - Dispatches defensive reinforcements (attack_type = 2) to maintain the 12-hour hold timer.
+     * 2. Bastion Counter-Attack / Reclaim:
+     *    - Triggered if bot's alliance previously held Benteng Kuno and was recently overthrown/dethroned.
+     *    - Launches priority Normal Attack (attack_type = 3) to retake the throne.
+     * 3. Bastion Conquest / Assault:
+     *    - Triggered during active event when Benteng Kuno is held by rival alliance or Natars/Penjaga Kuno.
+     *    - Gathers combat forces for a full Normal Attack (attack_type = 3) to wipe defenders and conquer.
+     *
+     * @param array $bot Bot village data row
+     * @return string|null Log summary if action dispatched, or null
+     */
+    public static function processBastionWarfare(array $bot): ?string {
+        global $database;
+        if (!isset($database) || $database === null) {
+            return null;
+        }
+
+        require_once __DIR__ . '/Bastion.php';
+        if (!Bastion::isEventActive()) {
+            return null;
+        }
+
+        // Strict Blackout Window: Bots are forbidden from attacking Benteng Kuno at night (20:00 - 08:00)
+        // to allow them to safely train and regenerate troops without attrition.
+        if (self::isNightTime()) {
+            return null;
+        }
+
+        // Feature toggle (default: true)
+        if (self::getConfig('BOT_AI_BASTION_WARFARE_ENABLED', true) === false) {
+            return null;
+        }
+
+        $botAlliance = (int)($bot['alliance'] ?? 0);
+        if ($botAlliance <= 0) {
+            return null; // Benteng Kuno is an alliance warfare event; solo bots don't participate
+        }
+
+        $wid = (int)$bot['wref'];
+        $uid = (int)$bot['uid'];
+        $tribe = (int)$bot['tribe'];
+        $pop = max(10, (int)($bot['pop'] ?? 10));
+
+        // Coordinate check: get distance to (0|0)
+        $botCoor = $database->getCoor($wid);
+        if (!$botCoor) {
+            return null;
+        }
+        $bastionWref = Bastion::BASTION_WREF;
+        $bastionCoor = ['x' => 0, 'y' => 0];
+        $dist = self::getDistance($botCoor['x'], $botCoor['y'], $bastionCoor['x'], $bastionCoor['y']);
+
+        // Max distance filter (e.g. within 250 tiles)
+        $maxBastionDist = defined('BOT_AI_MAX_BASTION_DISTANCE') ? (float)BOT_AI_MAX_BASTION_DISTANCE : 250.0;
+        if ($dist > $maxBastionDist || $dist < 0.5) {
+            return null;
+        }
+
+        // Check if this bot village already has an active outgoing movement toward Bastion
+        $activeFromVillage = $database->query_return("
+            SELECT COUNT(*) as active_cnt
+            FROM " . TB_PREFIX . "movement m
+            WHERE m.`from` = $wid AND m.`to` = $bastionWref AND m.sort_type = 3 AND m.proc = 0
+        ");
+        if ((int)($activeFromVillage[0]['active_cnt'] ?? 0) >= 1) {
+            return null;
+        }
+
+        // 1. Village Cooldown Check: Prevent any single bot village from repeatedly marching on (0|0)
+        // Gives the village at least 60 minutes to replenish troops and farm resources safely.
+        $villageCooldown = (int)self::getConfig('BOT_AI_BASTION_VILLAGE_COOLDOWN', 3600);
+        if ($villageCooldown > 0) {
+            $recentVillageAction = $database->query_return("
+                SELECT m.moveid
+                FROM " . TB_PREFIX . "movement m
+                WHERE m.`from` = $wid AND m.`to` = $bastionWref AND m.sort_type = 3
+                  AND m.starttime >= " . (time() - $villageCooldown) . "
+                LIMIT 1
+            ");
+            if (!empty($recentVillageAction)) {
+                return null; // Desa bot sedang cooldown agar pasukannya pulih
+            }
+        }
+
+        // Fetch standing units at home
+        $tribeUnits = self::getTribeUnits($tribe);
+        $unitCols = array_map(function($u) { return 'u' . $u; }, $tribeUnits['all']);
+        $colsSql = implode(', ', $unitCols);
+        $res = $database->query_return("SELECT {$colsSql}, hero FROM " . TB_PREFIX . "units WHERE vref = $wid");
+        if (empty($res[0])) {
+            return null;
+        }
+        $homeUnits = $res[0];
+
+        $event = Bastion::getEvent();
+        $holderAlly = (int)($event['holder_alliance'] ?? 0);
+        $previousHolderAlly = (int)($event['previous_holder_alliance'] ?? 0);
+
+        // =========================================================================
+        // SCENARIO 1: BOT ALLIANCE CURRENTLY OCCUPIES BENTENG KUNO -> DEFEND / REINFORCE
+        // =========================================================================
+        if ($botAlliance === $holderAlly) {
+            // Priority roles for defense
+            $defensiveRoles = ($tribe === 3)
+                ? ['basic', 'inf_def', 'cav_def']
+                : ['inf_def', 'cav_def', 'basic'];
+            $secondaryRoles = ['inf_adv', 'cav_heavy', 'cav_light'];
+
+            $availableDef = [];
+            $totalDefAvailable = 0;
+            foreach (array_merge($defensiveRoles, $secondaryRoles) as $role) {
+                if (isset($tribeUnits[$role])) {
+                    $uNum = $tribeUnits[$role];
+                    $cnt = (int)($homeUnits['u' . $uNum] ?? 0);
+                    if ($cnt > 0 && !isset($availableDef[$uNum])) {
+                        $availableDef[$uNum] = $cnt;
+                        $totalDefAvailable += $cnt;
+                    }
+                }
+            }
+
+            // Troop preservation: keep at least 50% of defense troops safe at home
+            $homeReserve = max(self::getHomeReserve($pop), (int)round($totalDefAvailable * 0.50));
+            $deployableDef = max(0, $totalDefAvailable - $homeReserve);
+            $minTroops = 10;
+            if ($deployableDef < $minTroops) {
+                return null; // Garnisun pertahanan desa wajib aman
+            }
+
+            // Cap alliance reinforcement helpers: max 2 simultaneous alliance reinforcement marches
+            $marchingHelpers = $database->query_return("
+                SELECT COUNT(*) as marching_cnt
+                FROM " . TB_PREFIX . "movement m
+                JOIN " . TB_PREFIX . "vdata v ON m.`from` = v.wref
+                JOIN " . TB_PREFIX . "users u ON v.owner = u.id
+                WHERE u.alliance = $botAlliance AND m.`to` = $bastionWref 
+                  AND m.sort_type = 3 AND m.proc = 0
+            ");
+            if ((int)($marchingHelpers[0]['marching_cnt'] ?? 0) >= 2) {
+                return null;
+            }
+
+            // Send conservative reinforcement party: 25% of deployable troops, capped at max 30 units
+            $partySize = min(30, max($minTroops, (int)floor($deployableDef * 0.25)));
+            $dispatched = [];
+            $dispatchedSpeeds = [];
+            $remainingNeed = $partySize;
+
+            foreach ($availableDef as $uNum => $avail) {
+                if ($remainingNeed <= 0) break;
+                $take = min($avail, $remainingNeed);
+                if ($take > 0) {
+                    $dispatched[$uNum] = $take;
+                    $dispatchedSpeeds[] = self::getUnitSpeed($uNum);
+                    $remainingNeed -= $take;
+                }
+            }
+
+            if (empty($dispatched)) {
+                return null;
+            }
+
+            // Deduct troops
+            $unitNums = array_keys($dispatched);
+            $amounts = array_values($dispatched);
+            $database->modifyUnit($wid, $unitNums, $amounts, array_fill(0, count($amounts), 0));
+
+            $marchSpeed = !empty($dispatchedSpeeds) ? min($dispatchedSpeeds) : 6;
+            $incSpeed = defined('INCREASE_SPEED') ? max(1, (int)INCREASE_SPEED) : 1;
+            $duration = max(30, (int)round(($dist / $marchSpeed) * 3600 / $incSpeed));
+
+            $t = array_fill(1, 10, 0);
+            $baseUnit = ($tribe - 1) * 10;
+            foreach ($dispatched as $uNum => $cnt) {
+                $slot = $uNum - $baseUnit;
+                if ($slot >= 1 && $slot <= 10) {
+                    $t[$slot] = $cnt;
+                }
+            }
+
+            $attackId = $database->addAttack(
+                $wid,
+                $t[1], $t[2], $t[3], $t[4], $t[5], $t[6], $t[7], $t[8], $t[9], $t[10], 0,
+                2, // Reinforcement (Bala Bantuan)
+                0, 0, 0
+            );
+
+            if (!$attackId) {
+                $database->modifyUnit($wid, $unitNums, $amounts, array_fill(0, count($amounts), 1));
+                return null;
+            }
+
+            $database->addMovement(3, $wid, $bastionWref, $attackId, time(), time() + $duration);
+            $totalDispatched = array_sum($dispatched);
+            return "Benteng Kuno (Bertahan): Mengirim {$totalDispatched} prajurit bala bantuan untuk menjaga (0|0).";
+        }
+
+        // =========================================================================
+        // SCENARIOS 2 & 3: BOT ALLIANCE DOES NOT HOLD BENTENG KUNO -> MUST ATTACK!
+        // (Sesuai aturan user: bala bantuan dilarang, harus menyerang dengan Normal Attack)
+        // =========================================================================
+
+        // Check if this is a COUNTER-ATTACK (Aliansi bot baru saja dikalahkan/kehilangan benteng)
+        $isCounterAttack = ($previousHolderAlly > 0 && $previousHolderAlly === $botAlliance && $holderAlly !== $botAlliance);
+
+        // 2. Alliance Pacing Cooldown: Space out attacks from same alliance to avoid troop suicide swarms
+        // 20 minutes between attacks for regular conquest, 10 minutes for counter-attack
+        $defaultAllyCd = $isCounterAttack ? 600 : 1200;
+        $allyCooldown = (int)self::getConfig('BOT_AI_BASTION_ALLY_COOLDOWN', $defaultAllyCd);
+        if ($allyCooldown > 0) {
+            $recentAllyAction = $database->query_return("
+                SELECT m.moveid
+                FROM " . TB_PREFIX . "movement m
+                JOIN " . TB_PREFIX . "vdata v ON m.`from` = v.wref
+                JOIN " . TB_PREFIX . "users u ON v.owner = u.id
+                WHERE u.alliance = $botAlliance AND m.`to` = $bastionWref AND m.sort_type = 3
+                  AND m.starttime >= " . (time() - $allyCooldown) . "
+                LIMIT 1
+            ");
+            if (!empty($recentAllyAction)) {
+                return null; // Aliansi bot sedang menjaga jeda serangan
+            }
+        }
+
+        // Gather all offensive and combat units
+        $combatRoles = ['inf_adv', 'cav_light', 'cav_heavy', 'basic', 'ram', 'catapult'];
+        $availableCombat = [];
+        $totalCombatAvailable = 0;
+        foreach ($combatRoles as $role) {
+            if (isset($tribeUnits[$role])) {
+                $uNum = $tribeUnits[$role];
+                $cnt = (int)($homeUnits['u' . $uNum] ?? 0);
+                if ($cnt > 0 && !isset($availableCombat[$uNum])) {
+                    $availableCombat[$uNum] = $cnt;
+                    $totalCombatAvailable += $cnt;
+                }
+            }
+        }
+
+        // Strict troop conservation: lock at least 50% (or 40% in counter-attack) of standing army at home
+        $reservePercent = $isCounterAttack ? 0.40 : 0.50;
+        $homeReserve = max(self::getHomeReserve($pop), (int)round($totalCombatAvailable * $reservePercent));
+        $deployableCombat = max(0, $totalCombatAvailable - $homeReserve);
+
+        // Minimum army requirements to ensure bot is capable and doesn't waste troops:
+        // Regular conquest: requires pop >= 100, total army >= 40, and deployable >= 20
+        // Counter-attack: requires pop >= 80, total army >= 30, and deployable >= 15
+        $minTotalArmy = $isCounterAttack ? 30 : 40;
+        $minDeployable = $isCounterAttack ? 15 : 20;
+        $minPop = $isCounterAttack ? 80 : 100;
+
+        if ($pop < $minPop || $totalCombatAvailable < $minTotalArmy || $deployableCombat < $minDeployable) {
+            return null; // Desa bot belum cukup matang / tentara sedang dipulihkan
+        }
+
+        // Coordination limiter: max 1 simultaneous attack en route per alliance (max 2 if counter-attack)
+        $activeAllyAttacks = $database->query_return("
+            SELECT COUNT(m.moveid) as ally_atks
+            FROM " . TB_PREFIX . "movement m
+            JOIN " . TB_PREFIX . "vdata v ON m.`from` = v.wref
+            JOIN " . TB_PREFIX . "users u ON v.owner = u.id
+            WHERE u.alliance = $botAlliance AND m.`to` = $bastionWref 
+              AND m.sort_type = 3 AND m.proc = 0
+        ");
+        $maxConcurrent = $isCounterAttack ? 2 : 1;
+        if ((int)($activeAllyAttacks[0]['ally_atks'] ?? 0) >= $maxConcurrent) {
+            return null;
+        }
+
+        // Tactical pacing roll: default 25% (gentle and measured)
+        $bastionChance = (int)self::getConfig('BOT_AI_BASTION_ATTACK_CHANCE', 25);
+        if (!$isCounterAttack && $bastionChance < 100 && rand(1, 100) > $bastionChance) {
+            return null;
+        }
+
+        // Expeditionary Party Size:
+        // Regular attack: send only ~30% of deployable troops, capped at max 35 units
+        // Counter-attack: send ~45% of deployable troops, capped at max 50 units
+        // This ensures the bot never commits army suicide and always retains strong garrison at home!
+        $ratio = $isCounterAttack ? 0.45 : 0.30;
+        $maxCap = $isCounterAttack ? 50 : 35;
+        $partySize = min($maxCap, max(15, (int)floor($deployableCombat * $ratio)));
+        $partySize = min($partySize, $deployableCombat);
+
+        $dispatched = [];
+        $dispatchedSpeeds = [];
+        $remainingNeed = $partySize;
+
+        foreach ($availableCombat as $uNum => $avail) {
+            if ($remainingNeed <= 0) break;
+            $take = min($avail, $remainingNeed);
+            if ($take > 0) {
+                $dispatched[$uNum] = $take;
+                $dispatchedSpeeds[] = self::getUnitSpeed($uNum);
+                $remainingNeed -= $take;
+            }
+        }
+
+        if (empty($dispatched)) {
+            return null;
+        }
+
+        // Hero participation: only send hero if high health (>= 40%)
+        $sendHero = 0;
+        if (!empty($homeUnits['hero']) && (int)$homeUnits['hero'] > 0) {
+            $hCheck = $database->query_return("SELECT heroid, health, dead FROM " . TB_PREFIX . "hero WHERE uid = $uid AND dead = 0 LIMIT 1");
+            if (!empty($hCheck[0]) && (int)$hCheck[0]['dead'] === 0 && (float)$hCheck[0]['health'] >= 40) {
+                $sendHero = 1;
+                $database->query("UPDATE " . TB_PREFIX . "units SET hero = hero - 1 WHERE vref = $wid AND hero > 0");
+            }
+        }
+
+        // Deduct troops
+        $unitNums = array_keys($dispatched);
+        $amounts = array_values($dispatched);
+        $database->modifyUnit($wid, $unitNums, $amounts, array_fill(0, count($amounts), 0));
+
+        $marchSpeed = !empty($dispatchedSpeeds) ? min($dispatchedSpeeds) : 6;
+        $incSpeed = defined('INCREASE_SPEED') ? max(1, (int)INCREASE_SPEED) : 1;
+        $duration = max(30, (int)round(($dist / $marchSpeed) * 3600 / $incSpeed));
+
+        $t = array_fill(1, 10, 0);
+        $baseUnit = ($tribe - 1) * 10;
+        foreach ($dispatched as $uNum => $cnt) {
+            $slot = $uNum - $baseUnit;
+            if ($slot >= 1 && $slot <= 10) {
+                $t[$slot] = $cnt;
+            }
+        }
+
+        // CRITICAL: Normal Attack (attack_type = 3) is REQUIRED to conquer Benteng Kuno!
+        $attackId = $database->addAttack(
+            $wid,
+            $t[1], $t[2], $t[3], $t[4], $t[5], $t[6], $t[7], $t[8], $t[9], $t[10], $sendHero,
+            3, // Normal Attack (Wajib tipe 3 untuk merebut benteng)
+            0, 0, 0
+        );
+
+        if (!$attackId) {
+            $database->modifyUnit($wid, $unitNums, $amounts, array_fill(0, count($amounts), 1));
+            if ($sendHero) {
+                $database->query("UPDATE " . TB_PREFIX . "units SET hero = hero + 1 WHERE vref = $wid");
+            }
+            return null;
+        }
+
+        $database->addMovement(3, $wid, $bastionWref, $attackId, time(), time() + $duration);
+        $totalDispatched = array_sum($dispatched) + $sendHero;
+
+        if ($isCounterAttack) {
+            return "Benteng Kuno (Serangan Balasan Terukur): Mengerahkan regu {$totalDispatched} prajurit (Normal Attack) untuk merebut kembali tahta (0|0)!";
+        } else {
+            return "Benteng Kuno (Penyerangan Terukur): Mengerahkan regu {$totalDispatched} prajurit (Normal Attack) untuk menaklukkan pertahanan (0|0).";
+        }
     }
 
     /**

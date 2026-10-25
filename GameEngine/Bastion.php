@@ -78,6 +78,7 @@ class Bastion {
             `recurring_minute` tinyint(2) NOT NULL DEFAULT 0,
             `recurring_interval_days` int(11) NOT NULL DEFAULT 7,
             `last_scheduled_start` int(11) NOT NULL DEFAULT 0,
+            `previous_holder_alliance` int(11) NOT NULL DEFAULT 0,
             PRIMARY KEY (`id`),
             KEY `status` (`status`),
             KEY `holder_alliance` (`holder_alliance`)
@@ -92,7 +93,8 @@ class Bastion {
             'recurring_hour' => 'TINYINT(2) NOT NULL DEFAULT 19',
             'recurring_minute' => 'TINYINT(2) NOT NULL DEFAULT 0',
             'recurring_interval_days' => 'INT(11) NOT NULL DEFAULT 7',
-            'last_scheduled_start' => 'INT(11) NOT NULL DEFAULT 0'
+            'last_scheduled_start' => 'INT(11) NOT NULL DEFAULT 0',
+            'previous_holder_alliance' => 'INT(11) NOT NULL DEFAULT 0'
         ];
         foreach ($schedCols as $col => $type) {
             $checkCol = @mysqli_query($db, "SHOW COLUMNS FROM `" . TB_PREFIX . "bastion_event` LIKE '$col'");
@@ -193,6 +195,32 @@ class Bastion {
     }
 
     /**
+     * Check if a player or alliance is allowed to send reinforcements to Benteng Kuno (0|0).
+     * Rule: Reinforcements can ONLY be sent if the sender's alliance (or sender player)
+     * currently occupies/holds the Ancient Bastion. Otherwise, they must attack first!
+     */
+    public static function canReinforce(int $uid, int $allianceId): bool {
+        if (!self::isEventActive()) {
+            return false;
+        }
+        $event = self::getEvent();
+        $holderAlly = (int)($event['holder_alliance'] ?? 0);
+        $holderUid = (int)($event['holder_uid'] ?? 0);
+
+        // If held by an alliance, only members of the exact occupying alliance can reinforce
+        if ($holderAlly > 0) {
+            return ($allianceId > 0 && $allianceId === $holderAlly);
+        }
+
+        // If held by an individual player without alliance, only that player can reinforce
+        if ($holderUid > 0) {
+            return ($uid > 0 && $uid === $holderUid);
+        }
+
+        return false;
+    }
+
+    /**
      * Get Bastion coordinates & WREF.
      */
     public static function getBastionWref(): int {
@@ -231,7 +259,8 @@ class Bastion {
             'recurring_hour' => 19,
             'recurring_minute' => 0,
             'recurring_interval_days' => 7,
-            'last_scheduled_start' => 0
+            'last_scheduled_start' => 0,
+            'previous_holder_alliance' => 0
         ];
     }
 
@@ -657,7 +686,8 @@ class Bastion {
             @mysqli_query($db, "UPDATE `" . TB_PREFIX . "bastion_event` SET
                 `holder_alliance` = $attackerAlly,
                 `holder_uid` = $attackerUid,
-                `hold_start_time` = $now
+                `hold_start_time` = $now,
+                `previous_holder_alliance` = $oldAlly
                 WHERE `id` = 1");
 
             // Update desa benteng di vdata agar kepemilikannya mencerminkan penguasa baru
@@ -682,6 +712,46 @@ class Bastion {
             $desc = "Serangan dari $attackerUsername ($attackerAllyName) berhasil dipukul mundur oleh garnisun penjaga Benteng Kuno!";
             self::addLog('repelled', $currentHolderAlly, $attackerUid, $title, $desc);
         }
+    }
+
+    /**
+     * Process reinforcement arrival at Benteng Kuno (0|0).
+     * Called from AutomationTroopMovements.php when reinforcements land on Benteng Kuno.
+     */
+    public static function handleReinforcementArrival($data, $from, $to, int $senderAlly = 0): void {
+        $db = self::db();
+        if (!$db) return;
+
+        $totalTroops = 0;
+        for ($i = 1; $i <= 10; $i++) {
+            $totalTroops += (int)($data['t' . $i] ?? 0);
+        }
+        $hero = (int)($data['t11'] ?? 0);
+        $totalWithHero = $totalTroops + $hero;
+        if ($totalWithHero <= 0) return;
+
+        $senderUid = (int)($from['owner'] ?? 0);
+        $senderUsername = "Komandan #$senderUid";
+        $qU = @mysqli_query($db, "SELECT username, alliance FROM `" . TB_PREFIX . "users` WHERE id = $senderUid LIMIT 1");
+        if ($qU && $u = mysqli_fetch_assoc($qU)) {
+            $senderUsername = $u['username'];
+            if (!$senderAlly && (int)$u['alliance'] > 0) {
+                $senderAlly = (int)$u['alliance'];
+            }
+        }
+
+        $senderAllyName = "Tanpa Aliansi";
+        if ($senderAlly > 0) {
+            $qA = @mysqli_query($db, "SELECT name, tag FROM `" . TB_PREFIX . "alidata` WHERE id = $senderAlly LIMIT 1");
+            if ($qA && $a = mysqli_fetch_assoc($qA)) {
+                $senderAllyName = $a['name'] . " [" . $a['tag'] . "]";
+            }
+        }
+
+        $heroStr = ($hero > 0) ? " (termasuk 1 Hero)" : "";
+        $title = "🛡️ Bala Bantuan Aliansi Tiba";
+        $desc = "Bala bantuan dari $senderAllyName yang dikirim oleh $senderUsername sebanyak $totalWithHero prajurit$heroStr telah tiba dan memperkuat garnisun Benteng Kuno!";
+        self::addLog('reinforce', $senderAlly, $senderUid, $title, $desc);
     }
 
     /**

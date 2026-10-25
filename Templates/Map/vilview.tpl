@@ -439,12 +439,16 @@ echo ' '.$coords;
     <?php } ?>
 </td></tr>
 <tr><td class="none">
-    <?php if ($isBActive) { ?>
+    <?php 
+    $canReinforceBastion = ($isBActive && Bastion::canReinforce((int)($session->uid ?? 0), (int)($session->alliance ?? 0)));
+    if ($canReinforceBastion) { ?>
         <?php if (!empty($village->resarray['f39'])) { ?>
-            <a href="a2b.php?s=2&z=<?php echo $d; ?>" style="color: #0284c7; font-weight: bold;">&raquo; 🛡️ Kirim Bala Bantuan ke Benteng (Reinforce)</a>
+            <a href="a2b.php?s=2&z=<?php echo $d; ?>&c=2" style="color: #0284c7; font-weight: bold;">&raquo; 🛡️ Kirim Bala Bantuan ke Benteng (Reinforce)</a>
         <?php } else { ?>
             &raquo; 🛡️ Kirim Bala Bantuan (<?php echo BUILDRALLY; ?>)
         <?php } ?>
+    <?php } elseif ($isBActive) { ?>
+        <span style="color: #94a3b8; font-weight: bold;" title="Bala bantuan hanya dapat dikirim jika aliansi Anda sedang menduduki Benteng Kuno">&raquo; 🛡️ Kirim Bala Bantuan (Hanya Aliansi Penguasa Benteng)</span>
     <?php } else { ?>
         <span style="color: #94a3b8; font-weight: bold;">&raquo; 🛡️ Kirim Bala Bantuan ke Benteng (Gerbang Terkunci - Event Belum Aktif)</span>
     <?php } ?>

@@ -131,6 +131,28 @@ trait AutomationTroopMovements {
         $AttackerID = $from['owner'];
         $owntribe = $database->getUserField($AttackerID,"tribe",0);
 
+        // Check if target is Benteng Kuno (0|0)
+        require_once dirname(__DIR__) . '/Bastion.php';
+        $isBastion = (class_exists('Bastion') && Bastion::isBastionVillage($data['to']));
+        if ($isBastion) {
+            $senderAlly = (int)$database->getUserField($AttackerID, 'alliance', 0);
+            if (!Bastion::canReinforce($AttackerID, $senderAlly)) {
+                // Aliansi pengirim bukan lagi penguasa benteng!
+                // Pasukan dipulangkan kembali ke desa asal (movement sort_type 4)
+                $duration = max(30, (int)($data['endtime'] - $data['starttime']));
+                $now = time();
+                $database->addMovement(4, $data['to'], $data['from'], $data['ref'], $now, $now + $duration);
+
+                // Kirim laporan pemberitahuan kepulangan pasukan
+                $unitssend_att = ''.$data['t1'].','.$data['t2'].','.$data['t3'].','.$data['t4'].','.$data['t5'].','.$data['t6'].','.$data['t7'].','.$data['t8'].','.$data['t9'].','.$data['t10'].','.$data['t11'].'';
+                $data_fail = ''.$from['wref'].','.$from['owner'].','.$owntribe.','.$unitssend_att.'';
+                $database->addNotice($from['owner'], $from['wref'], $senderAlly, 8,
+                    addslashes($from['name']) . ' bantuan dipulangkan dari Benteng Kuno (Bukan Aliansi Penguasa)',
+                    $data_fail, $now);
+                return;
+            }
+        }
+
         $HeroTransfer = $troopsPresent = 0;
         for($i = 1;$i <= 10; $i++) {
         	if($data['t'.$i] > 0) {
@@ -170,6 +192,10 @@ trait AutomationTroopMovements {
         $database->addNotice($from['owner'],$from['wref'],(isset($ownally) ? $ownally : 0),8,''.addslashes($from['name']).' reinforcement '.addslashes($to_name).'',$data_fail,(isset($AttackArrivalTime) ? $AttackArrivalTime : time()));
         if($from['owner'] != $to['owner']) {
             $database->addNotice($to['owner'],$to['wref'],(isset($targetally) ? $targetally : 0),8,''.addslashes($from['name']).' reinforcement '.addslashes($to_name).'',$data_fail,(isset($AttackArrivalTime) ? $AttackArrivalTime : time()));
+        }
+
+        if ($isBastion) {
+            Bastion::handleReinforcementArrival($data, $from, $to, (int)($senderAlly ?? 0));
         }
     }
 
