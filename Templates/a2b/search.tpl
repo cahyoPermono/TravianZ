@@ -18,9 +18,9 @@
 ## --------------------------------------------------------------------------- ##
 #################################################################################
 
-// -- preluăm stările disabled din form (păstrăm exact valorile originale)
-$disabled = '';
-$disabledr = '';
+// -- preluăm stările disabled din form sau context global
+$disabled = $disabled ?? '';
+$disabledr = $disabledr ?? '';
 
 if (!empty($form) && !empty($form->valuearray)) {
     if (!empty($form->valuearray['disabled'])) {
@@ -31,21 +31,35 @@ if (!empty($form) && !empty($form->valuearray)) {
     }
 }
 
-// logica originală pentru checked
-$reinforcementChecked = (empty($disabledr));
-$raidChecked = (!empty($disabledr) && !empty($disabled));
-
-// dacă ambele sunt disabled, reinforcement nu mai e checked (ca în original)
-if ($raidChecked) {
-    $reinforcementChecked = false;
-}
-
 // coordonate
 if (isset($_GET['z'])) {
     $coor = $database->getCoor($_GET['z']);
 } else {
     $coor['x'] = $form->getValue('x');
     $coor['y'] = $form->getValue('y');
+}
+
+// Check if target coordinates point to Bastion to ensure radio states are accurate even when entering coordinates
+if (isset($coor['x']) && isset($coor['y']) && $coor['x'] !== '' && $coor['y'] !== '') {
+    $checkWref = $generator->getBaseID($coor['x'], $coor['y']);
+    require_once __DIR__ . '/../../GameEngine/Bastion.php';
+    if ($checkWref && Bastion::isBastionVillage($checkWref)) {
+        if (!Bastion::isEventActive()) {
+            $disabled = "disabled=disabled";
+            $disabledr = "disabled=disabled";
+        } elseif (!Bastion::canReinforce((int)($session->uid ?? 0), (int)($session->alliance ?? 0))) {
+            $disabledr = "disabled=disabled";
+        }
+    }
+}
+
+// logica pentru checked
+$reinforcementChecked = (empty($disabledr));
+$raidChecked = (!empty($disabledr) && !empty($disabled));
+$normalChecked = (!empty($disabledr) && empty($disabled));
+
+if ($raidChecked || $normalChecked) {
+    $reinforcementChecked = false;
 }
 ?>
 <table id="coords" cellpadding="1" cellspacing="1">
@@ -70,7 +84,9 @@ if (isset($_GET['z'])) {
         <tr>
             <td class="sel">
                 <label>
-                    <input class="radio" name="c" value="3" type="radio" <?php echo $disabled; ?>>
+                    <input class="radio" name="c" value="3" type="radio"
+                        <?php if ($normalChecked) echo 'checked="checked"'; ?>
+                        <?php echo $disabled; ?>>
                     Normal attack
                 </label>
             </td>

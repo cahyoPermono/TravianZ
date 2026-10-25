@@ -82,6 +82,19 @@ if(isset($_GET['o'])){
 }else{
 	if($session->sit == 0) $disabled = "";
 	else $disabled = "disabled=disabled";
+
+	if (isset($_GET['z'])) {
+		$targetVid = (int)$_GET['z'];
+		require_once __DIR__ . '/GameEngine/Bastion.php';
+		if (Bastion::isBastionVillage($targetVid)) {
+			if (!Bastion::isEventActive()) {
+				$disabled = "disabled=disabled";
+				$disabledr = "disabled=disabled";
+			} elseif (!Bastion::canReinforce((int)($session->uid ?? 0), (int)($session->alliance ?? 0))) {
+				$disabledr = "disabled=disabled";
+			}
+		}
+	}
 }
 if (!isset($units) || !is_object($units)) {
 	$units = new Units();

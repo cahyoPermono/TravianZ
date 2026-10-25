@@ -332,14 +332,10 @@ trait DatabaseConnectionCore {
      * @return Returns the requested cached value or null if it's not cached yet.
      */
 	private static function returnCachedContent(&$arrayVariable, $arrayStructure) {
-        if (!isset($arrayVariable[$arrayStructure])) {
-            $arrayVariable[$arrayStructure] = [];
-        }
-
         if (isset($arrayVariable[$arrayStructure]) && !empty($arrayVariable[$arrayStructure])) {
             return $arrayVariable[$arrayStructure];
         } 
-        else return null;
+        return null;
     }
 
     /**
