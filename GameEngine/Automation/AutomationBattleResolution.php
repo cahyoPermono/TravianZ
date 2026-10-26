@@ -2884,6 +2884,27 @@ trait AutomationBattleResolution {
                         continue;
                     }
 
+                    // Ancient Bastion friendly wave interception:
+                    // If target is Benteng Kuno, event is active, and incoming wave is from
+                    // the current holder player or same alliance, convert wave to reinforcement
+                    // so friendly follow-up waves do NOT attack their own alliance/fortress.
+                    if (!class_exists('Bastion') && file_exists(dirname(__DIR__) . '/Bastion.php')) {
+                        require_once dirname(__DIR__) . '/Bastion.php';
+                    }
+                    if (class_exists('Bastion') && Bastion::isBastionVillage($data['to'])) {
+                        $bSenderUid = (int)$from['owner'];
+                        $bSenderAlly = (int)($ownally ?? 0);
+                        if (!$bSenderAlly && isset($database)) {
+                            $bSenderAlly = (int)$database->getUserField($bSenderUid, 'alliance', 0);
+                        }
+                        if (Bastion::isFriendlyWithHolder($bSenderUid, $bSenderAlly)) {
+                            Bastion::convertAttackWaveToReinforcement($data, $from, $owntribe, $bSenderAlly);
+                            $database->setMovementProc($data['moveid']);
+                            $data_num++;
+                            continue;
+                        }
+                    }
+
                     // target + battle environment — extracted to resolveVillageTarget() [#155]
                     $vt = $this->resolveVillageTarget($data, $dataarray, $data_num, $owntribe);
                     $DefenderID   = $vt['DefenderID'];

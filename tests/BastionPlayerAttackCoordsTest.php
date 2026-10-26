@@ -71,7 +71,7 @@ $session = new MockSession($uid, 0);
 // Ensure Bastion event is active
 $event = Bastion::getEvent();
 if ($event['status'] != Bastion::STATUS_ACTIVE) {
-    Bastion::startEvent(Bastion::MODE_MANUAL, 28800);
+    Bastion::startEvent(300, 28800);
 }
 
 // 3. Test checkErrors when player inputs X=0, Y=0 with Normal Attack (c = 3)

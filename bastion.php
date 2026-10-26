@@ -74,13 +74,19 @@ if (!empty($latestWinner)) {
     }
 }
 
-// Perhitungan Durasi Bertahan
+// Perhitungan Durasi Pertandingan Event (Fixed Match Window)
 $now = time();
 $holdDuration = (int)($event['hold_duration'] ?: Bastion::DEFAULT_HOLD_DURATION);
-$holdStart = (int)($event['hold_start_time'] ?? 0);
-$elapsedSeconds = ($event['status'] == Bastion::STATUS_ACTIVE && $holdStart > 0) ? max(0, $now - $holdStart) : 0;
-$remainingSeconds = max(0, $holdDuration - $elapsedSeconds);
-$progressPercent = min(100, round(($elapsedSeconds / $holdDuration) * 100, 1));
+$eventStart = (int)($event['event_start_time'] ?? 0);
+$eventEnd = (int)($event['event_end_time'] ?? 0);
+if ($eventEnd <= 0 && $eventStart > 0) {
+    $eventEnd = $eventStart + $holdDuration;
+}
+
+$elapsedMatchSeconds = ($event['status'] == Bastion::STATUS_ACTIVE && $eventStart > 0) ? max(0, $now - $eventStart) : 0;
+$remainingSeconds = ($event['status'] == Bastion::STATUS_ACTIVE && $eventEnd > 0) ? max(0, $eventEnd - $now) : 0;
+$totalMatchDuration = ($eventEnd > $eventStart && $eventStart > 0) ? ($eventEnd - $eventStart) : $holdDuration;
+$progressPercent = min(100, round(($elapsedMatchSeconds / max(1, $totalMatchDuration)) * 100, 1));
 
 // Cek apakah aliansi pemain sendiri yang sedang menguasai
 $userAllyId = (int)($session->userinfo['alliance'] ?? 0);
@@ -572,7 +578,7 @@ $secondsUntilStart = $nextStartTime ? max(0, $nextStartTime - $now) : 0;
 					<div>
 						<div class="bastion-hero-title">Benteng Kuno (The Ancient Bastion)</div>
 						<div class="bastion-hero-subtitle">
-							Pusat Sumbu Peta <b>(0|0)</b> — Arena Perebutan Kedaulatan Aliansi. Pertahankan benteng selama <b>12 Jam</b> berturut-turut untuk memenangkan Berkah Kedaulatan seluruh kerajaan!
+							Pusat Sumbu Peta <b>(0|0)</b> — Arena Perebutan Kedaulatan Aliansi. Waktu pertandingan tetap (Fixed Match Window). Aliansi mana pun yang sedang menduduki Benteng Kuno saat batas waktu event habis otomatis dinobatkan sebagai <b>JUARA MUTLAK</b>!
 						</div>
 						<div style="margin-top: 8px;">
 							<a href="manual.php?typ=7&amp;s=1" target="_blank" style="display:inline-flex; align-items:center; gap:5px; background:rgba(255,255,255,0.2); color:#fff; border:1px solid rgba(255,255,255,0.35); padding:4px 10px; border-radius:4px; font-size:11px; font-weight:bold; text-decoration:none;">
@@ -698,27 +704,29 @@ $secondsUntilStart = $nextStartTime ? max(0, $nextStartTime - $now) : 0;
 						</div>
 
 						<div class="timer-box">
-							<div class="timer-label">Sisa Waktu Menang</div>
+							<div class="timer-label">Sisa Waktu Pertandingan</div>
 							<div class="timer-num" id="bastionCountdown">
 								<?php
-								if ($event['status'] == Bastion::STATUS_ACTIVE && $holdStart > 0) {
+								if ($event['status'] == Bastion::STATUS_ACTIVE && $remainingSeconds > 0) {
 									$h = floor($remainingSeconds / 3600);
 									$m = floor(($remainingSeconds % 3600) / 60);
 									$s = $remainingSeconds % 60;
 									echo sprintf("%02d:%02d:%02d", $h, $m, $s);
 								} else {
-									echo "12:00:00";
+									echo "00:00:00";
 								}
 								?>
 							</div>
-							<div style="font-size: 10px; color: #a8a29e;">Target: 12 Jam Penuh</div>
+							<div style="font-size: 10px; color: #a8a29e;">
+								<?php echo ($eventEnd > 0) ? "Selesai Pukul: " . date('H:i', $eventEnd) . " WIB" : "Batas: " . round($holdDuration / 3600) . " Jam"; ?>
+							</div>
 						</div>
 					</div>
 
-					<!-- PROGRESS BAR 12 JAM -->
+					<!-- PROGRESS BAR PERTANDINGAN -->
 					<div style="display:flex; justify-content:space-between; font-size:10px; color:#78716c;">
-						<span>Waktu Bertahan: <b><?php echo sprintf("%02d:%02d:%02d", floor($elapsedSeconds/3600), floor(($elapsedSeconds%3600)/60), $elapsedSeconds%60); ?></b></span>
-						<span>Progres: <b><?php echo $progressPercent; ?>%</b></span>
+						<span>Waktu Berjalan: <b><?php echo sprintf("%02d:%02d:%02d", floor($elapsedMatchSeconds/3600), floor(($elapsedMatchSeconds%3600)/60), $elapsedMatchSeconds%60); ?></b></span>
+						<span>Progres Pertandingan: <b><?php echo $progressPercent; ?>%</b></span>
 					</div>
 					<div class="progress-wrap">
 						<div class="progress-bar" style="width: <?php echo $progressPercent; ?>%;"></div>

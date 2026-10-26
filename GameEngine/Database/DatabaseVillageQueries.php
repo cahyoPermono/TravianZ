@@ -808,8 +808,8 @@ trait DatabaseVillageQueries {
         }
 
         switch ($mode) {
-            // by owner ID
-            case 0: $q = "SELECT * FROM " . TB_PREFIX . "vdata WHERE owner IN(".implode(', ', $uid).") ORDER BY pop DESC";
+            // by owner ID (Benteng Kuno wref 20201 is excluded from normal players)
+            case 0: $q = "SELECT * FROM " . TB_PREFIX . "vdata WHERE owner IN(".implode(', ', $uid).") AND (wref != 20201 OR owner = 91016) ORDER BY pop DESC";
                     break;
 
             // capital villages where owner is a real player (i.e. not Natars etc.)

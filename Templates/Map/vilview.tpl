@@ -157,7 +157,12 @@ echo ' '.$coords;
     $statusBg = '#e2e8f0';
     $statusColor = '#334155';
     if ($bStatus === 1) {
-        $statusText = '⚔️ EVENT PEREBUTAN AKTIF (King of the Hill)';
+        $bEnd = (int)($bastionEvent['event_end_time'] ?? 0);
+        if ($bEnd <= 0 && (int)($bastionEvent['event_start_time'] ?? 0) > 0) {
+            $bEnd = (int)$bastionEvent['event_start_time'] + (int)($bastionEvent['hold_duration'] ?? 43200);
+        }
+        $timeStr = $bEnd > 0 ? ' (Selesai ' . date('H:i', $bEnd) . ' WIB)' : '';
+        $statusText = '⚔️ EVENT PEREBUTAN AKTIF' . $timeStr;
         $statusBg = '#fee2e2';
         $statusColor = '#991b1b';
     } elseif ($bStatus === 2) {

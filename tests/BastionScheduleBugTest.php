@@ -64,6 +64,7 @@ mysqli_query($db, "UPDATE `" . TB_PREFIX . "bastion_event` SET
     `recurring_minute` = 0,
     `last_scheduled_start` = $now,
     `event_start_time` = $now,
+    `event_end_time` = $now + 43200,
     `winner_time` = 0,
     `buff_until` = 0
     WHERE `id` = 1");

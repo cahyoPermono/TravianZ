@@ -605,6 +605,14 @@ function __construct() {
     ];
 	}
 		$this->villages = $_SESSION[$cacheKeyVillages]['data'];
+        if ((int)$this->uid !== 91016 && !empty($this->villages)) {
+            $this->villages = array_values(array_filter($this->villages, function($v) {
+                return (int)$v !== 20201;
+            }));
+            if (isset($_SESSION['wid']) && (int)$_SESSION['wid'] === 20201) {
+                $_SESSION['wid'] = !empty($this->villages) ? (int)$this->villages[0] : 0;
+            }
+        }
 
         $this->tribe = $this->userarray['tribe'];
         global $u99, $u99_trap, $u99_nusantara;

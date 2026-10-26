@@ -52,6 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($action === 'reset_guardians') {
         $guardianCount = max(50, (int)($_POST['guardian_count'] ?? 300));
         Bastion::ensureBastionVillage($guardianCount);
+        Bastion::refillGuardians($guardianCount);
         Bastion::addLog('reset', 0, 0, 'Benteng Kuno Direset', "Admin telah mereset Benteng Kuno dan mengisi ulang $guardianCount prajurit penjaga.");
         $flashSuccess = "Benteng Kuno berhasil direset! Bala bantuan lama dibersihkan dan $guardianCount Penjaga Kuno telah ditempatkan.";
     } elseif ($action === 'trigger_bot_attack') {

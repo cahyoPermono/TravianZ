@@ -243,33 +243,33 @@ $now = time();
         <div class="b-step">
             <div class="b-step-num">2</div>
             <div>
-                <b>Menaklukkan Pertahanan (Normal Attack)</b><br />
+                <b>Menaklukkan Pertahanan &amp; Garnisun Bersiaga</b><br />
                 Pemain menyerang dengan tipe <b>Serangan Normal (Normal Attack)</b>. Serangan penjarahan (<i>Raid</i>) tidak dapat mengambil alih kepemilikan benteng.<br />
-                Jika seluruh garnisun bertahan (penjaga kuno atau pemain bertahan) berhasil dibasmi habis dan penyerang memiliki prajurit yang masih hidup, <b>kendali benteng resmi jatuh ke aliansi penyerang!</b>
+                Jika seluruh penjaga/garnisun bertahan berhasil dibasmi habis dan penyerang memiliki prajurit yang masih hidup, <b>kendali benteng resmi jatuh ke aliansi penyerang!</b> Pasukan penakluk yang selamat <b>langsung bersiaga di benteng sebagai garnisun pertahanan</b> (tidak pulang dan meninggalkan benteng kosong).
             </div>
         </div>
 
         <div class="b-step">
             <div class="b-step-num">3</div>
             <div>
-                <b>Timer Bertahan 12 Jam (Hold Timer)</b><br />
-                Begitu benteng direbut, pengatur waktu bertahan (12 jam berturut-turut) dimulai. Jika ada aliansi lain yang berhasil merebut benteng, timer langsung <b>direset kembali ke 0 detik</b>.
+                <b>Waktu Pertandingan Pasti &amp; Peluit Akhir (Fixed Match Window)</b><br />
+                Event dimulai (misal pukul <b>08:00 WIB</b>) dan berakhir tepat pada jadwalnya (pukul <b>20:00 WIB</b> / 12 jam pertandingan). <b>Aliansi mana pun yang sedang menduduki Benteng Kuno saat batas waktu habis otomatis dinobatkan sebagai JUARA MUTLAK!</b> Tidak ada perpanjangan waktu tambahan saat benteng berpindah tangan di menit-menit akhir.
             </div>
         </div>
 
         <div class="b-step">
             <div class="b-step-num">4</div>
             <div>
-                <b>Bala Bantuan Aliansi (Reinforcements)</b><br />
-                Bala bantuan <b>hanya dapat dikirim oleh anggota aliansi yang sedang menduduki Benteng Kuno</b>. Aliansi lain yang belum menguasai benteng tidak dapat mengirim bala bantuan dan wajib melancarkan serangan (Normal Attack) terlebih dahulu untuk merebut takhta benteng!
+                <b>Konversi Gelombang Lanjutan (Bebas Friendly Fire)</b><br />
+                Jika Anda atau aliansi Anda telah menaklukkan benteng, gelombang serangan berikutnya yang sudah terlanjur meluncur di jalan <b>otomatis dikonversi menjadi Bala Bantuan (Reinforcement)</b> begitu tiba di (0|0). Tidak ada friendly fire antar sesama rekan aliansi!
             </div>
         </div>
 
         <div class="b-step">
             <div class="b-step-num">5</div>
             <div>
-                <b>Uji Gelombang Pasukan Kuno (Bot Waves)</b><br />
-                Setiap <b>2 jam sekali</b>, regu pasukan kuno (~30 prajurit) akan bergerak menuju benteng untuk menguji kesiapan garnisun pertahanan aliansi.
+                <b>Situs Cagar Netral &amp; Pasukan Kembali Aman</b><br />
+                Benteng Kuno adalah situs pusaka dunia dan <b>tidak pernah berubah menjadi desa milik pribadi</b>. Setelah pertandingan selesai dan juara dinobatkan, seluruh pasukan aliansi yang bersiaga di benteng <b>otomatis dipulangkan dengan aman ke desa asalnya</b>, dan seluruh anggota aliansi pemenang menikmati Berkah Kedaulatan selama 3 hari!
             </div>
         </div>
     </div>
@@ -278,7 +278,7 @@ $now = time();
     <div class="b-card" style="background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%); border-color: #bbf7d0;">
         <h2><span>🎁</span> Hadiah Kemenangan &amp; Berkah Kedaulatan Aliansi</h2>
         <p>
-            Aliansi pertama yang berhasil mempertahankan Benteng Kuno selama <b>12 Jam penuh tanpa terputus</b> akan dinyatakan sebagai <b>Pemenang Musim Benteng Kuno</b> dan berhak atas hadiah berlimpah:
+            Aliansi yang menduduki Benteng Kuno tepat saat peluit akhir pertandingan berbunyi akan dinyatakan sebagai <b>Pemenang Musim Benteng Kuno</b> dan berhak atas hadiah berlimpah:
         </p>
 
         <table class="b-table">

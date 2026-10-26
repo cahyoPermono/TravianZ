@@ -110,6 +110,17 @@ class Bastion {
                 VALUES (1, " . self::BASTION_WREF . ", 0, " . self::DEFAULT_GUARDIAN_TROOPS . ", " . self::DEFAULT_HOLD_DURATION . ", " . self::DEFAULT_BOT_INTERVAL . ")");
         }
 
+        // Self-Healing: Pastikan kepemilikan desa Benteng Kuno (wref = 20201) SELALU Penjaga Kuno (91016) dan BUKAN milik pemain
+        $qOwner = @mysqli_query($db, "SELECT `owner` FROM `" . TB_PREFIX . "vdata` WHERE `wref` = " . self::BASTION_WREF . " LIMIT 1");
+        if ($qOwner && ($oRow = mysqli_fetch_assoc($qOwner))) {
+            $currentOwner = (int)$oRow['owner'];
+            if ($currentOwner > 0 && $currentOwner !== 91016) {
+                $faction = self::ensureBotFaction();
+                $guardianUid = (int)($faction['uid'] ?? 91016);
+                @mysqli_query($db, "UPDATE `" . TB_PREFIX . "vdata` SET `name` = '🏰 Benteng Kuno', `owner` = $guardianUid, `capital` = 0, `pop` = 250, `natar` = 1 WHERE `wref` = " . self::BASTION_WREF);
+            }
+        }
+
         // 2. Table riwayat pertarungan dan log event benteng
         $q2 = "CREATE TABLE IF NOT EXISTS `" . TB_PREFIX . "bastion_logs` (
             `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -320,19 +331,19 @@ class Bastion {
         // Cek apakah village sudah ada di vdata
         $qV = @mysqli_query($db, "SELECT wref, owner FROM `" . TB_PREFIX . "vdata` WHERE wref = $wref LIMIT 1");
         if ($qV && mysqli_num_rows($qV) > 0) {
-            // Pastikan nama desa dan pemilik awal tetap Penjaga Kuno jika tidak ada holder
+            // Pastikan pemilik di vdata SELALU Penjaga Kuno (Benteng Kuno adalah situs cagar netral, bukan desa milik pemain)
             $event = self::getEvent();
-            if ($event['status'] == self::STATUS_INACTIVE || $event['holder_alliance'] == 0) {
-                @mysqli_query($db, "UPDATE `" . TB_PREFIX . "vdata` SET `name` = '🏰 Benteng Kuno', `owner` = $guardianUid, `pop` = 250, `natar` = 1 WHERE `wref` = $wref");
-            }
+            @mysqli_query($db, "UPDATE `" . TB_PREFIX . "vdata` SET `name` = '🏰 Benteng Kuno', `owner` = $guardianUid, `pop` = 250, `natar` = 1 WHERE `wref` = $wref");
         } else {
-            // Buat village baru di (0|0)
+            // Buat village baru di (0|0) jika belum ada
             if ($database) {
                 $database->addVillage($wref, $guardianUid, 'Penjaga Kuno', 0, 250, '🏰 Benteng Kuno', 1);
                 $database->addResourceFields($wref, 3); // 4-4-4-6 layout
                 $database->addUnits($wref);
                 $database->setFieldTaken($wref);
             }
+            // Atur pasukan penjaga HANYA saat desa pertama kali dibuat
+            self::refillGuardians($guardianTotal);
         }
 
         // Pastikan Tembok Kuno (Level 12) & Titik Temu (Level 1) terpasang di fdata
@@ -340,9 +351,6 @@ class Bastion {
 
         // Pastikan lumbung dan gudang penuh agar tidak pernah kelaparan
         @mysqli_query($db, "UPDATE `" . TB_PREFIX . "vdata` SET `wood` = 80000, `clay` = 80000, `iron` = 80000, `crop` = 80000, `maxstore` = 80000, `maxcrop` = 80000 WHERE `wref` = $wref");
-
-        // Atur pasukan penjaga awal
-        self::refillGuardians($guardianTotal);
     }
 
     /**
@@ -387,11 +395,15 @@ class Bastion {
     public static function startEvent(int $guardianTroops = self::DEFAULT_GUARDIAN_TROOPS, int $holdDuration = self::DEFAULT_HOLD_DURATION, int $botInterval = self::DEFAULT_BOT_INTERVAL, bool $broadcast = true): bool {
         self::ensureTables();
         self::ensureBastionVillage($guardianTroops);
+        // Isi ulang pasukan penjaga awal benteng hanya saat event dimulai secara resmi
+        self::refillGuardians($guardianTroops);
+
         $db = self::db();
         if (!$db) return false;
 
         $faction = self::ensureBotFaction();
         $now = time();
+        $eventEndTime = $now + $holdDuration; // Batas akhir pertandingan (Fixed deadline)
 
         $q = "UPDATE `" . TB_PREFIX . "bastion_event` SET
             `status` = " . self::STATUS_ACTIVE . ",
@@ -400,7 +412,7 @@ class Bastion {
             `hold_start_time` = 0,
             `hold_duration` = $holdDuration,
             `event_start_time` = $now,
-            `event_end_time` = 0,
+            `event_end_time` = $eventEndTime,
             `guardian_initial_troops` = $guardianTroops,
             `bot_attack_interval` = $botInterval,
             `last_bot_attack` = $now,
@@ -410,7 +422,7 @@ class Bastion {
         $ok = @mysqli_query($db, $q);
 
         self::addLog('event_start', 0, 0, 'Gerbang Benteng Kuno Telah Terbuka!', 
-            "Pintu Benteng Kuno di pusat peta (0|0) telah resmi terbuka! Dijaga oleh $guardianTroops Penjaga Kuno. Aliansi mana pun yang berhasil menguasai dan mempertahankan benteng selama " . round($holdDuration / 3600) . " jam akan memenangkan Berkah Kedaulatan!");
+            "Pintu Benteng Kuno di pusat peta (0|0) telah resmi terbuka! Dijaga oleh $guardianTroops Penjaga Kuno. Pertandingan berlangsung hingga " . date('H:i', $eventEndTime) . " WIB (" . round($holdDuration / 3600) . " jam). Aliansi mana pun yang menduduki benteng saat peluit akhir berbunyi akan memenangkan Berkah Kedaulatan!");
 
         // Siarkan pengumuman pembukaan benteng ke seluruh pemain (IGM & Chat Global) jika diaktifkan
         if ($broadcast) {
@@ -428,14 +440,17 @@ class Bastion {
         $db = self::db();
         if (!$db) return false;
 
+        $now = time();
         $ok = @mysqli_query($db, "UPDATE `" . TB_PREFIX . "bastion_event` SET 
             `status` = " . self::STATUS_INACTIVE . ",
             `holder_alliance` = 0,
             `holder_uid` = 0,
-            `hold_start_time` = 0
+            `hold_start_time` = 0,
+            `event_end_time` = $now
             WHERE `id` = 1");
         self::ensureBastionVillage();
-        self::addLog('event_stop', 0, 0, 'Event Benteng Kuno Ditutup', 'Gerbang benteng telah ditutup kembali. Seluruh pertempuran dibekukan.');
+        self::returnAllStationedReinforcements();
+        self::addLog('event_stop', 0, 0, 'Event Benteng Kuno Ditutup', 'Gerbang benteng telah ditutup kembali. Seluruh pertempuran dibekukan dan seluruh bala bantuan pemain dipulangkan ke desanya masing-masing.');
         return (bool)$ok;
     }
 
@@ -682,7 +697,7 @@ class Bastion {
             $oldAlly = (int)$event['holder_alliance'];
             $now = time();
 
-            // Update status penguasa baru & reset timer 12 jam
+            // Update status penguasa baru di bastion_event
             @mysqli_query($db, "UPDATE `" . TB_PREFIX . "bastion_event` SET
                 `holder_alliance` = $attackerAlly,
                 `holder_uid` = $attackerUid,
@@ -690,10 +705,12 @@ class Bastion {
                 `previous_holder_alliance` = $oldAlly
                 WHERE `id` = 1");
 
-            // Update desa benteng di vdata agar kepemilikannya mencerminkan penguasa baru
-            @mysqli_query($db, "UPDATE `" . TB_PREFIX . "vdata` SET `owner` = $attackerUid WHERE `wref` = " . self::BASTION_WREF);
+            // Pastikan pemilik di vdata SELALU Penjaga Kuno (Benteng Kuno adalah situs cagar netral, bukan desa milik pemain)
+            $faction = self::ensureBotFaction();
+            $guardianUid = $faction['uid'];
+            @mysqli_query($db, "UPDATE `" . TB_PREFIX . "vdata` SET `name` = '🏰 Benteng Kuno', `owner` = $guardianUid WHERE `wref` = " . self::BASTION_WREF);
 
-            // Bersihkan sisa unit penjaga lama di tabel units
+            // Bersihkan sisa unit penjaga lama di tabel units benteng
             @mysqli_query($db, "UPDATE `" . TB_PREFIX . "units` SET 
                 `u1`=0, `u2`=0, `u3`=0, `u4`=0, `u5`=0, `u6`=0, `u7`=0, `u8`=0, `u9`=0, `u10`=0,
                 `u11`=0, `u12`=0, `u13`=0, `u14`=0, `u15`=0, `u16`=0, `u17`=0, `u18`=0, `u19`=0, `u20`=0,
@@ -702,8 +719,11 @@ class Bastion {
                 `u41`=0, `u42`=0, `u43`=0, `u44`=0, `u45`=0, `u46`=0, `u47`=0, `u48`=0, `u49`=0, `u50`=0
                 WHERE `vref` = " . self::BASTION_WREF);
 
+            // GARNISUN PENAKLUK BERSIAGA: Pasukan penakluk yang selamat TIDAK dipulangkan, melainkan langsung bersiaga menjaga Benteng Kuno!
+            self::stationConqueringTroops($data, $from);
+
             $title = "🏰 Benteng Kuno Telah Direbut!";
-            $desc = "Pasukan dari $attackerAllyName yang dipimpin oleh $attackerUsername telah meratakan pertahanan sebelumnya dan resmi menduduki Benteng Kuno! Timer 12 jam dimulai kembali.";
+            $desc = "Pasukan dari $attackerAllyName yang dipimpin oleh $attackerUsername telah meratakan pertahanan sebelumnya dan resmi menduduki Benteng Kuno! Pasukan penakluk yang selamat langsung bersiaga sebagai garnisun pertahanan.";
             self::addLog('capture', $attackerAlly, $attackerUid, $title, $desc);
         } else {
             // DEFENDER BERHASIL MENANGKIS SERANGAN
@@ -711,6 +731,268 @@ class Bastion {
             $title = "🛡️ Pertahanan Benteng Menangkis Serangan";
             $desc = "Serangan dari $attackerUsername ($attackerAllyName) berhasil dipukul mundur oleh garnisun penjaga Benteng Kuno!";
             self::addLog('repelled', $currentHolderAlly, $attackerUid, $title, $desc);
+        }
+    }
+
+    /**
+     * Station surviving conquering troops as active garrison in Benteng Kuno (0|0).
+     * Prevents conquering troops from retreating home and leaving the fortress empty.
+     */
+    public static function stationConqueringTroops($data, $from): void {
+        global $database;
+        $db = self::db();
+        if (!$db || !$database) return;
+
+        $wref = self::BASTION_WREF;
+        $refId = (int)($data['ref'] ?? 0);
+        $fromWref = (int)($from['wref'] ?? ($data['from'] ?? 0));
+        $senderUid = (int)($from['owner'] ?? 0);
+
+        // 1. Batalkan / Hapus pergerakan pulang (Movement Type 4) agar pasukan penakluk tidak pulang ke desa asal
+        if ($refId > 0) {
+            @mysqli_query($db, "DELETE FROM `" . TB_PREFIX . "movement` WHERE `sort_type` = 4 AND `ref` = $refId AND `from` = $wref");
+        }
+
+        // 2. Ambil data pasukan yang selamat dari tabel attacks
+        $qAtt = @mysqli_query($db, "SELECT * FROM `" . TB_PREFIX . "attacks` WHERE `id` = $refId LIMIT 1");
+        if (!$qAtt || !($attRow = mysqli_fetch_assoc($qAtt))) {
+            return;
+        }
+
+        $owntribe = (int)$database->getUserField($senderUid, 'tribe', 0);
+        if ($owntribe <= 0) $owntribe = 1;
+
+        $survivors = [];
+        $totalSurvivors = 0;
+        for ($i = 1; $i <= 10; $i++) {
+            $survivors['t' . $i] = max(0, (int)($attRow['t' . $i] ?? 0));
+            $totalSurvivors += $survivors['t' . $i];
+        }
+        $heroAlive = max(0, (int)($attRow['t11'] ?? 0));
+        $totalSurvivors += $heroAlive;
+
+        if ($totalSurvivors <= 0) {
+            return;
+        }
+
+        // 3. Bersihkan seluruh garnisun/enforcement lama yang telah dikalahkan
+        @mysqli_query($db, "DELETE FROM `" . TB_PREFIX . "enforcement` WHERE `vref` = $wref");
+
+        // 4. Masukkan pasukan penakluk yang selamat ke dalam tabel enforcement Benteng Kuno
+        $check = $database->getEnforce($wref, $fromWref);
+        if (!isset($check['id'])) {
+            $reinfData = [
+                'from' => $fromWref,
+                'to'   => $wref,
+                't1'   => $survivors['t1'],
+                't2'   => $survivors['t2'],
+                't3'   => $survivors['t3'],
+                't4'   => $survivors['t4'],
+                't5'   => $survivors['t5'],
+                't6'   => $survivors['t6'],
+                't7'   => $survivors['t7'],
+                't8'   => $survivors['t8'],
+                't9'   => $survivors['t9'],
+                't10'  => $survivors['t10'],
+                't11'  => $heroAlive
+            ];
+            $database->addEnforce($reinfData);
+        } else {
+            $start = ($owntribe - 1) * 10 + 1;
+            $end = ($owntribe * 10);
+            $t_units = '';
+            for ($i = $start, $j = 1; $i <= $end; $i++, $j++) {
+                $val = $survivors['t' . $j];
+                $t_units .= "u" . $i . " = u" . $i . " + " . $val . (($j > 9) ? '' : ', ');
+            }
+            $q = "UPDATE " . TB_PREFIX . "enforcement SET $t_units WHERE id = " . (int)$check['id'];
+            @mysqli_query($db, $q);
+            if ($heroAlive > 0) {
+                $database->modifyEnforce($check['id'], 'hero', $heroAlive, 1);
+            }
+        }
+
+        // 5. Jika hero ikut selamat, perbarui lokasi hero ke Benteng Kuno (0|0)
+        if ($heroAlive > 0 && $senderUid > 0) {
+            $heroid = $database->getHeroField($senderUid, 'heroid');
+            if ($heroid) {
+                $database->modifyHero("wref", $wref, $heroid);
+                if (method_exists($database, 'clearHeroCache')) {
+                    $database->clearHeroCache();
+                }
+            }
+        }
+
+        // 6. Log garnisun bersiaga
+        $senderName = $from['name'] ?? 'Pemain';
+        self::addLog('reinforce', (int)($from['alliance'] ?? 0), $senderUid, '🛡️ Garnisun Penakluk Bersiaga di Benteng Kuno',
+            "Sebanyak $totalSurvivors prajurit penakluk yang selamat dari $senderName kini bersiaga menduduki Benteng Kuno sebagai garnisun pertahanan utama.");
+    }
+
+    /**
+     * Check whether a sender UID or alliance is friendly with the current Bastion holder.
+     */
+    public static function isFriendlyWithHolder(int $senderUid, int $senderAlly): bool {
+        $event = self::getEvent();
+        if ((int)($event['status'] ?? 0) !== self::STATUS_ACTIVE) {
+            return false;
+        }
+        $holderAlly = (int)($event['holder_alliance'] ?? 0);
+        $holderUid = (int)($event['holder_uid'] ?? 0);
+
+        // Jika belum ada penguasa (masih dijaga Penjaga Kuno), bukan friendly
+        if ($holderAlly <= 0 && $holderUid <= 0) {
+            return false;
+        }
+
+        // Aliansi sama
+        if ($holderAlly > 0 && $senderAlly > 0 && $holderAlly === $senderAlly) {
+            return true;
+        }
+
+        // Pemain sama
+        if ($holderUid > 0 && $senderUid > 0 && $holderUid === $senderUid) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Convert incoming friendly attack waves into Reinforcements (Bala Bantuan).
+     * Called when a follow-up wave from the same player/alliance arrives at Benteng Kuno
+     * after it has already been captured, eliminating friendly-fire accidents.
+     */
+    public static function convertAttackWaveToReinforcement($data, $from, $owntribe, int $senderAlly = 0): void {
+        global $database;
+        $db = self::db();
+        if (!$db || !$database) return;
+
+        $toWref = self::BASTION_WREF;
+        $fromWref = (int)($from['wref'] ?? ($data['from'] ?? 0));
+        $senderUid = (int)($from['owner'] ?? 0);
+
+        // 1. Masukkan atau gabungkan pasukan ke tabel enforcement
+        $check = $database->getEnforce($toWref, $fromWref);
+        if (!isset($check['id'])) {
+            $reinfData = $data;
+            $reinfData['to'] = $toWref;
+            $database->addEnforce($reinfData);
+        } else {
+            $start = ($owntribe - 1) * 10 + 1;
+            $end = ($owntribe * 10);
+            $t_units = '';
+            for ($i = $start, $j = 1; $i <= $end; $i++, $j++) {
+                $val = (int)($data['t' . $j] ?? 0);
+                $t_units .= "u" . $i . " = u" . $i . " + " . $val . (($j > 9) ? '' : ', ');
+            }
+            $q = "UPDATE " . TB_PREFIX . "enforcement SET $t_units WHERE id = " . (int)$check['id'];
+            @mysqli_query($db, $q);
+            if ((int)($data['t11'] ?? 0) > 0) {
+                $database->modifyEnforce($check['id'], 'hero', (int)$data['t11'], 1);
+            }
+        }
+
+        // 2. Jika membawa hero, pastikan hero tercatat berada di Benteng Kuno
+        if ((int)($data['t11'] ?? 0) > 0 && $senderUid > 0) {
+            $heroid = $database->getHeroField($senderUid, 'heroid');
+            if ($heroid) {
+                $database->modifyHero("wref", $toWref, $heroid);
+                if (method_exists($database, 'clearHeroCache')) {
+                    $database->clearHeroCache();
+                }
+            }
+        }
+
+        // 3. Kirim laporan pemberitahuan (Notice type 8 = Bala Bantuan Tiba)
+        $unitssend_att = '' . $data['t1'] . ',' . $data['t2'] . ',' . $data['t3'] . ',' . $data['t4'] . ',' . $data['t5'] . ',' . $data['t6'] . ',' . $data['t7'] . ',' . $data['t8'] . ',' . $data['t9'] . ',' . $data['t10'] . ',' . $data['t11'] . '';
+        $data_fail = '' . $fromWref . ',' . $senderUid . ',' . $owntribe . ',' . $unitssend_att . '';
+        $time = time();
+        $toName = "🏰 Benteng Kuno";
+        $database->addNotice($senderUid, $fromWref, $senderAlly, 8, '' . addslashes($from['name'] ?? 'Desa') . ' reinforcement ' . addslashes($toName) . '', $data_fail, $time);
+
+        // 4. Catat ke log event benteng
+        $senderName = $from['name'] ?? 'Pemain';
+        self::addLog('reinforce', $senderAlly, $senderUid, '🤝 Gelombang Serangan Bergabung Sebagai Bantuan',
+            "Gelombang pasukan dari $senderName otomatis bergabung menjadi pasukan bantuan pertahanan karena Benteng Kuno telah dikuasai oleh aliansi sendiri.");
+    }
+
+    /**
+     * Safely send all player-stationed reinforcements at Benteng Kuno back home.
+     * Invoked when event ends (victory or freeze) so no player loses their troops.
+     */
+    public static function returnAllStationedReinforcements(): void {
+        global $database, $units;
+        $db = self::db();
+        if (!$db) return;
+
+        $wref = self::BASTION_WREF;
+        $q = @mysqli_query($db, "SELECT * FROM `" . TB_PREFIX . "enforcement` WHERE `vref` = $wref");
+        if (!$q) return;
+
+        $now = time();
+        while ($row = mysqli_fetch_assoc($q)) {
+            $fromWref = (int)$row['from'];
+            if ($fromWref <= 0) {
+                @mysqli_query($db, "DELETE FROM `" . TB_PREFIX . "enforcement` WHERE `id` = " . (int)$row['id']);
+                continue;
+            }
+
+            $fromVillage = $database ? $database->getMInfo($fromWref) : null;
+            if (!$fromVillage) {
+                @mysqli_query($db, "DELETE FROM `" . TB_PREFIX . "enforcement` WHERE `id` = " . (int)$row['id']);
+                continue;
+            }
+
+            $ownerUid = (int)$fromVillage['owner'];
+            $owntribe = $database ? (int)$database->getUserField($ownerUid, 'tribe', 0) : 1;
+            if ($owntribe <= 0) $owntribe = 1;
+
+            $t = array_fill(1, 10, 0);
+            $totalTroops = 0;
+            $start = ($owntribe - 1) * 10 + 1;
+            $end = $owntribe * 10;
+            for ($i = $start, $j = 1; $i <= $end; $i++, $j++) {
+                $amt = max(0, (int)($row['u' . $i] ?? 0));
+                $t[$j] = $amt;
+                $totalTroops += $amt;
+            }
+            $hero = max(0, (int)($row['hero'] ?? 0));
+            $totalWithHero = $totalTroops + $hero;
+
+            if ($totalWithHero > 0 && $database) {
+                $troopsArr = [];
+                for ($k = 1; $k <= 10; $k++) {
+                    $troopsArr['t' . $k] = $t[$k];
+                }
+                $troopsArr['t11'] = $hero;
+
+                $travelTime = 1800;
+                if ($units && method_exists($units, 'getWalkingTroopsTime') && isset($GLOBALS['generator']) && $GLOBALS['generator']) {
+                    try {
+                        $travelTime = $units->getWalkingTroopsTime($wref, $fromWref, $ownerUid, $owntribe, $troopsArr, 1, 't');
+                    } catch (\Throwable $e) {
+                        $travelTime = 1800;
+                    }
+                }
+
+                $ref = $database->addAttack($fromWref, $t[1], $t[2], $t[3], $t[4], $t[5], $t[6], $t[7], $t[8], $t[9], $t[10], $hero, 2, 0, 0, 0, 0);
+                if ($ref) {
+                    $database->addMovement(4, $wref, $fromWref, $ref, $now, $now + $travelTime);
+                }
+
+                if ($hero > 0 && $ownerUid > 0) {
+                    $heroid = $database->getHeroField($ownerUid, 'heroid');
+                    if ($heroid) {
+                        $database->modifyHero("wref", $fromWref, $heroid);
+                        if (method_exists($database, 'clearHeroCache')) {
+                            $database->clearHeroCache();
+                        }
+                    }
+                }
+            }
+
+            @mysqli_query($db, "DELETE FROM `" . TB_PREFIX . "enforcement` WHERE `id` = " . (int)$row['id']);
         }
     }
 
@@ -766,6 +1048,17 @@ class Bastion {
         if (empty($event)) return;
 
         $now = time();
+
+        // Self-Healing: Pastikan kepemilikan desa Benteng Kuno (wref = 20201) SELALU Penjaga Kuno (91016)
+        $qOwner = @mysqli_query($db, "SELECT `owner` FROM `" . TB_PREFIX . "vdata` WHERE `wref` = " . self::BASTION_WREF . " LIMIT 1");
+        if ($qOwner && ($oRow = mysqli_fetch_assoc($qOwner))) {
+            $currentOwner = (int)$oRow['owner'];
+            if ($currentOwner > 0 && $currentOwner !== 91016) {
+                $faction = self::ensureBotFaction();
+                $guardianUid = (int)($faction['uid'] ?? 91016);
+                @mysqli_query($db, "UPDATE `" . TB_PREFIX . "vdata` SET `name` = '🏰 Benteng Kuno', `owner` = $guardianUid, `capital` = 0, `pop` = 250, `natar` = 1 WHERE `wref` = " . self::BASTION_WREF);
+            }
+        }
 
         // 1. Cek apakah ada victory buff yang sudah kadaluarsa
         if ($event['status'] == self::STATUS_VICTORY && $event['buff_until'] > 0 && $now > $event['buff_until']) {
@@ -847,13 +1140,22 @@ class Bastion {
         // Selalu pastikan lumbung gandum benteng penuh agar pasukan bertahan tidak pernah kelaparan
         @mysqli_query($db, "UPDATE `" . TB_PREFIX . "vdata` SET `crop` = 80000, `maxcrop` = 80000 WHERE `wref` = " . self::BASTION_WREF);
 
-        // 2. CEK KEMENANGAN (Apakah penguasa saat ini sudah bertahan 12 jam?)
-        $holderAlly = (int)$event['holder_alliance'];
-        $holdStart = (int)$event['hold_start_time'];
-        $duration = (int)($event['hold_duration'] ?: self::DEFAULT_HOLD_DURATION);
+        // 2. CEK AKHIR WAKTU EVENT & KEMENANGAN MUTLAK
+        // Batas waktu pertandingan tetap (misal jam 8 pagi s/d jam 8 sore / 20:00 WIB)
+        $eventEndTime = (int)($event['event_end_time'] ?? 0);
+        if ($eventEndTime <= 0 && (int)($event['event_start_time'] ?? 0) > 0) {
+            $eventEndTime = (int)$event['event_start_time'] + (int)($event['hold_duration'] ?: self::DEFAULT_HOLD_DURATION);
+        }
 
-        if ($holderAlly > 0 && $holdStart > 0 && ($now - $holdStart) >= $duration) {
-            self::declareVictory($holderAlly, (int)$event['holder_uid']);
+        if ($eventEndTime > 0 && $now >= $eventEndTime) {
+            $holderAlly = (int)($event['holder_alliance'] ?? 0);
+            if ($holderAlly > 0) {
+                // Aliansi yang sedang menempati benteng saat waktu pertandingan habis otomatis MENANG!
+                self::declareVictory($holderAlly, (int)($event['holder_uid'] ?? 0));
+            } else {
+                // Waktu habis dan benteng masih belum direbut dari Penjaga Kuno
+                self::concludeEventWithoutWinner();
+            }
             return;
         }
 
@@ -867,7 +1169,7 @@ class Bastion {
     }
 
     /**
-     * Declare Victory for an alliance that reached the 12-hour threshold.
+     * Declare Victory for an alliance that holds the bastion at match completion.
      */
     public static function declareVictory(int $allianceId, int $holderUid): void {
         $db = self::db();
@@ -899,6 +1201,14 @@ class Bastion {
             `event_end_time` = $now
             WHERE `id` = 1");
 
+        // Pulangkan seluruh pasukan bala bantuan aliansi yang bersiaga di Benteng Kuno ke desanya masing-masing
+        self::returnAllStationedReinforcements();
+
+        // Pastikan vdata.owner tetap Penjaga Kuno (Benteng Kuno tidak berubah menjadi desa milik pemain)
+        $faction = self::ensureBotFaction();
+        $guardianUid = $faction['uid'];
+        @mysqli_query($db, "UPDATE `" . TB_PREFIX . "vdata` SET `name` = '🏰 Benteng Kuno', `owner` = $guardianUid, `pop` = 250, `natar` = 1 WHERE `wref` = " . self::BASTION_WREF);
+
         // Catat kemenangan secara permanen ke dalam Hall of Fame
         self::recordHallOfFame($allianceId, $holderUid, $now, $holdDur, $buffUntil);
 
@@ -906,7 +1216,7 @@ class Bastion {
         self::distributeVictoryRewards($allianceId);
 
         $title = "🏆 KEMENANGAN MUTLAK! $allyName Menjadi Penguasa Benteng Kuno!";
-        $desc = "Setelah bertahan selama 12 jam penuh di bawah kepemimpinan $uName, $allyName dinobatkan sebagai Penguasa Benteng Kuno! Seluruh anggota aliansi menerima Berkah Kedaulatan (+10% Produksi Sumber Daya, +15% Kecepatan Pasukan, +5% Pertahanan) selama 3 hari!";
+        $desc = "Setelah pertempuran sengit di bawah kepemimpinan $uName, $allyName berhasil menduduki Benteng Kuno hingga peluit akhir berbunyi dan dinobatkan sebagai Penguasa Benteng Kuno! Seluruh anggota aliansi menerima Berkah Kedaulatan (+10% Produksi Sumber Daya, +15% Kecepatan Pasukan, +5% Pertahanan) selama 3 hari!";
         self::addLog('victory', $allianceId, $holderUid, $title, $desc);
 
         // Siarkan pengumuman kemenangan ke Global Chat jika tabel tersedia
@@ -917,6 +1227,35 @@ class Bastion {
             @mysqli_query($db, "INSERT INTO `" . TB_PREFIX . "chat_global` (`id_user`, `date`, `msg`, `type`, `poll_id`, `report_id`, `deleted`, `edited`, `updated_at`)
                 VALUES (1, $now, '$winMsgEsc', 'text', 0, 0, 0, 0, $now)");
         }
+    }
+
+    /**
+     * Conclude event when match time expires without any player alliance capturing the bastion.
+     */
+    public static function concludeEventWithoutWinner(): void {
+        $db = self::db();
+        if (!$db) return;
+
+        $now = time();
+        $event = self::getEvent();
+        $nextStatus = ((int)($event['schedule_mode'] ?? self::SCHEDULE_MANUAL) > self::SCHEDULE_MANUAL) ? self::STATUS_SCHEDULED : self::STATUS_INACTIVE;
+
+        @mysqli_query($db, "UPDATE `" . TB_PREFIX . "bastion_event` SET
+            `status` = $nextStatus,
+            `holder_alliance` = 0,
+            `holder_uid` = 0,
+            `hold_start_time` = 0,
+            `event_end_time` = $now
+            WHERE `id` = 1");
+
+        self::returnAllStationedReinforcements();
+
+        $faction = self::ensureBotFaction();
+        $guardianUid = $faction['uid'];
+        @mysqli_query($db, "UPDATE `" . TB_PREFIX . "vdata` SET `name` = '🏰 Benteng Kuno', `owner` = $guardianUid, `pop` = 250, `natar` = 1 WHERE `wref` = " . self::BASTION_WREF);
+
+        self::addLog('event_concluded', 0, 0, 'Event Benteng Kuno Berakhir Tanpa Pemenang', 
+            'Waktu pertandingan event telah habis! Tidak ada aliansi yang berhasil menaklukkan dan mempertahankan Benteng Kuno hingga batas waktu.');
     }
 
     /**
@@ -1075,16 +1414,8 @@ class Bastion {
         $botAlly = $botFaction['ally'];
         $currentHolderAlly = (int)($event['holder_alliance'] ?? 0);
 
-        // Jika saat ini aliansi BOT yang sedang memegang benteng: kirim bantuan pasukan (Reinforce)
+        // Jika saat ini aliansi BOT yang sedang memegang benteng: jangan spawn pasukan ajaib di tengah event
         if ($currentHolderAlly > 0 && $currentHolderAlly === $botAlly) {
-            // Tambahkan 20 prajurit bantuan penjaga langsung ke benteng
-            @mysqli_query($db, "UPDATE `" . TB_PREFIX . "units` SET 
-                `u41` = `u41` + 10,
-                `u42` = `u42` + 8,
-                `u46` = `u46` + 2
-                WHERE `vref` = " . self::BASTION_WREF);
-            self::addLog('bot_reinforce', $botAlly, $botUid, '🛡️ Bala Bantuan Penjaga Kuno Tiba', 
-                'Aliansi Penjaga Kuno memperkuat pertahanan benteng mereka dengan 20 prajurit tambahan.');
             return;
         }
 
