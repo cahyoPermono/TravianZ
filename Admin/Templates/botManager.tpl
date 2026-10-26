@@ -520,6 +520,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
         $maxVillages = max(1, min(5, (int)($_POST['bot_max_villages'] ?? 2)));
         $expansionEnabled = !empty($_POST['bot_expansion_enabled']);
         $paranormalEnabled = !empty($_POST['bot_paranormal_enabled']);
+        $troopPopFactor = max(0.3, min(3.0, (float)($_POST['bot_troop_pop_factor'] ?? 1.25)));
+        $maxArmy = max(100, min(10000, (int)($_POST['bot_max_army'] ?? 2500)));
+        $scoutEnabled = !empty($_POST['bot_scout_enabled']);
 
         BotAI::saveConfig([
             'BOT_AI_MAX_POP' => $maxPop,
@@ -527,11 +530,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
             'BOT_AI_MAX_VILLAGES' => $maxVillages,
             'BOT_AI_EXPANSION_ENABLED' => $expansionEnabled,
             'BOT_AI_PARANORMAL_ENABLED' => $paranormalEnabled,
+            'BOT_AI_TROOP_POP_FACTOR' => $troopPopFactor,
+            'BOT_AI_MAX_ARMY' => $maxArmy,
+            'BOT_AI_SCOUT_ENABLED' => $scoutEnabled,
         ]);
 
         $flashSuccess = "⚙️ <b>Pengaturan Bot AI Berhasil Disimpan!</b><br>"
             . "• Batas Populasi (Cap Pop): <b>$maxPop</b> pop/desa<br>"
             . "• Batas Level Bangunan: <b>Level $maxBuildingLvl</b><br>"
+            . "• Rasio Pasukan: <b>" . ($troopPopFactor * 100) . "%</b> dari populasi desa (Maks: <b>$maxArmy</b> unit/desa)<br>"
+            . "• Unit Scout (Pengintai): <b>" . ($scoutEnabled ? "Aktif (Latih di Barak/Stable, Anti-Spionase & Patroli Intai)" : "Nonaktif") . "</b><br>"
             . "• Ekspansi Desa ke-2: <b>" . ($expansionEnabled ? "Aktif (Maks $maxVillages Desa/Bot)" : "Nonaktif") . "</b> (Berjalan secara natural via Padepokan Lvl 10, pelatihan 3 Pionir, CP, dan perjalanan perintis).<br>"
             . "• Sanggar Paranormal Nusantara: <b>" . ($paranormalEnabled ? "Aktif (Natural & Bertahap)" : "Nonaktif") . "</b> (Konstruksi GID 51 di slot 38, pemanggilan Pocong/Kunti/Genderuwo & ritual Tuyul sesuai sumber daya).";
     }
@@ -546,6 +554,9 @@ $currentMaxLvl = (int)BotAI::getConfig('BOT_AI_MAX_BUILDING_LEVEL', 15);
 $currentMaxVil = (int)BotAI::getConfig('BOT_AI_MAX_VILLAGES', 2);
 $currentExpEnabled = !empty(BotAI::getConfig('BOT_AI_EXPANSION_ENABLED', true));
 $currentParanormalEnabled = !empty(BotAI::getConfig('BOT_AI_PARANORMAL_ENABLED', true));
+$currentTroopFactor = (float)BotAI::getConfig('BOT_AI_TROOP_POP_FACTOR', 1.25);
+$currentMaxArmy = (int)BotAI::getConfig('BOT_AI_MAX_ARMY', 2500);
+$currentScoutEnabled = !empty(BotAI::getConfig('BOT_AI_SCOUT_ENABLED', true));
 
 $botsQuery = "
     SELECT u.id, u.username, u.tribe, u.regtime, u.desc1, u.alliance,
@@ -1014,6 +1025,41 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
                         </label>
                         <span style="font-size:10px; color:#6ee7b7; display:block; margin-top:4px;">
                             Jika dicentang, bot yang memenuhi syarat akan mendirikan desa baru secara otomatis dan natural.
+                        </span>
+                    </div>
+                </div>
+
+                <div class="botm-form-group">
+                    <label>Rasio Pasukan terhadap Populasi Desa:</label>
+                    <select name="bot_troop_pop_factor" class="botm-form-control">
+                        <option value="0.5" <?php echo abs($currentTroopFactor - 0.5) < 0.05 ? 'selected' : ''; ?>>50% dari Populasi (Ringan)</option>
+                        <option value="1.0" <?php echo abs($currentTroopFactor - 1.0) < 0.05 ? 'selected' : ''; ?>>100% dari Populasi (Seimbang - 1:1)</option>
+                        <option value="1.25" <?php echo abs($currentTroopFactor - 1.25) < 0.05 ? 'selected' : ''; ?>>125% dari Populasi (Rekomendasi - Pop 800 ≈ 1.000 Pasukan)</option>
+                        <option value="1.5" <?php echo abs($currentTroopFactor - 1.5) < 0.05 ? 'selected' : ''; ?>>150% dari Populasi (Kuat &amp; Agresif)</option>
+                        <option value="2.0" <?php echo abs($currentTroopFactor - 2.0) < 0.05 ? 'selected' : ''; ?>>200% dari Populasi (Militer Penuh)</option>
+                    </select>
+                    <span style="font-size:10px; color:#94a3b8; display:block; margin-top:3px;">
+                        Menentukan kapasitas total pasukan bot sebanding dengan ukuran populasinya.
+                    </span>
+                </div>
+
+                <div class="botm-form-group">
+                    <label>Batas Maksimal Total Pasukan per Desa (Cap Army):</label>
+                    <input type="number" name="bot_max_army" class="botm-form-control" value="<?php echo $currentMaxArmy; ?>" min="100" max="10000" required>
+                    <span style="font-size:10px; color:#94a3b8; display:block; margin-top:3px;">
+                        Plafon tertinggi total pasukan (garnisun + serang). Rekomendasi: 2.500 unit.
+                    </span>
+                </div>
+
+                <div class="botm-form-group">
+                    <label>Unit Scout (Pengintai) &amp; Patroli Intai:</label>
+                    <div style="background:#0f172a; padding:10px 12px; border-radius:6px; border:1px solid #1e293b; margin-top:2px;">
+                        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:#f8fafc; font-weight:bold; font-size:12px;">
+                            <input type="checkbox" name="bot_scout_enabled" value="1" <?php echo $currentScoutEnabled ? 'checked' : ''; ?> style="width:16px; height:16px; cursor:pointer;">
+                            <span>Aktifkan Pelatihan &amp; Penggunaan Scout (Manusiawi)</span>
+                        </label>
+                        <span style="font-size:10px; color:#38bdf8; display:block; margin-top:4px;">
+                            Jika dicentang, bot akan melatih scout di Barak/Stable sesuai sukunya, menjaga counter-espionage di desa, dan aktif mengintai desa/oasis sekitar.
                         </span>
                     </div>
                 </div>

@@ -172,7 +172,7 @@ assertEqual(15, BotAI::getHomeReserve(50), "Pop 50 (20% = 10) should yield minim
 assertEqual(20, BotAI::getHomeReserve(100), "Pop 100 (20% = 20) should yield 20 home reserve");
 assertEqual(40, BotAI::getHomeReserve(200), "Pop 200 (20% = 40) should yield 40 home reserve");
 assertEqual(60, BotAI::getHomeReserve(300), "Pop 300 (20% = 60) should yield 60 home reserve");
-assertEqual(60, BotAI::getHomeReserve(800), "Pop 800 should be capped at 60 home reserve");
+assertEqual(235, BotAI::getHomeReserve(800), "Pop 800 should scale to 235 home reserve for mid/late-game defense");
 echo "-> Passed Test 1!\n";
 
 // TEST 2: processAttack anti-suicide threshold and garrison preservation
@@ -278,5 +278,26 @@ $defResult = BotAI::processAllianceDefense($gaulBot);
 assertEqual(null, $defResult, "Alliance defense must NOT dispatch troops when below homeReserve");
 assertEqual(0, count($database->addedAttacks), "No reinforcement dispatched");
 echo "-> Passed Test 7!\n";
+
+// TEST 8: Scout Unit definitions & Mounted Scout classification
+echo "Test 8: Testing scout units and mounted scout classification...\n";
+assertEqual(4, BotAI::getTribeUnits(1)['scout'], "Roman scout should be u4");
+assertEqual(14, BotAI::getTribeUnits(2)['scout'], "Teuton scout should be u14");
+assertEqual(23, BotAI::getTribeUnits(3)['scout'], "Gaul scout should be u23");
+assertEqual(52, BotAI::getTribeUnits(6)['scout'], "Hun scout should be u52");
+assertEqual(64, BotAI::getTribeUnits(7)['scout'], "Egyptian scout should be u64");
+assertEqual(74, BotAI::getTribeUnits(8)['scout'], "Spartan scout should be u74");
+assertEqual(82, BotAI::getTribeUnits(9)['scout'], "Viking scout should be u82");
+assertEqual(94, BotAI::getTribeUnits(10)['scout'], "Nusantara scout should be u94");
+
+assertTrue(BotAI::isMountedScout(1), "Roman scout is mounted");
+assertTrue(!BotAI::isMountedScout(2), "Teuton scout is foot");
+assertTrue(BotAI::isMountedScout(3), "Gaul scout is mounted");
+assertTrue(BotAI::isMountedScout(6), "Hun scout is mounted");
+assertTrue(BotAI::isMountedScout(7), "Egyptian scout is mounted");
+assertTrue(!BotAI::isMountedScout(8), "Spartan scout is foot");
+assertTrue(!BotAI::isMountedScout(9), "Viking scout is foot");
+assertTrue(BotAI::isMountedScout(10), "Nusantara scout is mounted");
+echo "-> Passed Test 8!\n";
 
 echo "\nALL BOT ARMY BALANCING TESTS PASSED SUCCESSFULLY!\n";

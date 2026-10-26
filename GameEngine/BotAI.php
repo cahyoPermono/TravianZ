@@ -176,7 +176,13 @@ class BotAI {
                 $botLogs[] = "Bastion: " . $bastionResult;
             }
 
-            // 8. Automated Raiding / Attacks (Hero included when available)
+            // 8. Automated Active Scouting (Misi Pengintaian Unit Scout)
+            $scoutResult = self::processScout($bot);
+            if ($scoutResult) {
+                $botLogs[] = "Scout: " . $scoutResult;
+            }
+
+            // 9. Automated Raiding / Attacks (Hero included when available)
             $attackResult = self::processAttack($bot);
             if ($attackResult) {
                 $botLogs[] = "Attack: " . $attackResult;
@@ -736,15 +742,16 @@ class BotAI {
         // Hitung batas pertahanan garnisun rumah (Home Garrison Reserve)
         $homeReserve = self::getHomeReserve($pop);
 
-        // Rasio pasukan realistis terhadap populasi (25 - 35% populasi)
-        $popFactor = defined('BOT_AI_TROOP_POP_FACTOR') ? (float)BOT_AI_TROOP_POP_FACTOR : 0.30;
+        // Rasio pasukan realistis terhadap populasi (default 1.25x atau 125% dari populasi)
+        $popFactor = (float)self::getConfig('BOT_AI_TROOP_POP_FACTOR', 1.25);
         $popArmyCap = max(8, (int)round($pop * $popFactor));
 
         // Batas maksimal pasukan berdasarkan umur bot
-        $ageArmyCap = (int)round(12 + ($effectiveAgeDays * 18));
+        $ageArmyCap = (int)round(25 + ($effectiveAgeDays * 65));
         $maxTroops = min($ageArmyCap, $popArmyCap);
-        // Pastikan batas maksimal pasukan selalu mencukupi home reserve + surplus tempur
-        $maxTroops = max($homeReserve + 10, min(300, $maxTroops));
+        // Pastikan batas maksimal pasukan mencukupi home reserve + surplus tempur, dibatasi BOT_AI_MAX_ARMY
+        $adminMaxArmy = (int)self::getConfig('BOT_AI_MAX_ARMY', 2500);
+        $maxTroops = max($homeReserve + 20, min($adminMaxArmy, $maxTroops));
 
         $tribeUnits = self::getTribeUnits($tribe);
 
@@ -792,15 +799,32 @@ class BotAI {
         // Mode Pemulihan Darurat: Jika pasukan bot berada di bawah batas garnisun rumah (Home Reserve)
         $isEmergencyRecovery = ($totalArmy < $homeReserve);
 
-        // Jangan menumpuk antrean berlebih: dalam mode darurat izinkan antrean lebih tinggi agar barak aktif memulihkan pasukan
-        $maxQueued = $isEmergencyRecovery ? min(20, $homeReserve) : 6;
+        // Batas antrean pelatihan di barak/stable:
+        // Semakin maju desanya, semakin banyak antrean yang diizinkan agar barak/stable aktif berproduksi secara natural
+        if ($isEmergencyRecovery) {
+            $maxQueued = ($pop >= 400) ? 40 : min(25, $homeReserve);
+        } else {
+            if ($pop >= 500 && $brLevel >= 8) {
+                $maxQueued = 35;
+            } elseif ($pop >= 200 && $brLevel >= 4) {
+                $maxQueued = 20;
+            } else {
+                $maxQueued = 10;
+            }
+        }
         if ($queuedTotal >= $maxQueued) {
             return null; // Antrean pelatihan masih penuh
         }
 
-        // Pacing pelatihan: 40% peluang per tick dalam masa damai; 100% aktif (bypass roll) saat pemulihan darurat
-        if (!$isEmergencyRecovery && rand(1, 100) > 40) {
-            return null; // Pelatihan di barak sedang berlangsung
+        // Pacing pelatihan:
+        // 100% aktif saat pemulihan darurat;
+        // Untuk desa berpopulasi >= 200 dengan antrean sedikit (queued < 5): 85% peluang aktif melatih;
+        // Lainnya: 50% peluang melatih per tick
+        if (!$isEmergencyRecovery) {
+            $chance = ($pop >= 200 && $queuedTotal < 5) ? 85 : 50;
+            if (rand(1, 100) > $chance) {
+                return null; // Menunggu tick berikutnya
+            }
         }
 
         // Determine trainable unit types based on buildings, population, and bot age
@@ -818,7 +842,7 @@ class BotAI {
             }
         } else {
             // Basic infantry is always eligible (Barracks >= 1)
-            $trainCandidates[$tribeUnits['basic']] = 50;
+            $trainCandidates[$tribeUnits['basic']] = 40;
 
             // Defensive infantry: Membutuhkan barak lvl 2 atau pop >= 50 dan umur >= 0.8 hari
             if (!empty($tribeUnits['inf_def']) && ($brLevel >= 2 || $pop >= 50) && $effectiveAgeDays >= 0.8) {
@@ -841,6 +865,37 @@ class BotAI {
             if ($effectiveAgeDays >= 4.5 && $pop >= 180 && $wsLevel >= 1) {
                 if (!empty($tribeUnits['ram'])) $trainCandidates[$tribeUnits['ram']] = 5;
                 if (!empty($tribeUnits['catapult']) && $wsLevel >= 2) $trainCandidates[$tribeUnits['catapult']] = 4;
+            }
+        }
+
+        // Unit Scout (Pengintai): Latih scout secara berkala jika syarat gedung terpenuhi
+        $scoutUnit = $tribeUnits['scout'] ?? null;
+        $isMountedScout = self::isMountedScout($tribe);
+        $scoutEligible = false;
+        if ($scoutUnit && self::getConfig('BOT_AI_SCOUT_ENABLED', true)) {
+            if ($isMountedScout) {
+                // Kavaleri intai: butuh Stable (lvl >= 1) dan Akademi (lvl >= 2 atau pop >= 80)
+                $scoutEligible = ($stLevel >= 1 && ($acLevel >= 2 || $pop >= 80));
+            } else {
+                // Infanteri intai: butuh Barak (lvl >= 1) dan Akademi (lvl >= 1 atau pop >= 50)
+                $scoutEligible = ($brLevel >= 1 && ($acLevel >= 1 || $pop >= 50));
+            }
+
+            if ($scoutEligible) {
+                $standingScouts = (int)($res[0]['u' . $scoutUnit] ?? 0);
+                $resQScout = $database->query_return("
+                    SELECT SUM(amt) as queued
+                    FROM " . TB_PREFIX . "training
+                    WHERE vref = $wid AND (unit = $scoutUnit OR unit = " . ($scoutUnit + 1000) . ")
+                ");
+                $queuedScouts = (int)($resQScout[0]['queued'] ?? 0);
+                $totalCurrentScouts = $standingScouts + $queuedScouts;
+                $targetScouts = ($pop >= 500) ? 25 : (($pop >= 200) ? 12 : 5);
+
+                if ($totalCurrentScouts < $targetScouts) {
+                    // Bobot tinggi jika bot belum memiliki scout sama sekali untuk anti-spionase desa
+                    $trainCandidates[$scoutUnit] = ($totalCurrentScouts < 3) ? 35 : 15;
+                }
             }
         }
 
@@ -898,8 +953,20 @@ class BotAI {
             return null; // Sumber daya belum cukup, bot harus menunggu produksi lapangan (seperti pemain asli)
         }
 
-        // Batch size: 3 - 5 unit per tick dalam pemulihan darurat, 1 - 2 unit dalam masa damai
-        $batchSize = $isEmergencyRecovery ? rand(3, 5) : rand(1, 2);
+        // Batch size natural sesuai kapasitas desa dan level gedung barak/kandang
+        if ($scoutUnit && $chosenUnit === $scoutUnit) {
+            $batchSize = ($pop >= 400) ? rand(2, 5) : rand(1, 2);
+        } elseif ($isEmergencyRecovery) {
+            $batchSize = ($pop >= 400) ? rand(6, 12) : rand(3, 6);
+        } else {
+            if ($pop >= 500 && $brLevel >= 8) {
+                $batchSize = rand(4, 8);
+            } elseif ($pop >= 200 && $brLevel >= 4) {
+                $batchSize = rand(2, 5);
+            } else {
+                $batchSize = rand(1, 3);
+            }
+        }
         $trainCount = min($batchSize, $maxAffordable, $maxTroops - $totalArmy);
         if ($trainCount <= 0) {
             return null;
@@ -918,7 +985,7 @@ class BotAI {
         $bLevel = 1;
         $attri = 100;
 
-        if (in_array($chosenUnit, [4, 5, 6, 15, 16, 23, 24, 25, 26, 35, 36, 45, 46, 53, 54, 55, 56, 64, 65, 66, 75, 76, 85, 86, 94, 95, 96])) {
+        if (in_array($chosenUnit, [4, 5, 6, 15, 16, 23, 24, 25, 26, 35, 36, 45, 46, 52, 53, 54, 55, 56, 64, 65, 66, 75, 76, 85, 86, 94, 95, 96])) {
             $bLevel = max(1, $stLevel);
             $attri = (float)($bid20[$bLevel]['attri'] ?? 100);
         } elseif (in_array($chosenUnit, [7, 8, 17, 18, 27, 28, 37, 38, 47, 48, 57, 58, 67, 68, 77, 78, 87, 88, 97, 98])) {
@@ -975,15 +1042,37 @@ class BotAI {
             $currentTotal += (int)($row['u' . $u] ?? 0);
         }
 
-        // Keep target garrison as basic infantry, reset high tier/cavalry/siege
-        $basicUnit = $tribeUnits['basic'];
+        if ($currentTotal <= $targetTotal) {
+            return 0;
+        }
+
+        // Proportional trimming: scales down existing unit types proportionally
+        // so the army retains its balanced composition (defenders, attackers, scouts)
+        $ratio = (float)$targetTotal / (float)$currentTotal;
         $updates = [];
+        $newTotal = 0;
+        $unitCounts = [];
+
         foreach ($tribeUnits['all'] as $u) {
-            if ($u === $basicUnit) {
-                $updates[] = "u{$u} = $targetTotal";
+            $cnt = (int)($row['u' . $u] ?? 0);
+            if ($cnt > 0) {
+                $scaled = (int)floor($cnt * $ratio);
+                $unitCounts[$u] = $scaled;
+                $newTotal += $scaled;
             } else {
-                $updates[] = "u{$u} = 0";
+                $unitCounts[$u] = 0;
             }
+        }
+
+        // Distribute any remainder to basic unit
+        $diff = $targetTotal - $newTotal;
+        $basicUnit = $tribeUnits['basic'];
+        if ($diff > 0) {
+            $unitCounts[$basicUnit] = ($unitCounts[$basicUnit] ?? 0) + $diff;
+        }
+
+        foreach ($unitCounts as $u => $cnt) {
+            $updates[] = "u{$u} = $cnt";
         }
         $database->query("UPDATE " . TB_PREFIX . "units SET " . implode(', ', $updates) . " WHERE vref = $wid");
         if (method_exists($database, 'addStarvationData')) {
@@ -1178,10 +1267,12 @@ class BotAI {
             } else {
                 $pop = (int)($database->getVillageField($wid, 'pop') ?: $bot['pop']);
                 $homeReserve = self::getHomeReserve($pop);
-                $ageArmyCap = (int)round(12 + ($effectiveAgeDays * 13));
-                $popArmyCap = max(8, (int)round($pop * 0.35));
+                $popFactor = (float)self::getConfig('BOT_AI_TROOP_POP_FACTOR', 1.25);
+                $ageArmyCap = (int)round(25 + ($effectiveAgeDays * 65));
+                $popArmyCap = max(8, (int)round($pop * $popFactor));
                 $allowedTroops = min($ageArmyCap, $popArmyCap);
-                $allowedTroops = max($homeReserve, min(250, $allowedTroops));
+                $adminMaxArmy = (int)self::getConfig('BOT_AI_MAX_ARMY', 2500);
+                $allowedTroops = max($homeReserve, min($adminMaxArmy, $allowedTroops));
             }
 
             // Clear foreign reinforcements stationed in or sent from the bot village
@@ -2585,6 +2676,211 @@ class BotAI {
     }
 
     /**
+     * Automated active reconnaissance scouting for bot players.
+     * Dispatches pure scout missions (type 1) against nearby targets
+     * while retaining an essential counter-espionage garrison at home.
+     *
+     * @param array $bot Bot user and village row
+     * @return string|null Log message if scout mission was dispatched
+     */
+    public static function processScout(array $bot): ?string {
+        if (self::isNightTime()) {
+            return null; // No night scouting
+        }
+
+        if (self::getConfig('BOT_AI_SCOUT_ENABLED', true) === false) {
+            return null;
+        }
+
+        global $database;
+        if (!isset($database) || $database === null) {
+            return null;
+        }
+
+        $wid = (int)$bot['wref'];
+        $uid = (int)$bot['uid'];
+        $tribe = (int)$bot['tribe'];
+        $pop = max(10, (int)$bot['pop']);
+
+        $tribeUnits = self::getTribeUnits($tribe);
+        $scoutUnit = $tribeUnits['scout'] ?? null;
+        if (!$scoutUnit) {
+            return null;
+        }
+
+        // Check standing scouts at home
+        $res = $database->query_return("SELECT u{$scoutUnit} FROM " . TB_PREFIX . "units WHERE vref = $wid");
+        $standingScouts = (int)($res[0]['u' . $scoutUnit] ?? 0);
+        if ($standingScouts < 3) {
+            return null; // Not enough scouts to spare
+        }
+
+        // Mandatory counter-espionage home reserve: keeps the village protected against enemy spies
+        $homeScoutReserve = ($pop >= 500) ? 8 : (($pop >= 200) ? 4 : 2);
+        $deployableScouts = $standingScouts - $homeScoutReserve;
+        if ($deployableScouts < 2) {
+            return null; // Keep home scouts for defense
+        }
+
+        // Limit concurrent outgoing scout missions from this village (max 1 active scout mission)
+        $activeScouts = $database->query_return("
+            SELECT COUNT(m.moveid) as cnt
+            FROM " . TB_PREFIX . "movement m
+            JOIN " . TB_PREFIX . "attacks a ON m.ref = a.id
+            WHERE m.from = $wid AND m.sort_type = 3 AND a.attack_type = 1 AND m.proc = 0
+        ");
+        if ((int)($activeScouts[0]['cnt'] ?? 0) >= 1) {
+            return null; // Already has an outgoing scouting mission
+        }
+
+        // Pacing: 50% chance per bot tick if eligible
+        $scoutChance = (int)self::getConfig('BOT_AI_SCOUT_CHANCE', 50);
+        if (rand(1, 100) > $scoutChance) {
+            return null;
+        }
+
+        $botCoor = $database->getCoor($wid);
+        if (!$botCoor) {
+            return null;
+        }
+
+        $botAlliance = (int)($bot['alliance'] ?? 0);
+        $maxScoutDist = (float)self::getConfig('BOT_AI_MAX_SCOUT_DISTANCE', 40.0);
+
+        // Find candidate targets: nearby player villages (non-alliance, not protected) or oases
+        $targetCandidates = [];
+
+        // 1. Nearby player villages
+        $villages = $database->query_return("
+            SELECT v.wref, v.name as vname, v.pop, u.id as uid, u.username, u.alliance, u.access, u.protect,
+                   w.x, w.y
+            FROM " . TB_PREFIX . "vdata v
+            JOIN " . TB_PREFIX . "users u ON v.owner = u.id
+            JOIN " . TB_PREFIX . "wdata w ON v.wref = w.id
+            WHERE v.wref != $wid
+              AND u.id != $uid
+              AND u.access = 2
+            LIMIT 40
+        ");
+
+        if (!empty($villages)) {
+            foreach ($villages as $v) {
+                // Skip ally
+                if ($botAlliance > 0 && (int)$v['alliance'] === $botAlliance) {
+                    continue;
+                }
+                // Skip beginner protected
+                if (method_exists($database, 'hasBeginnerProtection') && $database->hasBeginnerProtection((int)$v['wref'])) {
+                    continue;
+                }
+                $dist = self::getDistance($botCoor['x'], $botCoor['y'], (int)$v['x'], (int)$v['y']);
+                if ($dist >= 0.5 && $dist <= $maxScoutDist) {
+                    $targetCandidates[] = [
+                        'wref' => (int)$v['wref'],
+                        'vname' => $v['vname'],
+                        'username' => $v['username'],
+                        'dist' => $dist,
+                        'is_oasis' => false,
+                    ];
+                }
+            }
+        }
+
+        // 2. Nearby oases (free or occupied)
+        if (empty($targetCandidates) || rand(1, 100) <= 30) {
+            $oases = $database->query_return("
+                SELECT w.id as wref, w.x, w.y, o.conqured, o.owner
+                FROM " . TB_PREFIX . "wdata w
+                JOIN " . TB_PREFIX . "odata o ON w.id = o.wref
+                LIMIT 30
+            ");
+            if (!empty($oases)) {
+                foreach ($oases as $o) {
+                    $dist = self::getDistance($botCoor['x'], $botCoor['y'], (int)$o['x'], (int)$o['y']);
+                    if ($dist >= 0.5 && $dist <= $maxScoutDist) {
+                        $targetCandidates[] = [
+                            'wref' => (int)$o['wref'],
+                            'vname' => 'Oasis (' . $o['x'] . '|' . $o['y'] . ')',
+                            'username' => 'Nature/Owner',
+                            'dist' => $dist,
+                            'is_oasis' => true,
+                        ];
+                    }
+                }
+            }
+        }
+
+        if (empty($targetCandidates)) {
+            return null;
+        }
+
+        // Pick one target (weighted towards closer targets)
+        usort($targetCandidates, function($a, $b) {
+            return $a['dist'] <=> $b['dist'];
+        });
+        $pickIndex = rand(0, min(4, count($targetCandidates) - 1));
+        $target = $targetCandidates[$pickIndex];
+
+        // Number of scouts to dispatch: 2 to 5 units
+        $sendCount = min($deployableScouts, rand(2, 5));
+        if ($sendCount <= 0) {
+            return null;
+        }
+
+        // Fetch scout unit data for march speed
+        global ${'u' . $scoutUnit};
+        if (!isset(${'u' . $scoutUnit})) {
+            include_once __DIR__ . '/Data/unitdata.php';
+        }
+        $uData = ${'u' . $scoutUnit} ?? null;
+        $marchSpeed = (int)($uData['speed'] ?? 16);
+        $increaseSpeed = defined('INCREASE_SPEED') ? max(1, (float)INCREASE_SPEED) : 1.0;
+        $duration = max(30, (int)round(($target['dist'] / $marchSpeed) * 3600 / $increaseSpeed));
+
+        // Deduct scouts from village
+        $database->modifyUnit($wid, [$scoutUnit], [$sendCount], [0]);
+
+        // Map dispatched unit into t1..t10
+        $t = array_fill(1, 10, 0);
+        $baseUnit = ($tribe - 1) * 10;
+        $slot = $scoutUnit - $baseUnit;
+        if ($slot >= 1 && $slot <= 10) {
+            $t[$slot] = $sendCount;
+        }
+
+        // Spy type: 1 = spy resources and troops, 2 = spy defenses and troops
+        $spyMode = $target['is_oasis'] ? 1 : rand(1, 2);
+
+        $attackId = $database->addAttack(
+            $wid,
+            $t[1], $t[2], $t[3], $t[4], $t[5], $t[6], $t[7], $t[8], $t[9], $t[10], 0,
+            1, // attack_type = 1 (Spy / Scouting mission)
+            0, 0,
+            $spyMode
+        );
+
+        if (!$attackId) {
+            // Refund scouts on failure
+            $database->modifyUnit($wid, [$scoutUnit], [$sendCount], [1]);
+            return null;
+        }
+
+        // Add movement
+        $database->addMovement(
+            3, // Attack/Scout movement
+            $wid,
+            $target['wref'],
+            $attackId,
+            time(),
+            time() + $duration
+        );
+
+        $scoutName = self::getUnitName($scoutUnit);
+        $modeDesc = ($spyMode === 1) ? 'sumber daya & pasukan' : 'pertahanan & bangunan';
+        return "Pengintaian diluncurkan! {$sendCount} {$scoutName} dikirim mengintai target {$target['vname']} ({$target['username']}) [mode: {$modeDesc}] - jarak: " . round($target['dist'], 1) . " tile, tiba dalam {$duration}s";
+    }
+
+    /**
      * Process automated raids to nearby villages.
      * Supports dynamic scaling:
      * - Raid party size scales with standing army (up to 120 troops under dynamic scaling)
@@ -3686,8 +3982,26 @@ class BotAI {
      */
     public static function getHomeReserve(int $pop): int {
         $pop = max(10, $pop);
-        // Scales naturally with population: minimum 15, maximum 60 (approx 20% of pop)
-        return max(15, min(60, (int)round($pop * 0.20)));
+        $maxReserve = (int)self::getConfig('BOT_AI_MAX_HOME_RESERVE', 400);
+
+        // Natural scaling:
+        // Pop <= 300: 20% pop (minimum 15, maximum 60 at pop 300)
+        // Pop > 300: scales smoothly up to ~35% of pop so mature villages have solid defense
+        if ($pop <= 300) {
+            return max(15, (int)round($pop * 0.20));
+        }
+
+        $reserve = (int)round(60 + (($pop - 300) * 0.35));
+        return max(15, min($maxReserve, $reserve));
+    }
+
+    /**
+     * Determine if a tribe's scout unit is mounted (trained in Stable) or foot (trained in Barracks).
+     */
+    public static function isMountedScout(int $tribe): bool {
+        // Mounted scouts: Roman (1), Gaul (3), Hun (6), Egyptian (7), Nusantara (10)
+        // Foot scouts: Teuton (2), Spartan (8), Viking (9)
+        return in_array($tribe, [1, 3, 6, 7, 10]);
     }
 
     /**
@@ -3718,7 +4032,7 @@ class BotAI {
                 'basic' => 21, 'inf_adv' => 22, 'scout' => 23, 'cav_light' => 24, 'cav_def' => 25, 'cav_heavy' => 26, 'ram' => 27, 'catapult' => 28
             ],
             6  => [ // Hun
-                'basic' => 51, 'inf_adv' => 52, 'scout' => 53, 'cav_light' => 54, 'cav_heavy' => 56, 'ram' => 57, 'catapult' => 58
+                'basic' => 51, 'scout' => 52, 'inf_adv' => 53, 'cav_light' => 54, 'cav_heavy' => 56, 'ram' => 57, 'catapult' => 58
             ],
             7  => [ // Egyptian
                 'basic' => 61, 'inf_def' => 62, 'inf_adv' => 63, 'scout' => 64, 'cav_light' => 65, 'cav_heavy' => 66, 'ram' => 67, 'catapult' => 68
@@ -3757,7 +4071,19 @@ class BotAI {
         if (defined($cName)) {
             return (string)constant($cName);
         }
-        return "Unit " . $unitNum;
+        static $unitNames = [
+            1 => 'Legionnaire', 2 => 'Praetorian', 3 => 'Imperian', 4 => 'Equites Legati', 5 => 'Equites Imperatoris', 6 => 'Equites Caesaris', 7 => 'Battering Ram', 8 => 'Fire Catapult', 9 => 'Senator', 10 => 'Settler',
+            11 => 'Clubswinger', 12 => 'Spearman', 13 => 'Axeman', 14 => 'Scout', 15 => 'Paladin', 16 => 'Teutonic Knight', 17 => 'Ram', 18 => 'Catapult', 19 => 'Chief', 20 => 'Settler',
+            21 => 'Phalanx', 22 => 'Swordsman', 23 => 'Pathfinder', 24 => 'Theutates Thunder', 25 => 'Druidrider', 26 => 'Haeduan', 27 => 'Ram', 28 => 'Trebuchet', 29 => 'Chieftain', 30 => 'Settler',
+            31 => 'Rat', 32 => 'Spider', 33 => 'Snake', 34 => 'Bat', 35 => 'Wild Boar', 36 => 'Wolf', 37 => 'Bear', 38 => 'Crocodile', 39 => 'Tiger', 40 => 'Elephant',
+            41 => 'Pikeman', 42 => 'Thorned Warrior', 43 => 'Guardsman', 44 => 'Birds Of Prey', 45 => 'Axerider', 46 => 'Natarian Knight', 47 => 'War Elephant', 48 => 'Ballista', 49 => 'Natarian Emperor', 50 => 'Natarian Settler',
+            51 => 'Hun Warrior', 52 => 'Scout Rider', 53 => 'Horse Archer', 54 => 'Steppe Rider', 55 => 'Hun Lancer', 56 => 'Elite Rider', 57 => 'Ram', 58 => 'Catapult', 59 => 'Tribal Chief', 60 => 'Hun Settler',
+            61 => 'Armed Slave', 62 => 'Egyptian Fighter', 63 => 'Temple Guardian', 64 => 'Horse Scout', 65 => 'Chariot', 66 => 'Royal Chariot', 67 => 'Ram', 68 => 'Catapult', 69 => 'Nomarch', 70 => 'Egyptian Settler',
+            71 => 'Spartan Hoplite', 72 => 'Agoge Warrior', 73 => 'Homoioi', 74 => 'Perioikoi Scout', 75 => 'Spartan Rider', 76 => 'Hippeis', 77 => 'Ram', 78 => 'Catapult', 79 => 'Ephor', 80 => 'Spartan Settler',
+            81 => 'Viking Raider', 82 => 'Viking Scout', 83 => 'Axeman', 84 => 'Berserker', 85 => 'Viking Rider', 86 => 'Huscarl', 87 => 'Ram', 88 => 'Catapult', 89 => 'Jarl', 90 => 'Viking Settler',
+            91 => 'Pendekar Keris', 92 => 'Prajurit Tombak', 93 => 'Pemanah Busur Gendewa', 94 => 'Telik Sandi', 95 => 'Prajurit Berkuda', 96 => 'Kavaleri Berat', 97 => 'Penghancur Gerbang', 98 => 'Pelepar Batu', 99 => 'Patih', 100 => 'Perintis Desa'
+        ];
+        return $unitNames[$unitNum] ?? ("Unit " . $unitNum);
     }
 
     /**
