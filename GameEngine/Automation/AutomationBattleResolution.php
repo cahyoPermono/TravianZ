@@ -2715,6 +2715,107 @@ trait AutomationBattleResolution {
     }
 
     /**
+     * Resolve a peaceful cage capture mission against an unoccupied oasis.
+     * Modern Official Travian (Legends/T4):
+     * - Cages capture animals from the oasis in round-robin order.
+     * - No combat occurs between remaining animals and attacker troops/hero.
+     * - Zero casualties for attacker and defender. Zero damage. Zero plunder. Zero hero XP.
+     * - Troops and hero immediately return home safely (sort_type 4).
+     * - Notice type 1 is created with CAGE token.
+     *
+     * @param array $data
+     * @param array $from
+     * @param array $to
+     * @param int   $owntribe
+     * @param int   $ownally
+     * @param int   $targetally
+     * @param int   $AttackArrivalTime
+     * @param array $cageResult
+     * @return void
+     */
+    private function resolveCageCaptureMission(array $data, array $from, array $to, int $owntribe, int $ownally, int $targetally, $AttackArrivalTime, array $cageResult): void {
+        global $database, $units;
+
+        $unitssend_att = $data['t1'].','.$data['t2'].','.$data['t3'].','.$data['t4'].','.$data['t5'].','.$data['t6'].','.$data['t7'].','.$data['t8'].','.$data['t9'].','.$data['t10'];
+        $unitsdead_att = '0,0,0,0,0,0,0,0,0,0';
+
+        // Oasis animals before cage capture (tribe 4 = Nature)
+        $initialAnimals = $cageResult['initial'] ?? [];
+        $oasisTroops = [];
+        for ($i = 31; $i <= 40; $i++) {
+            $oasisTroops[] = (int)($initialAnimals[$i] ?? 0);
+        }
+
+        $unitssend_def = [];
+        $unitsdead_def = [];
+        $unitssend_deff = [];
+        $unitsdead_deff = [];
+
+        // Defender own troops (index 0) = oasis initial animals
+        $unitssend_def[0] = implode(',', $oasisTroops);
+        $unitsdead_def[0] = '0,0,0,0,0,0,0,0,0,0';
+        $unitssend_deff[0] = '?,?,?,?,?,?,?,?,?,?';
+        $unitsdead_deff[0] = '?,?,?,?,?,?,?,?,?,?';
+
+        for ($i = 1; $i <= 10; $i++) {
+            $unitssend_def[$i] = '0,0,0,0,0,0,0,0,0,0';
+            $unitsdead_def[$i] = '0,0,0,0,0,0,0,0,0,0';
+            $unitssend_deff[$i] = '?,?,?,?,?,?,?,?,?,?';
+            $unitsdead_deff[$i] = '?,?,?,?,?,?,?,?,?,?';
+        }
+
+        $steal = [0, 0, 0, 0];
+        $battlepart = ['bounty' => 0];
+
+        $report = $this->buildCombatReport(
+            0, $from, $to, $owntribe, 4,
+            $unitssend_att, $unitsdead_att, $steal, $battlepart,
+            $unitssend_def, $unitsdead_def, $unitssend_deff, $unitsdead_deff,
+            0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0,
+            '', '', '', '',
+            '', '', '',
+            $data, 0, 0, 0, '0,0,0,0,0,0,0,0,0,0,0',
+            0, 0, 0
+        );
+
+        $attNoticeData = $report['data2'];
+
+        // Append CAGE token: CAGE:<total_captured>;<u31>;<u32>;...;<u40>
+        $capturedBreakdown = [];
+        for ($i = 31; $i <= 40; $i++) {
+            $capturedBreakdown[] = (int)($cageResult['captured'][$i] ?? 0);
+        }
+        $attNoticeData .= ',CAGE:' . (int)$cageResult['total_captured'] . ';' . implode(';', $capturedBreakdown);
+
+        // Add notice 1 (Attack/Raid report)
+        $database->addNotice(
+            $from['owner'],
+            $to['wref'],
+            $ownally,
+            1,
+            '' . addslashes($from['name']) . ' attacks ' . addslashes($to['name']) . '',
+            $attNoticeData,
+            $AttackArrivalTime
+        );
+
+        // Calculate walking time back home
+        if (!is_object($units)) {
+            $units = new Units();
+        }
+        $troopsTime = $units->getWalkingTroopsTime($from['wref'], $to['wref'], $from['owner'], $owntribe, $data, 1, 't');
+        $endtime = $database->getArtifactsValueInfluence($from['owner'], $from['wref'], 2, $troopsTime);
+        $endtime += $AttackArrivalTime;
+        $endtime = HeroBattleBonus::adjustReturnEndtime($from['owner'], $data['t11'], $AttackArrivalTime, $endtime);
+
+        $database->setMovementProc($data['moveid']);
+        $database->addMovement(4, $to['wref'], $from['wref'], $data['ref'], $AttackArrivalTime, $endtime, 1, 0, 0, 0, 0);
+
+        // Update starvation data
+        $database->addStarvationData($to['wref']);
+    }
+
+    /**
      * Destroy the target village when the battle flagged it for destruction:
      * reassign the capital to the player's most populated remaining village if
      * needed, delete the village and reassign its hero.
@@ -2992,13 +3093,18 @@ trait AutomationBattleResolution {
                     $enforDefender    = $defUnits['enforDefender'];
                     $enforcementarray = $defUnits['enforcementarray'];
 
-                    // T4 hero port (Phase 8): cages capture animals on an
-                    // UNOCCUPIED oasis before the fight - captured animals do
-                    // not defend and are stationed at home as reinforcements.
-                    // No-op when the flag is off, no hero rides along, the
-                    // oasis is owned, or the attacker has no cages.
+                    // Modern Official Travian (Legends/T4):
+                    // Cages capture animals from UNOCCUPIED oasis in round-robin order.
+                    // If cages are used, NO COMBAT occurs, even if animals remain in the oasis.
+                    // Attacking troops and hero return safely with zero casualties and zero plunder.
                     if ($isoasis != 0 && (int) $conqureby === 0 && (int) $data['t11'] > 0) {
-                        $Defender = HeroBattleBonus::applyCages($from['owner'], (int) $data['from'], (int) $data['to'], $Defender);
+                        $cageResult = null;
+                        $Defender = HeroBattleBonus::applyCages($from['owner'], (int) $data['from'], (int) $data['to'], $Defender, $cageResult);
+                        if (!empty($cageResult) && !empty($cageResult['handled'])) {
+                            $this->resolveCageCaptureMission($data, $from, $to, $owntribe, $ownally, $targetally, $AttackArrivalTime, $cageResult);
+                            $data_num++;
+                            continue;
+                        }
                     }
 
                     // attacker army built — extracted to buildAttackerUnits() [#155]

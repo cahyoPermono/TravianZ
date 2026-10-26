@@ -357,6 +357,53 @@ Sebanyak <b><?php echo $healedDefBandage; ?></b> prajurit bertahan berhasil dise
 </tbody>
 <?php }
 
+// Cage capture notice (T4 hero port)
+$cageCaptureCount = 0;
+$cageCapturedUnits = [];
+foreach ($dataarray as $entry) {
+    if (is_string($entry) && strpos($entry, 'CAGE:') === 0) {
+        $cageDataStr = substr($entry, 5);
+        $cageParts = explode(';', $cageDataStr);
+        $cageCaptureCount = (int)($cageParts[0] ?? 0);
+        if (count($cageParts) > 1) {
+            for ($ci = 1; $ci <= 10; $ci++) {
+                $uNum = 30 + $ci;
+                $cnt = (int)($cageParts[$ci] ?? 0);
+                if ($cnt > 0) {
+                    $cageCapturedUnits[$uNum] = $cnt;
+                }
+            }
+        }
+        break;
+    }
+}
+if ($cageCaptureCount > 0) {
+?>
+<tbody class="goods">
+<tr>
+<th><?php echo defined('INFORMATION') ? INFORMATION : 'Information'; ?></th>
+<td colspan="<?php echo $colspan; ?>">
+<div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:4px;">
+    <span style="color:#0284c7; font-weight:bold;">🛖 Sangkar (Cage) Hewan Liar:</span>
+    <span>Sebanyak <b><?php echo $cageCaptureCount; ?></b> hewan berhasil ditangkap dengan sangkar dan langsung ditempatkan sebagai pasukan pelindung desa tanpa pertempuran.</span>
+</div>
+<?php if (!empty($cageCapturedUnits)) { ?>
+<div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:4px;">
+<?php foreach ($cageCapturedUnits as $uId => $uQty) { 
+    $uName = (isset($technology) && is_object($technology)) ? $technology->getUnitName($uId) : (defined('U'.$uId) ? constant('U'.$uId) : 'Unit '.$uId);
+?>
+    <span style="display:inline-flex; align-items:center; gap:5px; background:#f0f9ff; border:1px solid #bae6fd; border-radius:4px; padding:3px 8px; font-size:12px;">
+        <img class="unit u<?php echo $uId; ?>" src="img/x.gif" alt="<?php echo htmlspecialchars($uName); ?>" title="<?php echo htmlspecialchars($uName); ?>" />
+        <b><?php echo $uQty; ?></b> <?php echo htmlspecialchars($uName); ?>
+    </span>
+<?php } ?>
+</div>
+<?php } ?>
+</td>
+</tr>
+</tbody>
+<?php }
+
 if (!empty($dataarray[287])) {
 ?>
 <tbody class="goods">

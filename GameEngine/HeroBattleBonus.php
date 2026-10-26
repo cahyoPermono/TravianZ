@@ -587,9 +587,11 @@ class HeroBattleBonus
      * @param array $Defender  Defender unit array (modified copy returned).
      * @return array The Defender array minus whatever was captured.
      */
-    public static function applyCages($uid, $homeWref, $oasisWref, array $Defender)
+    public static function applyCages($uid, $homeWref, $oasisWref, array $Defender, &$cageResult = null)
     {
         global $database;
+
+        $cageResult = ['handled' => false];
 
         if (!self::enabled()) {
             return $Defender;
@@ -604,64 +606,95 @@ class HeroBattleBonus
             return $Defender;
         }
 
-        // Cage stack (unequipped, itemid 208).
+        // Cage stacks (itemid 208).
         $heroItems = new HeroItems();
-        $cageRow = null;
+        $cageStacks = [];
+        $totalCages = 0;
         foreach ($heroItems->getInventory((int) $uid) as $row) {
-            if (!$row['orphan'] && (int) $row['itemid'] === 208 && $row['equipped'] == 0) {
+            if (!$row['orphan'] && (int) $row['itemid'] === 208) {
                 if ((int)($row['stat_value'] ?? 0) === 1) {
                     continue; // Inactive / paused by player
                 }
-                $cageRow = $row;
-                break;
+                $qty = (int) $row['quantity'];
+                if ($qty > 0) {
+                    $cageStacks[] = $row;
+                    $totalCages += $qty;
+                }
             }
         }
-        if (!$cageRow || (int) $cageRow['quantity'] <= 0) {
+        if ($totalCages <= 0) {
             return $Defender;
         }
 
-        $budget   = (int) $cageRow['quantity'];
-        $captured = array();
+        $budget = $totalCages;
+        $initialAnimals = [];
+        for ($i = 31; $i <= 40; $i++) {
+            $initialAnimals[$i] = max(0, (int) ($Defender['u' . $i] ?? 0));
+        }
 
-        for ($i = 31; $i <= 40 && $budget > 0; $i++) {
-            $have = max(0, (int) ($Defender['u' . $i] ?? 0));
-            if ($have <= 0) {
+        $captured = array_fill_keys(range(31, 40), 0);
+        $remainingAnimals = $initialAnimals;
+
+        // Modern Official Travian (Legends/T4) Round-Robin Capture:
+        // Cages are filled sequentially 1-by-1 per available animal type (left to right: u31 to u40),
+        // looping repeatedly until cages are exhausted or all animals are captured.
+        while ($budget > 0) {
+            $capturedInCycle = 0;
+            for ($i = 31; $i <= 40; $i++) {
+                if ($budget <= 0) {
+                    break;
+                }
+                if ($remainingAnimals[$i] > 0) {
+                    $remainingAnimals[$i]--;
+                    $captured[$i]++;
+                    $budget--;
+                    $capturedInCycle++;
+                }
+            }
+            if ($capturedInCycle === 0) {
+                // All available animals in the oasis have been captured
+                break;
+            }
+        }
+
+        // Deduct captured animals from the oasis units table
+        foreach ($captured as $i => $take) {
+            if ($take <= 0) {
                 continue;
             }
-            $take = min($have, $budget);
-
-            // Conditional removal from the oasis - authoritative count.
             $stmt = $database->dblink->prepare(
                 "UPDATE " . TB_PREFIX . "units
                     SET u{$i} = u{$i} - ?
                   WHERE vref = ? AND u{$i} >= ? LIMIT 1"
             );
-            $stmt->bind_param('iii', $take, $oasisWref, $take);
-            $stmt->execute();
-            $removed = $stmt->affected_rows > 0;
-            $stmt->close();
-            if (!$removed) {
-                continue; // lost a race; leave these animals to fight
+            if ($stmt) {
+                $stmt->bind_param('iii', $take, $oasisWref, $take);
+                $stmt->execute();
+                $removed = $stmt->affected_rows > 0;
+                $stmt->close();
+                if (!$removed) {
+                    $captured[$i] = 0;
+                }
             }
-
-            $Defender['u' . $i] = $have - $take;
-            $captured[$i]       = $take;
-            $budget            -= $take;
-        }
-
-        if (empty($captured)) {
-            return $Defender;
+            $Defender['u' . $i] = max(0, (int)($Defender['u' . $i] ?? 0) - $captured[$i]);
         }
 
         $used = array_sum($captured);
-        $heroItems->removeItem((int) $uid, (int) $cageRow['id'], $used);
+        if ($used <= 0) {
+            return $Defender;
+        }
 
-        // Station the animals at home as a NATURE reinforcement: `from` = 0 is
-        // the engine's existing convention for non-player enforcements (the
-        // "taskmaster" rows) - 16.tpl renders those with tribe 4 columns
-        // (u31-u40, the animal icons) and disables the normal Send back flow,
-        // which would otherwise crash on speed lookup for nature units.
-        // Reuse the row if one exists, otherwise create it.
+        $toConsume = $used;
+        foreach ($cageStacks as $crow) {
+            if ($toConsume <= 0) {
+                break;
+            }
+            $takeQty = min($toConsume, (int)$crow['quantity']);
+            $heroItems->removeItem((int)$uid, (int)$crow['id'], $takeQty);
+            $toConsume -= $takeQty;
+        }
+
+        // Station the animals at home as a NATURE reinforcement (from = 0)
         $homeWref = (int) $homeWref;
         $res = mysqli_query(
             $database->dblink,
@@ -681,13 +714,26 @@ class HeroBattleBonus
 
         $sets = array();
         foreach ($captured as $i => $n) {
-            $sets[] = 'u' . (int) $i . ' = u' . (int) $i . ' + ' . (int) $n;
+            if ($n > 0) {
+                $sets[] = 'u' . (int) $i . ' = u' . (int) $i . ' + ' . (int) $n;
+            }
         }
-        mysqli_query(
-            $database->dblink,
-            "UPDATE " . TB_PREFIX . "enforcement SET " . implode(', ', $sets)
-            . " WHERE id = $enfId LIMIT 1"
-        );
+        if (!empty($sets)) {
+            mysqli_query(
+                $database->dblink,
+                "UPDATE " . TB_PREFIX . "enforcement SET " . implode(', ', $sets)
+                . " WHERE id = $enfId LIMIT 1"
+            );
+        }
+
+        $cageResult = [
+            'handled'         => true,
+            'captured'        => $captured,
+            'initial'         => $initialAnimals,
+            'total_captured'  => $used,
+            'cages_used'      => $used,
+            'cages_remaining' => $totalCages - $used,
+        ];
 
         return $Defender;
     }
@@ -702,6 +748,9 @@ class HeroBattleBonus
         global $database;
         $uid = (int) $uid;
         if (!array_key_exists($uid, self::$livingCache)) {
+            if (!$database || empty($database->dblink)) {
+                return false;
+            }
             $res = mysqli_query(
                 $database->dblink,
                 "SELECT heroid FROM " . TB_PREFIX . "hero WHERE uid = $uid AND dead = 0 LIMIT 1"
