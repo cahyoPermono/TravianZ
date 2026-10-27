@@ -45,6 +45,7 @@ class BanditCamp {
         @touch($lockFile);
 
         self::ensureTable();
+        self::upgradeExistingActiveCamps();
         $banditUser = self::getBanditUser();
 
         // 1. Check if any camps have been defeated/cleared
@@ -101,13 +102,13 @@ class BanditCamp {
             name varchar(64) NOT NULL,
             max_hp int(11) NOT NULL DEFAULT 100,
             cur_hp int(11) NOT NULL DEFAULT 100,
-            bounty_wood int(11) NOT NULL DEFAULT 2500,
-            bounty_clay int(11) NOT NULL DEFAULT 2500,
-            bounty_iron int(11) NOT NULL DEFAULT 2500,
-            bounty_crop int(11) NOT NULL DEFAULT 2500,
-            reward_exp int(11) NOT NULL DEFAULT 200,
-            reward_cp int(11) NOT NULL DEFAULT 50,
-            reward_silver int(11) NOT NULL DEFAULT 5,
+            bounty_wood int(11) NOT NULL DEFAULT 5000,
+            bounty_clay int(11) NOT NULL DEFAULT 5000,
+            bounty_iron int(11) NOT NULL DEFAULT 5000,
+            bounty_crop int(11) NOT NULL DEFAULT 5000,
+            reward_exp int(11) NOT NULL DEFAULT 600,
+            reward_cp int(11) NOT NULL DEFAULT 100,
+            reward_silver int(11) NOT NULL DEFAULT 60,
             status tinyint(1) NOT NULL DEFAULT 1,
             cleared_by int(11) DEFAULT 0,
             cleared_time int(11) DEFAULT 0,
@@ -120,12 +121,65 @@ class BanditCamp {
     }
 
     /**
+     * Retrofit existing active camps to the new generous rewards and bounty scale.
+     */
+    public static function upgradeExistingActiveCamps(): void {
+        global $database;
+        if (!isset($database->dblink) || !$database->dblink) return;
+
+        // Upgraded baselines per tier
+        $minScale = [
+            self::TIER_OUTPOST   => ['bounty' => 2500,  'exp' => 600,   'cp' => 100,  'silver' => 60],
+            self::TIER_HIDEOUT   => ['bounty' => 10000, 'exp' => 2200,  'cp' => 350,  'silver' => 250],
+            self::TIER_FORTRESS  => ['bounty' => 32000, 'exp' => 7500,  'cp' => 900,  'silver' => 950],
+            self::TIER_WORLDBOSS => ['bounty' => 100000,'exp' => 28000, 'cp' => 2800, 'silver' => 4000],
+        ];
+
+        $active = $database->query_return("SELECT id, wref, tier, bounty_wood, reward_exp, reward_silver FROM " . TB_PREFIX . "bandit_camps WHERE status = 1");
+        if (empty($active)) return;
+
+        foreach ($active as $c) {
+            $t = (int)$c['tier'];
+            $req = $minScale[$t] ?? $minScale[self::TIER_OUTPOST];
+            $campId = (int)$c['id'];
+            $wref = (int)$c['wref'];
+
+            // Check if this camp has outdated rewards
+            if ((int)$c['reward_exp'] < $req['exp'] || (int)$c['reward_silver'] < $req['silver'] || (int)$c['bounty_wood'] < $req['bounty']) {
+                $bounty = $req['bounty'];
+                $storage = max(40000, (int)round($bounty * 1.5));
+                $exp = $req['exp'];
+                $cp = $req['cp'];
+                $silver = $req['silver'];
+
+                // Update camp table
+                $database->query("
+                    UPDATE " . TB_PREFIX . "bandit_camps
+                    SET bounty_wood = $bounty, bounty_clay = $bounty, bounty_iron = $bounty, bounty_crop = $bounty,
+                        reward_exp = $exp, reward_cp = $cp, reward_silver = $silver
+                    WHERE id = $campId
+                ");
+
+                // Update village storage and resources
+                $database->query("
+                    UPDATE " . TB_PREFIX . "vdata
+                    SET wood = GREATEST(wood, $bounty), clay = GREATEST(clay, $bounty),
+                        iron = GREATEST(iron, $bounty), crop = GREATEST(crop, $bounty),
+                        maxstore = GREATEST(maxstore, $storage), maxcrop = GREATEST(maxcrop, $storage)
+                    WHERE wref = $wref
+                ");
+            }
+        }
+    }
+
+    /**
      * Get all currently active bandit camps.
      */
     public static function getActiveCamps($fromX = null, $fromY = null): array {
         global $database;
 
         self::ensureTable();
+        self::upgradeExistingActiveCamps();
 
         $sql = "SELECT b.*, w.x, w.y, v.pop, v.wood, v.clay, v.iron, v.crop
                 FROM " . TB_PREFIX . "bandit_camps b
@@ -223,7 +277,7 @@ class BanditCamp {
         $wref = (int)$tile['id'];
         $fieldtype = (int)$tile['fieldtype'];
 
-        // Camp Tier Profiles (Balanced for Travian 1x Server)
+        // Camp Tier Profiles (Balanced for Travian 1x Server with Rich Rewards)
         $profiles = [
             self::TIER_OUTPOST => [
                 'names' => [
@@ -239,10 +293,10 @@ class BanditCamp {
                     32 => rand(15, 25), // Babi Hutan
                     34 => rand(20, 35), // Srigala
                 ],
-                'bounty' => rand(300, 600),
-                'exp' => 150,
-                'cp' => 30,
-                'silver' => 5,
+                'bounty' => rand(2000, 3500),
+                'exp' => 600,
+                'cp' => 100,
+                'silver' => 60,
             ],
             self::TIER_HIDEOUT => [
                 'names' => [
@@ -260,10 +314,10 @@ class BanditCamp {
                     36 => rand(15, 30),  // Buaya
                     37 => rand(15, 25),  // Harimau
                 ],
-                'bounty' => rand(1200, 2000),
-                'exp' => 450,
-                'cp' => 80,
-                'silver' => 12,
+                'bounty' => rand(8000, 14000),
+                'exp' => 2200,
+                'cp' => 350,
+                'silver' => 250,
             ],
             self::TIER_FORTRESS => [
                 'names' => [
@@ -282,10 +336,10 @@ class BanditCamp {
                     38 => rand(30, 60),   // Gajah Liar
                     42 => rand(80, 150),  // Desertir Natar
                 ],
-                'bounty' => rand(3500, 6000),
-                'exp' => 1200,
-                'cp' => 250,
-                'silver' => 30,
+                'bounty' => rand(28000, 45000),
+                'exp' => 7500,
+                'cp' => 900,
+                'silver' => 950,
             ],
             self::TIER_WORLDBOSS => [
                 'names' => [
@@ -304,10 +358,10 @@ class BanditCamp {
                     43 => rand(300, 500),   // Natar Guard
                     46 => rand(150, 300),   // Natar Heavy Cav
                 ],
-                'bounty' => rand(12000, 20000),
-                'exp' => 3500,
-                'cp' => 600,
-                'silver' => 75,
+                'bounty' => rand(90000, 150000),
+                'exp' => 28000,
+                'cp' => 2800,
+                'silver' => 4000,
             ],
         ];
 

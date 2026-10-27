@@ -124,6 +124,48 @@ if (!empty($troops['hero'])) {
 
 /**
  * ---------------------------------------------------------
+ * Neutral Mercenary Garrison (Tentara Bayaran Netral)
+ * ---------------------------------------------------------
+ */
+if (class_exists('Mercenary') || file_exists(dirname(__DIR__) . '/GameEngine/Mercenary.php')) {
+    if (!class_exists('Mercenary')) {
+        require_once dirname(__DIR__) . '/GameEngine/Mercenary.php';
+    }
+    $mercGarrison = Mercenary::getGarrison($village->wid);
+    if (!empty($mercGarrison['total_troops']) && $mercGarrison['total_troops'] > 0) {
+        $troopsPresent = true;
+        echo '
+        <tr class="thead">
+            <th colspan="3" style="background:linear-gradient(135deg, #1b3820, #2e5933); color:#86efac; font-size:10px; text-transform:uppercase; letter-spacing:0.5px; padding:4px 6px; border-top:1px solid #3b7a34;">
+                <a href="build.php?gid=17&amp;t=6" style="color:#86efac; text-decoration:none;" title="Enclave Tentara Bayaran (Pasar Gelap)">⚔️ Tentara Bayaran (Enclave)</a>
+            </th>
+        </tr>';
+
+        $mercUnits = Mercenary::getUnitsInfo();
+        foreach ($mercUnits as $mNum => $mInfo) {
+            $mKey = $mInfo['key']; // m1, m2, m3, m4
+            $mCount = (int)($mercGarrison[$mKey] ?? 0);
+            if ($mCount > 0) {
+                $mName = htmlspecialchars($mInfo['name']);
+                $mIcon = $mInfo['icon'];
+                $tooltip = htmlspecialchars("{$mInfo['name']} ({$mInfo['type']}) - Atk: {$mInfo['atk']} | Def Inf: {$mInfo['di']} | Def Kav: {$mInfo['dc']}");
+                echo '
+                <tr>
+                    <td class="ico">
+                        <a href="build.php?gid=17&amp;t=6" title="' . $tooltip . '">
+                            <span style="display:inline-block; width:16px; height:16px; font-size:14px; line-height:16px; text-align:center;">' . $mIcon . '</span>
+                        </a>
+                    </td>
+                    <td class="num">' . number_format($mCount) . '</td>
+                    <td class="un"><a href="build.php?gid=17&amp;t=6" style="color:inherit; text-decoration:none;" title="' . $tooltip . '">' . $mName . '</a></td>
+                </tr>';
+            }
+        }
+    }
+}
+
+/**
+ * ---------------------------------------------------------
  * Nusantara Astral Spirits (Sanggar Paranormal GID 51)
  * ---------------------------------------------------------
  */

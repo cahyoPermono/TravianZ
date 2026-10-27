@@ -1109,8 +1109,12 @@ class Technology {
 
 			// infanterie defensiva (ca 2)
 			case 62:
-			case 72:
-			case 92: return $building->getTypeLevel(22) >= 1 && $building->getTypeLevel(13) >= 1;
+			case 72: return $building->getTypeLevel(22) >= 1 && $building->getTypeLevel(13) >= 1;
+
+			// Prajurit Tombak Nusantara (unit 92):
+			// Di 22_10.tpl dan Manual 192 tertulis: Akademi Lv 1 & Pandai Besi (Blacksmith GID 12) Lv 1.
+			// Izinkan baik Pandai Besi (12) maupun Tempat Senjata Pelindung (13) agar fleksibel dan tidak macet di desa baru.
+			case 92: return $building->getTypeLevel(22) >= 1 && ($building->getTypeLevel(12) >= 1 || $building->getTypeLevel(13) >= 1);
 
 			// infanterie elita/ofensiva (ca 3)
 			case 73:

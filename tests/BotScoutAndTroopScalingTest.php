@@ -179,9 +179,10 @@ $botRow = [
     'alliance' => 0,
 ];
 
-// Force day time for test
+// Force day time and 100% scout chance for deterministic test
 if (!defined('BOT_AI_ATTACK_START_HOUR')) define('BOT_AI_ATTACK_START_HOUR', 0);
 if (!defined('BOT_AI_ATTACK_END_HOUR')) define('BOT_AI_ATTACK_END_HOUR', 24);
+BotAI::saveConfig(['BOT_AI_SCOUT_CHANCE' => 100]);
 
 $resultNotEnough = BotAI::processScout($botRow);
 assertEqual(null, $resultNotEnough, "processScout must NOT dispatch when scouts <= homeScoutReserve");
@@ -190,6 +191,7 @@ assertEqual(0, count($database->addedAttacks), "No attack record should be creat
 // Now give bot 20 scouts. Deployable = 20 - 8 = 12 scouts.
 $database->units = ['u4' => 20];
 $resultDispatched = BotAI::processScout($botRow);
+BotAI::saveConfig(['BOT_AI_SCOUT_CHANCE' => 50]);
 assertTrue($resultDispatched !== null, "processScout should dispatch when sufficient scouts are available");
 assertEqual(1, count($database->addedAttacks), "1 scout attack record created");
 
