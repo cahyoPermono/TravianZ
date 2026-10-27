@@ -73,7 +73,25 @@ trait DatabaseAllianceQueries {
 		$q = "SELECT * from " . TB_PREFIX . "alidata where id = $id";
 		$result = mysqli_query($this->dblink,$q);
 
-        self::$allianceDataCache[$id] = mysqli_fetch_assoc($result);
+        $row = mysqli_fetch_assoc($result);
+        if ($row) {
+            if (empty($row['max']) || (int)$row['max'] < 9) {
+                $repairedMax = 9;
+                if (!empty($row['leader']) && class_exists('Automation')) {
+                    Automation::updateMax((int)$row['leader']);
+                    $checkQ = mysqli_query($this->dblink, "SELECT max FROM " . TB_PREFIX . "alidata WHERE id = $id");
+                    if ($checkQ && ($checkRow = mysqli_fetch_assoc($checkQ))) {
+                        $repairedMax = max(9, (int)($checkRow['max'] ?? 0));
+                    }
+                }
+                if ((int)($row['max'] ?? 0) < $repairedMax) {
+                    mysqli_query($this->dblink, "UPDATE " . TB_PREFIX . "alidata SET max = $repairedMax WHERE id = $id");
+                    $row['max'] = $repairedMax;
+                }
+            }
+        }
+
+        self::$allianceDataCache[$id] = $row;
         return self::$allianceDataCache[$id];
 	}
 

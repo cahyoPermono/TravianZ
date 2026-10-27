@@ -1582,11 +1582,13 @@ class Building {
 
                 // embassy update
                 if ($jobs['type'] == 18) {
-
                     $owner = $this->db->getVillageField($wid, 'owner');
-                    $max = $GLOBALS['bid18'][$jobs['level']]['attri'];
-
-                    $this->db->updateAllianceMax($owner, $max);
+                    if (class_exists('Automation')) {
+                        Automation::updateMax($owner);
+                    } else {
+                        $max = $GLOBALS['bid18'][$jobs['level']]['attri'] ?? ($jobs['level'] * 3);
+                        $this->db->updateAllianceMax($owner, max(9, (int)$max));
+                    }
                 }
             }
         }

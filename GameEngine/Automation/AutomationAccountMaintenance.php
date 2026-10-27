@@ -305,35 +305,58 @@ trait AutomationAccountMaintenance {
     }
 
     public static function updateMax($leader) {
+        if (empty($GLOBALS['bid18'])) {
+            require_once dirname(__DIR__) . '/Data/buidata.php';
+        }
         global $bid18, $database;
         
-        $q = mysqli_fetch_array(mysqli_query($database->dblink,"SELECT Count(*) as Total FROM " . TB_PREFIX . "alidata where leader = ". (int) $leader), MYSQLI_ASSOC);
+        $leader = (int) $leader;
+        if ($leader <= 0) {
+            return;
+        }
+
+        $q = mysqli_fetch_array(mysqli_query($database->dblink,"SELECT Count(*) as Total FROM " . TB_PREFIX . "alidata where leader = ". $leader), MYSQLI_ASSOC);
         if ($q['Total'] > 0) {
             $villages = $database->getVillagesID2($leader);
             $max = 0;
 
-            // cache resource levels
-            $vilIDs = [];
-            foreach($villages as $village){
-                $vilIDs[$village['wref']] = true;
-            }
-            $database->cacheResourceLevels(array_keys($vilIDs));
-
-            foreach($villages as $village){
-                $attri = 0;
-                $field = $database->getResourceLevel($village['wref'], false);
-                for($i = 19; $i <= 40; $i++){
-                    if($field['f'.$i.'t'] == 18){
-                        $level = $field['f'.$i];
-                        $attri = $bid18[$level]['attri'];
+            if (!empty($villages)) {
+                // cache resource levels
+                $vilIDs = [];
+                foreach($villages as $village){
+                    if (isset($village['wref'])) {
+                        $vilIDs[$village['wref']] = true;
                     }
                 }
-                if($attri > $max){
-                    $max = $attri;
+                if (!empty($vilIDs)) {
+                    $database->cacheResourceLevels(array_keys($vilIDs));
+                }
+
+                foreach($villages as $village){
+                    $wref = $village['wref'] ?? 0;
+                    if (!$wref) continue;
+                    $field = $database->getResourceLevel($wref, false);
+                    for($i = 19; $i <= 40; $i++){
+                        if(isset($field['f'.$i.'t']) && $field['f'.$i.'t'] == 18){
+                            $level = (int)($field['f'.$i] ?? 0);
+                            $attri = isset($bid18[$level]['attri']) ? (int)$bid18[$level]['attri'] : ($level * 3);
+                            if($attri > $max){
+                                $max = $attri;
+                            }
+                        }
+                    }
                 }
             }
-            $q = "UPDATE ".TB_PREFIX."alidata set max = ".(int) $max." where leader = ".(int) $leader;
+
+            // In Travian, creating an alliance requires Embassy Level 3 (capacity 9).
+            // Any existing valid alliance must have a baseline capacity of at least 9 members.
+            $max = max(9, (int) $max);
+
+            $q = "UPDATE ".TB_PREFIX."alidata set max = ".(int) $max." where leader = ".$leader;
             $database->query($q);
+            if (method_exists($database, 'clearQueryCache')) {
+                $database->clearQueryCache('alliance');
+            }
         }
     }
 }

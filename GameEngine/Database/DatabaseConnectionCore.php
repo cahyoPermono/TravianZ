@@ -41,7 +41,7 @@ trait DatabaseConnectionCore {
         return $data;
     }
 
-    private function clearQueryCache(?string $prefix = null): void {
+    public function clearQueryCache(?string $prefix = null): void {
         if ($prefix === null) $this->queryCache = [];
         else foreach (array_keys($this->queryCache) as $k) if (strpos($k, $prefix)===0) unset($this->queryCache[$k]);
     }

@@ -85,8 +85,13 @@ trait DatabaseBuildingQueries {
 	 */
 	function updateAllianceMax($leader, $max) {
 	    list($leader, $max) = $this->escape_input((int) $leader, (int) $max);
+        $max = max(9, (int) $max);
 
-		return mysqli_query($this->dblink, "UPDATE " . TB_PREFIX . "alidata SET max = " . $max . " WHERE leader = " . $leader);
+		$res = mysqli_query($this->dblink, "UPDATE " . TB_PREFIX . "alidata SET max = " . $max . " WHERE leader = " . $leader);
+        if (method_exists($this, 'clearQueryCache')) {
+            $this->clearQueryCache('alliance');
+        }
+        return $res;
 	}
 
 	/**

@@ -347,8 +347,21 @@ class Alliance {
         foreach ($this->inviteArray as $invite) {
             if ($session->alliance == 0 && $invite['id'] == $inviteID && $invite['uid'] == $session->uid) {
                 $memberlist = $database->getAllMember($invite['alliance']);
-                $alliance_info = $database->getAlliance($invite['alliance']);
-                if (count($memberlist) < $alliance_info['max']) {
+                $alliance_info = $database->getAlliance($invite['alliance'], false);
+
+                // Self-healing: ensure alliance capacity is valid (at least 9)
+                if (empty($alliance_info['max']) || (int)$alliance_info['max'] < 9) {
+                    if (class_exists('Automation') && !empty($alliance_info['leader'])) {
+                        Automation::updateMax((int)$alliance_info['leader']);
+                    }
+                    $alliance_info = $database->getAlliance($invite['alliance'], false);
+                    if (empty($alliance_info['max']) || (int)$alliance_info['max'] < 9) {
+                        $alliance_info['max'] = 9;
+                        mysqli_query($database->dblink, "UPDATE " . TB_PREFIX . "alidata SET max = 9 WHERE id = " . (int)$invite['alliance']);
+                    }
+                }
+
+                if (count($memberlist) < (int)$alliance_info['max']) {
 					// Acceptăm invitația
                     $database->removeInvitation($inviteID);
                     $database->updateUserField($invite['uid'], "alliance", $invite['alliance'], 1);
@@ -369,7 +382,7 @@ class Alliance {
                 } else {
 					// Alianța este plină
                     $acceptError = true;
-                    $maxMembers = $alliance_info['max'];
+                    $maxMembers = (int)$alliance_info['max'];
                 }
                 break;
             }
