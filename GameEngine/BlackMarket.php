@@ -856,6 +856,40 @@ class BlackMarket
                 mysqli_query($db, "UPDATE `" . TB_PREFIX . "fdata` SET f40t = $newWallType WHERE vref IN ($vList) AND (f40 > 0 OR f40t > 0)");
                 mysqli_query($db, "UPDATE `" . TB_PREFIX . "bdata` SET type = $newWallType WHERE wid IN ($vList) AND field = 40");
 
+                // 4b. Smart conversion of tribe-exclusive infrastructure buildings:
+                // A. Command Center (44) <-> Palace (26) / Residence (25) for Huns (Tribe 6)
+                if ($newTribe === 6 && $oldTribe !== 6) {
+                    for ($f = 19; $f <= 38; $f++) {
+                        mysqli_query($db, "UPDATE `" . TB_PREFIX . "fdata` SET f{$f}t = 44 WHERE vref IN ($vList) AND f{$f}t IN (25, 26)");
+                    }
+                    mysqli_query($db, "UPDATE `" . TB_PREFIX . "bdata` SET type = 44 WHERE wid IN ($vList) AND type IN (25, 26)");
+                } elseif ($oldTribe === 6 && $newTribe !== 6) {
+                    foreach ($vids as $vid) {
+                        $cRes = mysqli_query($db, "SELECT capital FROM `" . TB_PREFIX . "vdata` WHERE wref = $vid LIMIT 1");
+                        $isCap = ($cRes && ($cRow = mysqli_fetch_assoc($cRes))) ? (int)$cRow['capital'] : 0;
+                        $targetGov = ($isCap === 1) ? 26 : 25;
+                        for ($f = 19; $f <= 38; $f++) {
+                            mysqli_query($db, "UPDATE `" . TB_PREFIX . "fdata` SET f{$f}t = $targetGov WHERE vref = $vid AND f{$f}t = 44");
+                        }
+                        mysqli_query($db, "UPDATE `" . TB_PREFIX . "bdata` SET type = $targetGov WHERE wid = $vid AND type = 44");
+                    }
+                }
+
+                // B. Hospital (46) <-> Big Hospital (48) for Spartans (8) and Vikings (9)
+                $isOldBigHosp = in_array($oldTribe, [8, 9]);
+                $isNewBigHosp = in_array($newTribe, [8, 9]);
+                if ($isNewBigHosp && !$isOldBigHosp) {
+                    for ($f = 19; $f <= 38; $f++) {
+                        mysqli_query($db, "UPDATE `" . TB_PREFIX . "fdata` SET f{$f}t = 48 WHERE vref IN ($vList) AND f{$f}t = 46");
+                    }
+                    mysqli_query($db, "UPDATE `" . TB_PREFIX . "bdata` SET type = 48 WHERE wid IN ($vList) AND type = 46");
+                } elseif (!$isNewBigHosp && $isOldBigHosp) {
+                    for ($f = 19; $f <= 38; $f++) {
+                        mysqli_query($db, "UPDATE `" . TB_PREFIX . "fdata` SET f{$f}t = 46 WHERE vref IN ($vList) AND f{$f}t = 48");
+                    }
+                    mysqli_query($db, "UPDATE `" . TB_PREFIX . "bdata` SET type = 46 WHERE wid IN ($vList) AND type = 48");
+                }
+
                 // 5. Convert troops in units table for all villages
                 $uRes = mysqli_query($db, "SELECT * FROM `" . TB_PREFIX . "units` WHERE vref IN ($vList)");
                 if ($uRes) {

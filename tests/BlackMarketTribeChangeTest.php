@@ -63,8 +63,8 @@ $qVillage = "INSERT INTO `" . TB_PREFIX . "vdata` (`wref`, `owner`, `name`, `cap
              VALUES ($testWid, $testUid, 'Test Village', 1, 100, 1000, 1000, 1000, 1000, 5000, 5000, $time)";
 mysqli_query($db, $qVillage);
 
-// Setup wall f40 = 10, f40t = 31 (Roman City Wall)
-$qFdata = "INSERT INTO `" . TB_PREFIX . "fdata` (`vref`, `f40`, `f40t`) VALUES ($testWid, 10, 31)";
+// Setup wall f40 = 10, f40t = 31 (Roman City Wall), f19 = 5 (Residence 25), f20 = 3 (Hospital 46)
+$qFdata = "INSERT INTO `" . TB_PREFIX . "fdata` (`vref`, `f19`, `f19t`, `f20`, `f20t`, `f40`, `f40t`) VALUES ($testWid, 5, 25, 3, 46, 10, 31)";
 mysqli_query($db, $qFdata);
 
 // Setup units: 50 u1 (Legionnaire), 20 u3 (Imperian), 5 u6 (Equites Caesaris)
@@ -95,7 +95,7 @@ $resFailGold = BlackMarket::changeTribe($testUid, $testWid, 10);
 assertCondition(!$resFailGold['success'], "changeTribe fails when player only has 50 Gold (requires 100)");
 
 // 4. Test: Same Tribe check
-mysqli_query($db, "UPDATE `" . TB_PREFIX . "users` SET gold = 200 WHERE id = $testUid");
+mysqli_query($db, "UPDATE `" . TB_PREFIX . "users` SET gold = 500 WHERE id = $testUid");
 $resSameTribe = BlackMarket::changeTribe($testUid, $testWid, 1);
 assertCondition(!$resSameTribe['success'], "changeTribe fails when choosing current tribe");
 
@@ -103,39 +103,56 @@ assertCondition(!$resSameTribe['success'], "changeTribe fails when choosing curr
 $resSuccess = BlackMarket::changeTribe($testUid, $testWid, 10);
 assertCondition($resSuccess['success'], "changeTribe succeeded: " . ($resSuccess['message'] ?? ''));
 
-// Verify Gold deduction: 200 - 100 = 100
+// Verify Gold deduction: 500 - 100 = 400
 $uCheck = mysqli_fetch_assoc(mysqli_query($db, "SELECT gold, tribe FROM `" . TB_PREFIX . "users` WHERE id = $testUid"));
-assertCondition((int)$uCheck['gold'] === 100, "User gold was deducted exactly 100 Gold (now 100)");
+assertCondition((int)$uCheck['gold'] === 400, "User gold was deducted exactly 100 Gold (now 400)");
 assertCondition((int)$uCheck['tribe'] === 10, "User tribe is now 10 (Nusantara)");
 
 // Verify Wall conversion in fdata: f40 level is still 10, f40t is now 32 (Benteng Kedaton)
-$fCheck = mysqli_fetch_assoc(mysqli_query($db, "SELECT f40, f40t FROM `" . TB_PREFIX . "fdata` WHERE vref = $testWid"));
+$fCheck = mysqli_fetch_assoc(mysqli_query($db, "SELECT f40, f40t, f19t, f20t FROM `" . TB_PREFIX . "fdata` WHERE vref = $testWid"));
 assertCondition((int)$fCheck['f40'] === 10, "Wall level preserved at 10");
 assertCondition((int)$fCheck['f40t'] === 32, "Wall type converted to 32 (Benteng Kedaton)");
+assertCondition((int)$fCheck['f19t'] === 25, "Residence preserved for Nusantara");
+assertCondition((int)$fCheck['f20t'] === 46, "Regular Hospital preserved for Nusantara");
 
-// Verify Hero conversion: unit 6 -> 96 (Gajah Perang)
+// 6. Test: Change to Huns (Tribe 6) -> Residence (25) converts to Command Center (44)
+$resHun = BlackMarket::changeTribe($testUid, $testWid, 6);
+assertCondition($resHun['success'], "changeTribe to Huns (6) succeeded");
+$fHunCheck = mysqli_fetch_assoc(mysqli_query($db, "SELECT f19, f19t, f40t FROM `" . TB_PREFIX . "fdata` WHERE vref = $testWid"));
+assertCondition((int)$fHunCheck['f19t'] === 44, "Residence (25) converted to Command Center (44) for Huns");
+assertCondition((int)$fHunCheck['f40t'] === 42, "Wall converted to 42 (Makeshift Wall) for Huns");
+
+// 7. Test: Change from Huns (6) to Sparta (8) -> Command Center converts to Palace (capital=1) & Hospital converts to Big Hospital (48)
+$resSparta = BlackMarket::changeTribe($testUid, $testWid, 8);
+assertCondition($resSparta['success'], "changeTribe to Sparta (8) succeeded");
+$fSpartaCheck = mysqli_fetch_assoc(mysqli_query($db, "SELECT f19t, f20t, f40t FROM `" . TB_PREFIX . "fdata` WHERE vref = $testWid"));
+assertCondition((int)$fSpartaCheck['f19t'] === 26, "Command Center (44) converted to Palace (26) in capital for Sparta");
+assertCondition((int)$fSpartaCheck['f20t'] === 48, "Hospital (46) converted to Big Hospital (48) for Sparta");
+assertCondition((int)$fSpartaCheck['f40t'] === 47, "Wall converted to 47 (Spartan Wall) for Sparta");
+
+// Verify Hero conversion: unit 6 -> 96 -> 56 -> 76 (Elpida Rider)
 $hCheck = mysqli_fetch_assoc(mysqli_query($db, "SELECT unit FROM `" . TB_PREFIX . "hero` WHERE uid = $testUid"));
-assertCondition((int)$hCheck['unit'] === 96, "Hero unit converted from 6 to 96 (Gajah Perang)");
+assertCondition((int)$hCheck['unit'] === 76, "Hero unit properly migrated across tribes to 76 (Spartan Elpida Rider)");
 
-// Verify Units conversion: u1 -> u91 (50), u3 -> u93 (20), u6 -> u96 (5), old cols 0
-$unCheck = mysqli_fetch_assoc(mysqli_query($db, "SELECT u1, u3, u6, u91, u93, u96 FROM `" . TB_PREFIX . "units` WHERE vref = $testWid"));
-assertCondition((int)$unCheck['u1'] === 0 && (int)$unCheck['u91'] === 50, "Troop u1 (50) migrated to u91 (50)");
-assertCondition((int)$unCheck['u3'] === 0 && (int)$unCheck['u93'] === 20, "Troop u3 (20) migrated to u93 (20)");
-assertCondition((int)$unCheck['u6'] === 0 && (int)$unCheck['u96'] === 5, "Troop u6 (5) migrated to u96 (5)");
+// Verify Units conversion: after migrating Romans -> Nusantara -> Huns -> Sparta, troops are in u71 (50), u73 (20), u76 (5)
+$unCheck = mysqli_fetch_assoc(mysqli_query($db, "SELECT u1, u91, u51, u71, u73, u76 FROM `" . TB_PREFIX . "units` WHERE vref = $testWid"));
+assertCondition((int)$unCheck['u1'] === 0 && (int)$unCheck['u91'] === 0 && (int)$unCheck['u51'] === 0 && (int)$unCheck['u71'] === 50, "Troops migrated cleanly to Sparta u71 (50)");
+assertCondition((int)$unCheck['u73'] === 20, "Troop u73 is 20 (Spartan Shieldsworn)");
+assertCondition((int)$unCheck['u76'] === 5, "Troop u76 is 5 (Spartan Elpida Rider)");
 
-// Verify Research conversion in tdata: t2 -> t92, t3 -> t93, t6 -> t96
-$tCheck = mysqli_fetch_assoc(mysqli_query($db, "SELECT t2, t3, t6, t92, t93, t96 FROM `" . TB_PREFIX . "tdata` WHERE vref = $testWid"));
-assertCondition((int)$tCheck['t2'] === 0 && (int)$tCheck['t92'] === 1, "Research t2 migrated to t92");
-assertCondition((int)$tCheck['t3'] === 0 && (int)$tCheck['t93'] === 1, "Research t3 migrated to t93");
-assertCondition((int)$tCheck['t6'] === 0 && (int)$tCheck['t96'] === 1, "Research t6 migrated to t96");
+// Verify Research conversion in tdata: migrated to t72, t73, t76
+$tCheck = mysqli_fetch_assoc(mysqli_query($db, "SELECT t2, t92, t52, t72, t73, t76 FROM `" . TB_PREFIX . "tdata` WHERE vref = $testWid"));
+assertCondition((int)$tCheck['t2'] === 0 && (int)$tCheck['t92'] === 0 && (int)$tCheck['t72'] === 1, "Research cleanly migrated to Sparta t72");
+assertCondition((int)$tCheck['t73'] === 1, "Research t73 is 1");
+assertCondition((int)$tCheck['t76'] === 1, "Research t76 is 1");
 
-// Verify Training queue conversion: unit 1 -> 91
+// Verify Training queue conversion: unit 1 -> 91 -> 51 -> 71
 $trCheck = mysqli_fetch_assoc(mysqli_query($db, "SELECT unit FROM `" . TB_PREFIX . "training` WHERE vref = $testWid"));
-assertCondition((int)$trCheck['unit'] === 91, "Training queue unit 1 converted to 91");
+assertCondition((int)$trCheck['unit'] === 71, "Training queue unit migrated to 71 (Spartan Hoplite)");
 
-// Verify Research queue conversion: tech 't4' -> 't94'
+// Verify Research queue conversion: tech 't4' -> 't94' -> 't54' -> 't74'
 $rCheck = mysqli_fetch_assoc(mysqli_query($db, "SELECT tech FROM `" . TB_PREFIX . "research` WHERE vref = $testWid"));
-assertCondition($rCheck['tech'] === 't94', "Research queue tech 't4' converted to 't94'");
+assertCondition($rCheck['tech'] === 't74', "Research queue tech migrated to 't74'");
 
 // Verify Gold Fin Log audit trail
 $gLog = mysqli_fetch_assoc(mysqli_query($db, "SELECT * FROM `" . TB_PREFIX . "gold_fin_log` WHERE uid = $testUid ORDER BY id DESC LIMIT 1"));
