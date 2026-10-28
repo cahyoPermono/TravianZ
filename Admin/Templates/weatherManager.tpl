@@ -224,12 +224,12 @@ if (isset($GLOBALS['link']) && $GLOBALS['link']) {
                     Sistem cuaca TravianZ memiliki bobot probabilitas acak otomatis setiap siklus 6 jam:
                 </p>
                 <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; font-size: 11.5px; margin-bottom: 16px;">
-                    <div style="display: flex; justify-content: space-between; padding: 2px 0;"><span>☀️ Cuaca Cerah / Subur:</span><b>30%</b></div>
-                    <div style="display: flex; justify-content: space-between; padding: 2px 0;"><span>🌧️ Hujan Badai Muson:</span><b>20%</b></div>
+                    <div style="display: flex; justify-content: space-between; padding: 2px 0;"><span>☀️ Cuaca Cerah / Subur:</span><b>35%</b></div>
+                    <div style="display: flex; justify-content: space-between; padding: 2px 0;"><span>🌧️ Hujan Badai Muson:</span><b>25%</b></div>
                     <div style="display: flex; justify-content: space-between; padding: 2px 0;"><span>🏜️ Kemarau Panjang &amp; Terik:</span><b>20%</b></div>
-                    <div style="display: flex; justify-content: space-between; padding: 2px 0; color: #c0392b;"><span>🔥 Badai Asap Karhutla:</span><b>15%</b></div>
-                    <div style="display: flex; justify-content: space-between; padding: 2px 0;"><span>🌫️ Kabut Tebal Nusantara:</span><b>10%</b></div>
+                    <div style="display: flex; justify-content: space-between; padding: 2px 0;"><span>🌫️ Kabut Tebal Nusantara:</span><b>12%</b></div>
                     <div style="display: flex; justify-content: space-between; padding: 2px 0; color: #16a34a;"><span>✨ Purnama Agung Dewa:</span><b>5%</b></div>
+                    <div style="display: flex; justify-content: space-between; padding: 2px 0; color: #c0392b;"><span>🔥 Badai Asap Karhutla (Paling Langka):</span><b>3%</b></div>
                 </div>
             </div>
 

@@ -20,6 +20,10 @@ require_once __DIR__ . '/../../GameEngine/HeroItems.php';
 
 $level = (int)$village->resarray['f'.$id];
 $silver = BlackMarket::getSilver((int)$session->uid);
+$userGold = (int)($session->gold ?? ($session->userarray['gold'] ?? 0));
+$userTribe = (int)($session->tribe ?? ($session->userarray['tribe'] ?? 1));
+$availableTribes = BlackMarket::getAvailableTribes($userTribe);
+$currentTribeName = BlackMarket::getTribeName($userTribe);
 
 $awood = (int)$database->getWoodAvailable($village->wid);
 $aclay = (int)$database->getClayAvailable($village->wid);
@@ -63,13 +67,20 @@ if (!empty($_SESSION['bm_flash'])) {
                     🏴‍☠️ Pasar Gelap Penyelundup <span style="font-size: 11px; color: #bbb; font-weight: normal;">(Smuggler's Den)</span>
                 </h2>
                 <div style="font-size: 11px; color: #d0c5b4; margin-top: 3px;">
-                    Pusat penukaran komoditas terlarang, pencucian sumber daya tanpa Gold, dan pengadaan kontraband rahasia.
+                    Pusat penukaran komoditas terlarang, pencucian sumber daya tanpa Gold, pengadaan kontraband, dan mutasi suku.
                 </div>
             </div>
-            <div style="background: #11100e; border: 1px solid #d4af37; border-radius: 4px; padding: 6px 12px; text-align: right; margin-top: 4px;">
-                <span style="font-size: 10px; color: #aaa; text-transform: uppercase;">Saldo Koin Silver</span><br />
-                <span style="font-size: 16px; font-weight: bold; color: #f5f5f5;">💰 <?php echo number_format($silver); ?></span>
-                <span style="font-size: 11px; color: #d4af37;">Silver</span>
+            <div style="display: flex; gap: 8px; margin-top: 4px; flex-wrap: wrap;">
+                <div style="background: #11100e; border: 1px solid #d4af37; border-radius: 4px; padding: 6px 12px; text-align: right;">
+                    <span style="font-size: 10px; color: #aaa; text-transform: uppercase;">Saldo Koin Gold</span><br />
+                    <span style="font-size: 16px; font-weight: bold; color: #ffcc00;">💰 <?php echo number_format($userGold); ?></span>
+                    <span style="font-size: 11px; color: #d4af37;">Gold</span>
+                </div>
+                <div style="background: #11100e; border: 1px solid #a0a0a0; border-radius: 4px; padding: 6px 12px; text-align: right;">
+                    <span style="font-size: 10px; color: #aaa; text-transform: uppercase;">Saldo Koin Silver</span><br />
+                    <span style="font-size: 16px; font-weight: bold; color: #f5f5f5;">🪙 <?php echo number_format($silver); ?></span>
+                    <span style="font-size: 11px; color: #a0a0a0;">Silver</span>
+                </div>
             </div>
         </div>
     </div>
@@ -516,6 +527,115 @@ if (!empty($_SESSION['bm_flash'])) {
             </div>
         <?php endif; ?>
     </div>
+
+    <!-- PILAR 6: KITAB MUTASI LELUHUR (PERGANTIAN SUKU) -->
+    <div style="background: linear-gradient(180deg, #fbf7ee 0%, #f4ebd9 100%); border: 1.5px solid #a67c4a; border-radius: 6px; padding: 14px; margin-bottom: 16px; box-shadow: 0 2px 5px rgba(0,0,0,0.08);">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; border-bottom: 1px dashed #cbb89d; padding-bottom: 6px; margin-bottom: 10px;">
+            <h3 style="margin: 0; color: #5a2c00; font-size: 14px;">
+                📜 6. Kitab Mutasi Leluhur <span style="font-size: 11px; color: #8a6d3b; font-weight: normal;">(Scroll of Ancestral Transmutation — Pergantian Suku)</span>
+            </h3>
+            <span style="font-size: 10.5px; background: #fff3cd; color: #856404; border: 1px solid #ffeeba; padding: 2px 8px; border-radius: 3px; font-weight: bold;">
+                ⭐ Item Legendaris Langka (100 Gold)
+            </span>
+        </div>
+
+        <p style="font-size: 11.5px; color: #444; margin: 4px 0 12px 0; line-height: 1.55;">
+            Kitab terlarang peninggalan bangsa kuno yang mampu mengubah garis keturunan peradaban akun Anda secara menyeluruh. Melalui ritual mutasi leluhur ini, Anda dapat beralih ke suku bangsa lain kapan saja di tengah permainan tanpa kehilangan progres akun Anda.
+        </p>
+
+        <!-- FITUR KONVERSI OTOMATIS -->
+        <div style="background: #ffffff; border: 1px solid #e2d3bb; border-radius: 4px; padding: 10px 14px; margin-bottom: 12px; font-size: 11px; color: #555;">
+            <b style="color: #693206; font-size: 11.5px;">🔄 Mekanisme Migrasi Otomatis & Terjamin (Full Atomic Transmutation):</b>
+            <ul style="margin: 6px 0 0 18px; padding: 0; line-height: 1.6;">
+                <li><b>Garis Pasukan:</b> Seluruh pasukan yang sudah jadi di setiap desa otomatis bermutasi ke unit ekuivalen suku baru (contoh: Prajurit Pedang &rarr; Legionnaire/Clubswinger/Phalanx).</li>
+                <li><b>Benteng Pertahanan Desa:</b> Tembok desa (Slot 40) berganti ke tipe benteng suku baru tanpa menurunkan level dinding yang sudah dibangun.</li>
+                <li><b>Riset Akademi:</b> Seluruh teknologi pasukan yang telah diteliti di Akademi dikonversikan setara ke unit suku baru.</li>
+                <li><b>Hero Karakter:</b> Hero menyesuaikan tipe unit dasarnya ke suku baru dengan mempertahankan Level, Atribut, dan EXP secara utuh.</li>
+                <li><b>Antrean Pelatihan & Riset:</b> Pasukan di antrean barak/istal dan riset aktif di Akademi langsung dikonversi mengikuti peradaban baru.</li>
+            </ul>
+        </div>
+
+        <!-- FORM PILIH SUKU -->
+        <div style="background: #fff; border: 1px solid #d9cbba; border-radius: 4px; padding: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+                <div>
+                    <span style="font-size: 11px; color: #666;">Suku Anda Saat Ini:</span> 
+                    <span style="font-weight: bold; color: #2e6b38; background: #eaf3db; border: 1px solid #c7dfa7; border-radius: 3px; padding: 2px 7px; font-size: 11.5px;">
+                        🏛️ <?php echo htmlspecialchars($currentTribeName); ?> (Suku #<?php echo $userTribe; ?>)
+                    </span>
+                </div>
+                <div>
+                    <span style="font-size: 11px; color: #666;">Biaya Kitab:</span> 
+                    <span style="font-weight: bold; color: #9c6500; font-size: 12px;">
+                        💰 100 Gold
+                    </span>
+                    <span style="font-size: 10.5px; color: #777;">(Saldo Anda: <b><?php echo number_format($userGold); ?></b> Gold)</span>
+                </div>
+            </div>
+
+            <form method="POST" action="build.php" style="margin: 0;" onsubmit="return confirmTribeChange();">
+                <input type="hidden" name="ft" value="bm_change_tribe">
+                <input type="hidden" name="id" value="<?php echo (int)$id; ?>">
+
+                <table cellpadding="6" cellspacing="0" style="width: 100%; font-size: 11px; border-collapse: collapse; margin-bottom: 10px;">
+                    <thead>
+                        <tr style="background: #f3ece0; border-bottom: 1px solid #d5c8b2;">
+                            <th style="width: 35px; text-align: center; padding: 6px 4px;">Pilih</th>
+                            <th style="text-align: left; padding: 6px 8px;">Nama Suku Tujuan</th>
+                            <th style="text-align: left; padding: 6px 8px;">Karakteristik & Keunggulan</th>
+                            <th style="width: 140px; text-align: center; padding: 6px 8px;">Kategori</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php 
+                        $tIdx = 0;
+                        foreach ($availableTribes as $tId => $tData): 
+                            $tIdx++;
+                            $rowBg = ($tIdx % 2 === 0) ? '#faf7f2' : '#ffffff';
+                        ?>
+                        <tr style="background: <?php echo $rowBg; ?>; border-bottom: 1px solid #eee;">
+                            <td style="text-align: center; vertical-align: middle;">
+                                <input type="radio" name="new_tribe" id="tribe_opt_<?php echo $tId; ?>" value="<?php echo $tId; ?>" <?php if ($tIdx === 1) echo 'checked'; ?> style="cursor: pointer;">
+                            </td>
+                            <td style="vertical-align: middle; padding: 6px 8px;">
+                                <label for="tribe_opt_<?php echo $tId; ?>" style="font-weight: bold; color: #4a2808; cursor: pointer; font-size: 11.5px;">
+                                    🏛️ <?php echo htmlspecialchars($tData['name']); ?>
+                                </label>
+                            </td>
+                            <td style="vertical-align: middle; padding: 6px 8px; color: #555; line-height: 1.35;">
+                                <label for="tribe_opt_<?php echo $tId; ?>" style="cursor: pointer;">
+                                    <?php echo htmlspecialchars($tData['desc']); ?>
+                                </label>
+                            </td>
+                            <td style="text-align: center; vertical-align: middle; padding: 6px 8px;">
+                                <span style="font-size: 10px; background: #eef2f7; color: #2c4d6f; border: 1px solid #c9d7e4; border-radius: 3px; padding: 1px 6px; font-weight: bold;">
+                                    <?php echo htmlspecialchars($tData['badge']); ?>
+                                </span>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; border-top: 1px dashed #d9cbba; padding-top: 10px;">
+                    <div style="font-size: 10px; color: #888;">
+                        <i>⚠️ Perhatian: Mutasi leluhur bersifat permanen untuk sesi tersebut sampai Anda menggunakan Kitab Mutasi Leluhur kembali.</i>
+                    </div>
+                    <div>
+                        <?php if ($userGold >= 100): ?>
+                            <button type="submit" style="background: #8a3b14; color: #fff; border: 1px solid #6b2a09; padding: 6px 14px; font-size: 11.5px; font-weight: bold; border-radius: 3px; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.2);">
+                                📜 Beli Kitab Mutasi Leluhur (100 Gold)
+                            </button>
+                        <?php else: ?>
+                            <button type="button" disabled style="background: #bbb; color: #fff; border: 1px solid #aaa; padding: 6px 14px; font-size: 11.5px; font-weight: bold; border-radius: 3px; cursor: not-allowed;">
+                                ❌ Gold Tidak Cukup (Butuh 100 Gold)
+                            </button>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 
 <script type="text/javascript">
@@ -565,6 +685,15 @@ function updateConsumableTotal(itemId, unitPrice) {
             btn.innerText = '🛒 Beli Instan';
         }
     }
+}
+
+function confirmTribeChange() {
+    var selected = document.querySelector('input[name="new_tribe"]:checked');
+    if (!selected) {
+        alert('Silakan pilih suku tujuan terlebih dahulu.');
+        return false;
+    }
+    return confirm('Apakah Anda yakin ingin menggunakan Kitab Mutasi Leluhur seharga 100 Gold untuk berganti suku? Seluruh pasukan, benteng desa, riset akademi, antrean latih, dan Hero Anda akan dimigrasikan ke suku baru secara permanen.');
 }
 </script>
 

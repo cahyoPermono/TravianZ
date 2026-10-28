@@ -16,6 +16,7 @@
 class BlackMarket
 {
     const LAUNDER_FEE_PERCENT = 15; // 15% cut fee
+    const TRIBE_CHANGE_GOLD_COST = 100; // 100 Gold to change tribe via Kitab Mutasi Leluhur
 
     /**
      * Database connection helper.
@@ -658,6 +659,341 @@ class BlackMarket
     }
 
     /**
+     * Get tribe name.
+     */
+    public static function getTribeName(int $tribe): string
+    {
+        $names = [
+            1 => defined('TRIBE1') ? TRIBE1 : 'Romans',
+            2 => defined('TRIBE2') ? TRIBE2 : 'Teutons',
+            3 => defined('TRIBE3') ? TRIBE3 : 'Gauls',
+            6 => defined('TRIBE6') ? TRIBE6 : 'Huns',
+            7 => defined('TRIBE7') ? TRIBE7 : 'Egyptians',
+            8 => defined('TRIBE8') ? TRIBE8 : 'Spartans',
+            9 => defined('TRIBE9') ? TRIBE9 : 'Vikings',
+            10 => defined('TRIBE10') ? TRIBE10 : 'Nusantara',
+        ];
+        return $names[$tribe] ?? ('Suku #' . $tribe);
+    }
+
+    /**
+     * Get available tribes based on server configuration.
+     */
+    public static function getAvailableTribes(int $excludeTribe = 0): array
+    {
+        $tribes = [
+            1 => [
+                'name' => self::getTribeName(1),
+                'flag' => true,
+                'desc' => 'Pembangunan fleksibel ganda (sumber daya & gedung serentak), infanteri & kavaleri tangguh seimbang.',
+                'badge' => 'Pembangunan Ganda'
+            ],
+            2 => [
+                'name' => self::getTribeName(2),
+                'flag' => true,
+                'desc' => 'Spesialis serbuan agresif awal, biaya pasukan murah, daya tampung jarahan gua musuh berkurang.',
+                'badge' => 'Penjarah Agresif'
+            ],
+            3 => [
+                'name' => self::getTribeName(3),
+                'flag' => true,
+                'desc' => 'Pertahanan solid, kapasitas gua 2x lipat, perangkap tersembunyi, kavaleri tercepat di Travian.',
+                'badge' => 'Pertahanan & Kecepatan'
+            ],
+            6 => [
+                'name' => self::getTribeName(6),
+                'flag' => (defined('NEW_FUNCTION_TRIBE_HUNS') && NEW_FUNCTION_TRIBE_HUNS),
+                'desc' => 'Kavaleri penyerbu berkekuatan dahsyat, Pusat Komando untuk ekspansi tanpa istana/kediaman.',
+                'badge' => 'Kavaleri Dahsyat'
+            ],
+            7 => [
+                'name' => self::getTribeName(7),
+                'flag' => (defined('NEW_FUNCTION_TRIBE_EGIPTEANS') && NEW_FUNCTION_TRIBE_EGIPTEANS),
+                'desc' => 'Kapasitas sumber daya melimpah, Tembok Batu kokoh, Waterworks pelipat ganda bonus oasis.',
+                'badge' => 'Ekonomi & Ketahanan'
+            ],
+            8 => [
+                'name' => self::getTribeName(8),
+                'flag' => (defined('NEW_FUNCTION_TRIBE_SPARTANS') && NEW_FUNCTION_TRIBE_SPARTANS),
+                'desc' => 'Konsumsi gandum efisien, unit infanteri tempur legendaris, Rumah Sakit Besar pemulih luka.',
+                'badge' => 'Infanteri Tempur Elit'
+            ],
+            9 => [
+                'name' => self::getTribeName(9),
+                'flag' => (defined('NEW_FUNCTION_TRIBE_VIKINGS') && NEW_FUNCTION_TRIBE_VIKINGS),
+                'desc' => 'Prajurit maritim penjarah tanpa gentar, daya serbu tinggi, Barikade pertahanan kayu.',
+                'badge' => 'Serbuan Maritim'
+            ],
+            10 => [
+                'name' => self::getTribeName(10),
+                'flag' => (defined('NEW_FUNCTION_TRIBE_NUSANTARA') && NEW_FUNCTION_TRIBE_NUSANTARA),
+                'desc' => 'Prajurit panah mematikan, Meriam Cetbang, Benteng Kedaton, ekonomi maritim & pertapaan mistis.',
+                'badge' => 'Kemaritiman & Mistis'
+            ],
+        ];
+
+        $available = [];
+        foreach ($tribes as $tid => $data) {
+            if ($data['flag'] && $tid !== $excludeTribe) {
+                $available[$tid] = $data;
+            }
+        }
+        return $available;
+    }
+
+    /**
+     * Get wall building type for a tribe.
+     */
+    public static function getTribeWallType(int $tribe): int
+    {
+        $map = [
+            1 => 31, // Roman City Wall
+            2 => 32, // Teuton Earth Wall
+            3 => 33, // Gaul Palisade
+            6 => 42, // Hun Makeshift Wall
+            7 => 43, // Egyptian Stone Wall
+            8 => 47, // Spartan Wall
+            9 => 50, // Viking Barricade
+            10 => 32, // Nusantara Benteng Kedaton
+        ];
+        return $map[$tribe] ?? 31;
+    }
+
+    /**
+     * 6. Kitab Mutasi Leluhur: Change tribe for 100 Gold with complete asset conversion.
+     */
+    public static function changeTribe(int $uid, int $vref, int $newTribe): array
+    {
+        global $database, $session;
+
+        $db = self::db();
+        if (!$db || $uid <= 0 || $vref <= 0 || $newTribe <= 0) {
+            return ['success' => false, 'message' => 'Parameter perubahan suku tidak valid.'];
+        }
+
+        $avail = self::getAvailableTribes();
+        if (!isset($avail[$newTribe])) {
+            return ['success' => false, 'message' => 'Pilihan suku tujuan tidak valid atau sedang dinonaktifkan di server.'];
+        }
+
+        // Query user data
+        $uRes = mysqli_query($db, "SELECT id, username, tribe, gold FROM `" . TB_PREFIX . "users` WHERE id = $uid LIMIT 1");
+        $userRow = $uRes ? mysqli_fetch_assoc($uRes) : null;
+        if (!$userRow) {
+            return ['success' => false, 'message' => 'Data pengguna tidak ditemukan.'];
+        }
+
+        $oldTribe = (int)$userRow['tribe'];
+        $userGold = (int)$userRow['gold'];
+        $username = $userRow['username'];
+
+        if ($oldTribe === $newTribe) {
+            return ['success' => false, 'message' => 'Anda sudah menjadi bagian dari suku ' . self::getTribeName($newTribe) . '.'];
+        }
+
+        if ($userGold < self::TRIBE_CHANGE_GOLD_COST) {
+            return ['success' => false, 'message' => 'Koin Gold Anda tidak mencukupi. Butuh ' . self::TRIBE_CHANGE_GOLD_COST . ' Gold (Saldo Anda saat ini: ' . number_format($userGold) . ' Gold).'];
+        }
+
+        $oldTribeName = self::getTribeName($oldTribe);
+        $newTribeName = self::getTribeName($newTribe);
+
+        $baseUnits = [
+            1 => 1,
+            2 => 11,
+            3 => 21,
+            6 => 51,
+            7 => 61,
+            8 => 71,
+            9 => 81,
+            10 => 91,
+        ];
+        $oldBase = $baseUnits[$oldTribe] ?? 1;
+        $newBase = $baseUnits[$newTribe] ?? 1;
+
+        // Get all village IDs belonging to this user
+        $vids = [];
+        $vRes = mysqli_query($db, "SELECT wref FROM `" . TB_PREFIX . "vdata` WHERE owner = $uid");
+        if ($vRes) {
+            while ($vRow = mysqli_fetch_assoc($vRes)) {
+                $vids[] = (int)$vRow['wref'];
+            }
+        }
+        $vList = !empty($vids) ? implode(',', $vids) : '';
+
+        // Begin transaction
+        mysqli_begin_transaction($db);
+
+        try {
+            // 1. Deduct 100 Gold atomically
+            $cost = self::TRIBE_CHANGE_GOLD_COST;
+            $deductQ = "UPDATE `" . TB_PREFIX . "users` SET gold = gold - $cost WHERE id = $uid AND gold >= $cost";
+            mysqli_query($db, $deductQ);
+            if (mysqli_affected_rows($db) <= 0) {
+                mysqli_rollback($db);
+                return ['success' => false, 'message' => 'Gagal memotong ' . $cost . ' Gold. Saldo Gold mungkin telah berubah.'];
+            }
+
+            // 2. Update user tribe in users table
+            mysqli_query($db, "UPDATE `" . TB_PREFIX . "users` SET tribe = $newTribe WHERE id = $uid");
+
+            // 3. Update Hero unit type
+            $heroRes = mysqli_query($db, "SELECT heroid, unit FROM `" . TB_PREFIX . "hero` WHERE uid = $uid LIMIT 1");
+            if ($heroRes && ($hRow = mysqli_fetch_assoc($heroRes))) {
+                $curHeroUnit = (int)$hRow['unit'];
+                $offset = ($curHeroUnit - $oldBase);
+                if ($offset < 0 || $offset > 9) {
+                    $offset = 5; // default to heavy cavalry (unit 6)
+                }
+                $newHeroUnit = $newBase + $offset;
+                mysqli_query($db, "UPDATE `" . TB_PREFIX . "hero` SET unit = $newHeroUnit WHERE uid = $uid");
+            }
+
+            if (!empty($vList)) {
+                $newWallType = self::getTribeWallType($newTribe);
+
+                // 4. Update village walls in fdata and building queue
+                mysqli_query($db, "UPDATE `" . TB_PREFIX . "fdata` SET f40t = $newWallType WHERE vref IN ($vList) AND (f40 > 0 OR f40t > 0)");
+                mysqli_query($db, "UPDATE `" . TB_PREFIX . "bdata` SET type = $newWallType WHERE wid IN ($vList) AND field = 40");
+
+                // 5. Convert troops in units table for all villages
+                $uRes = mysqli_query($db, "SELECT * FROM `" . TB_PREFIX . "units` WHERE vref IN ($vList)");
+                if ($uRes) {
+                    while ($uRow = mysqli_fetch_assoc($uRes)) {
+                        $vrefId = (int)$uRow['vref'];
+                        $setParts = [];
+                        for ($i = 0; $i <= 9; $i++) {
+                            $oldCol = 'u' . ($oldBase + $i);
+                            $newCol = 'u' . ($newBase + $i);
+                            $qty = (int)($uRow[$oldCol] ?? 0);
+                            if ($qty > 0) {
+                                $newExisting = (int)($uRow[$newCol] ?? 0);
+                                $totalNew = $newExisting + $qty;
+                                $setParts[] = "`$newCol` = $totalNew";
+                                $setParts[] = "`$oldCol` = 0";
+                            }
+                        }
+                        if (!empty($setParts)) {
+                            mysqli_query($db, "UPDATE `" . TB_PREFIX . "units` SET " . implode(', ', $setParts) . " WHERE vref = $vrefId");
+                        }
+                    }
+                }
+
+                // 6. Convert academy research in tdata for all villages
+                $tRes = mysqli_query($db, "SELECT * FROM `" . TB_PREFIX . "tdata` WHERE vref IN ($vList)");
+                if ($tRes) {
+                    while ($tRow = mysqli_fetch_assoc($tRes)) {
+                        $vrefId = (int)$tRow['vref'];
+                        $setParts = [];
+                        for ($i = 1; $i <= 8; $i++) {
+                            $oldCol = 't' . ($oldBase + $i);
+                            $newCol = 't' . ($newBase + $i);
+                            if (!empty($tRow[$oldCol])) {
+                                $setParts[] = "`$newCol` = 1";
+                                $setParts[] = "`$oldCol` = 0";
+                            }
+                        }
+                        if (!empty($setParts)) {
+                            mysqli_query($db, "UPDATE `" . TB_PREFIX . "tdata` SET " . implode(', ', $setParts) . " WHERE vref = $vrefId");
+                        }
+                    }
+                }
+
+                // 7. Convert active troop training queues in training table
+                for ($i = 0; $i <= 9; $i++) {
+                    $oldUnit = $oldBase + $i;
+                    $newUnit = $newBase + $i;
+                    mysqli_query($db, "UPDATE `" . TB_PREFIX . "training` SET unit = $newUnit WHERE vref IN ($vList) AND unit = $oldUnit");
+                }
+
+                // 8. Convert active academy research in research table
+                for ($i = 1; $i <= 8; $i++) {
+                    $oldTech = 't' . ($oldBase + $i);
+                    $newTech = 't' . ($newBase + $i);
+                    mysqli_query($db, "UPDATE `" . TB_PREFIX . "research` SET tech = '$newTech' WHERE vref IN ($vList) AND tech = '$oldTech'");
+                }
+
+                // 9. Convert stationed reinforcements abroad (sent FROM player's villages)
+                $enfRes = mysqli_query($db, "SELECT * FROM `" . TB_PREFIX . "enforcement` WHERE `from` IN ($vList)");
+                if ($enfRes) {
+                    while ($enfRow = mysqli_fetch_assoc($enfRes)) {
+                        $enfId = (int)$enfRow['id'];
+                        $setParts = [];
+                        for ($i = 0; $i <= 9; $i++) {
+                            $oldCol = 'u' . ($oldBase + $i);
+                            $newCol = 'u' . ($newBase + $i);
+                            $qty = (int)($enfRow[$oldCol] ?? 0);
+                            if ($qty > 0) {
+                                $newExisting = (int)($enfRow[$newCol] ?? 0);
+                                $totalNew = $newExisting + $qty;
+                                $setParts[] = "`$newCol` = $totalNew";
+                                $setParts[] = "`$oldCol` = 0";
+                            }
+                        }
+                        if (!empty($setParts)) {
+                            mysqli_query($db, "UPDATE `" . TB_PREFIX . "enforcement` SET " . implode(', ', $setParts) . " WHERE id = $enfId");
+                        }
+                    }
+                }
+            }
+
+            // Commit all changes
+            mysqli_commit($db);
+        } catch (\Throwable $e) {
+            mysqli_rollback($db);
+            return ['success' => false, 'message' => 'Terjadi kesalahan sistem saat mutasi suku: ' . $e->getMessage()];
+        }
+
+        // Cache invalidation
+        if (isset($_SESSION['username'])) {
+            unset($_SESSION['cache_user_' . $_SESSION['username']]);
+        }
+        if (class_exists('DatabaseUserQueries')) {
+            DatabaseUserQueries::$fieldsCache = [];
+        }
+        if (class_exists('DatabaseHeroQueries')) {
+            DatabaseHeroQueries::$heroCache = [];
+            DatabaseHeroQueries::$heroFieldCache = [];
+            DatabaseHeroQueries::$heroVillageCache = [];
+        }
+        if (class_exists('DatabaseTroopQueries')) {
+            DatabaseTroopQueries::$isResearchedCache = [];
+        }
+
+        // Invalidate active session variables
+        if (isset($session)) {
+            $session->tribe = $newTribe;
+            if (isset($session->userarray)) {
+                $session->userarray['tribe'] = $newTribe;
+                $session->userarray['gold'] = max(0, (int)($session->userarray['gold'] ?? 0) - self::TRIBE_CHANGE_GOLD_COST);
+            }
+            if (isset($session->userinfo)) {
+                $session->userinfo['tribe'] = $newTribe;
+                $session->userinfo['gold'] = max(0, (int)($session->userinfo['gold'] ?? 0) - self::TRIBE_CHANGE_GOLD_COST);
+            }
+            if (isset($session->gold)) {
+                $session->gold = max(0, (int)$session->gold - self::TRIBE_CHANGE_GOLD_COST);
+                $_SESSION['gold'] = $session->gold;
+            }
+        }
+
+        // Audit logging
+        $time = time();
+        $detailsEsc = mysqli_real_escape_string($db, "Changed tribe from $oldTribeName to $newTribeName");
+        $logEsc = mysqli_real_escape_string($db, "Kitab Mutasi Leluhur");
+        $actionEsc = mysqli_real_escape_string($db, "Black Market: Change Tribe");
+        mysqli_query($db, "INSERT INTO `" . TB_PREFIX . "gold_fin_log` (`uid`, `wid`, `action`, `gold`, `time`, `log`, `details`) VALUES ($uid, $vref, '$actionEsc', -" . self::TRIBE_CHANGE_GOLD_COST . ", $time, '$logEsc', '$detailsEsc')");
+
+        self::logAction($uid, $vref, 'change_tribe', "Mutasi suku dari $oldTribeName ke $newTribeName (Biaya " . self::TRIBE_CHANGE_GOLD_COST . " Gold)", 0);
+
+        return [
+            'success' => true,
+            'message' => "📜 Ritual Kitab Mutasi Leluhur berhasil dilaksanakan! Akun Anda kini resmi beralih ke suku $newTribeName. " .
+                         "Seluruh pasukan di semua desa, benteng pertahanan, riset teknologi di Akademi, antrean pelatihan, dan Hero Anda telah dimigrasikan secara utuh ke peradaban baru."
+        ];
+    }
+
+    /**
      * Process POST requests from Black Market UI.
      */
     public static function procPost(array $post): void
@@ -693,6 +1029,9 @@ class BlackMarket
             $rowId = (int)($post['row_id'] ?? 0);
             $qty   = max(1, (int)($post['qty'] ?? 1));
             $result = self::sellHeroItem($uid, $vref, $rowId, $qty);
+        } elseif ($post['ft'] === 'bm_change_tribe') {
+            $newTribe = (int)($post['new_tribe'] ?? 0);
+            $result   = self::changeTribe($uid, $vref, $newTribe);
         }
 
         if ($result !== null) {

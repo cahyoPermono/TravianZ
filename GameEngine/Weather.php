@@ -94,20 +94,31 @@ class Weather {
             $type = $forcedType;
         } else {
             // Weighted random selection:
-            // Clear: 30%, Monsoon: 20%, Drought: 20%, Karhutla: 15%, Fog: 10%, Aurora: 5%
+            // Clear: 35%, Monsoon: 25%, Drought: 20%, Fog: 12%, Aurora: 5%, Karhutla: 3% (lowest)
             $roll = mt_rand(1, 100);
-            if ($roll <= 30) {
+            if ($roll <= 35) {
                 $type = self::TYPE_CLEAR;
-            } elseif ($roll <= 50) {
+            } elseif ($roll <= 60) {
                 $type = self::TYPE_MONSOON;
-            } elseif ($roll <= 70) {
+            } elseif ($roll <= 80) {
                 $type = self::TYPE_DROUGHT;
-            } elseif ($roll <= 85) {
-                $type = self::TYPE_KARHUTLA;
-            } elseif ($roll <= 95) {
+            } elseif ($roll <= 92) {
                 $type = self::TYPE_FOG;
-            } else {
+            } elseif ($roll <= 97) {
                 $type = self::TYPE_AURORA;
+            } else {
+                $type = self::TYPE_KARHUTLA;
+            }
+
+            // Never allow Karhutla to trigger consecutively back-to-back
+            if ($type === self::TYPE_KARHUTLA && $db) {
+                $zoneEsc = mysqli_real_escape_string($db, $zone);
+                $prevQ = @mysqli_query($db, "SELECT weather_type FROM `" . TB_PREFIX . "weather` WHERE `zone` = '$zoneEsc' ORDER BY id DESC LIMIT 1");
+                if ($prevQ && ($pRow = mysqli_fetch_assoc($prevQ))) {
+                    if ((int)$pRow['weather_type'] === self::TYPE_KARHUTLA) {
+                        $type = self::TYPE_CLEAR;
+                    }
+                }
             }
         }
 
