@@ -185,10 +185,13 @@ class Technology {
 		$trainingarray = !empty($village->wid) ? $database->getTraining($village->wid) : [];
 		$listarray = [];
 
-		$ownerTribe = (int)($session->tribe ?? 0);
+		$ownerTribe = (int)($village->tribe ?? $session->tribe ?? 0);
 		if ($ownerTribe === 0 && !empty($village->wid) && isset($database)) {
-			$uid = $database->getVillageField($village->wid, "owner");
-			$ownerTribe = (int)$database->getUserField($uid, "tribe", 0);
+			$ownerTribe = (int)$database->getVillageField($village->wid, "tribe");
+			if ($ownerTribe === 0) {
+				$uid = $database->getVillageField($village->wid, "owner");
+				$ownerTribe = (int)$database->getUserField($uid, "tribe", 0);
+			}
 		}
 
 		$barracks = [1, 2, 3, 11, 12, 13, 14, 21, 22, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 51, 52, 61, 62, 63, 71, 72, 73, 74, 81, 82, 83, 84, 91, 92, 93];
@@ -256,7 +259,8 @@ class Technology {
 		$unitStr = "u" . $unit;
 		global $village, $$unitStr, $database, $session, $building, $u99_trap;
 		
-		$isTrap = ($unit == 99 || $unitStr == "u99") && ((isset($session->tribe) && $session->tribe == 3) || (isset($building) && $building->getTypeLevel(36) > 0));
+		$effectiveTribe = (int)($village->tribe ?? $session->tribe ?? 0);
+		$isTrap = ($unit == 99 || $unitStr == "u99") && ($effectiveTribe == 3 || (isset($building) && $building->getTypeLevel(36) > 0));
 		$unitarray = $isTrap ? ($u99_trap ?? $$unitStr) : $$unitStr;
 		$res = $database->getVillage($village->wid, 0, false);
 		if($res['wood'] > $res['maxstore']) $res['wood'] = $res['maxstore'];
@@ -281,7 +285,8 @@ class Technology {
 		$unitStr = "u" . $unit;	
 		global $village, $$unitStr, $database, $session, $building, $u99_trap;
 		
-		$isTrap = ($unit == 99 || $unitStr == "u99") && ((isset($session->tribe) && $session->tribe == 3) || (isset($building) && $building->getTypeLevel(36) > 0));
+		$effectiveTribe = (int)($village->tribe ?? $session->tribe ?? 0);
+		$isTrap = ($unit == 99 || $unitStr == "u99") && ($effectiveTribe == 3 || (isset($building) && $building->getTypeLevel(36) > 0));
 		$unitarray = $isTrap ? ($u99_trap ?? $$unitStr) : $$unitStr;
 		$res = $database->getVillage($village->wid);
 		$totalres = $res['wood'] + $res['clay'] + $res['iron'] + $res['crop'];
@@ -367,7 +372,8 @@ class Technology {
     }
 
 	public function meetTRequirement($unit) {
-		global $session;
+		global $session, $village;
+		$session_tribe = (int)($village->tribe ?? $session->tribe ?? 1);
 		switch($unit) {
 		    
 			case 2:
@@ -376,10 +382,10 @@ class Technology {
 			case 5:
 			case 6:
 			case 7:
-			case 8: return $this->getTech($unit) && $session->tribe == 1;
+			case 8: return $this->getTech($unit) && $session_tribe == 1;
 			
 			case 1:
-			case 10: return $session->tribe == 1;
+			case 10: return $session_tribe == 1;
 			
 			case 12:
 			case 13:
@@ -387,10 +393,10 @@ class Technology {
 			case 15:
 			case 16:
 			case 17:
-			case 18: return $session->tribe == 2 && $this->getTech($unit);
+			case 18: return $session_tribe == 2 && $this->getTech($unit);
 
 			case 11:
-			case 20: return $session->tribe == 2;
+			case 20: return $session_tribe == 2;
 			
 			case 22:
 			case 23:
@@ -398,10 +404,10 @@ class Technology {
 			case 25:
 			case 26:
 			case 27:
-			case 28: return $session->tribe == 3 && $this->getTech($unit);
+			case 28: return $session_tribe == 3 && $this->getTech($unit);
 			
 			case 21:
-			case 30: return $session->tribe == 3;
+			case 30: return $session_tribe == 3;
 			
 			case 32:
 			case 33:
@@ -409,10 +415,10 @@ class Technology {
 			case 35:
 			case 36:
 			case 37:
-			case 38: return $session->tribe == 4 && $this->getTech($unit);
+			case 38: return $session_tribe == 4 && $this->getTech($unit);
 			
 			case 31:
-			case 40: return $session->tribe == 4;
+			case 40: return $session_tribe == 4;
 			    
 			case 42:
 			case 43:
@@ -420,10 +426,10 @@ class Technology {
 			case 45:
 			case 46:
 			case 47:
-			case 48: return $session->tribe == 5 && $this->getTech($unit);
+			case 48: return $session_tribe == 5 && $this->getTech($unit);
 
 			case 41:
-			case 50: return $session->tribe == 5;
+			case 50: return $session_tribe == 5;
 
 			case 52:
 			case 53:
@@ -432,10 +438,10 @@ class Technology {
 			case 56:
 			case 57:
 			case 58:
-			case 59: return $session->tribe == 6 && $this->getTech($unit);
+			case 59: return $session_tribe == 6 && $this->getTech($unit);
 
 			case 51:
-			case 60: return $session->tribe == 6;
+			case 60: return $session_tribe == 6;
 
 			case 62:
 			case 63:
@@ -444,10 +450,10 @@ class Technology {
 			case 66:
 			case 67:
 			case 68:
-			case 69: return $session->tribe == 7 && $this->getTech($unit);
+			case 69: return $session_tribe == 7 && $this->getTech($unit);
 
 			case 61:
-			case 70: return $session->tribe == 7;
+			case 70: return $session_tribe == 7;
 
 			case 72:
 			case 73:
@@ -456,10 +462,10 @@ class Technology {
 			case 76:
 			case 77:
 			case 78:
-			case 79: return $session->tribe == 8 && $this->getTech($unit);
+			case 79: return $session_tribe == 8 && $this->getTech($unit);
 
 			case 71:
-			case 80: return $session->tribe == 8;
+			case 80: return $session_tribe == 8;
 
 			case 82:
 			case 83:
@@ -468,10 +474,10 @@ class Technology {
 			case 86:
 			case 87:
 			case 88:
-			case 89: return $session->tribe == 9 && $this->getTech($unit);
+			case 89: return $session_tribe == 9 && $this->getTech($unit);
 
 			case 81:
-			case 90: return $session->tribe == 9;
+			case 90: return $session_tribe == 9;
 
 			case 92:
 			case 93:
@@ -480,10 +486,10 @@ class Technology {
 			case 96:
 			case 97:
 			case 98:
-			case 99: return $session->tribe == 10 && $this->getTech($unit);
+			case 99: return $session_tribe == 10 && $this->getTech($unit);
 
 			case 91:
-			case 100: return $session->tribe == 10;
+			case 100: return $session_tribe == 10;
 		}
 	}
 
@@ -513,8 +519,9 @@ class Technology {
 		        (!empty($post['t99']) && !empty($post['t100']))
 		        )
 		    ) {
-		        $start = ($session->tribe - 1) * 10 + 1;
-		        $end   = ($session->tribe * 10);
+		        $trainTribe = (int)($village->tribe ?? $session->tribe ?? 1);
+		        $start = ($trainTribe - 1) * 10 + 1;
+		        $end   = ($trainTribe * 10);
 		        for ($i = $start; $i <= $end; $i ++ ) {
 		            if (isset($post['t'.$i]) && $post['t'.$i] != 0) {
 		                $amt = intval($post['t'.$i]);
@@ -523,7 +530,7 @@ class Technology {
 		            }
 		        }
 		        
-		        if($session->tribe == 3)
+		        if($trainTribe == 3 || (isset($building) && $building->getTypeLevel(36) > 0))
 		        {
 		            if (isset($post['t99']) && $post['t99'] != 0) {
 		                $amt = intval($post['t99']);
@@ -595,7 +602,8 @@ class Technology {
 		
 		if (!$database->getTrainingLock($village->wid)) return;
 		try {
-		$isTrap = ($unit == 99 && ((isset($session->tribe) && $session->tribe == 3) || (isset($building) && $building->getTypeLevel(36) > 0)));
+		$effectiveTribe = (int)($village->tribe ?? $session->tribe ?? 1);
+		$isTrap = ($unit == 99 && ($effectiveTribe == 3 || (isset($building) && $building->getTypeLevel(36) > 0)));
 		if($this->getTech($unit) || $unit % 10 <= 1 || $isTrap) {
 			if(!$this->checkTrainingBuilding($unit)) return;
 			
@@ -618,12 +626,13 @@ class Technology {
 	}
 
 	private function checkTrainingBuilding($unit) {
-		global $building, $session;
+		global $building, $session, $village;
 		
 		$footies = [1, 2, 3, 11, 12, 13, 14, 21, 22, 31, 32, 33, 34, 41, 42, 43, 44, 51, 52, 61, 62, 63, 71, 72, 73, 74, 81, 82, 83, 84, 91, 92, 93];
 		$calvary = [4, 5, 6, 15, 16, 23, 24, 25, 26, 35, 36, 45, 46, 53, 54, 55, 56, 64, 65, 66, 75, 76, 85, 86, 94, 95, 96];
 		$workshop = [7, 8, 17, 18, 27, 28, 37, 38, 47, 48, 57, 58, 67, 68, 77, 78, 87, 88, 97, 98];
-		$isTrap = ($unit == 99 && (isset($session->tribe) && $session->tribe == 3));
+		$effectiveTribe = (int)($village->tribe ?? $session->tribe ?? 1);
+		$isTrap = ($unit == 99 && ($effectiveTribe == 3 || (isset($building) && $building->getTypeLevel(36) > 0)));
 		$special = [9, 10, 19, 20, 29, 30, 39, 40, 49, 50, 59, 60, 69, 70, 79, 80, 89, 90, 100];
 		if(!$isTrap) { $special[] = 99; }
 		$trapper = $isTrap ? [99] : [];
@@ -640,12 +649,13 @@ class Technology {
 	}
 
 	private function getTrainingTime($unit, $great) {
-		global $building, ${'u'.$unit}, $u99_trap, $bid19, $bid20, $bid21, $bid25, $bid26, $bid29, $bid30, $bid41, $bid44, $bid49, $session;
+		global $building, ${'u'.$unit}, $u99_trap, $bid19, $bid20, $bid21, $bid25, $bid26, $bid29, $bid30, $bid41, $bid44, $bid49, $session, $village;
 		
 		$footies = [1, 2, 3, 11, 12, 13, 14, 21, 22, 31, 32, 33, 34, 41, 42, 43, 44, 51, 52, 61, 62, 63, 71, 72, 73, 74, 81, 82, 83, 84, 91, 92, 93];
 		$calvary = [4, 5, 6, 15, 16, 23, 24, 25, 26, 35, 36, 45, 46, 53, 54, 55, 56, 64, 65, 66, 75, 76, 85, 86, 94, 95, 96];
 		$workshop = [7, 8, 17, 18, 27, 28, 37, 38, 47, 48, 57, 58, 67, 68, 77, 78, 87, 88, 97, 98];
-		$isTrap = ($unit == 99 && (isset($session->tribe) && $session->tribe == 3));
+		$effectiveTribe = (int)($village->tribe ?? $session->tribe ?? 1);
+		$isTrap = ($unit == 99 && ($effectiveTribe == 3 || (isset($building) && $building->getTypeLevel(36) > 0)));
 		$special = [9, 10, 19, 20, 29, 30, 39, 40, 49, 50, 59, 60, 69, 70, 79, 80, 89, 90, 100];
 		if(!$isTrap) { $special[] = 99; }
 		$trapper = $isTrap ? [99] : [];
@@ -1008,7 +1018,8 @@ class Technology {
 	private function getMaxTrainable($unit, $amt, $great) {
 		global $database, $village, $bid36, $session, $building;
 		
-		$isTrap = ($unit == 99 && ((isset($session->tribe) && $session->tribe == 3) || (isset($building) && $building->getTypeLevel(36) > 0)));
+		$effectiveTribe = (int)($village->tribe ?? $session->tribe ?? 1);
+		$isTrap = ($unit == 99 && ($effectiveTribe == 3 || (isset($building) && $building->getTypeLevel(36) > 0)));
 		if($unit % 10 == 0 || ($unit % 10 == 9 && !$isTrap)) {
 			if($this->maxUnit($unit, $great) < $amt) $amt = 0;
 			else
@@ -1213,7 +1224,8 @@ class Technology {
 			}
 
 			$CurrentTech = $ABTech[$type.$get['a']]+$ups;
-			$unit = ($session->tribe-1)*10+intval($get['a']);
+			$effectiveTribe = (int)($village->tribe ?? $session->tribe ?? 1);
+			$unit = ($effectiveTribe - 1) * 10 + intval($get['a']);
 			if(($ABUpgradesCount < 2 && $session->plus || $ABUpgradesCount == 0) && ($this->getTech($unit) || ($unit % 10) == 1) && ($CurrentTech < $building->getTypeLevel($buildingType)) && hash_equals((string) $session->mchecker, (string) ($get['c'] ?? ''))) {
 				global ${'ab'.strval($unit)};
 				$data = ${'ab'.strval($unit)};
@@ -1232,8 +1244,9 @@ class Technology {
 	}
 
 	public function getUnitName($i) {
-		global $session;
-		if ($i == 99 && (isset($session->tribe) && $session->tribe == 3)) {
+		global $session, $village;
+		$effectiveTribe = (int)($village->tribe ?? $session->tribe ?? 0);
+		if ($i == 99 && ($effectiveTribe == 3 || (isset($GLOBALS['building']) && $GLOBALS['building']->getTypeLevel(36) > 0))) {
 			return defined('U99_TRAP') ? U99_TRAP : 'Trap';
 		}
 		return $this->unarray[$i] ?? '';

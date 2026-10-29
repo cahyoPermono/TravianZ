@@ -37,8 +37,9 @@ if ($slots['settlers'] + $slots['chiefs']>0) { ?>
 </thead>
 <tbody>
 <?php
-		for ($i = ($session->tribe - 1) * 10 + 9; $i <= ($session->tribe * 10); $i++) {
-			if ($slots['settlers'] > 0 && $i % 10 == 0 || $slots['chiefs'] > 0 && $i % 10 == 9 && $session->tribe != 4) {
+		$trainTribe = (int)($village->tribe ?? $session->tribe ?? 1);
+		for ($i = ($trainTribe - 1) * 10 + 9; $i <= ($trainTribe * 10); $i++) {
+			if ($slots['settlers'] > 0 && $i % 10 == 0 || $slots['chiefs'] > 0 && $i % 10 == 9 && $trainTribe != 4) {
 			       $maxunit = MIN($technology->maxUnit($i), ($i % 10 == 0 ? $slots['settlers'] : $slots['chiefs']));
 
 echo "<tr><td class=\"desc\">

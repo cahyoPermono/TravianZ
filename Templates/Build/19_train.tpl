@@ -21,7 +21,7 @@
 
 global $session, $technology, $village, $database, $generator, $building, $bid19, $id, $unitsbytype;
 
-$tribe = (int)$session->tribe;
+$tribe = (int)($village->tribe ?? $session->tribe ?? 1);
 $units = ($tribe !== 4) ? range(($tribe-1)*10+1, $tribe*10) : range(31, 40);
 
 foreach ($units as $i) {

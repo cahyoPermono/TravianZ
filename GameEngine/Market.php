@@ -189,8 +189,9 @@ class Market
 
         // Merchant carry capacity
         // Capacitate negustor per trib: 1=500, 2=1000, 3=750, 6=500, 7=750, 8=500, 9=750
+        $vTribe = (int)($village->tribe ?? $session->tribe ?? 1);
         $carrymap = array(1 => 500, 2 => 1000, 3 => 750, 6 => 500, 7 => 750, 8 => 500, 9 => 750);
-        $this->maxcarry = isset($carrymap[$session->tribe]) ? $carrymap[$session->tribe] : 750;
+        $this->maxcarry = isset($carrymap[$vTribe]) ? $carrymap[$vTribe] : 750;
 
         $this->maxcarry *= TRADER_CAPACITY;
 
@@ -415,10 +416,11 @@ class Market
 
                 if ($database->getVillageState($id)) {
 
+                    $vTribe = (int)($village->tribe ?? $session->tribe ?? 1);
                     $timetaken = $generator->procDistanceTime(
                         $coor,
                         $village->coor,
-                        $session->tribe,
+                        $vTribe,
                         0
                     );
 
@@ -687,6 +689,7 @@ class Market
             exit;
         }
 
+        $vTribe = (int)($village->tribe ?? $session->tribe ?? 1);
         // Invalid offer
         if (
             ($infoarray['vref'] == $village->wid) ||
@@ -700,7 +703,7 @@ class Market
                 $generator->procDistanceTime(
                     $database->getCoor($infoarray['vref']),
                     $village->coor,
-                    $session->tribe,
+                    $vTribe,
                     0
                 )
             )
@@ -766,18 +769,22 @@ class Market
 
         $hiscoor = $database->getCoor($infoarray['vref']);
 
+        $vTribe = (int)($village->tribe ?? $session->tribe ?? 1);
         $mytime = $generator->procDistanceTime(
             $hiscoor,
             $village->coor,
-            $session->tribe,
+            $vTribe,
             0
         );
 
-        $targettribe = $database->getUserField(
-            $database->getVillageField($infoarray['vref'], 'owner'),
-            'tribe',
-            0
-        );
+        $targettribe = (int)$database->getVillageField($infoarray['vref'], 'tribe');
+        if ($targettribe <= 0) {
+            $targettribe = (int)$database->getUserField(
+                $database->getVillageField($infoarray['vref'], 'owner'),
+                'tribe',
+                0
+            );
+        }
 
         $histime = $generator->procDistanceTime(
             $village->coor,
@@ -839,10 +846,11 @@ class Market
 
             $targetcoor = $database->getCoor($value['vref']);
 
+            $vTribe = (int)($village->tribe ?? $session->tribe ?? 1);
             $duration = $generator->procDistanceTime(
                 $targetcoor,
                 $village->coor,
-                $session->tribe,
+                $vTribe,
                 0
             );
 

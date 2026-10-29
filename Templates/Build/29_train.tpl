@@ -22,8 +22,9 @@
 global $session, $technology, $village, $database, $building, $bid29, $generator, $id;
 
 global $unitsbytype;
-$start = ($session->tribe - 1) * 10 + 1;
-$end = $session->tribe * 10;
+$tribe = (int)($village->tribe ?? $session->tribe ?? 1);
+$start = ($tribe - 1) * 10 + 1;
+$end = $tribe * 10;
 $level = (int)$village->resarray['f'.$id];
 
 for ($i = $start; $i <= $end; $i++):

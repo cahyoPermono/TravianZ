@@ -335,13 +335,35 @@ trait DatabaseVillageQueries {
 	 * @return bool Returns true if the query was successful, false otherwise
 	 */
 	
-	function addVillage($wid, $uid, $username, $capital, $pop = 2, $villageName = null, $isNatar = 0) {
+    public function ensureVillageTribeColumn(): void {
+        static $checked = false;
+        if ($checked) return;
+        $checked = true;
+
+        if (!isset($this->dblink) || !$this->dblink) return;
+
+        $chk = @mysqli_query($this->dblink, "SHOW COLUMNS FROM `" . TB_PREFIX . "vdata` LIKE 'tribe'");
+        if ($chk && mysqli_num_rows($chk) === 0) {
+            @mysqli_query($this->dblink, "ALTER TABLE `" . TB_PREFIX . "vdata` ADD COLUMN `tribe` TINYINT(2) NOT NULL DEFAULT 0 AFTER `owner`");
+            @mysqli_query($this->dblink, "UPDATE `" . TB_PREFIX . "vdata` v JOIN `" . TB_PREFIX . "users` u ON v.owner = u.id SET v.tribe = u.tribe WHERE v.tribe = 0");
+        }
+    }
+
+	function addVillage($wid, $uid, $username, $capital, $pop = 2, $villageName = null, $isNatar = 0, $tribe = 0) {
+    $this->ensureVillageTribeColumn();
     $wid = (int)$wid;
     $uid = (int)$uid;
     $capital = (int)$capital;
     $pop = (int)$pop;
     $isNatar = (int)$isNatar;
     $username = trim($username);
+    $tribe = (int)$tribe;
+    if ($tribe <= 0) {
+        $tribe = (int)$this->getUserField($uid, 'tribe', 0);
+    }
+    if ($tribe <= 0) {
+        $tribe = 1;
+    }
 
     $total = count($this->getVillagesID($uid));
     if (empty($villageName)) {
@@ -354,12 +376,12 @@ trait DatabaseVillageQueries {
 
     $stmt = $this->dblink->prepare(
         "INSERT INTO `".TB_PREFIX."vdata` 
-        (wref, owner, name, capital, pop, cp, celebration, wood, clay, iron, maxstore, crop, maxcrop, lastupdate, created, natar) 
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+        (wref, owner, tribe, name, capital, pop, cp, celebration, wood, clay, iron, maxstore, crop, maxcrop, lastupdate, created, natar) 
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
     );
     $cp = 1; $celebration = 0; $wood = 750; $clay = 750; $iron = 750; $crop = 750;
-    $stmt->bind_param("iisiiiiiiiiiiiii", 
-        $wid, $uid, $villageName, $capital, $pop, $cp, $celebration, 
+    $stmt->bind_param("iiisiiiiiiiiiiiii", 
+        $wid, $uid, $tribe, $villageName, $capital, $pop, $cp, $celebration, 
         $wood, $clay, $iron, $storage, $crop, $storage, $time, $time, $isNatar
     );
     $result = $stmt->execute();
@@ -728,6 +750,7 @@ trait DatabaseVillageQueries {
     }
 
 	function getVillage($vid, $mode = 0, $use_cache = true) {
+        $this->ensureVillageTribeColumn();
 	    // first of all, check if we should be using cache and whether the field
         // required is already cached
         if ($use_cache && ($cachedValue = self::returnCachedContent(self::$villageFieldsCache, ((int) $vid).$mode)) && !is_null($cachedValue)) {
@@ -1182,6 +1205,7 @@ trait DatabaseVillageQueries {
         }
 
 		$q = "UPDATE " . TB_PREFIX . "fdata set ".implode(', ', $fieldValues)." where vref = " . $ref;
+		self::clearResourseLevelsCache();
 		return mysqli_query($this->dblink,$q);
 	}
 
@@ -2344,7 +2368,8 @@ trait DatabaseVillageQueries {
     $settlerslots = ($maxslots * 3) - ($chiefs * 3) - $settlers;
     $chiefslots   = $maxslots - $chiefs - floor(($settlers + 2) / 3);
 
-    if(!$technology->getTech(($session->tribe - 1) * 10 + 9)) {
+    $effectiveTribe = (int)($village->tribe ?? $session->tribe ?? 1);
+    if(!$technology->getTech(($effectiveTribe - 1) * 10 + 9)) {
         $chiefslots = 0;
     }
 
@@ -2357,7 +2382,7 @@ trait DatabaseVillageQueries {
     // no need to cache this method
 	function getArrayMemberVillage($uid) {
 	    list($uid) = $this->escape_input((int) $uid);
-		$q = 'SELECT a.wref, a.name, b.x, b.y from '.TB_PREFIX.'vdata AS a left join '.TB_PREFIX.'wdata AS b ON b.id = a.wref where owner = '.$uid.' ORDER BY name ASC';
+		$q = 'SELECT a.wref, a.name, a.tribe, b.x, b.y from '.TB_PREFIX.'vdata AS a left join '.TB_PREFIX.'wdata AS b ON b.id = a.wref where owner = '.$uid.' ORDER BY name ASC';
 		$result = mysqli_query($this->dblink,$q);
 		$array = $this->mysqli_fetch_all($result);
 		return $array;

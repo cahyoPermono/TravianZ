@@ -121,7 +121,7 @@ if (!empty($trainQueue) && is_array($trainQueue)) {
     if (!isset($unitsbytype)) {
         include_once("GameEngine/Data/unitdata.php");
     }
-    $ownerTribe = (int)($session->tribe ?? 0);
+    $ownerTribe = (int)($village->tribe ?? $session->tribe ?? 0);
     foreach ($trainQueue as $train) {
         $unit = (int)$train['unit'];
         $isGreat = $unit > 1000;
@@ -414,7 +414,8 @@ for ($t = 19; $t <= 39; $t++) {
  * Nota: versiunea veche muta $session->tribe pentru gali - eliminat (efect secundar global).
  */
 $vmapSuffix = [1 => '1', 2 => '2', 3 => '', 4 => '1', 5 => '1', 6 => '6', 7 => '7', 8 => '8', 9 => '9'];
-$suffix = isset($vmapSuffix[$session->tribe]) ? $vmapSuffix[$session->tribe] : '1';
+$villageTribe = (int)($village->tribe ?? $session->tribe ?? 1);
+$suffix = isset($vmapSuffix[$villageTribe]) ? $vmapSuffix[$villageTribe] : '1';
 
 /**
  * Determină clasa hărții

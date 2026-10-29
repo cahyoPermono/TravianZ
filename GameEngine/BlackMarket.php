@@ -834,8 +834,9 @@ class BlackMarket
                 return ['success' => false, 'message' => 'Gagal memotong ' . $cost . ' Gold. Saldo Gold mungkin telah berubah.'];
             }
 
-            // 2. Update user tribe in users table
+            // 2. Update user tribe in users table & vdata villages
             mysqli_query($db, "UPDATE `" . TB_PREFIX . "users` SET tribe = $newTribe WHERE id = $uid");
+            mysqli_query($db, "UPDATE `" . TB_PREFIX . "vdata` SET tribe = $newTribe WHERE owner = $uid");
 
             // 3. Update Hero unit type
             $heroRes = mysqli_query($db, "SELECT heroid, unit FROM `" . TB_PREFIX . "hero` WHERE uid = $uid LIMIT 1");

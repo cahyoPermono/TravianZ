@@ -23,7 +23,7 @@ global $village, $building, $session, $id;
 
 $level = (int)$village->resarray['f'.$id];
 $hasAcademy = $building->getTypeLevel(22) > 0;
-$tribe = (int)$session->tribe;
+$tribe = (int)($village->tribe ?? $session->tribe ?? 1);
 ?>
 <div id="build" class="gid22">
     <a href="#" onClick="return Popup(22,4);" class="build_logo">

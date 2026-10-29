@@ -43,7 +43,7 @@ $trainlist = $technology->getTrainingList(2);
                     <td><?php echo MAX;?></td>
                 </tr></thead>
                 <tbody>
-                    <?php if ($session->tribe!= 4) include("20_train.tpl");?>
+                    <?php if (((int)($village->tribe ?? $session->tribe)) != 4) include("20_train.tpl");?>
                 </tbody>
             </table>
             <p><input type="image" id="btn_train" class="dynamic_img" value="ok" name="s1" src="img/x.gif" alt="<?php echo TRAIN; ?>" /></p>

@@ -1128,11 +1128,13 @@ class Building {
 	 */
 	private function evaluateRequirements($gid, array $req) {
 
-    if (isset($req['tribe']) && !in_array($this->sess->tribe, $req['tribe'])) {
+    $effectiveTribe = (isset($this->vil->tribe) && $this->vil->tribe > 0) ? (int)$this->vil->tribe : (int)$this->sess->tribe;
+
+    if (isset($req['tribe']) && !in_array($effectiveTribe, $req['tribe'])) {
         return false;
     }
 
-    if (isset($req['notTribe']) && in_array($this->sess->tribe, $req['notTribe'])) {
+    if (isset($req['notTribe']) && in_array($effectiveTribe, $req['notTribe'])) {
         return false;
     }
 

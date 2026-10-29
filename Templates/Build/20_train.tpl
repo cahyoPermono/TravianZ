@@ -21,7 +21,7 @@
 
 global $session, $technology, $village, $database, $generator, $building, $bid20, $bid41, $id, $unitsbytype;
 
-$tribe = (int)$session->tribe;
+$tribe = (int)($village->tribe ?? $session->tribe ?? 1);
 $start = ($tribe - 1) * 10 + 1;
 $end = $tribe * 10;
 $success = 0;

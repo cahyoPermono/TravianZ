@@ -169,6 +169,39 @@ class BanditCamp {
                     WHERE wref = $wref
                 ");
             }
+
+            // Retrofit active camps that have alien troops outside Nature (e.g. u41..u100)
+            $u = $database->getUnit($wref, false);
+            if (!empty($u)) {
+                $hasAlien = false;
+                $transferredHarimau = 0;
+                $transferredGajah = 0;
+                for ($al = 41; $al <= 100; $al++) {
+                    if (!empty($u['u' . $al]) && (int)$u['u' . $al] > 0) {
+                        $hasAlien = true;
+                        $amt = (int)$u['u' . $al];
+                        if ($al == 42) {
+                            $transferredHarimau += $amt;
+                        } else {
+                            $transferredGajah += $amt;
+                        }
+                    }
+                }
+                if ($hasAlien) {
+                    $setAlienZero = [];
+                    for ($al = 41; $al <= 100; $al++) {
+                        $setAlienZero[] = "u{$al} = 0";
+                    }
+                    $alienSql = implode(', ', $setAlienZero);
+                    $database->query("
+                        UPDATE " . TB_PREFIX . "units
+                        SET u39 = u39 + $transferredHarimau,
+                            u40 = u40 + $transferredGajah,
+                            {$alienSql}
+                        WHERE vref = $wref
+                    ");
+                }
+            }
         }
     }
 
@@ -259,26 +292,10 @@ class BanditCamp {
     }
 
     /**
-     * Spawn a specific tier Bandit Camp.
+     * Get profiles configuration for all Bandit Camp tiers.
      */
-    public static function spawnCamp(int $tier): ?array {
-        global $database;
-
-        self::ensureTable();
-        $banditUser = self::getBanditUser();
-        $banditUid = (int)$banditUser['id'];
-
-        // Pick location near an active player village
-        $tile = self::findFreeTileNearPlayers();
-        if (!$tile) {
-            return null;
-        }
-
-        $wref = (int)$tile['id'];
-        $fieldtype = (int)$tile['fieldtype'];
-
-        // Camp Tier Profiles (Balanced for Travian 1x Server with Rich Rewards)
-        $profiles = [
+    public static function getTierProfiles(): array {
+        return [
             self::TIER_OUTPOST => [
                 'names' => [
                     'Sarang Penyamun Rimba',
@@ -329,12 +346,13 @@ class BanditCamp {
                 ],
                 'pop' => 125,
                 'troops' => [
-                    34 => rand(100, 180), // Srigala
-                    35 => rand(120, 200), // Beruang
-                    36 => rand(60, 100),  // Buaya
-                    37 => rand(80, 140),  // Harimau
-                    38 => rand(30, 60),   // Gajah Liar
-                    42 => rand(80, 150),  // Desertir Natar
+                    34 => rand(100, 180), // Kelelawar
+                    35 => rand(120, 200), // Babi Hutan
+                    36 => rand(60, 100),  // Srigala
+                    37 => rand(80, 140),  // Beruang
+                    38 => rand(30, 60),   // Buaya
+                    39 => rand(60, 120),  // Harimau
+                    40 => rand(25, 50),   // Gajah Liar
                 ],
                 'bounty' => rand(28000, 45000),
                 'exp' => 7500,
@@ -350,13 +368,12 @@ class BanditCamp {
                 ],
                 'pop' => 280,
                 'troops' => [
-                    35 => rand(400, 700),   // Beruang
-                    36 => rand(300, 500),   // Buaya
-                    37 => rand(500, 900),   // Harimau
-                    38 => rand(300, 600),   // Gajah Purba
-                    42 => rand(400, 700),   // Natar Swordsman
-                    43 => rand(300, 500),   // Natar Guard
-                    46 => rand(150, 300),   // Natar Heavy Cav
+                    35 => rand(400, 700),   // Babi Hutan
+                    36 => rand(300, 500),   // Srigala
+                    37 => rand(500, 900),   // Beruang
+                    38 => rand(300, 600),   // Buaya
+                    39 => rand(450, 800),   // Harimau Siluman
+                    40 => rand(250, 500),   // Gajah Purba Raksasa
                 ],
                 'bounty' => rand(90000, 150000),
                 'exp' => 28000,
@@ -364,7 +381,28 @@ class BanditCamp {
                 'silver' => 4000,
             ],
         ];
+    }
 
+    /**
+     * Spawn a specific tier Bandit Camp.
+     */
+    public static function spawnCamp(int $tier): ?array {
+        global $database;
+
+        self::ensureTable();
+        $banditUser = self::getBanditUser();
+        $banditUid = (int)$banditUser['id'];
+
+        // Pick location near an active player village
+        $tile = self::findFreeTileNearPlayers();
+        if (!$tile) {
+            return null;
+        }
+
+        $wref = (int)$tile['id'];
+        $fieldtype = (int)$tile['fieldtype'];
+
+        $profiles = self::getTierProfiles();
         $p = $profiles[$tier] ?? $profiles[self::TIER_OUTPOST];
         $campName = $p['names'][array_rand($p['names'])];
         $pop = (int)$p['pop'];
@@ -517,7 +555,7 @@ class BanditCamp {
         if ($totalRemaining === 0) {
             $userRes = $database->query_return("SELECT username FROM " . TB_PREFIX . "users WHERE id = $attackerUid LIMIT 1");
             $conquerorName = !empty($userRes[0]['username']) ? $userRes[0]['username'] : 'Prajurit Sekutu';
-            return self::rewardAndClearCamp($camp, $attackerUid, $conquerorName);
+            return self::rewardAndClearCamp($camp, $attackerUid, $conquerorName, $attackerWref);
         }
 
         return null;
@@ -526,7 +564,7 @@ class BanditCamp {
     /**
      * Reward the conqueror, notify, and remove the camp from the world map.
      */
-    public static function rewardAndClearCamp(array $camp, int $conquerorUid, string $conquerorName = ''): array {
+    public static function rewardAndClearCamp(array $camp, int $conquerorUid, string $conquerorName = '', int $attackerWref = 0): array {
         global $database;
 
         $wref = (int)$camp['wref'];
@@ -535,6 +573,13 @@ class BanditCamp {
         $cpBonus = (int)$camp['reward_cp'];
         $silverBonus = (int)$camp['reward_silver'];
         $time = time();
+
+        // 0. Fetch remaining unlooted resources before camp deletion
+        $remRes = $database->query_return("SELECT wood, clay, iron, crop FROM " . TB_PREFIX . "vdata WHERE wref = $wref LIMIT 1");
+        $remWood = max(0, (int)round($remRes[0]['wood'] ?? 0));
+        $remClay = max(0, (int)round($remRes[0]['clay'] ?? 0));
+        $remIron = max(0, (int)round($remRes[0]['iron'] ?? 0));
+        $remCrop = max(0, (int)round($remRes[0]['crop'] ?? 0));
 
         // 1. Award rewards to conqueror
         if ($conquerorUid > 0) {
@@ -552,11 +597,28 @@ class BanditCamp {
                 WHERE id = $conquerorUid
             ");
 
+            // Transfer all remaining camp spoils into conqueror village
+            $targetVil = $attackerWref > 0 ? $attackerWref : (int)$database->getVillageID($conquerorUid);
+            if ($targetVil > 0 && ($remWood > 0 || $remClay > 0 || $remIron > 0 || $remCrop > 0)) {
+                $database->query("
+                    UPDATE " . TB_PREFIX . "vdata
+                    SET wood = wood + $remWood,
+                        clay = clay + $remClay,
+                        iron = iron + $remIron,
+                        crop = crop + $remCrop
+                    WHERE wref = $targetVil
+                ");
+            }
+
             // Notice / In-game report
             $tierLabel = self::getTierLabel((int)$camp['tier']);
             $topic = "🏆 [KEMENANGAN] {$camp['name']} Berhasil Dihancurkan!";
+            $bonusSpoils = "";
+            if ($remWood > 0 || $remClay > 0 || $remIron > 0 || $remCrop > 0) {
+                $bonusSpoils = " Sisa rampasan gudang bandit (+" . number_format($remWood) . " Kayu, +" . number_format($remClay) . " Liat, +" . number_format($remIron) . " Besi, +" . number_format($remCrop) . " Gandum) telah diangkut ke desamu!";
+            }
             $noticeData = "Selamat! Pasukanmu berhasil menumpas seluruh penjaga di {$camp['name']} ({$tierLabel}). " .
-                          "Hadiah Kemenangan: +{$expBonus} Hero EXP, +{$cpBonus} CP, +{$silverBonus} Silver.";
+                          "Hadiah Kemenangan: +{$expBonus} Hero EXP, +{$cpBonus} CP, +{$silverBonus} Silver." . $bonusSpoils;
 
             $database->addNotice($conquerorUid, $wref, 0, 1, $topic, $noticeData, $time);
         }

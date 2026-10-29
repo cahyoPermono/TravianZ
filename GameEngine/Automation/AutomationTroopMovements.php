@@ -349,7 +349,11 @@ trait AutomationTroopMovements {
 			$taken = $database->getVillageState($data['to']);
 			if($taken != 1){
 				$fieldIDs[] = $data['to'];
-				$database->addVillage($data['to'], $to['owner'], $user, '0');
+                $settlerOriginTribe = (int)$database->getVillageField($data['from'], 'tribe');
+                if ($settlerOriginTribe <= 0) {
+                    $settlerOriginTribe = (int)$database->getUserField($to['owner'], 'tribe', 0);
+                }
+				$database->addVillage($data['to'], $to['owner'], $user, '0', 2, null, 0, $settlerOriginTribe);
 				$database->addResourceFields($data['to'], $database->getVillageType($data['to']));
                 $addUnitsWrefs[] = $data['to'];
                 $addTechWrefs[] = $data['to'];

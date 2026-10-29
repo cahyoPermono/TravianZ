@@ -2241,6 +2241,7 @@ ALTER TABLE `%PREFIX%users` AUTO_INCREMENT=6;
 CREATE TABLE IF NOT EXISTS `%PREFIX%vdata` (
 `wref` int(11) NOT NULL,
 `owner` int(11) NULL,
+`tribe` tinyint(2) NOT NULL DEFAULT '0',
 `name` varchar(100) NULL,
 `capital` tinyint(1) NULL,
 `pop` int(11) NULL,

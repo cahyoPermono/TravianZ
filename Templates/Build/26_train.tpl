@@ -39,12 +39,13 @@ if ($totalSlots > 0): ?>
         </thead>
         <tbody>
         <?php
-        $start = ($session->tribe - 1) * 10 + 9;
-        $end = $session->tribe * 10;
+        $trainTribe = (int)($village->tribe ?? $session->tribe ?? 1);
+        $start = ($trainTribe - 1) * 10 + 9;
+        $end = $trainTribe * 10;
         
         for ($i = $start; $i <= $end; $i++):
             $isSettler = ($i % 10 === 0);
-            $isChief = ($i % 10 === 9 && $session->tribe != 4);
+            $isChief = ($i % 10 === 9 && $trainTribe != 4);
             
             if (($isSettler && $slots['settlers'] > 0) || ($isChief && $slots['chiefs'] > 0)):
                 $unitName = $technology->getUnitName($i);

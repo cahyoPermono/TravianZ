@@ -726,7 +726,19 @@ trait AutomationBattleResolution {
             $database->claimArtefact($data['to'], $data['to'], $database->getVillageField($data['from'], 'owner'));
         }
 
-        $database->setVillageFields($data['to'], ['loyalty', 'owner'], [0, $database->getVillageField($data['from'], 'owner')]);
+        $targetVillageTribe = (int)$database->getVillageField($data['to'], 'tribe');
+        $chiefOriginTribe = (int)$database->getVillageField($data['from'], 'tribe');
+        if ($chiefOriginTribe <= 0) {
+            $chiefOriginTribe = (int)$database->getUserField($database->getVillageField($data['from'], 'owner'), 'tribe', 0);
+        }
+
+        // Keep Tribe on Conquest mechanics:
+        // 1. Conquering a Natar village: makes it part of the tribe of your chief's village.
+        // 2. Conquering a player village: keeps its original village tribe and tribe-specific buildings.
+        $isNatarConquest = ($targettribe == 5 || (int)($to['owner'] ?? 0) == 3);
+        $conqueredVillageTribe = $isNatarConquest ? $chiefOriginTribe : ($targetVillageTribe > 0 ? $targetVillageTribe : $targettribe);
+
+        $database->setVillageFields($data['to'], ['loyalty', 'owner', 'tribe'], [0, $database->getVillageField($data['from'], 'owner'), $conqueredVillageTribe]);
 		
 		// Milestones: first WW village ever conquered, and — separately —
         // first village ever conquered FROM ANOTHER PLAYER (not from
@@ -766,34 +778,27 @@ trait AutomationBattleResolution {
         $newLevels_fieldNames  = [];
         $newLevels_fieldValues = [];
 
-        $AttackerID = $database->getVillageField($data['from'], 'owner');
-        $DefenderID = $database->getVillageField($data['to'],  'owner');
+        $AttackerID = (int)$database->getVillageField($data['from'], 'owner');
+        $DefenderID = (int)($to['owner'] ?? $database->getVillageField($data['to'], 'owner'));
         $poparray   = $database->getVSumField([$AttackerID, $DefenderID], 'pop');
-        $pop1 = $poparray[0]['Total'];
-        $pop2 = $poparray[1]['Total'];
+        $popMap = [];
+        foreach ($poparray as $pRow) {
+            $popMap[(int)$pRow['owner']] = (int)$pRow['Total'];
+        }
+        $pop1 = $popMap[$AttackerID] ?? 0;
+        $pop2 = $popMap[$DefenderID] ?? 0;
 
         if ($pop1 > $pop2 && $targettribe != 5) {
             $buildlevel = $database->getResourceLevel($data['to']);
             for ($i = 1; $i <= 39; $i++) {
                 if ($buildlevel['f' . $i] != 0) {
-                    if ($buildlevel['f' . $i . 't'] != 35 && $buildlevel['f' . $i . 't'] != 36 && $buildlevel['f' . $i . 't'] != 41) {
-                        // Main Building (gid 15) nu poate cobori sub nivel 1: satul trebuie
-                        // sa ramana locuibil dupa cucerire (altfel pop 0 + nicio cladire).
-                        $minLevel = ($buildlevel['f' . $i . 't'] == 15) ? 1 : 0;
-                        $leveldown = $buildlevel['f' . $i] - 1;
-                        if ($leveldown < $minLevel) $leveldown = $minLevel;
-                        $newLevels_fieldNames[]  = 'f' . $i;
-                        $newLevels_fieldValues[] = $leveldown;
-                        // sterge tipul cladirii DOAR daca a ajuns efectiv la 0
-                        // (bug vechi: "!$leveldown > 0" era mereu adevarat pt leveldown==0,
-                        //  deci stergea tipul si cand cladirea cobora la nivel 1)
-                        if ($leveldown <= 0) {
-                            $newLevels_fieldNames[]  = 'f' . $i . 't';
-                            $newLevels_fieldValues[] = 0;
-                        }
-                    } else {
-                        $newLevels_fieldNames[]  = 'f' . $i;
-                        $newLevels_fieldValues[] = 0;
+                    // Main Building (gid 15) nu poate cobori sub nivel 1
+                    $minLevel = ($buildlevel['f' . $i . 't'] == 15) ? 1 : 0;
+                    $leveldown = $buildlevel['f' . $i] - 1;
+                    if ($leveldown < $minLevel) $leveldown = $minLevel;
+                    $newLevels_fieldNames[]  = 'f' . $i;
+                    $newLevels_fieldValues[] = $leveldown;
+                    if ($leveldown <= 0) {
                         $newLevels_fieldNames[]  = 'f' . $i . 't';
                         $newLevels_fieldValues[] = 0;
                     }
@@ -805,11 +810,13 @@ trait AutomationBattleResolution {
             }
         }
 
-        // destroy wall
+        // destroy wall level, but set f40t to the village tribe wall type
+        $wallMap = [1 => 31, 2 => 32, 3 => 33, 4 => 32, 5 => 31, 6 => 43, 7 => 42, 8 => 47, 9 => 50, 10 => 32];
+        $newWallType = $wallMap[$conqueredVillageTribe] ?? 31;
         $newLevels_fieldNames[]  = 'f40';
         $newLevels_fieldValues[] = 0;
         $newLevels_fieldNames[]  = 'f40t';
-        $newLevels_fieldValues[] = 0;
+        $newLevels_fieldValues[] = $newWallType;
 
         $database->clearExpansionSlot($data['to'], 1);
 
@@ -1389,6 +1396,20 @@ trait AutomationBattleResolution {
                 $unitModifications_units[] = $i;
                 $unitModifications_amounts[] = $owndead[$i];
                 $unitModifications_modes[] = 0;
+            }
+        }
+
+        // Safeguard: Ensure ANY defending unit present in units table (even outside village primary tribe)
+        // takes proportional casualties so no unit can ever become permanently immortal.
+        for ($i = 1; $i <= 100; $i++) {
+            if ($i >= $start && $i <= $end) continue;
+            if (!empty($unitlist['u'.$i]) && (int)$unitlist['u'.$i] > 0) {
+                $extraLoss = (int)round($battlepart[2] * $unitlist['u'.$i]);
+                if ($extraLoss > 0) {
+                    $unitModifications_units[] = $i;
+                    $unitModifications_amounts[] = $extraLoss;
+                    $unitModifications_modes[] = 0;
+                }
             }
         }
 
@@ -2014,7 +2035,8 @@ trait AutomationBattleResolution {
         // handles this case correctly - it just needs to survive getting there without
         // warnings, so null-coalesce each read here; values stay null exactly as before.
         $DefenderID = $DefenderUserData["id"] ?? null;
-        $targettribe = $DefenderUserData["tribe"] ?? null;
+        $vilTribe = (int)$database->getVillageField($data['to'], "tribe");
+        $targettribe = ($vilTribe > 0) ? $vilTribe : ($DefenderUserData["tribe"] ?? null);
         if (!$this->isValidBattleTribe($targettribe)) {
             $defUnitsRow = $database->getUnit($data['to'], false);
             $detectedTribe = null;
@@ -3492,6 +3514,7 @@ trait AutomationBattleResolution {
                         $data2 .= ',DEFBANDAGE:' . (int)$totalDefHealed;
                     }
 
+                    $defspy = !empty($defspy);
                     // notify the defender of the incoming battle/scout — extracted to sendBattleNotifications() [#155]
                     $this->sendBattleNotifications($scout, $battlepart, $from, $to, $targetally, $data2, $AttackArrivalTime, $unitsdead_att, $unitssend_att, $defspy, $info_troop, $totalsend_alldef, $totalsend_att, $totaldead_att, $totaltraped_att, $totaldead_alldef);
                     // surviving attacker troops return (report + movement + loot/RR/enforce) or die — extracted to finalizeReturnOrDeath() [#155]

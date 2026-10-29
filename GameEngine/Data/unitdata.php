@@ -127,7 +127,7 @@ $u97=array('atk'=>60,'di'=>30,'dc'=>85,'wood'=>960,'clay'=>420,'iron'=>480,'crop
 $u98=array('atk'=>70,'di'=>55,'dc'=>10,'wood'=>940,'clay'=>1300,'iron'=>650,'crop'=>85,'pop'=>6,'speed'=>3,'time'=>9000,'cap'=>0);
 $u99_nusantara=array('atk'=>45,'di'=>50,'dc'=>40,'wood'=>35000,'clay'=>28000,'iron'=>27000,'crop'=>30000,'pop'=>4,'speed'=>5,'time'=>85000,'cap'=>0);
 $u99_trap=array('atk'=>0,'di'=>0,'dc'=>0,'wood'=>20,'clay'=>30,'iron'=>10,'crop'=>20,'speed'=>0,'pop'=>0,'time'=>600,'cap'=>0);
-$u99=(isset($session->tribe) && $session->tribe == 3) ? $u99_trap : $u99_nusantara;
+$u99=((isset($village->tribe) && $village->tribe == 3) || (isset($session->tribe) && $session->tribe == 3)) ? $u99_trap : $u99_nusantara;
 $u100=array('atk'=>10,'di'=>80,'dc'=>80,'wood'=>5500,'clay'=>5600,'iron'=>6200,'crop'=>5000,'pop'=>1,'speed'=>5,'time'=>27000,'cap'=>3000);
 // Hero data base values and increase per point
 $h1=array('atk'=>50,'atkp'=>54,'di'=>60,'dip'=>49,'dc'=>85,'dcp'=>62.5);

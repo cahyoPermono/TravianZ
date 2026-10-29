@@ -263,7 +263,7 @@ class Units {
     private function validateTroopSelection($post) {
         global $village, $session;
 
-        $tribe = (int)$session->tribe;
+        $tribe = (int)($village->tribe ?? $session->tribe ?? 1);
         for($i = 1; $i <= 11; $i++){
             if(isset($post['t'.$i])){
                 if($i <= 10) {
@@ -733,7 +733,7 @@ class Units {
         global $form, $database, $village, $session;
 
         $data = $database->getA2b($post['timestamp_checksum']);
-        $tribe = (int)$session->tribe;
+        $tribe = (int)($village->tribe ?? $session->tribe ?? 1);
 
         /**
          * A DOUA verificare, cea care conteaza cu adevarat.
@@ -804,7 +804,7 @@ class Units {
                 exit;
             }
 
-            $u = ($session->tribe == 1) ? "" : $session->tribe - 1;
+            $u = ($tribe == 1) ? "" : ($tribe - 1);
             
             $database->modifyUnit(
                 $village->wid,
@@ -818,7 +818,7 @@ class Units {
                     $u . "7",
                     $u . "8",
                     $u . "9",
-                    $session->tribe . "0",
+                    $tribe . "0",
                     "hero"
                 ],
                 [
@@ -837,7 +837,7 @@ class Units {
                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
                 );
             
-            $troopsTime = $this->getWalkingTroopsTime($village->wid, $data['to_vid'], $session->uid, $session->tribe, $data, 1, 'u');
+            $troopsTime = $this->getWalkingTroopsTime($village->wid, $data['to_vid'], $session->uid, $tribe, $data, 1, 'u');
             $time = $database->getArtifactsValueInfluence($session->uid, $village->wid, 2, $troopsTime);
             
             $this->resolveCatapultTargets($post, $data);
@@ -1150,7 +1150,7 @@ class Units {
         $rallypoint = $database->getResourceLevel($village->wid);
         $rpLevel = (isset($rallypoint['f39']) && is_numeric($rallypoint['f39'])) ? (int)$rallypoint['f39'] : 0;
 
-        $tribe = isset($session->tribe) ? (int)$session->tribe : 1;
+        $tribe = isset($village->tribe) && $village->tribe > 0 ? (int)$village->tribe : (isset($session->tribe) ? (int)$session->tribe : 1);
         $settlerKey = 'u' . $tribe . '0';
         $settlerCount = isset($village->unitarray[$settlerKey]) ? (int)$village->unitarray[$settlerKey] : 0;
 
@@ -1495,9 +1495,11 @@ class Units {
 			
 			if($userAccess != 0 && !($userAccess == MULTIHUNTER && $userID == 5) && ($userAccess != ADMIN || (ADMIN_ALLOW_INCOMING_RAIDS && $userAccess == ADMIN))){
 				
-				//Start = the first troop of the player's tribe
-				//End =  the last selectable troop of the player's tribe
-				$start = ($session->tribe - 1) * 10 + 1;
+				$flVillageTribe = (int)$database->getVillageField($getFLData['wref'], 'tribe');
+				if ($flVillageTribe <= 0) {
+					$flVillageTribe = (int)$session->tribe;
+				}
+				$start = ($flVillageTribe - 1) * 10 + 1;
 				$end = $start + 5; 
 				
 				//Check if we've enough troops
@@ -1515,7 +1517,7 @@ class Units {
 					$id = $database->addA2b($ckey, 0, $wref, $t1, $t2, $t3, $t4, $t5, $t6, 0, 0, 0, 0, 0, 4);
 					$data = $database->getA2b($ckey);
 					
-					$troopsTime = $this->getWalkingTroopsTime($getFLData['wref'], $data['to_vid'], $session->uid, $session->tribe, $data, 1, 'u');
+					$troopsTime = $this->getWalkingTroopsTime($getFLData['wref'], $data['to_vid'], $session->uid, $flVillageTribe, $data, 1, 'u');
 					$time = $database->getArtifactsValueInfluence($getFLData['owner'], $getFLData['wref'], 2, $troopsTime);
 
 					$abdata = $database->getABTech($getFLData['wref']);

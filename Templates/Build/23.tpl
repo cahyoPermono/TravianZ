@@ -23,7 +23,7 @@ global $session, $village, $database, $bid23, $id, $loopsame, $doublebuild, $mas
 
 include("next.tpl");
 
-$multiplier = (($session->tribe == 3) ? 2 : 1) * CRANNY_CAPACITY;
+$multiplier = (((int)($village->tribe ?? $session->tribe) == 3) ? 2 : 1) * CRANNY_CAPACITY;
 $actualLevel = (int)$village->resarray['f'.$id];
 $level = min($actualLevel + 1 + $loopsame + $doublebuild + $master, 10);
 

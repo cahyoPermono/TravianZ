@@ -33,7 +33,7 @@
  * a2b.php, dar acum doar apeleaza acest sablon.
  */
 
-$a2bTribe = isset($session->tribe) ? (int) $session->tribe : 1;
+$a2bTribe = isset($village->tribe) && $village->tribe > 0 ? (int)$village->tribe : (isset($session->tribe) ? (int)$session->tribe : 1);
 
 if ($a2bTribe < 1 || $a2bTribe > 10) {
     $a2bTribe = 1;

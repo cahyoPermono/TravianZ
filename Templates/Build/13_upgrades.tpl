@@ -25,8 +25,9 @@ $totalUps = count($ABups);
 $armouryLevel = $building->getTypeLevel(13);
 $arAttri = $bid13[$armouryLevel]['attri'] / 100;
 
-$start = $session->tribe * 10 - 9;
-$end = $session->tribe * 10 - 2;
+$effectiveTribe = (int)($village->tribe ?? $session->tribe ?? 1);
+$start = $effectiveTribe * 10 - 9;
+$end = $effectiveTribe * 10 - 2;
 ?>
 <table cellpadding="1" cellspacing="1" class="build_details">
     <thead>
@@ -141,7 +142,7 @@ $end = $session->tribe * 10 - 2;
         $count++;
         $ABUnit = (int)substr($arms['tech'], 1, 2);
         $abdata['a'.$ABUnit]++;
-        $unit = ($session->tribe - 1) * 10 + $ABUnit;
+        $unit = ($effectiveTribe - 1) * 10 + $ABUnit;
         $unitName = $technology->getUnitName($unit);
         $date = $generator->procMtime($arms['timestamp']);
  ?>

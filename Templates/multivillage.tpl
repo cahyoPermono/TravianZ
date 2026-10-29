@@ -170,6 +170,12 @@ if (count($session->villages) > 1) {
         $villageUrl =
             '?newdid=' . $villageWref . $extraParams;
 
+        $vTribe = (int)($villageData['tribe'] ?? 0);
+        if ($vTribe <= 0) {
+            $vTribe = (int)($session->tribe ?? 1);
+        }
+        $tribeNames = [1 => 'Rom', 2 => 'Teu', 3 => 'Gau', 4 => 'Nat', 5 => 'Nat', 6 => 'Hun', 7 => 'Egy', 8 => 'Vkg', 9 => 'Nus', 10 => 'Mon'];
+        $tribeBadge = isset($tribeNames[$vTribe]) ? '<span style="font-size:9px;color:#888;font-weight:normal;margin-right:3px;">[' . $tribeNames[$vTribe] . ']</span>' : '';
 ?>
         <tr>
 
@@ -179,7 +185,7 @@ if (count($session->villages) > 1) {
 
             <td class="link">
                 <a href="<?php echo $villageUrl; ?>">
-                    <?php echo htmlspecialchars($villageName, ENT_QUOTES, 'UTF-8'); ?>
+                    <?php echo $tribeBadge . htmlspecialchars($villageName, ENT_QUOTES, 'UTF-8'); ?>
                 </a>
             </td>
 

@@ -67,7 +67,8 @@ $makeshiftwall = $building->getTypeLevel(43);
 $commandcenter = $building->getTypeLevel(44);
 // FIX (confirmat): Hunii au Command Center in loc de Palace - echivalentul
 // folosit de cerinta Stonemason (Palace >= 3, respectiv CC >= 3 la tribul 6)
-$palaceEquiv = ($session->tribe == 6 ? $commandcenter : $palace);
+$vTribe = (int)($village->tribe ?? $session->tribe ?? 1);
+$palaceEquiv = ($vTribe == 6 ? $commandcenter : $palace);
 $waterworks = $building->getTypeLevel(45);
 $hospital = $building->getTypeLevel(46);
 $defensivewall = $building->getTypeLevel(47);
@@ -147,34 +148,34 @@ if((($granary == 0 && $granary1 == 0) || $granary == 20) && $mainbuilding >= 1 &
     include("avaliable/granary.tpl");
 }
 if($wall == 0 && $wall1 == 0) {
-    if($session->tribe == 1 && $id == 40) {
+    if($vTribe == 1 && $id == 40) {
         include("avaliable/citywall.tpl");
     }
-    if($session->tribe == 2 && $id == 40) {
+    if($vTribe == 2 && $id == 40) {
         include("avaliable/earthwall.tpl");
     }
-    if($session->tribe == 3 && $id == 40) {
+    if($vTribe == 3 && $id == 40) {
         include("avaliable/palisade.tpl");
     }
-    if($session->tribe == 4 && $id == 40) {
+    if($vTribe == 4 && $id == 40) {
         include("avaliable/earthwall.tpl");
     }
-    if($session->tribe == 5 && $id == 40) {
+    if($vTribe == 5 && $id == 40) {
         include("avaliable/citywall.tpl");
     }
-    if($session->tribe == 6 && $id == 40) {
+    if($vTribe == 6 && $id == 40) {
         include("avaliable/makeshiftwall.tpl");
     }
-    if($session->tribe == 7 && $id == 40) {
+    if($vTribe == 7 && $id == 40) {
         include("avaliable/stonewall.tpl");
     }
-    if($session->tribe == 8 && $id == 40) {
+    if($vTribe == 8 && $id == 40) {
         include("avaliable/defensivewall.tpl");
     }
-    if($session->tribe == 9 && $id == 40) {
+    if($vTribe == 9 && $id == 40) {
         include("avaliable/barricade.tpl");
     }
-    if($session->tribe == 10 && $id == 40) {
+    if($vTribe == 10 && $id == 40) {
         include("avaliable/earthwall.tpl");
     }
 }

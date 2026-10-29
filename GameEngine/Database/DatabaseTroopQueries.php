@@ -590,7 +590,10 @@ trait DatabaseTroopQueries {
 			$baseUnit = $isGreat ? $unit - 1000 : $unit;
 
 			$uid = $this->getVillageField($vid, "owner");
-			$ownerTribe = (isset($session->tribe) && isset($session->uid) && $session->uid == $uid) ? (int)$session->tribe : (int)$this->getUserField($uid, "tribe", 0);
+			$ownerTribe = (int)$this->getVillageField($vid, "tribe");
+			if ($ownerTribe <= 0) {
+				$ownerTribe = (isset($session->tribe) && isset($session->uid) && $session->uid == $uid) ? (int)$session->tribe : (int)$this->getUserField($uid, "tribe", 0);
+			}
 
 			if($baseUnit == 99 && $ownerTribe == 3) $queued = $technology->getTrainingList(8);
 			elseif(in_array($baseUnit, $unitsbytype['expansion'])) $queued = $technology->getTrainingList(4);

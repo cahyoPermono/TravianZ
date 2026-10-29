@@ -152,6 +152,8 @@ include("Templates/menu.tpl");
 <div id="content" class="a2b">
 <?php
 
+$sendTribe = (int)($village->tribe ?? $session->tribe ?? 1);
+
 if(!empty($id)){
 	include ("Templates/a2b/newdorf.tpl");
 }else if(isset($w)){
@@ -161,7 +163,7 @@ if(!empty($id)){
 		$ckey = $w;
 		include("Templates/a2b/sendback.tpl");
 	}else{
-		include("Templates/a2b/units_".$session->tribe.".tpl");
+		include("Templates/a2b/units_".$sendTribe.".tpl");
 		include("Templates/a2b/search.tpl");
 	}
 }else if(isset($r)){
@@ -172,7 +174,7 @@ if(!empty($id)){
 		$ckey = $r;
 		include("Templates/a2b/sendback.tpl");
 	}else{
-		include ("Templates/a2b/units_".$session->tribe.".tpl");
+		include ("Templates/a2b/units_".$sendTribe.".tpl");
 		include("Templates/a2b/search.tpl");
 	}
 }else if(isset($delprisoners)){
@@ -192,7 +194,7 @@ else{
 		$coor = $database->getCoor($process['0']);
 		include("Templates/a2b/attack.tpl");
 	}else{
-		include("Templates/a2b/units_".$session->tribe.".tpl");
+		include("Templates/a2b/units_".$sendTribe.".tpl");
 		include("Templates/a2b/search.tpl");
 	}
 }

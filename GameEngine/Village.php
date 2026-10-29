@@ -45,7 +45,7 @@ class Village {
 	public $type;
 	public $coor = [];
 	public $awood, $aclay, $airon, $acrop, $pop, $maxstore, $maxcrop, $atotal;
-	public $wid, $vname, $capital, $natar, $master;
+	public $wid, $vname, $capital, $natar, $master, $tribe;
 	public $resarray = [];
 	public $unitarray, $techarray, $unitall, $researching, $abarray = [];
 	public $enforcetome = [];
@@ -211,6 +211,7 @@ class Village {
 		// (wref == wid), but it masked any wrong row coming from the cache. wid stays
 		// the source of truth.
 		$this->vname = $this->infoarray['name'];
+		$this->tribe = !empty($this->infoarray['tribe']) ? (int)$this->infoarray['tribe'] : (int)$this->sess->tribe;
 
 		$this->awood = $this->infoarray['wood'];
 		$this->aclay = $this->infoarray['clay'];
