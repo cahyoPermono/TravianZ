@@ -742,12 +742,15 @@ class BotAI {
         // Hitung batas pertahanan garnisun rumah (Home Garrison Reserve)
         $homeReserve = self::getHomeReserve($pop);
 
-        // Rasio pasukan realistis terhadap populasi (default 1.25x atau 125% dari populasi)
+        // Rasio pasukan realistis terhadap populasi (default 1.25x atau sesuai konfigurasi admin)
         $popFactor = (float)self::getConfig('BOT_AI_TROOP_POP_FACTOR', 1.25);
         $popArmyCap = max(8, (int)round($pop * $popFactor));
 
-        // Batas maksimal pasukan berdasarkan umur bot
-        $ageArmyCap = (int)round(25 + ($effectiveAgeDays * 65));
+        // Batas maksimal pasukan berdasarkan umur bot & kematangan desa
+        $ageArmyCap = (int)round(50 + ($effectiveAgeDays * 120));
+        // Jika desa sudah berkembang (pop >= 200), jangan kerdilkan pasukan dengan age cap yang terlalu lambat
+        $scaledMinCap = ($pop >= 200) ? (int)round($pop * min(1.0, $popFactor)) : 30;
+        $ageArmyCap = max($scaledMinCap, $ageArmyCap);
         $maxTroops = min($ageArmyCap, $popArmyCap);
         // Pastikan batas maksimal pasukan mencukupi home reserve + surplus tempur, dibatasi BOT_AI_MAX_ARMY
         $adminMaxArmy = (int)self::getConfig('BOT_AI_MAX_ARMY', 2500);
@@ -1937,8 +1940,8 @@ class BotAI {
             return null;
         }
 
-        // Feature toggle (default: true)
-        if (defined('BOT_AI_ALLIANCE_DEFENSE_ENABLED') && !BOT_AI_ALLIANCE_DEFENSE_ENABLED) {
+        // Feature toggle (default: true, configurable via Admin GUI)
+        if (!self::getConfig('BOT_AI_ALLIANCE_DEFENSE_ENABLED', true)) {
             return null;
         }
 
@@ -1967,12 +1970,30 @@ class BotAI {
         }
         $homeUnits = $res[0];
 
-        // Group available troops by role (prioritize defensive units)
-        // For Gauls (tribe 3), basic unit 21 (Phalanx) is their primary defender (40 inf / 50 cav def)
-        $defensiveRoles = ($tribe === 3)
-            ? ['basic', 'inf_def', 'cav_def']
-            : ['inf_def', 'cav_def', 'basic'];
-        $secondaryRoles = ['inf_adv', 'cav_heavy', 'cav_light'];
+        // Group available troops by role (prioritize genuine defensive specialists)
+        $pureDefOnly = (bool)self::getConfig('BOT_AI_DEFENSE_PURE_DEF_ONLY', true);
+
+        // Specialist defense roles per tribe (primary defenders)
+        $specialistDefRoles = [
+            1  => ['inf_def', 'basic', 'cav_heavy'],          // Praetorian, Legionnaire, Caesaris
+            2  => ['inf_def', 'cav_light'],                   // Spearman, Paladin (EXCLUDES Clubswinger & Axeman!)
+            3  => ['basic', 'cav_def', 'cav_heavy'],          // Phalanx, Druidrider, Haeduan
+            6  => ['inf_adv', 'cav_light'],                   // Bowman, Steppe Rider
+            7  => ['inf_def', 'basic', 'cav_light'],          // Ash Warden, Slave Militia, Anhur Guard
+            8  => ['inf_def', 'basic'],                       // Shieldsworn, Hoplite
+            9  => ['inf_def', 'basic'],                       // Huskarl, Thrall
+            10 => ['inf_adv', 'inf_def', 'basic'],            // Pendekar Tombak, Pemanah Busur, Prajurit Keris
+        ];
+
+        if ($pureDefOnly && isset($specialistDefRoles[$tribe])) {
+            $defensiveRoles = $specialistDefRoles[$tribe];
+            $secondaryRoles = []; // Jangan gunakan unit serang jika mode pertahanan murni aktif
+        } else {
+            $defensiveRoles = ($tribe === 3)
+                ? ['basic', 'inf_def', 'cav_def']
+                : ['inf_def', 'cav_def', 'basic'];
+            $secondaryRoles = ['inf_adv', 'cav_heavy', 'cav_light'];
+        }
 
         $availableDef = [];
         $totalDefAvailable = 0;
@@ -1987,17 +2008,38 @@ class BotAI {
             }
         }
 
+        // Jika mode pertahanan murni diaktifkan tetapi bot sama sekali belum punya spesialis defense,
+        // izinkan fallback ke infanteri dasar agar desa kawan tidak dibiarkan kosong tanpa bantuan
+        if ($totalDefAvailable <= 0 && $pureDefOnly) {
+            foreach (['basic', 'inf_adv', 'cav_light'] as $fallbackRole) {
+                if (isset($tribeUnits[$fallbackRole])) {
+                    $uNum = $tribeUnits[$fallbackRole];
+                    $cnt = (int)($homeUnits['u' . $uNum] ?? 0);
+                    if ($cnt > 0 && !isset($availableDef[$uNum])) {
+                        $availableDef[$uNum] = $cnt;
+                        $totalDefAvailable += $cnt;
+                    }
+                }
+            }
+        }
+
         $pop = max(10, (int)($bot['pop'] ?? 10));
         $homeReserve = self::getHomeReserve($pop);
         $deployableDef = max(0, $totalDefAvailable - $homeReserve);
 
-        $minTroops = defined('BOT_AI_MIN_DEFENSE_TROOPS') ? (int)BOT_AI_MIN_DEFENSE_TROOPS : 10;
+        // Jika home reserve memakan seluruh cadangan tetapi ada ancaman darurat,
+        // izinkan mobilisasi sebagian (hingga 40% pasukan bertahan yang ada)
+        if ($deployableDef < 10 && $totalDefAvailable >= 20) {
+            $deployableDef = max(10, (int)round($totalDefAvailable * 0.40));
+        }
+
+        $minTroops = (int)self::getConfig('BOT_AI_MIN_DEFENSE_TROOPS', 10);
         if ($deployableDef < $minTroops) {
             return null; // Garnisun pertahanan rumah wajib dipertahankan; tidak ada sisa pasukan untuk dikirim
         }
 
-        // Limit concurrent outgoing reinforcement movements per bot (default 2)
-        $maxOutgoingDefense = defined('BOT_AI_MAX_OUTGOING_DEFENSE') ? (int)BOT_AI_MAX_OUTGOING_DEFENSE : 2;
+        // Limit concurrent outgoing reinforcement movements per bot (default 3)
+        $maxOutgoingDefense = (int)self::getConfig('BOT_AI_MAX_OUTGOING_DEFENSE', 3);
         $activeReinf = $database->query_return("
             SELECT COUNT(*) as active_reinf
             FROM " . TB_PREFIX . "movement m
@@ -2008,8 +2050,8 @@ class BotAI {
             return null;
         }
 
-        $maxDefenseDist = defined('BOT_AI_MAX_DEFENSE_DISTANCE') ? (float)BOT_AI_MAX_DEFENSE_DISTANCE : 120.0;
-        $maxHelpersPerVillage = defined('BOT_AI_MAX_HELPERS_PER_VILLAGE') ? (int)BOT_AI_MAX_HELPERS_PER_VILLAGE : 3;
+        $maxDefenseDist = (float)self::getConfig('BOT_AI_MAX_DEFENSE_DISTANCE', 120.0);
+        $maxHelpersPerVillage = (int)self::getConfig('BOT_AI_MAX_HELPERS_PER_VILLAGE', 6);
 
         // =========================================================================
         // STEP 1: SEARCH FOR THREATENED ALLY VILLAGES IN SAME ALLIANCE
@@ -2183,10 +2225,20 @@ class BotAI {
         // =========================================================================
         // STEP 2: CALCULATE TROOP REINFORCEMENTS TO DISPATCH (FROM DEPLOYABLE SURPLUS)
         // =========================================================================
-        // Active attack (Priority 1): send ~40% of deployable defense troops (up to 100)
-        // Recent recovery (Priority 2): send ~25% of deployable defense troops (up to 50)
-        $ratio = ($threatLevel === 1) ? 0.40 : 0.25;
-        $maxCap = ($threatLevel === 1) ? 100 : 50;
+        $activeRatio = (float)self::getConfig('BOT_AI_DEFENSE_RATIO_ACTIVE', 0.75);
+        $recoveryRatio = (float)self::getConfig('BOT_AI_DEFENSE_RATIO_RECOVERY', 0.50);
+        $activeCap = (int)self::getConfig('BOT_AI_DEFENSE_MAX_CAP', 350);
+        $recoveryCap = (int)self::getConfig('BOT_AI_DEFENSE_MAX_CAP_RECOVERY', 150);
+
+        $ratio = ($threatLevel === 1) ? $activeRatio : $recoveryRatio;
+        $maxCap = ($threatLevel === 1) ? $activeCap : $recoveryCap;
+
+        // Skala plafon dinamis sesuai kematangan desa (desa pop > 400 bisa mengirim lebih banyak)
+        if ($pop > 400) {
+            $popBonusCap = (int)round(($pop - 400) * 0.5);
+            $maxCap += $popBonusCap;
+        }
+
         $targetPartySize = min($maxCap, max($minTroops, (int)floor($deployableDef * $ratio)));
         $targetPartySize = min($targetPartySize, $deployableDef);
 

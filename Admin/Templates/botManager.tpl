@@ -520,9 +520,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
         $maxVillages = max(1, min(5, (int)($_POST['bot_max_villages'] ?? 2)));
         $expansionEnabled = !empty($_POST['bot_expansion_enabled']);
         $paranormalEnabled = !empty($_POST['bot_paranormal_enabled']);
-        $troopPopFactor = max(0.3, min(3.0, (float)($_POST['bot_troop_pop_factor'] ?? 1.25)));
+        $troopPopFactor = max(0.3, min(3.5, (float)($_POST['bot_troop_pop_factor'] ?? 1.25)));
         $maxArmy = max(100, min(10000, (int)($_POST['bot_max_army'] ?? 2500)));
         $scoutEnabled = !empty($_POST['bot_scout_enabled']);
+
+        // Alliance mutual defense settings
+        $allianceDefenseEnabled = !empty($_POST['bot_alliance_defense_enabled']);
+        $defenseRatioActive = max(0.1, min(1.0, (float)($_POST['bot_defense_ratio_active'] ?? 0.75)));
+        $defenseRatioRecovery = max(0.1, min(1.0, (float)($_POST['bot_defense_ratio_recovery'] ?? 0.50)));
+        $defenseMaxCap = max(50, min(3000, (int)($_POST['bot_defense_max_cap'] ?? 350)));
+        $defenseMaxCapRecovery = max(20, min(1500, (int)($_POST['bot_defense_max_cap_recovery'] ?? 150)));
+        $maxHelpers = max(1, min(20, (int)($_POST['bot_max_helpers_per_village'] ?? 6)));
+        $pureDefOnly = !empty($_POST['bot_defense_pure_def_only']);
+        $maxDefDistance = max(20.0, min(500.0, (float)($_POST['bot_max_defense_distance'] ?? 120.0)));
 
         BotAI::saveConfig([
             'BOT_AI_MAX_POP' => $maxPop,
@@ -533,12 +543,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
             'BOT_AI_TROOP_POP_FACTOR' => $troopPopFactor,
             'BOT_AI_MAX_ARMY' => $maxArmy,
             'BOT_AI_SCOUT_ENABLED' => $scoutEnabled,
+            'BOT_AI_ALLIANCE_DEFENSE_ENABLED' => $allianceDefenseEnabled,
+            'BOT_AI_DEFENSE_RATIO_ACTIVE' => $defenseRatioActive,
+            'BOT_AI_DEFENSE_RATIO_RECOVERY' => $defenseRatioRecovery,
+            'BOT_AI_DEFENSE_MAX_CAP' => $defenseMaxCap,
+            'BOT_AI_DEFENSE_MAX_CAP_RECOVERY' => $defenseMaxCapRecovery,
+            'BOT_AI_MAX_HELPERS_PER_VILLAGE' => $maxHelpers,
+            'BOT_AI_DEFENSE_PURE_DEF_ONLY' => $pureDefOnly,
+            'BOT_AI_MAX_DEFENSE_DISTANCE' => $maxDefDistance,
         ]);
 
         $flashSuccess = "⚙️ <b>Pengaturan Bot AI Berhasil Disimpan!</b><br>"
             . "• Batas Populasi (Cap Pop): <b>$maxPop</b> pop/desa<br>"
             . "• Batas Level Bangunan: <b>Level $maxBuildingLvl</b><br>"
             . "• Rasio Pasukan: <b>" . ($troopPopFactor * 100) . "%</b> dari populasi desa (Maks: <b>$maxArmy</b> unit/desa)<br>"
+            . "• Bantuan Bertahan Aliansi: <b>" . ($allianceDefenseEnabled ? "Aktif (Solid & Tanggap)" : "Nonaktif") . "</b><br>"
+            . "• Mobilisasi saat Kawan Diserang: <b>" . ($defenseRatioActive * 100) . "%</b> pasukan cadangan (Maks <b>$defenseMaxCap</b> unit/bot, Kuota: <b>$maxHelpers</b> bot penolong/desa)<br>"
+            . "• Filter Unit Pertahanan Murni: <b>" . ($pureDefOnly ? "Aktif (Hanya spesialis defense; cegah Clubswinger/Axeman mati sia-sia)" : "Nonaktif") . "</b><br>"
             . "• Unit Scout (Pengintai): <b>" . ($scoutEnabled ? "Aktif (Latih di Barak/Stable, Anti-Spionase & Patroli Intai)" : "Nonaktif") . "</b><br>"
             . "• Ekspansi Desa ke-2: <b>" . ($expansionEnabled ? "Aktif (Maks $maxVillages Desa/Bot)" : "Nonaktif") . "</b> (Berjalan secara natural via Padepokan Lvl 10, pelatihan 3 Pionir, CP, dan perjalanan perintis).<br>"
             . "• Sanggar Paranormal Nusantara: <b>" . ($paranormalEnabled ? "Aktif (Natural & Bertahap)" : "Nonaktif") . "</b> (Konstruksi GID 51 di slot 38, pemanggilan Pocong/Kunti/Genderuwo & ritual Tuyul sesuai sumber daya).";
@@ -557,6 +578,16 @@ $currentParanormalEnabled = !empty(BotAI::getConfig('BOT_AI_PARANORMAL_ENABLED',
 $currentTroopFactor = (float)BotAI::getConfig('BOT_AI_TROOP_POP_FACTOR', 1.25);
 $currentMaxArmy = (int)BotAI::getConfig('BOT_AI_MAX_ARMY', 2500);
 $currentScoutEnabled = !empty(BotAI::getConfig('BOT_AI_SCOUT_ENABLED', true));
+
+// Current Alliance Defense Configurations
+$currentAllianceDefEnabled = !empty(BotAI::getConfig('BOT_AI_ALLIANCE_DEFENSE_ENABLED', true));
+$currentDefRatioActive = (float)BotAI::getConfig('BOT_AI_DEFENSE_RATIO_ACTIVE', 0.75);
+$currentDefRatioRecovery = (float)BotAI::getConfig('BOT_AI_DEFENSE_RATIO_RECOVERY', 0.50);
+$currentDefMaxCap = (int)BotAI::getConfig('BOT_AI_DEFENSE_MAX_CAP', 350);
+$currentDefMaxCapRecovery = (int)BotAI::getConfig('BOT_AI_DEFENSE_MAX_CAP_RECOVERY', 150);
+$currentMaxHelpers = (int)BotAI::getConfig('BOT_AI_MAX_HELPERS_PER_VILLAGE', 6);
+$currentPureDefOnly = !empty(BotAI::getConfig('BOT_AI_DEFENSE_PURE_DEF_ONLY', true));
+$currentMaxDefDist = (float)BotAI::getConfig('BOT_AI_MAX_DEFENSE_DISTANCE', 120.0);
 
 $botsQuery = "
     SELECT u.id, u.username, u.tribe, u.regtime, u.desc1, u.alliance,
@@ -1031,12 +1062,18 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
 
                 <div class="botm-form-group">
                     <label>Rasio Pasukan terhadap Populasi Desa:</label>
+                    <div style="background:#0f172a; border:1px solid #1e293b; border-radius:6px; padding:6px 10px; margin-bottom:5px; font-size:11px; color:#38bdf8;">
+                        📌 <b>Settingan Aktif Saat Ini:</b> <?php echo ($currentTroopFactor * 100); ?>% dari Populasi (Pop 800 ≈ <?php echo number_format(round(800 * $currentTroopFactor)); ?> Pasukan)
+                    </div>
                     <select name="bot_troop_pop_factor" class="botm-form-control">
                         <option value="0.5" <?php echo abs($currentTroopFactor - 0.5) < 0.05 ? 'selected' : ''; ?>>50% dari Populasi (Ringan)</option>
                         <option value="1.0" <?php echo abs($currentTroopFactor - 1.0) < 0.05 ? 'selected' : ''; ?>>100% dari Populasi (Seimbang - 1:1)</option>
-                        <option value="1.25" <?php echo abs($currentTroopFactor - 1.25) < 0.05 ? 'selected' : ''; ?>>125% dari Populasi (Rekomendasi - Pop 800 ≈ 1.000 Pasukan)</option>
-                        <option value="1.5" <?php echo abs($currentTroopFactor - 1.5) < 0.05 ? 'selected' : ''; ?>>150% dari Populasi (Kuat &amp; Agresif)</option>
-                        <option value="2.0" <?php echo abs($currentTroopFactor - 2.0) < 0.05 ? 'selected' : ''; ?>>200% dari Populasi (Militer Penuh)</option>
+                        <option value="1.25" <?php echo abs($currentTroopFactor - 1.25) < 0.05 ? 'selected' : ''; ?>>125% dari Populasi (Klasik)</option>
+                        <option value="1.5" <?php echo abs($currentTroopFactor - 1.5) < 0.05 ? 'selected' : ''; ?>>150% dari Populasi (Kuat)</option>
+                        <option value="1.75" <?php echo abs($currentTroopFactor - 1.75) < 0.05 ? 'selected' : ''; ?>>175% dari Populasi (Rekomendasi - Solid)</option>
+                        <option value="2.0" <?php echo abs($currentTroopFactor - 2.0) < 0.05 ? 'selected' : ''; ?>>200% dari Populasi (Militer Penuh - Pop 800 ≈ 1.600 Pasukan)</option>
+                        <option value="2.5" <?php echo abs($currentTroopFactor - 2.5) < 0.05 ? 'selected' : ''; ?>>250% dari Populasi (Sangat Tangguh)</option>
+                        <option value="3.0" <?php echo abs($currentTroopFactor - 3.0) < 0.05 ? 'selected' : ''; ?>>300% dari Populasi (Super Militer)</option>
                     </select>
                     <span style="font-size:10px; color:#94a3b8; display:block; margin-top:3px;">
                         Menentukan kapasitas total pasukan bot sebanding dengan ukuran populasinya.
@@ -1045,9 +1082,12 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
 
                 <div class="botm-form-group">
                     <label>Batas Maksimal Total Pasukan per Desa (Cap Army):</label>
+                    <div style="background:#0f172a; border:1px solid #1e293b; border-radius:6px; padding:6px 10px; margin-bottom:5px; font-size:11px; color:#38bdf8;">
+                        📌 <b>Settingan Aktif Saat Ini:</b> Maksimal <?php echo number_format($currentMaxArmy); ?> Unit per Desa
+                    </div>
                     <input type="number" name="bot_max_army" class="botm-form-control" value="<?php echo $currentMaxArmy; ?>" min="100" max="10000" required>
                     <span style="font-size:10px; color:#94a3b8; display:block; margin-top:3px;">
-                        Plafon tertinggi total pasukan (garnisun + serang). Rekomendasi: 2.500 unit.
+                        Plafon tertinggi total pasukan (garnisun + serang). Rekomendasi: 2.500 - 4.000 unit.
                     </span>
                 </div>
 
@@ -1059,7 +1099,7 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
                             <span>Aktifkan Pelatihan &amp; Penggunaan Scout (Manusiawi)</span>
                         </label>
                         <span style="font-size:10px; color:#38bdf8; display:block; margin-top:4px;">
-                            Jika dicentang, bot akan melatih scout di Barak/Stable sesuai sukunya, menjaga counter-espionage di desa, dan aktif mengintai desa/oasis sekitar.
+                            📌 <b>Saat ini:</b> <?php echo $currentScoutEnabled ? '🟢 AKTIF (Melatih scout di Barak/Stable, patroli & intai)' : '🔴 Nonaktif'; ?>
                         </span>
                     </div>
                 </div>
@@ -1072,9 +1112,152 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
                             <span>Aktifkan Sanggar Paranormal &amp; Khodam Nusantara</span>
                         </label>
                         <span style="font-size:10px; color:#c084fc; display:block; margin-top:4px;">
-                            Jika dicentang, bot suku Nusantara akan membangun Sanggar Paranormal (slot 38), memanggil Pocong, Kuntilanak, Genderuwo secara bertahap, dan ritual Tuyul bila ada surplus SDA.
+                            📌 <b>Saat ini:</b> <?php echo $currentParanormalEnabled ? '🟢 AKTIF (Bangun GID 51 di slot 38 & pemanggilan bertahap)' : '🔴 Nonaktif'; ?>
                         </span>
                     </div>
+                </div>
+            </div>
+
+            <!-- Panel Khusus: Bantuan Pertahanan Aliansi (Alliance Defense & Reinforcements) -->
+            <div style="background:linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%); border:1px solid #6366f1; border-radius:8px; padding:16px; margin-bottom:16px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px; border-bottom:1px solid #312e81; padding-bottom:10px;">
+                    <div>
+                        <h4 style="margin:0; color:#818cf8; font-size:14px; display:flex; align-items:center; gap:6px;">
+                            🛡️ Pengaturan Bantuan Pertahanan Aliansi (Alliance Mutual Defense &amp; Reinforcements)
+                        </h4>
+                        <span style="font-size:11px; color:#c7d2fe;">
+                            Atur seberapa tanggap, seberapa banyak, dan jenis pasukan apa yang dikirim bot saat kawan sealinsinya diserang musuh.
+                        </span>
+                    </div>
+                    <span style="background:<?php echo $currentAllianceDefEnabled ? '#065f46' : '#7f1d1d'; ?>; color:<?php echo $currentAllianceDefEnabled ? '#a7f3d0' : '#fecaca'; ?>; border:1px solid <?php echo $currentAllianceDefEnabled ? '#10b981' : '#ef4444'; ?>; padding:3px 10px; border-radius:12px; font-size:11px; font-weight:600;">
+                        <?php echo $currentAllianceDefEnabled ? '🟢 Status: Siaga Pertahanan Aktif' : '🔴 Status: Bantuan Nonaktif'; ?>
+                    </span>
+                </div>
+
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:14px;">
+                    <!-- Toggle Feature -->
+                    <div class="botm-form-group">
+                        <label>Status Fitur Bantuan Aliansi:</label>
+                        <div style="background:#0f172a; padding:10px 12px; border-radius:6px; border:1px solid #1e293b; margin-top:2px;">
+                            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:#f8fafc; font-weight:bold; font-size:12px;">
+                                <input type="checkbox" name="bot_alliance_defense_enabled" value="1" <?php echo $currentAllianceDefEnabled ? 'checked' : ''; ?> style="width:16px; height:16px; cursor:pointer;">
+                                <span>Aktifkan Bala Bantuan Aliansi Otomatis</span>
+                            </label>
+                            <span style="font-size:10px; color:#818cf8; display:block; margin-top:4px;">
+                                📌 <b>Saat ini:</b> <?php echo $currentAllianceDefEnabled ? '🟢 Bot saling membantu saat ada serangan' : '🔴 Bantuan dimatikan'; ?>
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Filter Pure Defense -->
+                    <div class="botm-form-group">
+                        <label>Filter Spesialis Pertahanan Murni:</label>
+                        <div style="background:#0f172a; padding:10px 12px; border-radius:6px; border:1px solid #1e293b; margin-top:2px;">
+                            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:#f8fafc; font-weight:bold; font-size:12px;">
+                                <input type="checkbox" name="bot_defense_pure_def_only" value="1" <?php echo $currentPureDefOnly ? 'checked' : ''; ?> style="width:16px; height:16px; cursor:pointer;">
+                                <span>Hanya Kirim Unit Pertahanan Murni</span>
+                            </label>
+                            <span style="font-size:10px; color:#34d399; display:block; margin-top:4px;">
+                                📌 <b>Saat ini:</b> <?php echo $currentPureDefOnly ? '🟢 AKTIF (Hanya kirim Spearman, Praetorian, Phalanx, Pendekar Tombak, Ash Warden. Melarang Clubswinger/Axeman mati sia-sia)' : '⚪ Fleksibel (Semua unit boleh ikut)'; ?>
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Ratio Active Attack -->
+                    <div class="botm-form-group">
+                        <label>Rasio Kirim saat Serangan Masuk (Priority 1):</label>
+                        <div style="background:#0f172a; border:1px solid #1e293b; border-radius:6px; padding:6px 10px; margin-bottom:5px; font-size:11px; color:#818cf8;">
+                            📌 <b>Settingan Aktif:</b> <?php echo ($currentDefRatioActive * 100); ?>% dari pasukan siap kirim
+                        </div>
+                        <select name="bot_defense_ratio_active" class="botm-form-control">
+                            <option value="0.40" <?php echo abs($currentDefRatioActive - 0.40) < 0.05 ? 'selected' : ''; ?>>40% Pasukan (Lama - Konservatif)</option>
+                            <option value="0.60" <?php echo abs($currentDefRatioActive - 0.60) < 0.05 ? 'selected' : ''; ?>>60% Pasukan (Kuat)</option>
+                            <option value="0.75" <?php echo abs($currentDefRatioActive - 0.75) < 0.05 ? 'selected' : ''; ?>>75% Pasukan (Rekomendasi - Aliansi Solid)</option>
+                            <option value="0.90" <?php echo abs($currentDefRatioActive - 0.90) < 0.05 ? 'selected' : ''; ?>>90% Pasukan (Mobilisasi Darurat Penuh)</option>
+                        </select>
+                        <span style="font-size:10px; color:#94a3b8; display:block; margin-top:3px;">
+                            Berapa persen pasukan cadangan desa bot yang langsung dimobilisasi saat ada serangan sedang berjalan menuju desa kawan.
+                        </span>
+                    </div>
+
+                    <!-- Max Cap Active -->
+                    <div class="botm-form-group">
+                        <label>Plafon Maksimal Bantuan per Bot (Priority 1):</label>
+                        <div style="background:#0f172a; border:1px solid #1e293b; border-radius:6px; padding:6px 10px; margin-bottom:5px; font-size:11px; color:#818cf8;">
+                            📌 <b>Settingan Aktif:</b> Maksimal <?php echo $currentDefMaxCap; ?> Unit / Bot (sebelumnya cuma 100)
+                        </div>
+                        <input type="number" name="bot_defense_max_cap" id="bot_def_max_cap_input" class="botm-form-control" value="<?php echo $currentDefMaxCap; ?>" min="50" max="3000" required>
+                        <div class="quick-counts" style="margin-top:4px;">
+                            <button type="button" class="quick-btn" onclick="document.getElementById('bot_def_max_cap_input').value=100">100 (Lama)</button>
+                            <button type="button" class="quick-btn" onclick="document.getElementById('bot_def_max_cap_input').value=250">250 (Sedang)</button>
+                            <button type="button" class="quick-btn" onclick="document.getElementById('bot_def_max_cap_input').value=350">350 (Rekomendasi)</button>
+                            <button type="button" class="quick-btn" onclick="document.getElementById('bot_def_max_cap_input').value=600">600 (Kuat)</button>
+                            <button type="button" class="quick-btn" onclick="document.getElementById('bot_def_max_cap_input').value=1000">1000 (Masif)</button>
+                        </div>
+                    </div>
+
+                    <!-- Max Helpers per Village -->
+                    <div class="botm-form-group">
+                        <label>Maksimal Bot Penolong per Desa:</label>
+                        <div style="background:#0f172a; border:1px solid #1e293b; border-radius:6px; padding:6px 10px; margin-bottom:5px; font-size:11px; color:#818cf8;">
+                            📌 <b>Settingan Aktif:</b> Maksimal <?php echo $currentMaxHelpers; ?> Bot Penolong (sebelumnya cuma 3)
+                        </div>
+                        <select name="bot_max_helpers_per_village" class="botm-form-control">
+                            <option value="3" <?php echo $currentMaxHelpers === 3 ? 'selected' : ''; ?>>3 Bot (Lama - Bantuan Sedikit)</option>
+                            <option value="5" <?php echo $currentMaxHelpers === 5 ? 'selected' : ''; ?>>5 Bot (Standar)</option>
+                            <option value="6" <?php echo $currentMaxHelpers === 6 ? 'selected' : ''; ?>>6 Bot (Rekomendasi - Dinding Garnisun Tebal)</option>
+                            <option value="8" <?php echo $currentMaxHelpers === 8 ? 'selected' : ''; ?>>8 Bot (Pertahanan Aliansi Sangat Kuat)</option>
+                            <option value="12" <?php echo $currentMaxHelpers === 12 ? 'selected' : ''; ?>>12 Bot (Perang Total)</option>
+                        </select>
+                        <span style="font-size:10px; color:#94a3b8; display:block; margin-top:3px;">
+                            Berapa banyak kawan bot yang diizinkan mengirim bala bantuan ke 1 desa target yang sama.
+                        </span>
+                    </div>
+
+                    <!-- Ratio Recovery -->
+                    <div class="botm-form-group">
+                        <label>Rasio Pemulihan Garnisun (Priority 2):</label>
+                        <div style="background:#0f172a; border:1px solid #1e293b; border-radius:6px; padding:6px 10px; margin-bottom:5px; font-size:11px; color:#818cf8;">
+                            📌 <b>Settingan Aktif:</b> <?php echo ($currentDefRatioRecovery * 100); ?>% Pasukan (Maks <?php echo $currentDefMaxCapRecovery; ?> unit)
+                        </div>
+                        <select name="bot_defense_ratio_recovery" class="botm-form-control">
+                            <option value="0.25" <?php echo abs($currentDefRatioRecovery - 0.25) < 0.05 ? 'selected' : ''; ?>>25% Pasukan (Lama)</option>
+                            <option value="0.40" <?php echo abs($currentDefRatioRecovery - 0.40) < 0.05 ? 'selected' : ''; ?>>40% Pasukan</option>
+                            <option value="0.50" <?php echo abs($currentDefRatioRecovery - 0.50) < 0.05 ? 'selected' : ''; ?>>50% Pasukan (Rekomendasi)</option>
+                            <option value="0.65" <?php echo abs($currentDefRatioRecovery - 0.65) < 0.05 ? 'selected' : ''; ?>>65% Pasukan (Cepat Pulih)</option>
+                        </select>
+                        <span style="font-size:10px; color:#94a3b8; display:block; margin-top:3px;">
+                            Dikirim saat kawan baru selesai diserang dalam 2 jam terakhir untuk mengisi kembali pos jaga.
+                        </span>
+                    </div>
+
+                    <!-- Max Cap Recovery -->
+                    <div class="botm-form-group">
+                        <label>Plafon Bantuan Pemulihan (Priority 2):</label>
+                        <div style="background:#0f172a; border:1px solid #1e293b; border-radius:6px; padding:6px 10px; margin-bottom:5px; font-size:11px; color:#818cf8;">
+                            📌 <b>Settingan Aktif:</b> Maksimal <?php echo $currentDefMaxCapRecovery; ?> Unit / Bot
+                        </div>
+                        <input type="number" name="bot_defense_max_cap_recovery" class="botm-form-control" value="<?php echo $currentDefMaxCapRecovery; ?>" min="20" max="1500" required>
+                    </div>
+
+                    <!-- Max Defense Distance -->
+                    <div class="botm-form-group">
+                        <label>Radius Jarak Maksimal Pengiriman Bantuan:</label>
+                        <div style="background:#0f172a; border:1px solid #1e293b; border-radius:6px; padding:6px 10px; margin-bottom:5px; font-size:11px; color:#818cf8;">
+                            📌 <b>Settingan Aktif:</b> Radius <?php echo $currentMaxDefDist; ?> Kotak Peta
+                        </div>
+                        <input type="number" step="1" name="bot_max_defense_distance" class="botm-form-control" value="<?php echo (int)$currentMaxDefDist; ?>" min="20" max="400" required>
+                        <span style="font-size:10px; color:#94a3b8; display:block; margin-top:3px;">
+                            Batas terjauh kawan aliansi yang akan dibantu (dalam satuan jarak koordinat peta).
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Simulation comparison explanation -->
+                <div style="margin-top:14px; background:#0f172a; border:1px solid #312e81; border-radius:6px; padding:10px 14px; font-size:11px; color:#c7d2fe; line-height:1.6;">
+                    <b style="color:#a5b4fc;">📊 Simulasi Perbandingan Bantuan:</b><br>
+                    • <b>Sebelumnya (Lama):</b> Plafon 100 unit &times; maks 3 bot = hanya <b>maksimal ~160-300 unit</b> bantuan (termasuk Clubswinger rapuh yang mudah tewas).<br>
+                    • <b>Dengan Pengaturan Saat Ini:</b> Plafon <?php echo $currentDefMaxCap; ?> unit &times; <?php echo $currentMaxHelpers; ?> bot = mampu menumpuk <b>hingga <?php echo ($currentDefMaxCap * $currentMaxHelpers); ?> unit pasukan spesialis defense murni</b> (Spearman, Praetorian, Phalanx, Ash Warden, Pendekar Tombak) + Hero, cukup untuk menahan gelombang ratusan/ribuan penyerang!
                 </div>
             </div>
 
