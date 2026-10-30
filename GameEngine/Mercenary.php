@@ -78,12 +78,12 @@ class Mercenary
                 'icon'        => '🛡️',
                 'type'        => 'Infanteri Bertahan Seimbang',
                 'atk'         => 25,
-                'di'          => 110,
-                'dc'          => 105,
+                'di'          => 85,
+                'dc'          => 80,
                 'pop'         => 1,
                 'upkeep'      => 1,
-                'cost_silver' => 12,
-                'desc'        => 'Zirah pelat baja berat anti-kuda dan anti-infanteri yang kokoh membentengi desa dari serbuan musuh.'
+                'cost_silver' => 10,
+                'desc'        => 'Garda zirah serbaguna ekonomis dengan pertahanan seimbang anti-infanteri dan anti-kavaleri untuk perlindungan dasar desa.'
             ],
             2 => [
                 'key'         => 'm2',
@@ -92,12 +92,12 @@ class Mercenary
                 'icon'        => '🏹',
                 'type'        => 'Infanteri Anti-Infanteri',
                 'atk'         => 20,
-                'di'          => 140,
-                'dc'          => 65,
+                'di'          => 155,
+                'dc'          => 40,
                 'pop'         => 1,
                 'upkeep'      => 1,
-                'cost_silver' => 14,
-                'desc'        => 'Pemanah benteng dengan pertahanan jarak jauh yang sangat mematikan terhadap infanteri penyerbu lawan.'
+                'cost_silver' => 10,
+                'desc'        => 'Pemanah benteng spesialis anti-infanteri berkekuatan tembus tinggi, sangat efektif melumat gelombang pasukan infanteri musuh.'
             ],
             3 => [
                 'key'         => 'm3',
@@ -105,13 +105,13 @@ class Mercenary
                 'en_name'     => 'Templar Shield Knight',
                 'icon'        => '🐎',
                 'type'        => 'Kavaleri Anti-Kavaleri',
-                'atk'         => 35,
-                'di'          => 120,
-                'dc'          => 180,
+                'atk'         => 40,
+                'di'          => 75,
+                'dc'          => 240,
                 'pop'         => 2,
                 'upkeep'      => 2,
-                'cost_silver' => 25,
-                'desc'        => 'Kavaleri pelindung berlapis baja tebal dengan tombak panjang khusus untuk mematahkan dan meremukkan kavaleri musuh.'
+                'cost_silver' => 16,
+                'desc'        => 'Kavaleri perisai berat dengan tombak penusuk kuda khusus untuk mematahkan dan meremukkan serbuan kavaleri musuh.'
             ],
             4 => [
                 'key'         => 'm4',
@@ -119,13 +119,13 @@ class Mercenary
                 'en_name'     => 'Praetorian Citadel Guard',
                 'icon'        => '🏛️',
                 'type'        => 'Serdadu Elit Benteng',
-                'atk'         => 45,
-                'di'          => 175,
-                'dc'          => 165,
+                'atk'         => 50,
+                'di'          => 230,
+                'dc'          => 220,
                 'pop'         => 2,
                 'upkeep'      => 2,
-                'cost_silver' => 30,
-                'desc'        => 'Pengawal gerbang benteng elit legendaris berkekuatan luar biasa tinggi yang tangguh menahan gempuran segala jenis pasukan musuh.'
+                'cost_silver' => 25,
+                'desc'        => 'Pengawal gerbang benteng elit legendaris dengan densitas pertahanan super tebal per slot gandum untuk menahan gempuran tentara besar.'
             ],
         ];
     }
@@ -177,8 +177,9 @@ class Mercenary
             return ['dp' => 0, 'cdp' => 0, 'involve' => 0];
         }
 
-        $dp = ($g['m1'] * 110) + ($g['m2'] * 140) + ($g['m3'] * 120) + ($g['m4'] * 175);
-        $cdp = ($g['m1'] * 105) + ($g['m2'] * 65) + ($g['m3'] * 180) + ($g['m4'] * 165);
+        $units = self::getUnitsInfo();
+        $dp = ($g['m1'] * $units[1]['di']) + ($g['m2'] * $units[2]['di']) + ($g['m3'] * $units[3]['di']) + ($g['m4'] * $units[4]['di']);
+        $cdp = ($g['m1'] * $units[1]['dc']) + ($g['m2'] * $units[2]['dc']) + ($g['m3'] * $units[3]['dc']) + ($g['m4'] * $units[4]['dc']);
 
         return [
             'dp'      => $dp,
@@ -301,7 +302,11 @@ class Mercenary
         }
 
         // Calculate Silver Cost
-        $cost = ($c1 * 12) + ($c2 * 14) + ($c3 * 25) + ($c4 * 30);
+        $units = self::getUnitsInfo();
+        $cost = ($c1 * $units[1]['cost_silver']) +
+                ($c2 * $units[2]['cost_silver']) +
+                ($c3 * $units[3]['cost_silver']) +
+                ($c4 * $units[4]['cost_silver']);
 
         $silver = BlackMarket::getSilver($uid);
         if ($silver < $cost) {

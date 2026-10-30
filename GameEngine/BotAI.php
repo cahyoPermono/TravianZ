@@ -235,22 +235,22 @@ class BotAI {
                 $botLogs[] = "Build: " . $buildResult;
             }
 
-            // 3. Automated Troop Training
+            // 3. Automated Natural Village Expansion (Prioritas ekspansi pemukim saat syarat terpenuhi)
+            $expansionResult = self::processExpansion($bot);
+            if ($expansionResult) {
+                $botLogs[] = "Expansion: " . $expansionResult;
+            }
+
+            // 4. Automated Troop Training
             $trainResult = self::processTrain($bot);
             if ($trainResult) {
                 $botLogs[] = "Train: " . $trainResult;
             }
 
-            // 4. Automated Nusantara Paranormal & Astral Spirits Management (Suku Nusantara)
+            // 5. Automated Nusantara Paranormal & Astral Spirits Management (Suku Nusantara)
             $paranormalResult = self::processParanormal($bot);
             if ($paranormalResult) {
                 $botLogs[] = "Paranormal: " . $paranormalResult;
-            }
-
-            // 5. Automated Natural Village Expansion (Desa ke-2: Padepokan lvl 10, Pelatihan Settler & Pemukiman Alami)
-            $expansionResult = self::processExpansion($bot);
-            if ($expansionResult) {
-                $botLogs[] = "Expansion: " . $expansionResult;
             }
 
             // 5. Automated Hero Management (Auto Revive & Auto Adventure)
@@ -1045,6 +1045,18 @@ class BotAI {
         $canAffordClay = ($cCost > 0) ? (int)floor($curClay / $cCost) : 999;
         $canAffordIron = ($iCost > 0) ? (int)floor($curIron / $iCost) : 999;
         $canAffordCrop = ($crCost > 0) ? (int)floor($curCrop / $crCost) : 999;
+
+        // Jika bot memiliki 3 pionir siap berangkat, cadangkan minimal 750 bekal agar tidak dihabiskan untuk melatih prajurit biasa
+        $settlerUnit = $tribe * 10;
+        $unitRow = $database->query_return("SELECT u{$settlerUnit} as s FROM " . TB_PREFIX . "units WHERE vref = $wid");
+        $homeSettlers = (int)($unitRow[0]['s'] ?? 0);
+        if ($homeSettlers >= 3) {
+            $canAffordWood = ($wCost > 0) ? (int)floor(max(0, $curWood - 750) / $wCost) : 999;
+            $canAffordClay = ($cCost > 0) ? (int)floor(max(0, $curClay - 750) / $cCost) : 999;
+            $canAffordIron = ($iCost > 0) ? (int)floor(max(0, $curIron - 750) / $iCost) : 999;
+            $canAffordCrop = ($crCost > 0) ? (int)floor(max(0, $curCrop - 750) / $crCost) : 999;
+        }
+
         $maxAffordable = min($canAffordWood, $canAffordClay, $canAffordIron, $canAffordCrop);
 
         if ($maxAffordable < 1) {
@@ -1732,9 +1744,28 @@ class BotAI {
             $statusText = "🚶 Ekspedisi ke ($tx|$ty) - " . round($rem / 60) . "m";
         } elseif ($homeSettlers >= 3) {
             if ($userCP < $neededCP) {
-                $statusText = "⏳ 3 Pionir Siap (Menunggu CP: $userCP/$neededCP)";
+                $statusText = "⏳ 3 Pionir Siap (Menunggu CP: " . number_format($userCP) . "/" . number_format($neededCP) . ")";
             } else {
-                $statusText = "🏕️ 3 Pionir Siap (Menyiapkan ekspedisi)";
+                $vRes = method_exists($database, 'getVillageFields') ? $database->getVillageFields($wid, 'wood, clay, iron, crop', false) : null;
+                $curWood = (float)($vRes['wood'] ?? 0);
+                $curClay = (float)($vRes['clay'] ?? 0);
+                $curIron = (float)($vRes['iron'] ?? 0);
+                $curCrop = (float)($vRes['crop'] ?? 0);
+
+                $missing = [];
+                if ($curWood < 750) $missing[] = 'Kayu (' . round($curWood) . '/750)';
+                if ($curClay < 750) $missing[] = 'Tanah (' . round($curClay) . '/750)';
+                if ($curIron < 750) $missing[] = 'Besi (' . round($curIron) . '/750)';
+                if ($curCrop < 750) $missing[] = 'Gandum (' . round($curCrop) . '/750)';
+
+                $rpLevel = self::getBuildingLevel($wid, 16);
+                if ($rpLevel < 1) {
+                    $statusText = "🏗️ 3 Pionir Siap (Perlu Titik Temu Lvl 1)";
+                } elseif (!empty($missing)) {
+                    $statusText = "⏳ 3 Pionir Siap (Menabung bekal: " . implode(', ', $missing) . ")";
+                } else {
+                    $statusText = "🏕️ 3 Pionir Siap (Menyiapkan ekspedisi - Siap berangkat pada siklus bot)";
+                }
             }
         } elseif ($queuedSettlers > 0) {
             $statusText = "🔨 Melatih Pionir (" . ($homeSettlers + $queuedSettlers) . "/3)";

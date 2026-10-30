@@ -112,13 +112,13 @@ assertTest(BlackMarket::getSilver($testUid) === $silverBeforeRelic - 55, "55 Sil
 echo "\n6. Mercenary Enclave Tests:\n";
 $units = Mercenary::getUnitsInfo();
 assertTest(count($units) === 4, "4 Mercenary units defined");
-assertTest($units[1]['name'] === 'Garda Zirah Besi' && $units[1]['cost_silver'] === 12, "Unit 1 is Garda Zirah Besi (12 Silver)");
-assertTest($units[2]['name'] === 'Pemanah Tembok Aegis' && $units[2]['cost_silver'] === 14, "Unit 2 is Pemanah Tembok Aegis (14 Silver)");
-assertTest($units[3]['name'] === 'Ksatria Perisai Templar' && $units[3]['cost_silver'] === 25, "Unit 3 is Ksatria Perisai Templar (25 Silver)");
-assertTest($units[4]['name'] === 'Penjaga Gerbang Praetorian' && $units[4]['cost_silver'] === 30, "Unit 4 is Penjaga Gerbang Praetorian (30 Silver)");
+assertTest($units[1]['name'] === 'Garda Zirah Besi' && $units[1]['cost_silver'] === 10, "Unit 1 is Garda Zirah Besi (10 Silver)");
+assertTest($units[2]['name'] === 'Pemanah Tembok Aegis' && $units[2]['cost_silver'] === 10, "Unit 2 is Pemanah Tembok Aegis (10 Silver)");
+assertTest($units[3]['name'] === 'Ksatria Perisai Templar' && $units[3]['cost_silver'] === 16, "Unit 3 is Ksatria Perisai Templar (16 Silver)");
+assertTest($units[4]['name'] === 'Penjaga Gerbang Praetorian' && $units[4]['cost_silver'] === 25, "Unit 4 is Penjaga Gerbang Praetorian (25 Silver)");
 
 // Hire mercenaries: 10 Garda Zirah, 5 Pemanah, 2 Ksatria Templar, 1 Praetorian
-// Cost: (10*12) + (5*14) + (2*25) + (1*30) = 120 + 70 + 50 + 30 = 270 Silver
+// Cost: (10*10) + (5*10) + (2*16) + (1*25) = 100 + 50 + 32 + 25 = 207 Silver
 $silverBeforeHire = BlackMarket::getSilver($testUid);
 $hireRes = Mercenary::hireMercenaries($testUid, $testVref, [
     'm1' => 10,
@@ -127,7 +127,7 @@ $hireRes = Mercenary::hireMercenaries($testUid, $testVref, [
     'm4' => 1
 ]);
 assertTest($hireRes['success'], "Mercenaries hired successfully: " . $hireRes['message']);
-assertTest(BlackMarket::getSilver($testUid) === $silverBeforeHire - 270, "270 Silver deducted correctly");
+assertTest(BlackMarket::getSilver($testUid) === $silverBeforeHire - 207, "207 Silver deducted correctly");
 
 // 7. Garrison & Upkeep
 echo "\n7. Garrison & Upkeep Tests:\n";
