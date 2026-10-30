@@ -119,6 +119,29 @@ trait AutomationMedals {
         while ($row = mysqli_fetch_array($res)) {
             $i++;
             $this->insertUserMedal($row['id'], $category, $i, $week, $row[$field], $imgPrefix.$i);
+
+            // Award Silver reward to top 10 players if they accumulated positive points
+            if ((int)$row[$field] > 0) {
+                $silverReward = ($i === 1) ? 300 : (($i <= 3) ? 150 : 50);
+                if (!class_exists('BlackMarket')) {
+                    require_once dirname(__DIR__) . '/BlackMarket.php';
+                }
+                BlackMarket::addSilver((int)$row['id'], $silverReward);
+
+                // Send celebratory notice to the winner
+                $catNames = [
+                    1 => 'Penyerang Terbaik (Top Attacker)',
+                    2 => 'Bertahan Terbaik (Top Defender)',
+                    3 => 'Pertumbuhan Terbaik (Top Climber)',
+                    4 => 'Perampok Terbaik (Top Robber)',
+                    10 => 'Peringkat Terbaik (Rank Climber)',
+                ];
+                $cName = $catNames[$category] ?? 'Medali Mingguan';
+                $noticeTopic = "🏅 Hadiah Medali Mingguan: Juara #{$i} {$cName}!";
+                $noticeMsg = "Selamat! Kerja kerasmu di minggu ke-{$week} menempatkanmu di Peringkat #{$i} dalam kategori {$cName} dengan perolehan " . number_format($row[$field]) . " poin.\n\n" .
+                             "Sebagai bentuk apresiasi Kaisar, kantong Hero kamu telah dihadiahi bonus sebesar +{$silverReward} Koin Silver! 🪙";
+                $database->addNotice((int)$row['id'], 0, 0, 1, $noticeTopic, $noticeMsg, time());
+            }
         }
     }
 
