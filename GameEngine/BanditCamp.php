@@ -118,6 +118,37 @@ class BanditCamp {
             KEY (status)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
         mysqli_query($database->dblink, $q);
+
+        $qAttacks = "CREATE TABLE IF NOT EXISTS " . TB_PREFIX . "bandit_camp_attacks (
+            id int(11) NOT NULL AUTO_INCREMENT,
+            camp_id int(11) NOT NULL,
+            uid int(11) NOT NULL,
+            damage_dealt int(11) NOT NULL DEFAULT 0,
+            timestamp int(11) NOT NULL DEFAULT 0,
+            PRIMARY KEY (id),
+            KEY camp_uid (camp_id, uid)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
+        mysqli_query($database->dblink, $qAttacks);
+    }
+
+    /**
+     * Log attack damage contribution against a camp.
+     */
+    public static function logAttackContribution(int $campId, int $uid, int $damageDealt = 0): void {
+        global $database;
+        $campId = (int)$campId;
+        $uid = (int)$uid;
+        $damageDealt = max(1, (int)$damageDealt);
+        $time = time();
+
+        if ($campId <= 0 || $uid <= 0) {
+            return;
+        }
+
+        self::ensureTable();
+        $q = "INSERT INTO " . TB_PREFIX . "bandit_camp_attacks (camp_id, uid, damage_dealt, timestamp)
+              VALUES ($campId, $uid, $damageDealt, $time)";
+        mysqli_query($database->dblink, $q);
     }
 
     /**
@@ -524,7 +555,7 @@ class BanditCamp {
      * Evaluates remaining defenders synchronously and immediately awards
      * rewards and clears the camp tile if defeated.
      */
-    public static function onBattleCompleted(int $targetWref, int $attackerUid, int $attackerWref = 0) {
+    public static function onBattleCompleted(int $targetWref, int $attackerUid, int $attackerWref = 0, int $damageDealt = 0) {
         global $database;
 
         self::ensureTable();
@@ -542,6 +573,11 @@ class BanditCamp {
         }
 
         $camp = $camps[0];
+
+        // Log damage contribution for this attacker
+        if ($damageDealt > 0 && $attackerUid > 0) {
+            self::logAttackContribution((int)$camp['id'], $attackerUid, $damageDealt);
+        }
 
         // Check if all defending units in the camp are defeated
         $unitRow = $database->getUnit($targetWref, false);
@@ -581,46 +617,109 @@ class BanditCamp {
         $remIron = max(0, (int)round($remRes[0]['iron'] ?? 0));
         $remCrop = max(0, (int)round($remRes[0]['crop'] ?? 0));
 
-        // 1. Award rewards to conqueror
-        if ($conquerorUid > 0) {
-            // Hero EXP & Silver
-            $database->query("
-                UPDATE " . TB_PREFIX . "hero
-                SET experience = IFNULL(experience, 0) + $expBonus, silver = IFNULL(silver, 0) + $silverBonus
-                WHERE uid = $conquerorUid
-            ");
+        // Check World Boss shared contributors
+        $isWorldBoss = ((int)$camp['tier'] === self::TIER_WORLDBOSS);
+        $contributors = [];
+        if ($isWorldBoss) {
+            $contribSql = "SELECT uid, SUM(damage_dealt) as total_dmg 
+                           FROM " . TB_PREFIX . "bandit_camp_attacks 
+                           WHERE camp_id = $campId 
+                           GROUP BY uid";
+            $contributors = $database->query_return($contribSql);
+        }
 
-            // CP on users table
-            $database->query("
-                UPDATE " . TB_PREFIX . "users
-                SET cp = IFNULL(cp, 0) + $cpBonus
-                WHERE id = $conquerorUid
-            ");
+        $totalBossDamage = 0;
+        foreach ($contributors as $c) {
+            $totalBossDamage += (int)$c['total_dmg'];
+        }
 
-            // Transfer all remaining camp spoils into conqueror village
-            $targetVil = $attackerWref > 0 ? $attackerWref : (int)$database->getVillageID($conquerorUid);
-            if ($targetVil > 0 && ($remWood > 0 || $remClay > 0 || $remIron > 0 || $remCrop > 0)) {
+        $isSharedBossReward = ($isWorldBoss && count($contributors) > 1 && $totalBossDamage > 0);
+
+        if ($isSharedBossReward) {
+            // Split Silver pool proportionally among all attackers
+            foreach ($contributors as $c) {
+                $cUid = (int)$c['uid'];
+                $cDamage = (int)$c['total_dmg'];
+                $pct = round(($cDamage / $totalBossDamage) * 100, 1);
+                $share = max(1, (int)floor(($cDamage / $totalBossDamage) * $silverBonus));
+
+                // Add Silver to Hero
+                if (!class_exists('BlackMarket')) {
+                    require_once __DIR__ . '/BlackMarket.php';
+                }
+                BlackMarket::addSilver($cUid, $share);
+
+                // Notice for participant
+                $bossTopic = "👑 [HADIAH WORLD BOSS] {$camp['name']} Telah Tumbang!";
+                $bossMsg = "Kabar gembira! Monster penguasa rimba {$camp['name']} berhasil ditaklukkan oleh aliansi pejuang!\n\n" .
+                           "Berdasarkan catatan pertempuran, total kontribusi damagemu mencapai {$pct}% (" . number_format($cDamage) . " korban).\n" .
+                           "Sebagai hadiah perang gotong royong, kamu menerima bagian sebesar +{$share} Koin Silver! 🪙";
+                $database->addNotice($cUid, $wref, 0, 1, $bossTopic, $bossMsg, $time);
+            }
+
+            // Conqueror still receives Hero EXP & CP (and remaining resources)
+            if ($conquerorUid > 0) {
                 $database->query("
-                    UPDATE " . TB_PREFIX . "vdata
-                    SET wood = wood + $remWood,
-                        clay = clay + $remClay,
-                        iron = iron + $remIron,
-                        crop = crop + $remCrop
-                    WHERE wref = $targetVil
+                    UPDATE " . TB_PREFIX . "hero
+                    SET experience = IFNULL(experience, 0) + $expBonus
+                    WHERE uid = $conquerorUid
                 ");
+                $database->query("
+                    UPDATE " . TB_PREFIX . "users
+                    SET cp = IFNULL(cp, 0) + $cpBonus
+                    WHERE id = $conquerorUid
+                ");
+                $targetVil = $attackerWref > 0 ? $attackerWref : (int)$database->getVillageID($conquerorUid);
+                if ($targetVil > 0 && ($remWood > 0 || $remClay > 0 || $remIron > 0 || $remCrop > 0)) {
+                    $database->query("
+                        UPDATE " . TB_PREFIX . "vdata
+                        SET wood = wood + $remWood, clay = clay + $remClay, iron = iron + $remIron, crop = crop + $remCrop
+                        WHERE wref = $targetVil
+                    ");
+                }
             }
+        } else {
+            // 1. Award rewards to single conqueror
+            if ($conquerorUid > 0) {
+                // Hero EXP & Silver
+                $database->query("
+                    UPDATE " . TB_PREFIX . "hero
+                    SET experience = IFNULL(experience, 0) + $expBonus, silver = IFNULL(silver, 0) + $silverBonus
+                    WHERE uid = $conquerorUid
+                ");
 
-            // Notice / In-game report
-            $tierLabel = self::getTierLabel((int)$camp['tier']);
-            $topic = "🏆 [KEMENANGAN] {$camp['name']} Berhasil Dihancurkan!";
-            $bonusSpoils = "";
-            if ($remWood > 0 || $remClay > 0 || $remIron > 0 || $remCrop > 0) {
-                $bonusSpoils = " Sisa rampasan gudang bandit (+" . number_format($remWood) . " Kayu, +" . number_format($remClay) . " Liat, +" . number_format($remIron) . " Besi, +" . number_format($remCrop) . " Gandum) telah diangkut ke desamu!";
+                // CP on users table
+                $database->query("
+                    UPDATE " . TB_PREFIX . "users
+                    SET cp = IFNULL(cp, 0) + $cpBonus
+                    WHERE id = $conquerorUid
+                ");
+
+                // Transfer all remaining camp spoils into conqueror village
+                $targetVil = $attackerWref > 0 ? $attackerWref : (int)$database->getVillageID($conquerorUid);
+                if ($targetVil > 0 && ($remWood > 0 || $remClay > 0 || $remIron > 0 || $remCrop > 0)) {
+                    $database->query("
+                        UPDATE " . TB_PREFIX . "vdata
+                        SET wood = wood + $remWood,
+                            clay = clay + $remClay,
+                            iron = iron + $remIron,
+                            crop = crop + $remCrop
+                        WHERE wref = $targetVil
+                    ");
+                }
+
+                // Notice / In-game report
+                $tierLabel = self::getTierLabel((int)$camp['tier']);
+                $topic = "🏆 [KEMENANGAN] {$camp['name']} Berhasil Dihancurkan!";
+                $bonusSpoils = "";
+                if ($remWood > 0 || $remClay > 0 || $remIron > 0 || $remCrop > 0) {
+                    $bonusSpoils = " Sisa rampasan gudang bandit (+" . number_format($remWood) . " Kayu, +" . number_format($remClay) . " Liat, +" . number_format($remIron) . " Besi, +" . number_format($remCrop) . " Gandum) telah diangkut ke desamu!";
+                }
+                $noticeData = "Selamat! Pasukanmu berhasil menumpas seluruh penjaga di {$camp['name']} ({$tierLabel}). " .
+                              "Hadiah Kemenangan: +{$expBonus} Hero EXP, +{$cpBonus} CP, +{$silverBonus} Silver." . $bonusSpoils;
+
+                $database->addNotice($conquerorUid, $wref, 0, 1, $topic, $noticeData, $time);
             }
-            $noticeData = "Selamat! Pasukanmu berhasil menumpas seluruh penjaga di {$camp['name']} ({$tierLabel}). " .
-                          "Hadiah Kemenangan: +{$expBonus} Hero EXP, +{$cpBonus} CP, +{$silverBonus} Silver." . $bonusSpoils;
-
-            $database->addNotice($conquerorUid, $wref, 0, 1, $topic, $noticeData, $time);
         }
 
         // 2. Cleanup village data and free map tile

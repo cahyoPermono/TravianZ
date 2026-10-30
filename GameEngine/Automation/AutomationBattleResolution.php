@@ -3562,7 +3562,7 @@ trait AutomationBattleResolution {
                     // Check if defender village was a Bandit Camp and award rewards if cleared
                     if (file_exists(dirname(__DIR__) . '/BanditCamp.php')) {
                         require_once dirname(__DIR__) . '/BanditCamp.php';
-                        $campCleared = \BanditCamp::onBattleCompleted((int)$DefenderWref, (int)$from['owner'], (int)$from['wref']);
+                        $campCleared = \BanditCamp::onBattleCompleted((int)$DefenderWref, (int)$from['owner'], (int)$from['wref'], (int)$totaldead_def);
                         if (!empty($campCleared)) {
                             $razedTargets[$DefenderWref] = true;
                         }
