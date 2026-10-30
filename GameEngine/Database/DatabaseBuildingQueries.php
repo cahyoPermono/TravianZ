@@ -42,6 +42,17 @@ trait DatabaseBuildingQueries {
 		$q = "UPDATE " . TB_PREFIX . "fdata SET f" . $field . " = " . $level . ", f" . $field . "t = " . $type . " WHERE vref = " . $wid;
 		$result = mysqli_query($this->dblink, $q);
 
+		// Record Daily Quest progress
+		$vOwner = (int)$this->getVillageField($wid, 'owner');
+		if ($vOwner > 0) {
+			if (!class_exists('DailyQuests')) {
+				@include_once dirname(__DIR__) . '/DailyQuests.php';
+			}
+			if (class_exists('DailyQuests')) {
+				DailyQuests::recordProgress($vOwner, 'build', 1);
+			}
+		}
+
 		// invalidare: urmatorul getResourceLevel()/getFieldLevel() reciteste din DB
 		self::clearResourseLevelsCache();
 

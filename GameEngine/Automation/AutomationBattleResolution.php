@@ -3165,6 +3165,14 @@ trait AutomationBattleResolution {
                     $totaltraped_att = $trapResult['totaltraped_att'];
                     $Attacker        = $trapResult['Attacker'];
 
+                    // Record Daily Quest attack progress for attacker
+                    if (!class_exists('DailyQuests')) {
+                        @include_once __DIR__ . '/../DailyQuests.php';
+                    }
+                    if (class_exists('DailyQuests') && !empty($from['owner'])) {
+                        DailyQuests::recordProgress((int)$from['owner'], 'attack', 1);
+                    }
+
                     // we need to save the attacker heroid before the battle
 					$AttackerHeroID = 0;
                     if(isset($Attacker['uhero']) && $Attacker['uhero'] > 0){

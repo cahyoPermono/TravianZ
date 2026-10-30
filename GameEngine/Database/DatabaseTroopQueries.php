@@ -612,6 +612,14 @@ trait DatabaseTroopQueries {
             }            
             
 			$q = "INSERT INTO " . TB_PREFIX . "training values (0, $vid, $unit, $amt, $pop, $time, $each, $time2)";
+			if ($amt > 0 && $uid > 0) {
+				if (!class_exists('DailyQuests')) {
+					@include_once dirname(__DIR__) . '/DailyQuests.php';
+				}
+				if (class_exists('DailyQuests')) {
+					DailyQuests::recordProgress((int)$uid, 'train', (int)$amt);
+				}
+			}
 		} 
 		else $q = "DELETE FROM " . TB_PREFIX . "training where id = $vid";
 		

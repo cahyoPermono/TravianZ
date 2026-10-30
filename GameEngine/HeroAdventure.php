@@ -544,6 +544,14 @@ class HeroAdventure
             $database->addNotice($uid, $toHome, 0, NTYPE_ADVENTURE_REPORT,
                 'Hero returned from an adventure', $payload, $now);
 
+            // Record Daily Quest progress
+            if (!class_exists('DailyQuests')) {
+                @include_once __DIR__ . '/DailyQuests.php';
+            }
+            if (class_exists('DailyQuests')) {
+                DailyQuests::recordProgress((int)$uid, 'adventure', 1);
+            }
+
             $this->finishAdventure($data['advid']);
             $processed++;
         }
