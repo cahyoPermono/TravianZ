@@ -29,6 +29,7 @@ echo "=== Running BotExpansionAndConfigTest ===" . PHP_EOL;
 // TEST 1: Config Management (getConfig / saveConfig)
 // ------------------------------------------------------------------------------
 echo "Test 1: Config Management... ";
+$preTestConfig = BotAI::getConfig();
 $initialPop = BotAI::getConfig('BOT_AI_MAX_POP', 800);
 assertTrue($initialPop >= 450, "Default BOT_AI_MAX_POP should be at least 450 (got $initialPop)");
 
@@ -39,6 +40,9 @@ $saveSuccess = BotAI::saveConfig([
     'BOT_AI_EXPANSION_ENABLED' => true,
 ]);
 assertTrue($saveSuccess, "BotAI::saveConfig should return true");
+
+// Test runtime reload
+BotAI::resetRuntimeConfig();
 
 $allConfig = BotAI::getConfig();
 assertTrue(is_array($allConfig), "BotAI::getConfig() with 0 arguments must return array");
@@ -426,8 +430,10 @@ $mockDb->vdata[$widVil3] = [
 $resVilAtMax = BotAI::processExpansion($botArray);
 assertEqual(null, $resVilAtMax, "When bot has reached max villages (3), processExpansion must return null");
 
-// Restore default max villages = 2
-BotAI::saveConfig(['BOT_AI_MAX_VILLAGES' => 2]);
+// Restore pre-test config
+if (!empty($preTestConfig)) {
+    BotAI::saveConfig($preTestConfig);
+}
 
 echo "PASS" . PHP_EOL;
 

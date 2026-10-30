@@ -689,10 +689,18 @@ CREATE TABLE IF NOT EXISTS `%PREFIX%config` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 INSERT INTO `%PREFIX%config` VALUES (0);
 
+-- --------------------------------------------------------
+
 --
--- Dumping data for table `%prefix%config`
+-- Table structure for table `%prefix%bot_config`
 --
 
+CREATE TABLE IF NOT EXISTS `%PREFIX%bot_config` (
+  `k` varchar(64) NOT NULL,
+  `v` text NOT NULL,
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`k`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
 

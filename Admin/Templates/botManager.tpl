@@ -534,7 +534,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
         $pureDefOnly = !empty($_POST['bot_defense_pure_def_only']);
         $maxDefDistance = max(20.0, min(500.0, (float)($_POST['bot_max_defense_distance'] ?? 120.0)));
 
-        BotAI::saveConfig([
+        $saveSuccess = BotAI::saveConfig([
             'BOT_AI_MAX_POP' => $maxPop,
             'BOT_AI_MAX_BUILDING_LEVEL' => $maxBuildingLvl,
             'BOT_AI_MAX_VILLAGES' => $maxVillages,
@@ -553,16 +553,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
             'BOT_AI_MAX_DEFENSE_DISTANCE' => $maxDefDistance,
         ]);
 
-        $flashSuccess = "⚙️ <b>Pengaturan Bot AI Berhasil Disimpan!</b><br>"
-            . "• Batas Populasi (Cap Pop): <b>$maxPop</b> pop/desa<br>"
-            . "• Batas Level Bangunan: <b>Level $maxBuildingLvl</b><br>"
-            . "• Rasio Pasukan: <b>" . ($troopPopFactor * 100) . "%</b> dari populasi desa (Maks: <b>$maxArmy</b> unit/desa)<br>"
-            . "• Bantuan Bertahan Aliansi: <b>" . ($allianceDefenseEnabled ? "Aktif (Solid & Tanggap)" : "Nonaktif") . "</b><br>"
-            . "• Mobilisasi saat Kawan Diserang: <b>" . ($defenseRatioActive * 100) . "%</b> pasukan cadangan (Maks <b>$defenseMaxCap</b> unit/bot, Kuota: <b>$maxHelpers</b> bot penolong/desa)<br>"
-            . "• Filter Unit Pertahanan Murni: <b>" . ($pureDefOnly ? "Aktif (Hanya spesialis defense; cegah Clubswinger/Axeman mati sia-sia)" : "Nonaktif") . "</b><br>"
-            . "• Unit Scout (Pengintai): <b>" . ($scoutEnabled ? "Aktif (Latih di Barak/Stable, Anti-Spionase & Patroli Intai)" : "Nonaktif") . "</b><br>"
-            . "• Ekspansi Desa Baru: <b>" . ($expansionEnabled ? "Aktif (Maks $maxVillages Desa/Bot)" : "Nonaktif") . "</b> (Berjalan secara natural via Padepokan Lvl 10, pelatihan 3 Pionir, CP, dan perjalanan perintis).<br>"
-            . "• Sanggar Paranormal Nusantara: <b>" . ($paranormalEnabled ? "Aktif (Natural & Bertahap)" : "Nonaktif") . "</b> (Konstruksi GID 51 di slot 38, pemanggilan Pocong/Kunti/Genderuwo & ritual Tuyul sesuai sumber daya).";
+        if ($saveSuccess) {
+            $flashSuccess = "⚙️ <b>Pengaturan Bot AI Berhasil Disimpan Permanen!</b><br>"
+                . "• Batas Populasi (Cap Pop): <b>$maxPop</b> pop/desa<br>"
+                . "• Batas Level Bangunan: <b>Level $maxBuildingLvl</b><br>"
+                . "• Batas Kuota Desa: <b>Maks $maxVillages Desa / Bot</b><br>"
+                . "• Rasio Pasukan: <b>" . ($troopPopFactor * 100) . "%</b> dari populasi desa (Maks: <b>$maxArmy</b> unit/desa)<br>"
+                . "• Bantuan Bertahan Aliansi: <b>" . ($allianceDefenseEnabled ? "Aktif (Solid & Tanggap)" : "Nonaktif") . "</b><br>"
+                . "• Mobilisasi saat Kawan Diserang: <b>" . ($defenseRatioActive * 100) . "%</b> pasukan cadangan (Maks <b>$defenseMaxCap</b> unit/bot, Kuota: <b>$maxHelpers</b> bot penolong/desa)<br>"
+                . "• Filter Unit Pertahanan Murni: <b>" . ($pureDefOnly ? "Aktif (Hanya spesialis defense; cegah Clubswinger/Axeman mati sia-sia)" : "Nonaktif") . "</b><br>"
+                . "• Unit Scout (Pengintai): <b>" . ($scoutEnabled ? "Aktif (Latih di Barak/Stable, Anti-Spionase & Patroli Intai)" : "Nonaktif") . "</b><br>"
+                . "• Ekspansi Desa Baru: <b>" . ($expansionEnabled ? "Aktif (Maks $maxVillages Desa/Bot)" : "Nonaktif") . "</b> (Berjalan secara natural via Padepokan Lvl 10, pelatihan 3 Pionir, CP, dan perjalanan perintis).<br>"
+                . "• Sanggar Paranormal Nusantara: <b>" . ($paranormalEnabled ? "Aktif (Natural & Bertahap)" : "Nonaktif") . "</b> (Konstruksi GID 51 di slot 38, pemanggilan Pocong/Kunti/Genderuwo & ritual Tuyul sesuai sumber daya).<br>"
+                . "<span style='color:#34d399;'>💾 Pengaturan tersimpan aman di Database &amp; file konfigurasi server (kebal terhadap extract zip patch).</span>";
+        } else {
+            $flashError = "❌ <b>Gagal Menyimpan Pengaturan Bot AI!</b><br>"
+                . "Sistem tidak dapat menulis ke database maupun ke file <code>GameEngine/Prevention/bot_config.json</code>.<br>"
+                . "Silakan pastikan permission folder <code>GameEngine/Prevention/</code> diset writable (chmod 777 / 775) dan koneksi database aktif.";
+        }
     }
 }
 
@@ -1014,7 +1022,7 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
                 Kapasitas Desa: <b style="color:#fff;"><?php echo $currentMaxVil; ?> Desa</b> &bull;
                 Ekspansi Desa Baru: <b style="color:<?php echo $currentExpEnabled ? '#34d399' : '#f87171'; ?>;"><?php echo $currentExpEnabled ? ('AKTIF (Maks ' . $currentMaxVil . ' Desa)') : 'NONAKTIF'; ?></b>
             </div>
-            <span style="color:#6ee7b7; font-size:10px;">💾 Tersimpan di GameEngine/Prevention/bot_config.json</span>
+            <span style="color:#6ee7b7; font-size:10px;">💾 Tersimpan aman di Database &amp; GameEngine/Prevention/bot_config.json (Kebal timpaan update patch zip)</span>
         </div>
 
         <form method="post" action="admin.php?p=botManager">

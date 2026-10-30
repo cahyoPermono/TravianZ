@@ -19,25 +19,85 @@ require_once __DIR__ . '/Data/unitdata.php';
 class BotAI {
 
     private static ?array $runtimeConfig = null;
+    private static bool $dbTableChecked = false;
+
+    /**
+     * Reset cached runtime configuration (used for testing or reload).
+     */
+    public static function resetRuntimeConfig(): void {
+        self::$runtimeConfig = null;
+        self::$dbTableChecked = false;
+    }
+
+    /**
+     * Ensure database table for bot configuration exists.
+     */
+    private static function ensureConfigTable(): void {
+        global $database;
+        if (self::$dbTableChecked) {
+            return;
+        }
+        if (isset($database) && is_object($database) && method_exists($database, 'query')) {
+            try {
+                $prefix = defined('TB_PREFIX') ? TB_PREFIX : 's1_';
+                $database->query("
+                    CREATE TABLE IF NOT EXISTS `{$prefix}bot_config` (
+                        `k` VARCHAR(64) NOT NULL PRIMARY KEY,
+                        `v` TEXT NOT NULL,
+                        `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                ");
+                self::$dbTableChecked = true;
+            } catch (\Throwable $e) {
+                // Ignore errors if DB is unreachable or mock DB
+            }
+        }
+    }
 
     /**
      * Retrieve Bot AI dynamic configuration setting.
      * If $key is null, returns the entire configuration array.
      * Priority for specific key:
-     * 1. Prevention/bot_config.json (customized via Admin GUI)
-     * 2. PHP Constant defined in config.php (e.g. BOT_AI_MAX_POP)
-     * 3. Default fallback
+     * 1. Database table (TB_PREFIX . "bot_config") - immune to file overwrite / zip extractions
+     * 2. Prevention/bot_config.json (customized via Admin GUI)
+     * 3. PHP Constant defined in config.php (e.g. BOT_AI_MAX_POP)
+     * 4. Default fallback
      */
     public static function getConfig(?string $key = null, $default = null) {
         if (self::$runtimeConfig === null) {
+            $config = [];
+
+            // 1. Load from file if available
             $configFile = __DIR__ . '/Prevention/bot_config.json';
             if (file_exists($configFile)) {
                 $content = @file_get_contents($configFile);
                 $decoded = json_decode($content, true);
-                self::$runtimeConfig = is_array($decoded) ? $decoded : [];
-            } else {
-                self::$runtimeConfig = [];
+                if (is_array($decoded)) {
+                    $config = $decoded;
+                }
             }
+
+            // 2. Overlay from Database (if available) - immune to zip overwrites
+            global $database;
+            if (isset($database) && is_object($database) && method_exists($database, 'query_return')) {
+                try {
+                    self::ensureConfigTable();
+                    $prefix = defined('TB_PREFIX') ? TB_PREFIX : 's1_';
+                    $rows = @$database->query_return("SELECT `k`, `v` FROM `{$prefix}bot_config`");
+                    if (is_array($rows) && !empty($rows)) {
+                        foreach ($rows as $row) {
+                            $k = $row['k'] ?? null;
+                            if (!$k) continue;
+                            $val = json_decode($row['v'] ?? '', true);
+                            $config[$k] = ($val !== null) ? $val : ($row['v'] ?? null);
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    // Ignore DB errors during bootstrap or tests
+                }
+            }
+
+            self::$runtimeConfig = $config;
         }
 
         if ($key === null) {
@@ -56,30 +116,65 @@ class BotAI {
     }
 
     /**
-     * Persist Bot AI dynamic configuration to Prevention/bot_config.json.
+     * Persist Bot AI dynamic configuration to database and Prevention/bot_config.json.
      * Completely safe: never touches or damages config.php.
      */
     public static function saveConfig(array $settings): bool {
-        $configFile = __DIR__ . '/Prevention/bot_config.json';
-        $current = [];
-        if (file_exists($configFile)) {
-            $content = @file_get_contents($configFile);
-            $decoded = json_decode($content, true);
-            if (is_array($decoded)) {
-                $current = $decoded;
-            }
+        global $database;
+
+        if (self::$runtimeConfig === null) {
+            self::getConfig();
         }
 
+        $current = self::$runtimeConfig ?? [];
         foreach ($settings as $k => $v) {
             $current[$k] = $v;
         }
-
         self::$runtimeConfig = $current;
+
+        $dbSuccess = false;
+        $fileSuccess = false;
+
+        // 1. Persist to Database table (TB_PREFIX . "bot_config")
+        if (isset($database) && is_object($database) && method_exists($database, 'query')) {
+            try {
+                self::ensureConfigTable();
+                $prefix = defined('TB_PREFIX') ? TB_PREFIX : 's1_';
+                foreach ($settings as $k => $v) {
+                    $kEsc = method_exists($database, 'escape') ? $database->escape($k) : addslashes($k);
+                    $vJson = json_encode($v);
+                    $vEsc = method_exists($database, 'escape') ? $database->escape($vJson) : addslashes($vJson);
+                    $database->query("
+                        INSERT INTO `{$prefix}bot_config` (`k`, `v`)
+                        VALUES ('$kEsc', '$vEsc')
+                        ON DUPLICATE KEY UPDATE `v` = '$vEsc'
+                    ");
+                }
+                $dbSuccess = true;
+            } catch (\Throwable $e) {
+                // Ignore DB error and fallback to file
+            }
+        }
+
+        // 2. Persist to Prevention/bot_config.json
+        $configFile = __DIR__ . '/Prevention/bot_config.json';
         $dir = dirname($configFile);
         if (!is_dir($dir)) {
             @mkdir($dir, 0777, true);
         }
-        return (bool)@file_put_contents($configFile, json_encode($current, JSON_PRETTY_PRINT));
+        if (file_exists($configFile) && !is_writable($configFile)) {
+            @chmod($configFile, 0777);
+        }
+        if (is_dir($dir) && !is_writable($dir)) {
+            @chmod($dir, 0777);
+        }
+
+        $written = @file_put_contents($configFile, json_encode($current, JSON_PRETTY_PRINT));
+        if ($written !== false) {
+            $fileSuccess = true;
+        }
+
+        return $dbSuccess || $fileSuccess;
     }
 
     /**
