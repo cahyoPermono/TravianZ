@@ -368,5 +368,68 @@ assertTrue(stripos($statusTransit['status_text'], "Ekspedisi ke") !== false, "St
 
 echo "PASS" . PHP_EOL;
 
+// ------------------------------------------------------------------------------
+// Test 4: Expansion to 3rd Village (BOT_AI_MAX_VILLAGES = 3)
+// ------------------------------------------------------------------------------
+echo "Test 4: Expansion to 3rd Village (BOT_AI_MAX_VILLAGES = 3)... ";
+
+// Configure max villages = 3
+BotAI::saveConfig(['BOT_AI_MAX_VILLAGES' => 3]);
+
+// Simulate bot currently owning 2 villages
+$widVil2 = 2002;
+$mockDb->vdata[$widVil2] = [
+    'wref' => $widVil2,
+    'owner' => $botUid,
+    'name' => 'Village_2',
+    'wood' => 50000,
+    'clay' => 50000,
+    'iron' => 50000,
+    'crop' => 50000,
+    'maxstore' => 80000,
+    'maxcrop' => 80000,
+    'exp1' => 0,
+    'exp2' => 0,
+    'exp3' => 0,
+    'created' => time() - (86400 * 5),
+];
+$mockDb->wdata[$widVil2] = ['x' => 15, 'y' => 25];
+
+// Village 1 used slot 1 for Village 2
+$mockDb->vdata[$botWid]['exp1'] = $widVil2;
+$mockDb->movement = []; // clear previous movement
+
+// Case 4A: Village 1 with Residence Lvl 10 (only 1 slot) cannot expand further
+$mockDb->fdata[$botWid]['f25'] = 10;
+$mockDb->fdata[$botWid]['f25t'] = 25;
+$mockDb->units[$botWid]['u30'] = 3;
+$resVil1Lvl10 = BotAI::processExpansion($botArray);
+assertEqual(null, $resVil1Lvl10, "Village 1 with Residence 10 cannot expand because slot 1 is used");
+
+// Case 4B: Village 1 upgrades Residence to Level 20 (unlocks slot 2 / exp2)
+$mockDb->fdata[$botWid]['f25'] = 20;
+$botArray['fdata'] = $mockDb->fdata[$botWid];
+$mockDb->units[$botWid]['u30'] = 3;
+$mockDb->users[$botUid]['cp'] = 8000; // sufficient CP for 3rd village
+$resVil1Lvl20 = BotAI::processExpansion($botArray);
+assertTrue($resVil1Lvl20 !== null && stripos($resVil1Lvl20, "Dispatched 3 Settlers") !== false, "Village 1 with Residence 20 can expand to 3rd village!");
+
+// Case 4C: When bot reaches 3 villages and max is 3, expansion stops
+$mockDb->movement = [];
+$widVil3 = 2003;
+$mockDb->vdata[$widVil3] = [
+    'wref' => $widVil3,
+    'owner' => $botUid,
+    'name' => 'Village_3',
+    'exp1' => 0,
+];
+$resVilAtMax = BotAI::processExpansion($botArray);
+assertEqual(null, $resVilAtMax, "When bot has reached max villages (3), processExpansion must return null");
+
+// Restore default max villages = 2
+BotAI::saveConfig(['BOT_AI_MAX_VILLAGES' => 2]);
+
+echo "PASS" . PHP_EOL;
+
 echo "=== All BotExpansionAndConfigTest tests passed successfully! ===" . PHP_EOL;
 

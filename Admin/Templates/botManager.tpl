@@ -561,7 +561,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
             . "• Mobilisasi saat Kawan Diserang: <b>" . ($defenseRatioActive * 100) . "%</b> pasukan cadangan (Maks <b>$defenseMaxCap</b> unit/bot, Kuota: <b>$maxHelpers</b> bot penolong/desa)<br>"
             . "• Filter Unit Pertahanan Murni: <b>" . ($pureDefOnly ? "Aktif (Hanya spesialis defense; cegah Clubswinger/Axeman mati sia-sia)" : "Nonaktif") . "</b><br>"
             . "• Unit Scout (Pengintai): <b>" . ($scoutEnabled ? "Aktif (Latih di Barak/Stable, Anti-Spionase & Patroli Intai)" : "Nonaktif") . "</b><br>"
-            . "• Ekspansi Desa ke-2: <b>" . ($expansionEnabled ? "Aktif (Maks $maxVillages Desa/Bot)" : "Nonaktif") . "</b> (Berjalan secara natural via Padepokan Lvl 10, pelatihan 3 Pionir, CP, dan perjalanan perintis).<br>"
+            . "• Ekspansi Desa Baru: <b>" . ($expansionEnabled ? "Aktif (Maks $maxVillages Desa/Bot)" : "Nonaktif") . "</b> (Berjalan secara natural via Padepokan Lvl 10, pelatihan 3 Pionir, CP, dan perjalanan perintis).<br>"
             . "• Sanggar Paranormal Nusantara: <b>" . ($paranormalEnabled ? "Aktif (Natural & Bertahap)" : "Nonaktif") . "</b> (Konstruksi GID 51 di slot 38, pemanggilan Pocong/Kunti/Genderuwo & ritual Tuyul sesuai sumber daya).";
     }
 }
@@ -988,13 +988,13 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
 
     </div>
 
-    <!-- Panel: Pengaturan Pertumbuhan Alami & Ekspansi Desa ke-2 -->
+    <!-- Panel: Pengaturan Pertumbuhan Alami & Ekspansi Desa Baru -->
     <div class="botm-panel" style="border-color:#10b981; background:linear-gradient(135deg, #064e3b 0%, #0b1220 100%); margin-bottom:20px;">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-            <h3 style="color:#34d399; margin:0;">⚙️ Pengaturan Pertumbuhan Alami &amp; Ekspansi Desa ke-2 (Bot Growth &amp; Expansion)</h3>
+            <h3 style="color:#34d399; margin:0;">⚙️ Pengaturan Pertumbuhan Alami &amp; Ekspansi Desa (Bot Growth &amp; Expansion)</h3>
             <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
                 <span style="background:<?php echo $currentExpEnabled ? '#065f46' : '#7f1d1d'; ?>; color:<?php echo $currentExpEnabled ? '#a7f3d0' : '#fecaca'; ?>; border:1px solid <?php echo $currentExpEnabled ? '#10b981' : '#ef4444'; ?>; padding:3px 10px; border-radius:12px; font-size:11px; font-weight:600;">
-                    <?php echo $currentExpEnabled ? '🟢 Ekspansi: AKTIF (Maks ' . $currentMaxVil . ' Desa/Bot)' : '🔴 Ekspansi: NONAKTIF'; ?>
+                    <?php echo $currentExpEnabled ? ('🟢 Ekspansi: AKTIF (Maks ' . $currentMaxVil . ' Desa/Bot)') : '🔴 Ekspansi: NONAKTIF'; ?>
                 </span>
                 <span style="background:#064e3b; color:#a7f3d0; border:1px solid #10b981; padding:3px 10px; border-radius:12px; font-size:11px; font-weight:600;">
                     🌱 Pop Cap: <?php echo number_format($currentMaxPop); ?> | Max Lvl: <?php echo $currentMaxLvl; ?>
@@ -1002,7 +1002,7 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
             </div>
         </div>
         <p class="desc" style="margin-top:6px;">
-            Admin dapat mengatur batas maksimal populasi per desa (mengganti batas lama 445 pop) dan mengaktifkan kemampuan bot AI untuk mendirikan <b>Desa ke-2</b> secara bertahap dan <b>100% natural</b> (membangun Padepokan level 10, melatih 3 pionir dengan sumber daya &amp; waktu antrian asli, mengumpulkan Culture Points/CP yang cukup, membawa 750 perbekalan, dan berjalan ke lahan baru).
+            Admin dapat mengatur batas maksimal populasi per desa (mengganti batas lama 445 pop) dan mengaktifkan kemampuan bot AI untuk mendirikan <b>Desa Baru (Desa ke-2, ke-3, dst hingga batas <?php echo $currentMaxVil; ?> desa)</b> secara bertahap dan <b>100% natural</b> (membangun Padepokan level 10, melatih 3 pionir dengan sumber daya &amp; waktu antrian asli, mengumpulkan Culture Points/CP yang cukup, membawa 750 perbekalan, dan berjalan ke lahan baru).
         </p>
 
         <!-- Live Status Bar -->
@@ -1012,7 +1012,7 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
                 Batas Populasi: <b style="color:#fff;"><?php echo number_format($currentMaxPop); ?></b> pop/desa &bull;
                 Batas Level: <b style="color:#fff;">Level <?php echo $currentMaxLvl; ?></b> &bull;
                 Kapasitas Desa: <b style="color:#fff;"><?php echo $currentMaxVil; ?> Desa</b> &bull;
-                Ekspansi Desa ke-2: <b style="color:<?php echo $currentExpEnabled ? '#34d399' : '#f87171'; ?>;"><?php echo $currentExpEnabled ? 'AKTIF (Otomatis & Natural)' : 'NONAKTIF'; ?></b>
+                Ekspansi Desa Baru: <b style="color:<?php echo $currentExpEnabled ? '#34d399' : '#f87171'; ?>;"><?php echo $currentExpEnabled ? ('AKTIF (Maks ' . $currentMaxVil . ' Desa)') : 'NONAKTIF'; ?></b>
             </div>
             <span style="color:#6ee7b7; font-size:10px;">💾 Tersimpan di GameEngine/Prevention/bot_config.json</span>
         </div>
@@ -1078,13 +1078,13 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
                     <div style="background:#0f172a; padding:10px 12px; border-radius:6px; border:1px solid #1e293b; margin-top:2px;">
                         <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:#f8fafc; font-weight:bold; font-size:12px;">
                             <input type="checkbox" name="bot_expansion_enabled" value="1" <?php echo $currentExpEnabled ? 'checked' : ''; ?> style="width:16px; height:16px; cursor:pointer;">
-                            <span>Aktifkan Ekspansi Desa Baru (Desa ke-2)</span>
+                            <span>Aktifkan Ekspansi Desa Baru (Maks <?php echo $currentMaxVil; ?> Desa / Bot)</span>
                         </label>
                         <span style="font-size:10px; color:<?php echo $currentExpEnabled ? '#34d399' : '#f87171'; ?>; display:block; margin-top:4px;">
-                            📌 <b>Settingan Aktif Saat Ini:</b> <?php echo $currentExpEnabled ? '🟢 AKTIF (Bot mandiri bangun Padepokan 10, latih 3 pionir & kirim ekspedisi)' : '🔴 NONAKTIF (Bot tidak akan mendirikan desa ke-2)'; ?>
+                            📌 <b>Settingan Aktif Saat Ini:</b> <?php echo $currentExpEnabled ? ('🟢 AKTIF (Bot mandiri ekspansi bertahap hingga kuota ' . $currentMaxVil . ' desa tercapai)') : '🔴 NONAKTIF (Bot tidak akan mendirikan desa baru)'; ?>
                         </span>
                         <span style="font-size:10px; color:#6ee7b7; display:block; margin-top:2px;">
-                            Jika dicentang, bot yang memenuhi syarat akan mendirikan desa baru secara otomatis dan natural.
+                            Jika dicentang, bot yang memenuhi syarat akan mendirikan desa baru secara otomatis dan natural sesuai kuota maksimal desa.
                         </span>
                     </div>
                 </div>
@@ -1292,7 +1292,7 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
 
             <!-- Natural Steps Infographic Box -->
             <div style="background:#022c22; border:1px solid #059669; border-radius:6px; padding:12px; margin-bottom:14px; font-size:11px; line-height:1.6; color:#a7f3d0;">
-                <b style="color:#34d399; font-size:12px;">🌱 Alur Natural Pembentukan Desa ke-2 (Tanpa Skip Tahapan):</b>
+                <b style="color:#34d399; font-size:12px;">🌱 Alur Natural Pembentukan Desa Baru (Desa ke-2, ke-3, dst tanpa Skip Tahapan):</b>
                 <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:10px; margin-top:8px;">
                     <div style="background:#064e3b; padding:8px 10px; border-radius:4px; border-left:3px solid #10b981;">
                         <b style="color:#fff;">1. Padepokan (Residence)</b><br>
@@ -1337,7 +1337,7 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
             </div>
 
             <button type="submit" class="btn-primary" style="background:#059669; border-color:#10b981; padding:9px 20px; font-weight:bold; cursor:pointer;">
-                💾 Simpan Pengaturan Pertumbuhan &amp; Desa ke-2
+                💾 Simpan Pengaturan Pertumbuhan &amp; Ekspansi Desa
             </button>
         </form>
     </div>

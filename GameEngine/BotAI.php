@@ -1353,16 +1353,45 @@ class BotAI {
         $userVillages = $database->getProfileVillages($uid);
         $villageCount = is_array($userVillages) ? count($userVillages) : 1;
         if ($villageCount >= $maxVillages) {
-            return null; // Already reached max villages
+            return null; // Already reached max villages configured by admin
         }
 
-        // 2. Check if this village has free expansion slot (exp1 == 0)
+        // 2. Check Residence or Palace level in this village
+        // Residence (gid 25): lvl 10 = slot 1 (exp1), lvl 20 = slot 2 (exp2)
+        // Palace (gid 26): lvl 10 = slot 1 (exp1), lvl 15 = slot 2 (exp2), lvl 20 = slot 3 (exp3)
+        $rsLevel = self::getBuildingLevel($wid, 25, $bot['fdata'] ?? []);
+        $palaceLevel = self::getBuildingLevel($wid, 26, $bot['fdata'] ?? []);
+
+        $allowedSlots = 0;
+        if ($rsLevel >= 20) {
+            $allowedSlots = 2;
+        } elseif ($rsLevel >= 10) {
+            $allowedSlots = 1;
+        }
+        if ($palaceLevel >= 20) {
+            $allowedSlots = max($allowedSlots, 3);
+        } elseif ($palaceLevel >= 15) {
+            $allowedSlots = max($allowedSlots, 2);
+        } elseif ($palaceLevel >= 10) {
+            $allowedSlots = max($allowedSlots, 1);
+        }
+
+        if ($allowedSlots < 1) {
+            return null; // Residence/Palace not yet level 10, bot continues natural progression
+        }
+
+        // 3. Check if this village has any free expansion slot
         $vFields = method_exists($database, 'getVillageFields') ? $database->getVillageFields($wid, 'exp1, exp2, exp3', false) : null;
-        if (!empty($vFields['exp1']) && (int)$vFields['exp1'] > 0) {
-            return null; // Expansion slot 1 already used for this village
+        $usedSlots = 0;
+        if (!empty($vFields['exp1']) && (int)$vFields['exp1'] > 0) $usedSlots++;
+        if (!empty($vFields['exp2']) && (int)$vFields['exp2'] > 0) $usedSlots++;
+        if (!empty($vFields['exp3']) && (int)$vFields['exp3'] > 0) $usedSlots++;
+
+        if ($usedSlots >= $allowedSlots) {
+            return null; // All unlocked expansion slots for this village are already used
         }
 
-        // 3. Check if there is already a settlement movement in progress from this village
+        // 4. Check if there is already a settlement movement in progress from this village
         $inProgress = $database->query_return("
             SELECT moveid, endtime FROM " . TB_PREFIX . "movement
             WHERE `from` = $wid AND sort_type = 5 AND proc = 0
@@ -1371,12 +1400,6 @@ class BotAI {
         if (!empty($inProgress)) {
             $remaining = max(0, (int)$inProgress[0]['endtime'] - time());
             return "Settler expedition in transit to found new village (arrives in " . round($remaining / 60) . " mins)";
-        }
-
-        // 4. Check Residence level in this village (Prerequisite: Residence level 10)
-        $rsLevel = self::getBuildingLevel($wid, 25, $bot['fdata'] ?? []);
-        if ($rsLevel < 10) {
-            return null; // Residence not yet level 10, bot continues natural progression
         }
 
         // 5. Settler Unit & Cost
