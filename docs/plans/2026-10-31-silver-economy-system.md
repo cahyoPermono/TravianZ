@@ -157,27 +157,33 @@ git commit -m "feat(silver): add daily quest milestone chest and side info widge
 
 ---
 
-### Task 5: Bandit World Boss Bounty Contribution Sharing (`BanditCamp.php`)
+### Task 5: Bandit World Boss Multi-Reward Sharing & Live Transparency (`BanditCamp.php` & `vilview.tpl`)
 
 **Files:**
 - Modify: `GameEngine/BanditCamp.php`
+- Modify: `Templates/Map/vilview.tpl`
 - Test: `tests/BanditCampBountyPoolTest.php`
 
 **Step 1: Write the failing test**
 Create `tests/BanditCampBountyPoolTest.php`:
-- Verify multiple players attacking a Tier 4 World Boss have their damage logged.
-- Verify that when the World Boss is defeated, the 4,000 Silver pool is split proportionally among attackers based on their damage.
+- Verify multiple players attacking a Tier 4 World Boss have their damage logged into `bandit_camp_attacks`.
+- Verify `BanditCamp::getCampContributors()` calculates exact damage percentage and estimated reward shares (Silver, CP, Hero EXP, and Resources).
+- Verify that when the World Boss is defeated, ALL spoils (Silver pool, Culture Points pool, Hero EXP pool, and Resource pools) are distributed proportionally among all contributors.
+- Verify notices are delivered to each contributor with complete contribution and spoil breakdown.
 
 **Step 2: Run test to verify it fails**
 Run: `docker exec travianz-web php tests/BanditCampBountyPoolTest.php`
-Expected: FAIL.
 
-**Step 3: Implement minimal code**
+**Step 3: Implement code**
 In `GameEngine/BanditCamp.php`:
 - Create table `bandit_camp_attacks` (`camp_id`, `uid`, `damage_dealt`, `timestamp`).
-- Log damage dealt on every attack against camps.
-- In `resolveCampDefeat()` for Tier 4 World Boss, query all unique attackers and distribute 4,000 Silver proportionally with victory notices.
+- Implement `BanditCamp::getCampContributors(int $campId): array`.
+- In `rewardAndClearCamp()` for Tier 4 World Boss, query contributors and distribute Silver, CP, Hero EXP, and Resources into each contributor's village/hero proportionally.
 - Retain solitary full reward for single attacker or Tier 1-3 camps.
+
+In `Templates/Map/vilview.tpl`:
+- Render World Boss Raid Leaderboard table (`#boss_leaderboard`) with Rank, Player, Total Damage, Kontribusi (%), and Estimasi Hadiah.
+- Render personalized contribution card for logged-in user showing their rank, contribution percentage, damage dealt, and exact estimated spoils when boss is defeated.
 
 **Step 4: Run test to verify it passes**
 Run: `docker exec travianz-web php tests/BanditCampBountyPoolTest.php`
@@ -185,8 +191,8 @@ Expected: PASS.
 
 **Step 5: Commit**
 ```bash
-git add GameEngine/BanditCamp.php tests/BanditCampBountyPoolTest.php
-git commit -m "feat(silver): split bandit world boss 4,000 silver pool among attackers"
+git add GameEngine/BanditCamp.php Templates/Map/vilview.tpl tests/BanditCampBountyPoolTest.php
+git commit -m "feat(boss): expand bandit world boss bounty pool to all spoils (silver, cp, exp, resources) with transparent live contribution leaderboard"
 ```
 
 ---
