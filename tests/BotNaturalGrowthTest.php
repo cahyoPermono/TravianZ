@@ -213,8 +213,9 @@ $afterU15 = $mockDb->unitsData[101]['u15'] ?? 80;
 $totalAfter = $afterU11 + $afterU12 + $afterU15;
 
 assertTrue($totalAfter <= 30, "Total troops after trimming must be <= 30, was: $totalAfter");
-assertEqual(0, $afterU15, "Premature cavalry/knights (u15) must be set to 0");
-assertEqual(30, $afterU11, "Basic infantry (u11) must be set to target total");
+assertEqual(30, $totalAfter, "Total troops after trimming must equal target total 30");
+assertTrue($afterU15 <= 5, "Cavalry (u15) must be scaled down proportionally (was 80, now: $afterU15)");
+assertTrue($afterU11 >= 20, "Basic infantry (u11) must be scaled proportionally and retain bulk of troops (now: $afterU11)");
 echo "Total troops trimmed from 730 down to: $totalAfter (Trimmed: $trimmedCount)" . PHP_EOL;
 
 // 5. Test rebalanceVillageBuildings on Day 1

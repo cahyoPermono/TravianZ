@@ -992,13 +992,30 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
     <div class="botm-panel" style="border-color:#10b981; background:linear-gradient(135deg, #064e3b 0%, #0b1220 100%); margin-bottom:20px;">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
             <h3 style="color:#34d399; margin:0;">⚙️ Pengaturan Pertumbuhan Alami &amp; Ekspansi Desa ke-2 (Bot Growth &amp; Expansion)</h3>
-            <span style="background:#065f46; color:#a7f3d0; border:1px solid #10b981; padding:3px 10px; border-radius:12px; font-size:11px; font-weight:600;">
-                🌱 Natural Progression Engine
-            </span>
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                <span style="background:<?php echo $currentExpEnabled ? '#065f46' : '#7f1d1d'; ?>; color:<?php echo $currentExpEnabled ? '#a7f3d0' : '#fecaca'; ?>; border:1px solid <?php echo $currentExpEnabled ? '#10b981' : '#ef4444'; ?>; padding:3px 10px; border-radius:12px; font-size:11px; font-weight:600;">
+                    <?php echo $currentExpEnabled ? '🟢 Ekspansi: AKTIF (Maks ' . $currentMaxVil . ' Desa/Bot)' : '🔴 Ekspansi: NONAKTIF'; ?>
+                </span>
+                <span style="background:#064e3b; color:#a7f3d0; border:1px solid #10b981; padding:3px 10px; border-radius:12px; font-size:11px; font-weight:600;">
+                    🌱 Pop Cap: <?php echo number_format($currentMaxPop); ?> | Max Lvl: <?php echo $currentMaxLvl; ?>
+                </span>
+            </div>
         </div>
         <p class="desc" style="margin-top:6px;">
             Admin dapat mengatur batas maksimal populasi per desa (mengganti batas lama 445 pop) dan mengaktifkan kemampuan bot AI untuk mendirikan <b>Desa ke-2</b> secara bertahap dan <b>100% natural</b> (membangun Padepokan level 10, melatih 3 pionir dengan sumber daya &amp; waktu antrian asli, mengumpulkan Culture Points/CP yang cukup, membawa 750 perbekalan, dan berjalan ke lahan baru).
         </p>
+
+        <!-- Live Status Bar -->
+        <div style="background:#022c22; border:1px solid #059669; border-radius:6px; padding:10px 14px; margin-top:8px; margin-bottom:14px; font-size:11px; color:#a7f3d0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+            <div>
+                📌 <b>Status Konfigurasi Pertumbuhan Saat Ini:</b>
+                Batas Populasi: <b style="color:#fff;"><?php echo number_format($currentMaxPop); ?></b> pop/desa &bull;
+                Batas Level: <b style="color:#fff;">Level <?php echo $currentMaxLvl; ?></b> &bull;
+                Kapasitas Desa: <b style="color:#fff;"><?php echo $currentMaxVil; ?> Desa</b> &bull;
+                Ekspansi Desa ke-2: <b style="color:<?php echo $currentExpEnabled ? '#34d399' : '#f87171'; ?>;"><?php echo $currentExpEnabled ? 'AKTIF (Otomatis & Natural)' : 'NONAKTIF'; ?></b>
+            </div>
+            <span style="color:#6ee7b7; font-size:10px;">💾 Tersimpan di GameEngine/Prevention/bot_config.json</span>
+        </div>
 
         <form method="post" action="admin.php?p=botManager">
             <?php echo csrf_field(); ?>
@@ -1007,6 +1024,9 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
             <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:14px; margin-bottom:14px;">
                 <div class="botm-form-group">
                     <label>Batas Populasi Maksimal per Desa (Cap Pop):</label>
+                    <div style="background:#0f172a; border:1px solid #1e293b; border-radius:6px; padding:6px 10px; margin-bottom:5px; font-size:11px; color:#34d399;">
+                        📌 <b>Settingan Aktif Saat Ini:</b> Maksimal <b><?php echo number_format($currentMaxPop); ?></b> Penduduk / Desa <?php echo $currentMaxPop > 445 ? '(Sudah membuka gedung tier tinggi)' : '(Batas klasik standar)'; ?>
+                    </div>
                     <input type="number" name="bot_max_pop" id="bot_max_pop_input" class="botm-form-control" value="<?php echo $currentMaxPop; ?>" min="200" max="5000" required>
                     <div class="quick-counts" style="margin-top:4px;">
                         <button type="button" class="quick-btn" onclick="document.getElementById('bot_max_pop_input').value=450">450 Pop (Klasik)</button>
@@ -1021,6 +1041,9 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
 
                 <div class="botm-form-group">
                     <label>Batas Level Bangunan Maksimal:</label>
+                    <div style="background:#0f172a; border:1px solid #1e293b; border-radius:6px; padding:6px 10px; margin-bottom:5px; font-size:11px; color:#34d399;">
+                        📌 <b>Settingan Aktif Saat Ini:</b> Maksimal <b>Level <?php echo $currentMaxLvl; ?></b> <?php echo $currentMaxLvl === 15 ? '(Rekomendasi Seimbang)' : ($currentMaxLvl === 20 ? '(Maksimal Game)' : ''); ?>
+                    </div>
                     <select name="bot_max_building_level" class="botm-form-control">
                         <?php for ($lvl = 10; $lvl <= 20; $lvl++): ?>
                             <option value="<?php echo $lvl; ?>" <?php echo $currentMaxLvl === $lvl ? 'selected' : ''; ?>>
@@ -1035,6 +1058,9 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
 
                 <div class="botm-form-group">
                     <label>Batas Maksimal Desa per Akun Bot:</label>
+                    <div style="background:#0f172a; border:1px solid #1e293b; border-radius:6px; padding:6px 10px; margin-bottom:5px; font-size:11px; color:#34d399;">
+                        📌 <b>Settingan Aktif Saat Ini:</b> Maksimal <b><?php echo $currentMaxVil; ?> Desa</b> per Bot <?php echo $currentMaxVil === 2 ? '(Ibukota + 1 Desa Baru - Rekomendasi)' : ($currentMaxVil === 1 ? '(Hanya 1 Desa / Ibukota Saja)' : ''); ?>
+                    </div>
                     <select name="bot_max_villages" class="botm-form-control">
                         <option value="1" <?php echo $currentMaxVil === 1 ? 'selected' : ''; ?>>1 Desa (Hanya Ibukota Saja)</option>
                         <option value="2" <?php echo $currentMaxVil === 2 ? 'selected' : ''; ?>>2 Desa (Ibukota + 1 Desa Baru - Rekomendasi)</option>
@@ -1054,7 +1080,10 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
                             <input type="checkbox" name="bot_expansion_enabled" value="1" <?php echo $currentExpEnabled ? 'checked' : ''; ?> style="width:16px; height:16px; cursor:pointer;">
                             <span>Aktifkan Ekspansi Desa Baru (Desa ke-2)</span>
                         </label>
-                        <span style="font-size:10px; color:#6ee7b7; display:block; margin-top:4px;">
+                        <span style="font-size:10px; color:<?php echo $currentExpEnabled ? '#34d399' : '#f87171'; ?>; display:block; margin-top:4px;">
+                            📌 <b>Settingan Aktif Saat Ini:</b> <?php echo $currentExpEnabled ? '🟢 AKTIF (Bot mandiri bangun Padepokan 10, latih 3 pionir & kirim ekspedisi)' : '🔴 NONAKTIF (Bot tidak akan mendirikan desa ke-2)'; ?>
+                        </span>
+                        <span style="font-size:10px; color:#6ee7b7; display:block; margin-top:2px;">
                             Jika dicentang, bot yang memenuhi syarat akan mendirikan desa baru secara otomatis dan natural.
                         </span>
                     </div>
