@@ -3433,6 +3433,7 @@ trait AutomationBattleResolution {
                     $this->handleHeroPostBattle($data, $from, $to, $dead11, $traped11, $heroxp, $hero_pic, $isoasis, $type, $targettribe, $info_cat, $info_hero, $can_destroy, $village_destroyed);
                     
                     // Oasis Nature Hunting Silver Bounty
+                    $bountyRes = null;
                     if ($targettribe == 4 && isset($Attacker['uhero']) && $Attacker['uhero'] > 0) {
                         $killedNature = [];
                         for ($ani = 31; $ani <= 40; $ani++) {
@@ -3543,6 +3544,11 @@ trait AutomationBattleResolution {
                     $data_fail = $report['data_fail'];
                     if ($totalDefHealed > 0) {
                         $data2 .= ',DEFBANDAGE:' . (int)$totalDefHealed;
+                    }
+                    if (!empty($bountyRes) && ($bountyRes['awarded'] > 0 || $bountyRes['potential'] > 0)) {
+                        $bountyToken = ',OASISBOUNTY:' . (int)$bountyRes['awarded'] . ';' . (int)$bountyRes['daily_total'] . ';' . (int)$bountyRes['daily_cap'] . ';' . (int)$bountyRes['animals_killed'] . ';' . ($bountyRes['capped'] ? 1 : 0);
+                        $data2 .= $bountyToken;
+                        $data_fail .= $bountyToken;
                     }
 
                     $defspy = !empty($defspy);

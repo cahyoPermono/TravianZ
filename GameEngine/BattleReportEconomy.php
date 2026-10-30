@@ -282,11 +282,35 @@ class BattleReportEconomy
             }
         }
 
+        // 7. Check for Oasis Silver Bounty
+        $silverBounty = 0;
+        foreach ($dataarray as $item) {
+            if (is_string($item) && strpos($item, 'OASISBOUNTY:') === 0) {
+                $p = explode(';', substr($item, 12));
+                $silverBounty = (int)($p[0] ?? 0);
+                break;
+            }
+        }
+        if ($silverBounty === 0 && file_exists(__DIR__ . '/OasisBounty.php')) {
+            require_once __DIR__ . '/OasisBounty.php';
+            if ($defTribe == 4 && $defDeadUnits > 0) {
+                $killedAnimals = [];
+                for ($ni = 0; $ni < 10; $ni++) {
+                    $dead = max(0, (int)($dataarray[45 + $ni] ?? 0));
+                    if ($dead > 0) $killedAnimals[31 + $ni] = $dead;
+                }
+                if (!empty($killedAnimals)) {
+                    $silverBounty = OasisBounty::calculateBounty($killedAnimals);
+                }
+            }
+        }
+
         return [
             'has_combat_data' => ($attDeadUnits > 0 || $defDeadUnits > 0 || $loot['total'] > 0 || $isTotalLoss),
             'is_total_loss'   => $isTotalLoss,
             'is_spy'          => $isSpy,
             'viewer_role'     => $viewerRole,
+            'silver_bounty'   => $silverBounty,
 
             'loot' => $loot,
 
@@ -318,6 +342,7 @@ class BattleReportEconomy
                 'total_resources_destroyed' => $attCost['total'] + $defCost['total'],
                 'net_profit_loss'           => $netTotal,
                 'formatted_pl'              => ($netTotal > 0 ? '+' : '') . number_format($netTotal),
+                'silver_bounty'             => $silverBounty,
             ]
         ];
     }
@@ -502,6 +527,12 @@ class BattleReportEconomy
             </table>
 
             <div style="padding: 6px 10px; font-size: 10px; color: #64748b; background: #f8fafc; border: 1px solid #cbd5e1; border-top: none; border-radius: 0 0 8px 8px;">
+                <?php if (!empty($economy['silver_bounty'])): ?>
+                    <div style="margin-bottom: 4px; padding: 4px 8px; background: #ecfdf5; border: 1px solid #86efac; border-radius: 4px; color: #166534; font-weight: bold; display: flex; align-items: center; gap: 6px;">
+                        <span>🏹</span>
+                        <span>Bonus Tambahan: <b>+<?php echo number_format($economy['silver_bounty']); ?> Silver</b> dari perburuan hewan liar oasis!</span>
+                    </div>
+                <?php endif; ?>
                 💡 <i>Nilai modal korban dihitung berdasarkan total bahan mentah (Kayu, Liat, Besi, Gandum) yang dikeluarkan untuk melatih prajurit yang gugur dalam pertempuran ini.</i>
             </div>
         </div>

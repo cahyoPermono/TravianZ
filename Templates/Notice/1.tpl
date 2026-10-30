@@ -307,18 +307,35 @@ if (!empty($dataarray[285])) {
 </tbody>
 <?php }
 
+<?php
+$heroInfoPic = null;
+$heroInfoMsg = null;
 if (!empty($dataarray[288]) && !empty($dataarray[289])) {
+    $heroInfoPic = $dataarray[288];
+    $heroInfoMsg = $dataarray[289];
+} else {
+    // Dynamic fallback scan for hero info in $dataarray
+    foreach ($dataarray as $k => $v) {
+        if ($v === 'hero' && isset($dataarray[$k + 1]) && is_string($dataarray[$k + 1]) && strlen($dataarray[$k + 1]) > 3) {
+            $heroInfoPic = 'hero';
+            $heroInfoMsg = $dataarray[$k + 1];
+            break;
+        }
+    }
+}
+
+if (!empty($heroInfoPic) && !empty($heroInfoMsg)) {
 ?>
 <tbody class="goods">
 <tr>
 <th><?php echo INFORMATION; ?></th>
 <td colspan="<?php echo $colspan; ?>">
-<img class="unit u<?php echo $dataarray[288]; ?>" src="img/x.gif" alt="<?php echo U0; ?>" title="<?php echo U0; ?>" />
-<?php echo $dataarray[289]; ?>
+<img class="unit u<?php echo $heroInfoPic; ?>" src="img/x.gif" alt="<?php echo U0; ?>" title="<?php echo U0; ?>" />
+<?php echo $heroInfoMsg; ?>
 </td>
 </tr>
 </tbody>
-<?php }
+<?php } ?>
 
 // Bandage healing notice (T4 hero port)
 $healedByBandage = 0;
@@ -415,6 +432,100 @@ if (!empty($dataarray[287])) {
 </tr>
 </tbody>
 <?php }
+
+// ======================== OASIS NATURE BOUNTY HUNTER ========================
+$oasisBountyData = null;
+// 1. Check for tagged token 'OASISBOUNTY:awarded;daily_total;daily_cap;animals_killed;capped'
+foreach ($dataarray as $entry) {
+    if (is_string($entry) && strpos($entry, 'OASISBOUNTY:') === 0) {
+        $bParts = explode(';', substr($entry, 12));
+        $oasisBountyData = [
+            'awarded'        => (int)($bParts[0] ?? 0),
+            'daily_total'    => (int)($bParts[1] ?? 0),
+            'daily_cap'      => (int)($bParts[2] ?? 150),
+            'animals_killed' => (int)($bParts[3] ?? 0),
+            'capped'         => !empty($bParts[4]),
+        ];
+        break;
+    }
+}
+
+// 2. Dynamic backward-compatible detection for existing reports:
+if ($oasisBountyData === null && file_exists(dirname(__DIR__, 2) . '/GameEngine/OasisBounty.php')) {
+    require_once dirname(__DIR__, 2) . '/GameEngine/OasisBounty.php';
+    $isOasisDef = ($dataarray[34] == 4 || (isset($database) && $database->isVillageOases($dataarray[29])));
+    $heroPresent = (!empty($hasHero) || (!empty($dataarray[284]) && $dataarray[284] > 0));
+    
+    if ($isOasisDef && $heroPresent) {
+        $killedAnimals = [];
+        $animalCount = 0;
+        for ($ai = 0; $ai < 10; $ai++) {
+            $dead = max(0, (int)($dataarray[45 + $ai] ?? 0));
+            if ($dead > 0) {
+                $killedAnimals[31 + $ai] = $dead;
+                $animalCount += $dead;
+            }
+        }
+        if ($animalCount > 0) {
+            $potBounty = OasisBounty::calculateBounty($killedAnimals);
+            $curDaily = OasisBounty::getDailyEarned((int)$attackerUid);
+            $oasisBountyData = [
+                'awarded'        => min($potBounty, max(0, 150 - max(0, $curDaily - $potBounty))),
+                'daily_total'    => $curDaily,
+                'daily_cap'      => OasisBounty::DAILY_CAP,
+                'animals_killed' => $animalCount,
+                'capped'         => ($curDaily >= 150)
+            ];
+            if ($oasisBountyData['awarded'] <= 0 && $curDaily > 0) {
+                $oasisBountyData['awarded'] = min($potBounty, $curDaily);
+            }
+        }
+    }
+}
+?>
+
+<?php if (!empty($oasisBountyData) && ($oasisBountyData['animals_killed'] > 0 || $oasisBountyData['awarded'] > 0)): ?>
+<tbody class="goods">
+<tr>
+<th style="vertical-align: middle; background: #ecfdf5; color: #065f46; border-right: 1.5px solid #a7f3d0;"><?php echo defined('BOUNTY') ? BOUNTY : 'Bounty'; ?></th>
+<td colspan="<?php echo $colspan; ?>" style="background: #f0fdf4; padding: 10px 14px; border: 1.5px solid #86efac; border-radius: 6px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 26px;">🏹</span>
+            <div>
+                <div style="font-weight: 800; font-size: 13px; color: #166534; display: flex; align-items: center; gap: 6px;">
+                    <span>Pemburu Hewan Liar (Oasis Nature Bounty)</span>
+                    <span style="background: #15803d; color: #fff; font-size: 10px; padding: 2px 7px; border-radius: 10px; font-weight: bold;">
+                        +<?php echo number_format($oasisBountyData['awarded']); ?> Silver
+                    </span>
+                    <?php if (!empty($oasisBountyData['capped'])): ?>
+                        <span style="background: #f59e0b; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 10px;">Max Cap</span>
+                    <?php endif; ?>
+                </div>
+                <div style="font-size: 11px; color: #15803d; margin-top: 2px;">
+                    Hero memimpin perburuan: <b><?php echo number_format($oasisBountyData['animals_killed']); ?></b> hewan buas ditumpas. Koin perak langsung masuk ke kantong Hero!
+                </div>
+            </div>
+        </div>
+        <div style="text-align: right; background: #ffffff; border: 1px solid #bbf7d0; border-radius: 8px; padding: 6px 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <div style="font-size: 9.5px; color: #64748b; font-weight: bold; text-transform: uppercase;">Perolehan Hari Ini</div>
+            <div style="font-size: 13px; font-weight: 800; color: #047857;">
+                🪙 <?php echo number_format($oasisBountyData['daily_total']); ?> / <?php echo number_format($oasisBountyData['daily_cap']); ?>
+            </div>
+            <div style="font-size: 9.5px; color: #16a34a;">
+                <?php 
+                $sisa = max(0, $oasisBountyData['daily_cap'] - $oasisBountyData['daily_total']);
+                echo "Sisa kuota: <b>" . number_format($sisa) . " Silver</b>";
+                ?>
+            </div>
+        </div>
+    </div>
+</td>
+</tr>
+</tbody>
+<?php endif; ?>
+
+<?php
 if (empty($dataarray[268]) && empty($dataarray[269])) { ?>
 <tbody class="goods">
 <tr>
