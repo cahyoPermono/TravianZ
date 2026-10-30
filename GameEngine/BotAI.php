@@ -442,11 +442,31 @@ class BotAI {
     }
 
     /**
+     * Retrieve building data array for a specific building type (GID) from Data/buidata.php.
+     */
+    public static function getBuildingData(int $type): ?array {
+        $varName = 'bid' . $type;
+        $data = $GLOBALS[$varName] ?? null;
+        if (!is_array($data)) {
+            global $$varName;
+            $data = $$varName ?? null;
+        }
+        if (!is_array($data) && file_exists(__DIR__ . '/Data/buidata.php')) {
+            require __DIR__ . '/Data/buidata.php';
+            $data = $GLOBALS[$varName] ?? ($$varName ?? null);
+        }
+        return is_array($data) ? $data : null;
+    }
+
+    /**
      * Process progressive building construction for bot village.
-     * Supports early-game baseline and dynamic mid/late-game expansion:
-     * - Unlocks Academy (slot 22), Stable (slot 20), Marketplace (slot 27), Residence (slot 30)
-     * - Scales resource fields up to level 10
-     * - Scales city buildings up to BOT_AI_MAX_BUILDING_LEVEL (lvl 20)
+     * 100% Natural mechanics matching real Travian players:
+     * - Genuine resource costs from Data/buidata.php (no flat 40 caps).
+     * - Builder queue limits via bdata:
+     *   * Romans: 1 resource field (dorf1, slots 1-18) + 1 village building (dorf2, slots 19-40) concurrently.
+     *   * Other tribes (Teutons, Gauls, Egyptians, Huns, Nusantara): 1 construction concurrently.
+     * - Realistic construction duration calculated via getBuildingTime() (scales with Main Building & SPEED).
+     * - Catapult vulnerability: Destroyed buildings must be re-queued level by level with full resources and time.
      */
     public static function processBuild(array $bot) {
         global $database;
@@ -497,13 +517,41 @@ class BotAI {
         $ageBuildingCap = max(2, min(20, (int)floor(2 + ($effectiveAgeDays * 1.2))));
         $maxBuildingLvl = min($maxBuildingLvl, $ageBuildingCap);
 
-        // 3. Pacing konstruksi: simulasi antrean tukang bangunan (~6-10 menit per upgrade)
-        if (rand(1, 100) > 35) {
-            return null; // Tukang bangunan sedang bekerja
+        // 4. Builder Queue Check (100% Alami):
+        // Periksa antrean pekerjaan konstruksi aktif di tabel bdata
+        $activeJobs = [];
+        if (method_exists($database, 'query_return')) {
+            $activeJobs = $database->query_return("SELECT id, field, type, level, timestamp, loopcon FROM " . TB_PREFIX . "bdata WHERE wid = $wid AND master = 0 ORDER BY timestamp ASC");
         }
 
-        // 4. Resource check: Jika desa bot baru saja dirampok dan sumber daya tiris (< 30), tunda konstruksi
-        $vRes = method_exists($database, 'getVillageFields') ? $database->getVillageFields($wid, 'wood, clay, iron, crop', false) : null;
+        $romanQueue = ($tribe == 1 || (defined('ALLOW_ALL_TRIBE') && ALLOW_ALL_TRIBE));
+        $activeDorf1 = 0;
+        $activeDorf2 = 0;
+        $busySlots = [];
+        if (is_array($activeJobs)) {
+            foreach ($activeJobs as $job) {
+                $f = (int)($job['field'] ?? 0);
+                $busySlots[$f] = true;
+                if ($f <= 18) {
+                    $activeDorf1++;
+                } else {
+                    $activeDorf2++;
+                }
+            }
+        }
+
+        // Kapasitas antrean tukang Travian:
+        // - Romawi: 1 ladang SDA (slot 1-18) + 1 gedung kota (slot 19-40) bersamaan.
+        // - Suku lain: maksimal 1 konstruksi aktif secara keseluruhan.
+        $canBuildDorf1 = $romanQueue ? ($activeDorf1 < 1) : (($activeDorf1 + $activeDorf2) < 1);
+        $canBuildDorf2 = $romanQueue ? ($activeDorf2 < 1) : (($activeDorf1 + $activeDorf2) < 1);
+
+        if (!$canBuildDorf1 && !$canBuildDorf2) {
+            return null; // Seluruh tukang bangunan sedang sibuk bekerja
+        }
+
+        // 5. Resource check awal: Jika desa bot baru saja dirampok dan sumber daya tiris (< 30), tunda konstruksi
+        $vRes = method_exists($database, 'getVillageFields') ? $database->getVillageFields($wid, 'wood, clay, iron, crop, maxstore, maxcrop', false) : null;
         $curWood = (float)($vRes['wood'] ?? $bot['wood'] ?? 0);
         $curClay = (float)($vRes['clay'] ?? $bot['clay'] ?? 0);
         $curIron = (float)($vRes['iron'] ?? $bot['iron'] ?? 0);
@@ -550,113 +598,97 @@ class BotAI {
             }
         }
 
-        $upgraded = null;
+        // Available lowest fields not currently under construction
+        $freeLowest = array_values(array_filter($lowestFields, function($s) use ($busySlots) {
+            return !isset($busySlots[$s]);
+        }));
+
+        $candidate = null;
 
         // Phase 1: Early-game foundational progression (lvl 1 baseline)
-        if ($minFieldLevel < 1) {
-            $slot = $lowestFields[array_rand($lowestFields)];
-            $targetLevel = 1;
-            $database->query("UPDATE " . TB_PREFIX . "fdata SET f{$slot} = $targetLevel WHERE vref = $wid");
-            $upgraded = "Resource field slot $slot to lvl $targetLevel";
-        } elseif ($mbLevel < 3) {
-            $targetLevel = $mbLevel + 1;
-            $database->query("UPDATE " . TB_PREFIX . "fdata SET f26 = $targetLevel, f26t = 15 WHERE vref = $wid");
-            $upgraded = "Main Building (slot 26) to lvl $targetLevel";
-        } elseif ($whLevel < 1) {
-            $database->query("UPDATE " . TB_PREFIX . "fdata SET f25 = 1, f25t = 10 WHERE vref = $wid");
-            $database->query("UPDATE " . TB_PREFIX . "vdata SET maxstore = 1200 WHERE wref = $wid");
-            $upgraded = "Constructed Warehouse (slot 25) lvl 1";
-        } elseif ($grLevel < 1) {
-            $database->query("UPDATE " . TB_PREFIX . "fdata SET f28 = 1, f28t = 11 WHERE vref = $wid");
-            $database->query("UPDATE " . TB_PREFIX . "vdata SET maxcrop = 1200 WHERE wref = $wid");
-            $upgraded = "Constructed Granary (slot 28) lvl 1";
-        } elseif ($rpLevel < 1) {
-            $database->query("UPDATE " . TB_PREFIX . "fdata SET f39 = 1, f39t = 16 WHERE vref = $wid");
-            $upgraded = "Constructed Rally Point (slot 39) lvl 1";
-        } elseif ($brLevel < 1) {
-            $database->query("UPDATE " . TB_PREFIX . "fdata SET f21 = 1, f21t = 19 WHERE vref = $wid");
-            $upgraded = "Constructed Barracks (slot 21) lvl 1";
-        } elseif ($wlLevel < 1) {
-            $database->query("UPDATE " . TB_PREFIX . "fdata SET f40 = 1, f40t = $wallType WHERE vref = $wid");
-            $upgraded = "Constructed Wall (slot 40) lvl 1";
-        } elseif ($crLevel < 1) {
-            $database->query("UPDATE " . TB_PREFIX . "fdata SET f31 = 1, f31t = 23 WHERE vref = $wid");
-            $upgraded = "Constructed Cranny (slot 31) lvl 1";
+        if ($minFieldLevel < 1 && $canBuildDorf1 && !empty($freeLowest)) {
+            $slot = $freeLowest[array_rand($freeLowest)];
+            $type = (int)($fdata['f' . $slot . 't'] ?? 0);
+            if ($type < 1) {
+                $type = (($slot - 1) % 4) + 1;
+            }
+            $candidate = ['slot' => $slot, 'type' => $type, 'lvl' => 1, 'name' => "Resource field slot $slot"];
+        } elseif ($mbLevel < 3 && $canBuildDorf2 && !isset($busySlots[26])) {
+            $candidate = ['slot' => 26, 'type' => 15, 'lvl' => $mbLevel + 1, 'name' => 'Main Building'];
+        } elseif ($whLevel < 1 && $canBuildDorf2 && !isset($busySlots[25])) {
+            $candidate = ['slot' => 25, 'type' => 10, 'lvl' => 1, 'name' => 'Warehouse'];
+        } elseif ($grLevel < 1 && $canBuildDorf2 && !isset($busySlots[28])) {
+            $candidate = ['slot' => 28, 'type' => 11, 'lvl' => 1, 'name' => 'Granary'];
+        } elseif ($rpLevel < 1 && $canBuildDorf2 && !isset($busySlots[39])) {
+            $candidate = ['slot' => 39, 'type' => 16, 'lvl' => 1, 'name' => 'Rally Point'];
+        } elseif ($brLevel < 1 && $canBuildDorf2 && !isset($busySlots[21])) {
+            $candidate = ['slot' => 21, 'type' => 19, 'lvl' => 1, 'name' => 'Barracks'];
+        } elseif ($wlLevel < 1 && $canBuildDorf2 && !isset($busySlots[40])) {
+            $candidate = ['slot' => 40, 'type' => $wallType, 'lvl' => 1, 'name' => 'Wall'];
+        } elseif ($crLevel < 1 && $canBuildDorf2 && !isset($busySlots[31])) {
+            $candidate = ['slot' => 31, 'type' => 23, 'lvl' => 1, 'name' => 'Cranny'];
         }
         // Phase 2: Construct advanced buildings when prerequisites and age requirements are satisfied
-        elseif ($acLevel < 1 && $mbLevel >= 3 && $brLevel >= 2 && $effectiveAgeDays >= 1.5) {
-            $database->query("UPDATE " . TB_PREFIX . "fdata SET f22 = 1, f22t = 22 WHERE vref = $wid");
-            $upgraded = "Constructed Academy (slot 22) lvl 1";
-        } elseif ($mpLevel < 1 && $mbLevel >= 3 && $whLevel >= 1 && $grLevel >= 1 && $effectiveAgeDays >= 1.0) {
-            $database->query("UPDATE " . TB_PREFIX . "fdata SET f27 = 1, f27t = 17 WHERE vref = $wid");
-            $upgraded = "Constructed Marketplace (slot 27) lvl 1";
-        } elseif ($enableCavalry && $stLevel < 1 && $mbLevel >= 3 && ($acLevel >= 1 || $pop >= 80) && $effectiveAgeDays >= 2.5) {
-            $database->query("UPDATE " . TB_PREFIX . "fdata SET f20 = 1, f20t = 20 WHERE vref = $wid");
-            $upgraded = "Constructed Stable (slot 20) lvl 1";
-        } elseif ($wsLevel < 1 && $mbLevel >= 5 && ($acLevel >= 2 || $pop >= 150) && $effectiveAgeDays >= 4.5) {
-            $database->query("UPDATE " . TB_PREFIX . "fdata SET f23 = 1, f23t = 21 WHERE vref = $wid");
-            $upgraded = "Constructed Workshop (slot 23) lvl 1";
-        } elseif ($rsLevel < 1 && $mbLevel >= 5 && $effectiveAgeDays >= 2.5) {
-            $database->query("UPDATE " . TB_PREFIX . "fdata SET f30 = 1, f30t = 25 WHERE vref = $wid");
-            $upgraded = "Constructed Residence (slot 30) lvl 1";
-        } elseif ($dynamicScaling && $gmLevel < 1 && $minFieldLevel >= 5 && $effectiveAgeDays >= 2.5) {
-            $database->query("UPDATE " . TB_PREFIX . "fdata SET f29 = 1, f29t = 8 WHERE vref = $wid");
-            $upgraded = "Constructed Grain Mill (slot 29) lvl 1";
-        } elseif ($dynamicScaling && $bsLevel < 1 && $mbLevel >= 3 && $acLevel >= 1 && $effectiveAgeDays >= 2.0) {
-            $database->query("UPDATE " . TB_PREFIX . "fdata SET f36 = 1, f36t = 12 WHERE vref = $wid");
-            $upgraded = "Constructed Blacksmith (slot 36) lvl 1";
-        } elseif ($dynamicScaling && $thLevel < 1 && $mbLevel >= 10 && $acLevel >= 10 && $effectiveAgeDays >= 4.5) {
-            $database->query("UPDATE " . TB_PREFIX . "fdata SET f24 = 1, f24t = 24 WHERE vref = $wid");
-            $upgraded = "Constructed Town Hall (slot 24) lvl 1";
-        } elseif ($dynamicScaling && $smLevel < 1 && $minFieldLevel >= 10 && $mbLevel >= 5 && $effectiveAgeDays >= 5.0) {
-            $database->query("UPDATE " . TB_PREFIX . "fdata SET f33 = 1, f33t = 5 WHERE vref = $wid");
-            $upgraded = "Constructed Sawmill (slot 33) lvl 1";
-        } elseif ($dynamicScaling && $byLevel < 1 && $minFieldLevel >= 10 && $mbLevel >= 5 && $effectiveAgeDays >= 5.0) {
-            $database->query("UPDATE " . TB_PREFIX . "fdata SET f34 = 1, f34t = 6 WHERE vref = $wid");
-            $upgraded = "Constructed Brickyard (slot 34) lvl 1";
-        } elseif ($dynamicScaling && $ifLevel < 1 && $minFieldLevel >= 10 && $mbLevel >= 5 && $effectiveAgeDays >= 5.0) {
-            $database->query("UPDATE " . TB_PREFIX . "fdata SET f35 = 1, f35t = 7 WHERE vref = $wid");
-            $upgraded = "Constructed Iron Foundry (slot 35) lvl 1";
-        } elseif ($dynamicScaling && $bkLevel < 1 && $minFieldLevel >= 10 && $gmLevel >= 5 && $mbLevel >= 5 && $effectiveAgeDays >= 6.0) {
-            $database->query("UPDATE " . TB_PREFIX . "fdata SET f32 = 1, f32t = 9 WHERE vref = $wid");
-            $upgraded = "Constructed Bakery (slot 32) lvl 1";
-        } elseif ($dynamicScaling && $trLevel < 1 && $mbLevel >= 10 && $effectiveAgeDays >= 6.0) {
-            $database->query("UPDATE " . TB_PREFIX . "fdata SET f37 = 1, f37t = 27 WHERE vref = $wid");
-            $upgraded = "Constructed Treasury (slot 37) lvl 1";
+        elseif ($canBuildDorf2 && $acLevel < 1 && $mbLevel >= 3 && $brLevel >= 2 && $effectiveAgeDays >= 1.5 && !isset($busySlots[22])) {
+            $candidate = ['slot' => 22, 'type' => 22, 'lvl' => 1, 'name' => 'Academy'];
+        } elseif ($canBuildDorf2 && $mpLevel < 1 && $mbLevel >= 3 && $whLevel >= 1 && $grLevel >= 1 && $effectiveAgeDays >= 1.0 && !isset($busySlots[27])) {
+            $candidate = ['slot' => 27, 'type' => 17, 'lvl' => 1, 'name' => 'Marketplace'];
+        } elseif ($canBuildDorf2 && $enableCavalry && $stLevel < 1 && $mbLevel >= 3 && ($acLevel >= 1 || $pop >= 80) && $effectiveAgeDays >= 2.5 && !isset($busySlots[20])) {
+            $candidate = ['slot' => 20, 'type' => 20, 'lvl' => 1, 'name' => 'Stable'];
+        } elseif ($canBuildDorf2 && $wsLevel < 1 && $mbLevel >= 5 && ($acLevel >= 2 || $pop >= 150) && $effectiveAgeDays >= 4.5 && !isset($busySlots[23])) {
+            $candidate = ['slot' => 23, 'type' => 21, 'lvl' => 1, 'name' => 'Workshop'];
+        } elseif ($canBuildDorf2 && $rsLevel < 1 && $mbLevel >= 5 && $effectiveAgeDays >= 2.5 && !isset($busySlots[30])) {
+            $candidate = ['slot' => 30, 'type' => 25, 'lvl' => 1, 'name' => 'Residence'];
+        } elseif ($canBuildDorf2 && $dynamicScaling && $gmLevel < 1 && $minFieldLevel >= 5 && $effectiveAgeDays >= 2.5 && !isset($busySlots[29])) {
+            $candidate = ['slot' => 29, 'type' => 8, 'lvl' => 1, 'name' => 'Grain Mill'];
+        } elseif ($canBuildDorf2 && $dynamicScaling && $bsLevel < 1 && $mbLevel >= 3 && $acLevel >= 1 && $effectiveAgeDays >= 2.0 && !isset($busySlots[36])) {
+            $candidate = ['slot' => 36, 'type' => 12, 'lvl' => 1, 'name' => 'Blacksmith'];
+        } elseif ($canBuildDorf2 && $dynamicScaling && $thLevel < 1 && $mbLevel >= 10 && $acLevel >= 10 && $effectiveAgeDays >= 4.5 && !isset($busySlots[24])) {
+            $candidate = ['slot' => 24, 'type' => 24, 'lvl' => 1, 'name' => 'Town Hall'];
+        } elseif ($canBuildDorf2 && $dynamicScaling && $smLevel < 1 && $minFieldLevel >= 10 && $mbLevel >= 5 && $effectiveAgeDays >= 5.0 && !isset($busySlots[33])) {
+            $candidate = ['slot' => 33, 'type' => 5, 'lvl' => 1, 'name' => 'Sawmill'];
+        } elseif ($canBuildDorf2 && $dynamicScaling && $byLevel < 1 && $minFieldLevel >= 10 && $mbLevel >= 5 && $effectiveAgeDays >= 5.0 && !isset($busySlots[34])) {
+            $candidate = ['slot' => 34, 'type' => 6, 'lvl' => 1, 'name' => 'Brickyard'];
+        } elseif ($canBuildDorf2 && $dynamicScaling && $ifLevel < 1 && $minFieldLevel >= 10 && $mbLevel >= 5 && $effectiveAgeDays >= 5.0 && !isset($busySlots[35])) {
+            $candidate = ['slot' => 35, 'type' => 7, 'lvl' => 1, 'name' => 'Iron Foundry'];
+        } elseif ($canBuildDorf2 && $dynamicScaling && $bkLevel < 1 && $minFieldLevel >= 10 && $gmLevel >= 5 && $mbLevel >= 5 && $effectiveAgeDays >= 6.0 && !isset($busySlots[32])) {
+            $candidate = ['slot' => 32, 'type' => 9, 'lvl' => 1, 'name' => 'Bakery'];
+        } elseif ($canBuildDorf2 && $dynamicScaling && $trLevel < 1 && $mbLevel >= 10 && $effectiveAgeDays >= 6.0 && !isset($busySlots[37])) {
+            $candidate = ['slot' => 37, 'type' => 27, 'lvl' => 1, 'name' => 'Treasury'];
         }
         // Nusantara: Cranny upgrade to lvl 3 as prerequisite for Sanggar Paranormal
-        elseif ($tribe === 10 && $crLevel < 3 && $mbLevel >= 3) {
+        elseif ($canBuildDorf2 && $tribe === 10 && $crLevel < 3 && $mbLevel >= 3 && !isset($busySlots[31])) {
             $targetLevel = $crLevel + 1;
-            $database->query("UPDATE " . TB_PREFIX . "fdata SET f31 = $targetLevel, f31t = 23 WHERE vref = $wid");
-            $upgraded = "Upgraded Cranny (slot 31) to lvl $targetLevel (Prerequisite for Sanggar Paranormal)";
+            $candidate = [
+                'slot' => 31,
+                'type' => 23,
+                'lvl' => $targetLevel,
+                'name' => 'Cranny',
+                'log' => "Upgraded Cranny (slot 31) to lvl $targetLevel (Prerequisite for Sanggar Paranormal)",
+            ];
         }
         // Nusantara: Construct Sanggar Paranormal (GID 51) on slot 38 naturally
-        elseif ($tribe === 10 && self::getConfig('BOT_AI_PARANORMAL_ENABLED', true) && $spLevel < 1 && (int)($fdata['f38t'] ?? 0) === 0 && $mbLevel >= 3 && $crLevel >= 3 && $effectiveAgeDays >= 1.5 && $curWood >= 150 && $curClay >= 120 && $curIron >= 160 && $curCrop >= 80) {
-            $database->query("UPDATE " . TB_PREFIX . "fdata SET f38 = 1, f38t = 51 WHERE vref = $wid");
-            if (method_exists($database, 'modifyResource')) {
-                $database->modifyResource($wid, 150, 120, 160, 80, 0);
-            }
-            self::recountPop($wid);
-            return "Constructed Sanggar Paranormal (slot 38) lvl 1";
+        elseif ($canBuildDorf2 && $tribe === 10 && self::getConfig('BOT_AI_PARANORMAL_ENABLED', true) && $spLevel < 1 && (int)($fdata['f38t'] ?? 0) === 0 && $mbLevel >= 3 && $crLevel >= 3 && $effectiveAgeDays >= 1.5 && !isset($busySlots[38])) {
+            $candidate = [
+                'slot' => 38,
+                'type' => 51,
+                'lvl' => 1,
+                'name' => 'Sanggar Paranormal',
+                'log' => "Constructed Sanggar Paranormal (slot 38) lvl 1",
+            ];
         }
         // Phase 3: Progressive expansion (Resource Fields vs City Infrastructure)
         else {
             // Storage check: ensure Warehouse & Granary keep pace with resource fields
             $needsStorageUpgrade = false;
-            if ($minFieldLevel >= 3) {
-                if ($whLevel < min($maxBuildingLvl, $minFieldLevel - 1)) {
+            if ($minFieldLevel >= 3 && $canBuildDorf2) {
+                if ($whLevel < min($maxBuildingLvl, $minFieldLevel - 1) && !isset($busySlots[25])) {
                     $targetWH = $whLevel + 1;
-                    $cap = self::getStorageCapacity($targetWH);
-                    $database->query("UPDATE " . TB_PREFIX . "fdata SET f25 = $targetWH, f25t = 10 WHERE vref = $wid");
-                    $database->query("UPDATE " . TB_PREFIX . "vdata SET maxstore = $cap WHERE wref = $wid");
-                    $upgraded = "Upgraded Warehouse (slot 25) to lvl $targetWH (Cap: $cap)";
+                    $candidate = ['slot' => 25, 'type' => 10, 'lvl' => $targetWH, 'name' => 'Warehouse'];
                     $needsStorageUpgrade = true;
-                } elseif ($grLevel < min($maxBuildingLvl, $minFieldLevel - 1)) {
+                } elseif ($grLevel < min($maxBuildingLvl, $minFieldLevel - 1) && !isset($busySlots[28])) {
                     $targetGR = $grLevel + 1;
-                    $cap = self::getStorageCapacity($targetGR);
-                    $database->query("UPDATE " . TB_PREFIX . "fdata SET f28 = $targetGR, f28t = 11 WHERE vref = $wid");
-                    $database->query("UPDATE " . TB_PREFIX . "vdata SET maxcrop = $cap WHERE wref = $wid");
-                    $upgraded = "Upgraded Granary (slot 28) to lvl $targetGR (Cap: $cap)";
+                    $candidate = ['slot' => 28, 'type' => 11, 'lvl' => $targetGR, 'name' => 'Granary'];
                     $needsStorageUpgrade = true;
                 }
             }
@@ -664,37 +696,41 @@ class BotAI {
             if (!$needsStorageUpgrade) {
                 // If fields below maxFieldLvl and roll succeeds, upgrade field
                 $upgradeFieldChance = $dynamicScaling ? 55 : 65;
-                if ($minFieldLevel < $maxFieldLvl && rand(1, 100) <= $upgradeFieldChance) {
-                    $slot = $lowestFields[array_rand($lowestFields)];
-                    $targetLevel = $minFieldLevel + 1;
-                    $database->query("UPDATE " . TB_PREFIX . "fdata SET f{$slot} = $targetLevel WHERE vref = $wid");
-                    $upgraded = "Resource field slot $slot to lvl $targetLevel";
-                } else {
+                if ($minFieldLevel < $maxFieldLvl && $canBuildDorf1 && !empty($freeLowest) && (!$canBuildDorf2 || rand(1, 100) <= $upgradeFieldChance)) {
+                    $slot = $freeLowest[array_rand($freeLowest)];
+                    $type = (int)($fdata['f' . $slot . 't'] ?? 0);
+                    if ($type < 1) {
+                        $type = (($slot - 1) % 4) + 1;
+                    }
+                    $curLvl = (int)($fdata['f' . $slot] ?? 0);
+                    $targetLevel = $curLvl + 1;
+                    $candidate = ['slot' => $slot, 'type' => $type, 'lvl' => $targetLevel, 'name' => "Resource field slot $slot"];
+                } elseif ($canBuildDorf2) {
                     // Upgrade city buildings
                     $candidates = [];
-                    if ($mbLevel < $maxBuildingLvl) $candidates[] = ['slot' => 26, 'type' => 15, 'lvl' => $mbLevel + 1, 'name' => 'Main Building'];
-                    if ($brLevel < $maxBuildingLvl) $candidates[] = ['slot' => 21, 'type' => 19, 'lvl' => $brLevel + 1, 'name' => 'Barracks'];
-                    if ($whLevel < $maxBuildingLvl) $candidates[] = ['slot' => 25, 'type' => 10, 'lvl' => $whLevel + 1, 'name' => 'Warehouse'];
-                    if ($grLevel < $maxBuildingLvl) $candidates[] = ['slot' => 28, 'type' => 11, 'lvl' => $grLevel + 1, 'name' => 'Granary'];
-                    if ($wlLevel < $maxBuildingLvl) $candidates[] = ['slot' => 40, 'type' => $wallType, 'lvl' => $wlLevel + 1, 'name' => 'Wall'];
+                    if ($mbLevel < $maxBuildingLvl && !isset($busySlots[26])) $candidates[] = ['slot' => 26, 'type' => 15, 'lvl' => $mbLevel + 1, 'name' => 'Main Building'];
+                    if ($brLevel < $maxBuildingLvl && !isset($busySlots[21])) $candidates[] = ['slot' => 21, 'type' => 19, 'lvl' => $brLevel + 1, 'name' => 'Barracks'];
+                    if ($whLevel < $maxBuildingLvl && !isset($busySlots[25])) $candidates[] = ['slot' => 25, 'type' => 10, 'lvl' => $whLevel + 1, 'name' => 'Warehouse'];
+                    if ($grLevel < $maxBuildingLvl && !isset($busySlots[28])) $candidates[] = ['slot' => 28, 'type' => 11, 'lvl' => $grLevel + 1, 'name' => 'Granary'];
+                    if ($wlLevel < $maxBuildingLvl && !isset($busySlots[40])) $candidates[] = ['slot' => 40, 'type' => $wallType, 'lvl' => $wlLevel + 1, 'name' => 'Wall'];
 
                     $crMax = $dynamicScaling ? 10 : 3;
-                    if ($crLevel < $crMax) $candidates[] = ['slot' => 31, 'type' => 23, 'lvl' => $crLevel + 1, 'name' => 'Cranny'];
+                    if ($crLevel < $crMax && !isset($busySlots[31])) $candidates[] = ['slot' => 31, 'type' => 23, 'lvl' => $crLevel + 1, 'name' => 'Cranny'];
 
                     if ($dynamicScaling) {
-                        if ($acLevel > 0 && $acLevel < min(20, $maxBuildingLvl)) {
+                        if ($acLevel > 0 && $acLevel < min(20, $maxBuildingLvl) && !isset($busySlots[22])) {
                             $candidates[] = ['slot' => 22, 'type' => 22, 'lvl' => $acLevel + 1, 'name' => 'Academy'];
                         }
-                        if ($stLevel > 0 && $stLevel < min(20, $maxBuildingLvl)) {
+                        if ($stLevel > 0 && $stLevel < min(20, $maxBuildingLvl) && !isset($busySlots[20])) {
                             $candidates[] = ['slot' => 20, 'type' => 20, 'lvl' => $stLevel + 1, 'name' => 'Stable'];
                         }
-                        if ($wsLevel > 0 && $wsLevel < min(20, $maxBuildingLvl)) {
+                        if ($wsLevel > 0 && $wsLevel < min(20, $maxBuildingLvl) && !isset($busySlots[23])) {
                             $candidates[] = ['slot' => 23, 'type' => 21, 'lvl' => $wsLevel + 1, 'name' => 'Workshop'];
                         }
-                        if ($mpLevel > 0 && $mpLevel < min(20, $maxBuildingLvl)) {
+                        if ($mpLevel > 0 && $mpLevel < min(20, $maxBuildingLvl) && !isset($busySlots[27])) {
                             $candidates[] = ['slot' => 27, 'type' => 17, 'lvl' => $mpLevel + 1, 'name' => 'Marketplace'];
                         }
-                        if ($rsLevel > 0 && $rsLevel < min(20, $maxBuildingLvl)) {
+                        if ($rsLevel > 0 && $rsLevel < min(20, $maxBuildingLvl) && !isset($busySlots[30])) {
                             $candidates[] = ['slot' => 30, 'type' => 25, 'lvl' => $rsLevel + 1, 'name' => 'Residence'];
                             // Prioritize Residence up to level 10 if expansion enabled and age >= 2.5
                             if ($rsLevel < 10 && self::getConfig('BOT_AI_EXPANSION_ENABLED', true) && $effectiveAgeDays >= 2.5) {
@@ -702,75 +738,127 @@ class BotAI {
                                 $candidates[] = ['slot' => 30, 'type' => 25, 'lvl' => $rsLevel + 1, 'name' => 'Residence'];
                             }
                         }
-                        if ($thLevel > 0 && $thLevel < min(20, $maxBuildingLvl)) {
+                        if ($thLevel > 0 && $thLevel < min(20, $maxBuildingLvl) && !isset($busySlots[24])) {
                             $candidates[] = ['slot' => 24, 'type' => 24, 'lvl' => $thLevel + 1, 'name' => 'Town Hall'];
                         }
-                        if ($gmLevel > 0 && $gmLevel < min(5, $maxBuildingLvl)) {
+                        if ($gmLevel > 0 && $gmLevel < min(5, $maxBuildingLvl) && !isset($busySlots[29])) {
                             $candidates[] = ['slot' => 29, 'type' => 8, 'lvl' => $gmLevel + 1, 'name' => 'Grain Mill'];
                         }
-                        if ($bkLevel > 0 && $bkLevel < min(5, $maxBuildingLvl)) {
+                        if ($bkLevel > 0 && $bkLevel < min(5, $maxBuildingLvl) && !isset($busySlots[32])) {
                             $candidates[] = ['slot' => 32, 'type' => 9, 'lvl' => $bkLevel + 1, 'name' => 'Bakery'];
                         }
-                        if ($smLevel > 0 && $smLevel < min(5, $maxBuildingLvl)) {
+                        if ($smLevel > 0 && $smLevel < min(5, $maxBuildingLvl) && !isset($busySlots[33])) {
                             $candidates[] = ['slot' => 33, 'type' => 5, 'lvl' => $smLevel + 1, 'name' => 'Sawmill'];
                         }
-                        if ($byLevel > 0 && $byLevel < min(5, $maxBuildingLvl)) {
+                        if ($byLevel > 0 && $byLevel < min(5, $maxBuildingLvl) && !isset($busySlots[34])) {
                             $candidates[] = ['slot' => 34, 'type' => 6, 'lvl' => $byLevel + 1, 'name' => 'Brickyard'];
                         }
-                        if ($ifLevel > 0 && $ifLevel < min(5, $maxBuildingLvl)) {
+                        if ($ifLevel > 0 && $ifLevel < min(5, $maxBuildingLvl) && !isset($busySlots[35])) {
                             $candidates[] = ['slot' => 35, 'type' => 7, 'lvl' => $ifLevel + 1, 'name' => 'Iron Foundry'];
                         }
-                        if ($bsLevel > 0 && $bsLevel < min(20, $maxBuildingLvl)) {
+                        if ($bsLevel > 0 && $bsLevel < min(20, $maxBuildingLvl) && !isset($busySlots[36])) {
                             $candidates[] = ['slot' => 36, 'type' => 12, 'lvl' => $bsLevel + 1, 'name' => 'Blacksmith'];
                         }
-                        if ($trLevel > 0 && $trLevel < min(20, $maxBuildingLvl)) {
+                        if ($trLevel > 0 && $trLevel < min(20, $maxBuildingLvl) && !isset($busySlots[37])) {
                             $candidates[] = ['slot' => 37, 'type' => 27, 'lvl' => $trLevel + 1, 'name' => 'Treasury'];
                         }
-                        if ($tribe === 10 && self::getConfig('BOT_AI_PARANORMAL_ENABLED', true) && $spLevel > 0 && $spLevel < min(20, $maxBuildingLvl) && (int)($fdata['f38t'] ?? 0) === 51) {
+                        if ($tribe === 10 && self::getConfig('BOT_AI_PARANORMAL_ENABLED', true) && $spLevel > 0 && $spLevel < min(20, $maxBuildingLvl) && (int)($fdata['f38t'] ?? 0) === 51 && !isset($busySlots[38])) {
                             $candidates[] = ['slot' => 38, 'type' => 51, 'lvl' => $spLevel + 1, 'name' => 'Sanggar Paranormal'];
                         }
                     }
 
                     if (!empty($candidates)) {
-                        $choice = $candidates[array_rand($candidates)];
-                        $slot = $choice['slot'];
-                        $type = $choice['type'];
-                        $lvl = $choice['lvl'];
-                        $database->query("UPDATE " . TB_PREFIX . "fdata SET f{$slot} = $lvl, f{$slot}t = $type WHERE vref = $wid");
-
-                        // Update storage capacities if warehouse or granary
-                        if ($type == 10) {
-                            $storageCap = self::getStorageCapacity($lvl);
-                            $database->query("UPDATE " . TB_PREFIX . "vdata SET maxstore = $storageCap WHERE wref = $wid");
-                        } elseif ($type == 11) {
-                            $cropCap = self::getStorageCapacity($lvl);
-                            $database->query("UPDATE " . TB_PREFIX . "vdata SET maxcrop = $cropCap WHERE wref = $wid");
+                        $candidate = $candidates[array_rand($candidates)];
+                    } elseif ($minFieldLevel < $maxFieldLvl && $canBuildDorf1 && !empty($freeLowest)) {
+                        $slot = $freeLowest[array_rand($freeLowest)];
+                        $type = (int)($fdata['f' . $slot . 't'] ?? 0);
+                        if ($type < 1) {
+                            $type = (($slot - 1) % 4) + 1;
                         }
-
-                        $upgraded = "Upgraded {$choice['name']} (slot $slot) to lvl $lvl";
-                    } elseif ($minFieldLevel < $maxFieldLvl) {
-                        $slot = $lowestFields[array_rand($lowestFields)];
-                        $targetLevel = $minFieldLevel + 1;
-                        $database->query("UPDATE " . TB_PREFIX . "fdata SET f{$slot} = $targetLevel WHERE vref = $wid");
-                        $upgraded = "Resource field slot $slot to lvl $targetLevel";
+                        $curLvl = (int)($fdata['f' . $slot] ?? 0);
+                        $targetLevel = $curLvl + 1;
+                        $candidate = ['slot' => $slot, 'type' => $type, 'lvl' => $targetLevel, 'name' => "Resource field slot $slot"];
                     }
                 }
             }
         }
 
-        if ($upgraded) {
-            // Deduct realistic construction cost from village storage
-            $dWood = min($curWood, 40);
-            $dClay = min($curClay, 40);
-            $dIron = min($curIron, 35);
-            $dCrop = min($curCrop, 25);
-            if (method_exists($database, 'modifyResource')) {
-                $database->modifyResource($wid, $dWood, $dClay, $dIron, $dCrop, 0);
+        if (!$candidate) {
+            return null;
+        }
+
+        $slot = (int)$candidate['slot'];
+        $type = (int)$candidate['type'];
+        $targetLevel = (int)$candidate['lvl'];
+        $name = $candidate['name'] ?? 'Building';
+
+        // Ambil data biaya & waktu asli dari Data/buidata.php
+        $bData = self::getBuildingData($type);
+        $levelData = $bData[$targetLevel] ?? null;
+        if (!$levelData) {
+            return null; // Level maksimal tercapai atau data tidak valid
+        }
+
+        $wCost = (int)($levelData['wood'] ?? 0);
+        $cCost = (int)($levelData['clay'] ?? 0);
+        $iCost = (int)($levelData['iron'] ?? 0);
+        $crCost = (int)($levelData['crop'] ?? 0);
+
+        // Verifikasi apakah sumber daya desa bot benar-benar mencukupi (TIDAK ADA LAGI FLAT 40!)
+        if ($curWood < $wCost || $curClay < $cCost || $curIron < $iCost || $curCrop < $crCost) {
+            return null; // Menabung sumber daya secara alami sampai cukup
+        }
+
+        // Hitung durasi waktu pembangunan alami Travian (dipengaruhi Main Building & SPEED server)
+        $curLvl = (int)($fdata['f' . $slot] ?? 0);
+        $plus = max(1, $targetLevel - $curLvl);
+        $duration = 0;
+        if (method_exists($database, 'getBuildingTime')) {
+            global $bid15, ${'bid' . $type};
+            if (!isset($bid15) || !isset(${'bid' . $type})) {
+                include_once __DIR__ . '/Data/buidata.php';
+            }
+            $duration = (int)$database->getBuildingTime($slot, $type, $plus, $wid, $fdata);
+        }
+        if ($duration <= 0) {
+            $rawTime = (int)($levelData['time'] ?? 300);
+            $duration = max(3, (int)round($rawTime / max(1, (float)$speed)));
+        }
+
+        // Kurangi sumber daya desa bot sebesar biaya ASLI
+        if (method_exists($database, 'modifyResource')) {
+            $database->modifyResource($wid, $wCost, $cCost, $iCost, $crCost, 0);
+        }
+
+        // Masukkan pekerjaan pembangunan ke antrean tukang bdata
+        $finishTimestamp = time() + $duration;
+        if (method_exists($database, 'addBuilding')) {
+            $database->addBuilding($wid, $slot, $type, 0, $finishTimestamp, 0, $targetLevel);
+        } else {
+            // Fallback untuk mock database / lingkungan testing tanpa addBuilding
+            $database->query("UPDATE " . TB_PREFIX . "fdata SET f{$slot} = $targetLevel, f{$slot}t = $type WHERE vref = $wid");
+            if ($type == 10) {
+                $cap = self::getStorageCapacity($targetLevel);
+                $database->query("UPDATE " . TB_PREFIX . "vdata SET maxstore = $cap WHERE wref = $wid");
+            } elseif ($type == 11) {
+                $cap = self::getStorageCapacity($targetLevel);
+                $database->query("UPDATE " . TB_PREFIX . "vdata SET maxcrop = $cap WHERE wref = $wid");
             }
             self::recountPop($wid);
         }
 
-        return $upgraded;
+        if (!empty($candidate['log'])) {
+            return $candidate['log'];
+        }
+
+        $durationStr = ($duration >= 60) ? round($duration / 60, 1) . 'm' : $duration . 's';
+        if (strpos($name, 'Resource field') !== false) {
+            return "Resource field slot $slot to lvl $targetLevel (Duration: {$durationStr}, Cost: W:{$wCost} C:{$cCost} I:{$iCost} Cr:{$crCost})";
+        }
+        if ($targetLevel == 1 && $curLvl == 0) {
+            return "Constructed {$name} (slot $slot) lvl 1 (Duration: {$durationStr}, Cost: W:{$wCost} C:{$cCost} I:{$iCost} Cr:{$crCost})";
+        }
+        return "Upgraded {$name} (slot $slot) to lvl $targetLevel (Duration: {$durationStr}, Cost: W:{$wCost} C:{$cCost} I:{$iCost} Cr:{$crCost})";
     }
 
     /**

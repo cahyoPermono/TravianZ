@@ -183,6 +183,7 @@ assertTrue(!$builtPrematureMB, "Nusantara bot with MB < 3 must NOT build Sanggar
 $fdataNus['f26'] = 3; // MB lvl 3
 $fdataNus['f31'] = 1; // Cranny lvl 1 (needs lvl 3)
 $mockDb->fdata[2001] = $fdataNus;
+$mockDb->vdata[2001] = $nusantaraBot;
 
 $upgradedCranny = false;
 for ($r = 0; $r < 25; $r++) {
