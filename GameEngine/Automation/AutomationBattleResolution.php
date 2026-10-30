@@ -3424,6 +3424,29 @@ trait AutomationBattleResolution {
                     // attacker hero outcome (oasis conquest/loyalty, artifact claim, report line) — extracted to handleHeroPostBattle() [#155]
                     $this->handleHeroPostBattle($data, $from, $to, $dead11, $traped11, $heroxp, $hero_pic, $isoasis, $type, $targettribe, $info_cat, $info_hero, $can_destroy, $village_destroyed);
                     
+                    // Oasis Nature Hunting Silver Bounty
+                    if ($targettribe == 4 && isset($Attacker['uhero']) && $Attacker['uhero'] > 0) {
+                        $killedNature = [];
+                        for ($ani = 31; $ani <= 40; $ani++) {
+                            $k = ($alldead[$ani] ?? 0) + ($owndead[$ani] ?? 0);
+                            if ($k > 0) {
+                                $killedNature[$ani] = $k;
+                            }
+                        }
+                        if (!empty($killedNature)) {
+                            require_once __DIR__ . '/../OasisBounty.php';
+                            $bountyRes = OasisBounty::awardBounty((int)$from['owner'], $killedNature, (int)$data['to']);
+                            if ($bountyRes['awarded'] > 0 || $bountyRes['potential'] > 0) {
+                                $bountyText = " | Bounty Hewan: +" . $bountyRes['awarded'] . " Silver" . ($bountyRes['capped'] ? " (Cap 150 tercapai)" : "") . " [Hari ini: " . $bountyRes['daily_total'] . "/150]";
+                                if (!empty($info_hero)) {
+                                    $info_hero .= $bountyText;
+                                } else {
+                                    $info_hero = $hero_pic . "," . $bountyText;
+                                }
+                            }
+                        }
+                    }
+
                     if ($DefenderID == 0) $natar = 0;
 
                     if (!empty($scout)) {
