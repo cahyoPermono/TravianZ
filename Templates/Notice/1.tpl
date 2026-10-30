@@ -307,7 +307,6 @@ if (!empty($dataarray[285])) {
 </tbody>
 <?php }
 
-<?php
 $heroInfoPic = null;
 $heroInfoMsg = null;
 if (!empty($dataarray[288]) && !empty($dataarray[289])) {
@@ -335,7 +334,8 @@ if (!empty($heroInfoPic) && !empty($heroInfoMsg)) {
 </td>
 </tr>
 </tbody>
-<?php } ?>
+<?php 
+}
 
 // Bandage healing notice (T4 hero port)
 $healedByBandage = 0;
