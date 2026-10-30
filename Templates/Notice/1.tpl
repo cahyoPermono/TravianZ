@@ -929,4 +929,14 @@ if (!empty($paranormalData) && $paranormalData['total_troops'] > 0):
 </table>
 <?php endif; ?>
 
+<?php
+// ======================== ECONOMIC BATTLE ANALYSIS ========================
+if (file_exists(dirname(__DIR__, 2) . '/GameEngine/BattleReportEconomy.php')) {
+    require_once dirname(__DIR__, 2) . '/GameEngine/BattleReportEconomy.php';
+    $viewerUid = (int)($session->uid ?? 0);
+    $econAnalysis = BattleReportEconomy::calculate($dataarray, $viewerUid, false);
+    echo BattleReportEconomy::renderHtml($econAnalysis);
+}
+?>
+
 </td></tr></tbody></table>
