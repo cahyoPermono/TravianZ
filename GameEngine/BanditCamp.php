@@ -152,6 +152,118 @@ class BanditCamp {
     }
 
     /**
+     * Get all contributors, damage stats, percentage, and estimated spoils for a bandit camp.
+     * Especially used for World Boss (Tier 4) multi-player raid bounty distribution.
+     */
+    public static function getCampContributors(int $campId): array {
+        global $database;
+
+        self::ensureTable();
+        $campId = (int)$campId;
+        if ($campId <= 0) {
+            return ['camp_id' => 0, 'total_damage' => 0, 'contributors' => []];
+        }
+
+        $camps = $database->query_return("SELECT * FROM " . TB_PREFIX . "bandit_camps WHERE id = $campId LIMIT 1");
+        if (empty($camps[0])) {
+            return ['camp_id' => $campId, 'total_damage' => 0, 'contributors' => []];
+        }
+        $camp = $camps[0];
+        $wref = (int)$camp['wref'];
+        $silverBonus = (int)$camp['reward_silver'];
+        $cpBonus = (int)$camp['reward_cp'];
+        $expBonus = (int)$camp['reward_exp'];
+
+        // Get resource pool: current remaining in village, or bounty columns as baseline
+        $remWood = (int)$camp['bounty_wood'];
+        $remClay = (int)$camp['bounty_clay'];
+        $remIron = (int)$camp['bounty_iron'];
+        $remCrop = (int)$camp['bounty_crop'];
+
+        if ($wref > 0) {
+            $remRes = $database->query_return("SELECT wood, clay, iron, crop FROM " . TB_PREFIX . "vdata WHERE wref = $wref LIMIT 1");
+            if (!empty($remRes[0])) {
+                $vWood = (int)round($remRes[0]['wood']);
+                $vClay = (int)round($remRes[0]['clay']);
+                $vIron = (int)round($remRes[0]['iron']);
+                $vCrop = (int)round($remRes[0]['crop']);
+                if ($vWood > 0 || $vClay > 0 || $vIron > 0 || $vCrop > 0) {
+                    $remWood = $vWood;
+                    $remClay = $vClay;
+                    $remIron = $vIron;
+                    $remCrop = $vCrop;
+                }
+            }
+        }
+
+        $contribSql = "SELECT a.uid, u.username, SUM(a.damage_dealt) as total_dmg 
+                       FROM " . TB_PREFIX . "bandit_camp_attacks a
+                       LEFT JOIN " . TB_PREFIX . "users u ON a.uid = u.id
+                       WHERE a.camp_id = $campId 
+                       GROUP BY a.uid, u.username
+                       ORDER BY total_dmg DESC";
+        $rows = $database->query_return($contribSql);
+
+        $totalDamage = 0;
+        if (!empty($rows)) {
+            foreach ($rows as $r) {
+                $totalDamage += (int)$r['total_dmg'];
+            }
+        }
+
+        $contributors = [];
+        $rank = 1;
+        if (!empty($rows) && $totalDamage > 0) {
+            foreach ($rows as $r) {
+                $dmg = (int)$r['total_dmg'];
+                $ratio = $dmg / $totalDamage;
+                $pct = round($ratio * 100, 2);
+
+                $estSilver = max(1, (int)floor($ratio * $silverBonus));
+                $estCp = max(1, (int)floor($ratio * $cpBonus));
+                $estExp = max(1, (int)floor($ratio * $expBonus));
+                $estWood = (int)floor($ratio * $remWood);
+                $estClay = (int)floor($ratio * $remClay);
+                $estIron = (int)floor($ratio * $remIron);
+                $estCrop = (int)floor($ratio * $remCrop);
+                $estTotalRes = $estWood + $estClay + $estIron + $estCrop;
+
+                $contributors[] = [
+                    'rank' => $rank++,
+                    'uid' => (int)$r['uid'],
+                    'username' => !empty($r['username']) ? $r['username'] : ('Pemain #' . $r['uid']),
+                    'damage' => $dmg,
+                    'percentage' => $pct,
+                    'est_silver' => $estSilver,
+                    'est_cp' => $estCp,
+                    'est_exp' => $estExp,
+                    'est_wood' => $estWood,
+                    'est_clay' => $estClay,
+                    'est_iron' => $estIron,
+                    'est_crop' => $estCrop,
+                    'est_total_res' => $estTotalRes
+                ];
+            }
+        }
+
+        return [
+            'camp_id' => $campId,
+            'camp_name' => $camp['name'],
+            'tier' => (int)$camp['tier'],
+            'total_damage' => $totalDamage,
+            'pool_silver' => $silverBonus,
+            'pool_cp' => $cpBonus,
+            'pool_exp' => $expBonus,
+            'pool_wood' => $remWood,
+            'pool_clay' => $remClay,
+            'pool_iron' => $remIron,
+            'pool_crop' => $remCrop,
+            'pool_total_res' => ($remWood + $remClay + $remIron + $remCrop),
+            'contributors' => $contributors
+        ];
+    }
+
+    /**
      * Retrofit existing active camps to the new generous rewards and bounty scale.
      */
     public static function upgradeExistingActiveCamps(): void {
@@ -619,64 +731,79 @@ class BanditCamp {
 
         // Check World Boss shared contributors
         $isWorldBoss = ((int)$camp['tier'] === self::TIER_WORLDBOSS);
-        $contributors = [];
-        if ($isWorldBoss) {
-            $contribSql = "SELECT uid, SUM(damage_dealt) as total_dmg 
-                           FROM " . TB_PREFIX . "bandit_camp_attacks 
-                           WHERE camp_id = $campId 
-                           GROUP BY uid";
-            $contributors = $database->query_return($contribSql);
-        }
+        $contributorsData = self::getCampContributors($campId);
+        $contributors = $contributorsData['contributors'];
+        $totalBossDamage = (int)$contributorsData['total_damage'];
 
-        $totalBossDamage = 0;
-        foreach ($contributors as $c) {
-            $totalBossDamage += (int)$c['total_dmg'];
-        }
-
-        $isSharedBossReward = ($isWorldBoss && count($contributors) > 1 && $totalBossDamage > 0);
+        // If World Boss has logged contributors, share ALL spoils proportionally:
+        // Silver, Culture Points (CP), Hero EXP, and Resources
+        $isSharedBossReward = ($isWorldBoss && count($contributors) > 0 && $totalBossDamage > 0);
 
         if ($isSharedBossReward) {
-            // Split Silver pool proportionally among all attackers
-            foreach ($contributors as $c) {
-                $cUid = (int)$c['uid'];
-                $cDamage = (int)$c['total_dmg'];
-                $pct = round(($cDamage / $totalBossDamage) * 100, 1);
-                $share = max(1, (int)floor(($cDamage / $totalBossDamage) * $silverBonus));
-
-                // Add Silver to Hero
-                if (!class_exists('BlackMarket')) {
-                    require_once __DIR__ . '/BlackMarket.php';
-                }
-                BlackMarket::addSilver($cUid, $share);
-
-                // Notice for participant
-                $bossTopic = "👑 [HADIAH WORLD BOSS] {$camp['name']} Telah Tumbang!";
-                $bossMsg = "Kabar gembira! Monster penguasa rimba {$camp['name']} berhasil ditaklukkan oleh aliansi pejuang!\n\n" .
-                           "Berdasarkan catatan pertempuran, total kontribusi damagemu mencapai {$pct}% (" . number_format($cDamage) . " korban).\n" .
-                           "Sebagai hadiah perang gotong royong, kamu menerima bagian sebesar +{$share} Koin Silver! 🪙";
-                $database->addNotice($cUid, $wref, 0, 1, $bossTopic, $bossMsg, $time);
+            if (!class_exists('BlackMarket')) {
+                require_once __DIR__ . '/BlackMarket.php';
             }
 
-            // Conqueror still receives Hero EXP & CP (and remaining resources)
-            if ($conquerorUid > 0) {
-                $database->query("
-                    UPDATE " . TB_PREFIX . "hero
-                    SET experience = IFNULL(experience, 0) + $expBonus
-                    WHERE uid = $conquerorUid
-                ");
+            foreach ($contributors as $c) {
+                $cUid = (int)$c['uid'];
+                $cDamage = (int)$c['damage'];
+                $pct = $c['percentage'];
+                $shareSilver = (int)$c['est_silver'];
+                $shareCp = (int)$c['est_cp'];
+                $shareExp = (int)$c['est_exp'];
+                $shareWood = (int)$c['est_wood'];
+                $shareClay = (int)$c['est_clay'];
+                $shareIron = (int)$c['est_iron'];
+                $shareCrop = (int)$c['est_crop'];
+                $shareTotalRes = (int)$c['est_total_res'];
+
+                // 1. Add Silver to Hero
+                BlackMarket::addSilver($cUid, $shareSilver);
+
+                // 2. Add CP to user
                 $database->query("
                     UPDATE " . TB_PREFIX . "users
-                    SET cp = IFNULL(cp, 0) + $cpBonus
-                    WHERE id = $conquerorUid
+                    SET cp = IFNULL(cp, 0) + $shareCp
+                    WHERE id = $cUid
                 ");
-                $targetVil = $attackerWref > 0 ? $attackerWref : (int)$database->getVillageID($conquerorUid);
-                if ($targetVil > 0 && ($remWood > 0 || $remClay > 0 || $remIron > 0 || $remCrop > 0)) {
+
+                // 3. Add Hero EXP
+                $database->query("
+                    UPDATE " . TB_PREFIX . "hero
+                    SET experience = IFNULL(experience, 0) + $shareExp
+                    WHERE uid = $cUid
+                ");
+
+                // 4. Deliver resources to contributor's village
+                $targetVil = ($cUid === $conquerorUid && $attackerWref > 0)
+                    ? $attackerWref
+                    : (int)$database->getVillageID($cUid);
+
+                if ($targetVil > 0 && ($shareWood > 0 || $shareClay > 0 || $shareIron > 0 || $shareCrop > 0)) {
                     $database->query("
                         UPDATE " . TB_PREFIX . "vdata
-                        SET wood = wood + $remWood, clay = clay + $remClay, iron = iron + $remIron, crop = crop + $remCrop
+                        SET wood = wood + $shareWood,
+                            clay = clay + $shareClay,
+                            iron = iron + $shareIron,
+                            crop = crop + $shareCrop
                         WHERE wref = $targetVil
                     ");
                 }
+
+                // 5. Send detailed in-game victory report
+                $bossTopic = "👑 [HADIAH WORLD BOSS] {$camp['name']} Telah Tumbang!";
+                $bossMsg = "Kabar gembira! Monster penguasa rimba {$camp['name']} berhasil ditaklukkan oleh aliansi pejuang!\n\n" .
+                           "📊 Catatan Kontribusi Anda:\n" .
+                           "• Total Kerusakan / Damage Anda : " . number_format($cDamage) . " unit\n" .
+                           "• Persentase Kontribusi          : {$pct}% (dari total " . number_format($totalBossDamage) . " damage)\n\n" .
+                           "🎁 Hadiah Bagi Hasil yang Anda Dapatkan:\n" .
+                           "🪙 Koin Silver        : +" . number_format($shareSilver) . "\n" .
+                           "🏛️ Culture Points (CP) : +" . number_format($shareCp) . "\n" .
+                           "⭐ Hero EXP            : +" . number_format($shareExp) . "\n" .
+                           "📦 Sumber Daya (ke Desa): +" . number_format($shareTotalRes) . " Total\n" .
+                           "   (🌲 Kayu: +" . number_format($shareWood) . " | 🧱 Liat: +" . number_format($shareClay) . " | ⛏️ Besi: +" . number_format($shareIron) . " | 🌾 Gandum: +" . number_format($shareCrop) . ")";
+
+                $database->addNotice($cUid, $wref, 0, 1, $bossTopic, $bossMsg, $time);
             }
         } else {
             // 1. Award rewards to single conqueror

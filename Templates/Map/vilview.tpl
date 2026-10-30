@@ -236,6 +236,14 @@ echo ' '.$coords;
             <span style="color: #27ae60; font-weight: bold;">+<?php echo number_format((int)$banditData['reward_cp']); ?> CP</span> &nbsp;|&nbsp;
             <span style="color: #f39c12; font-weight: bold;">+<?php echo number_format((int)$banditData['reward_silver']); ?> Silver</span>
         </td></tr>
+        <?php if ((int)$banditData['tier'] === 4): ?>
+        <tr><th>Sistem Bagi Hasil</th><td>
+            <span style="color: #c0392b; font-weight: bold;">🤝 Bagi Hasil Proporsional (Bounty Pool)</span>
+            <div style="font-size: 10px; color: #64748b; margin-top: 2px;">
+                Semua hadiah (Silver, CP, Hero EXP &amp; Sumber Daya) dibagikan adil ke setiap penyerang sesuai % kontribusi damage!
+            </div>
+        </td></tr>
+        <?php endif; ?>
     </tbody></table>
 
     <table id="troop_info" class="tableNone"><thead><tr><th colspan="3">Pasukan Penjaga Sarang:</th></tr></thead><tbody>
@@ -256,6 +264,110 @@ echo ' '.$coords;
     }
     ?>
     </tbody></table>
+
+    <?php if ((int)$banditData['tier'] === 4): 
+        $bossRaid = BanditCamp::getCampContributors((int)$banditData['id']);
+        $myUid = (int)($session->uid ?? 0);
+        $myContrib = null;
+        if (!empty($bossRaid['contributors'])) {
+            foreach ($bossRaid['contributors'] as $c) {
+                if ($c['uid'] === $myUid) {
+                    $myContrib = $c;
+                    break;
+                }
+            }
+        }
+    ?>
+    <!-- KONTRIBUSI PRIBADI & ESTIMASI HADIAH -->
+    <?php if ($myContrib !== null): ?>
+    <div style="margin: 10px 0 12px 0; padding: 10px 14px; background: linear-gradient(135deg, #1e293b, #0f172a); border: 2px solid #f59e0b; border-radius: 8px; color: #f8fafc; box-shadow: 0 4px 12px rgba(0,0,0,0.25);">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 6px; margin-bottom: 8px;">
+            <span style="font-weight: bold; color: #fbbf24; font-size: 12px;">👑 Status Kontribusi Anda (Rank #<?php echo $myContrib['rank']; ?>)</span>
+            <span style="background: #f59e0b; color: #000; font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 12px;">
+                <?php echo $myContrib['percentage']; ?>% KONTRIBUSI
+            </span>
+        </div>
+        <div style="font-size: 11px; line-height: 1.5; color: #cbd5e1;">
+            Total Damage Pasukan Anda: <b style="color: #f87171;"><?php echo number_format($myContrib['damage']); ?> unit</b> 
+            (dari total <?php echo number_format($bossRaid['total_damage']); ?> damage aliansi).
+        </div>
+        <div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed rgba(255,255,255,0.15);">
+            <div style="font-weight: bold; color: #38bdf8; font-size: 11px; margin-bottom: 5px;">🎁 Estimasi Bagian Hadiah Anda Saat Boss Tumbang:</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 11px;">
+                <div>🪙 Silver: <b style="color: #fbbf24;">+<?php echo number_format($myContrib['est_silver']); ?></b></div>
+                <div>🏛️ Culture Points: <b style="color: #4ade80;">+<?php echo number_format($myContrib['est_cp']); ?></b></div>
+                <div>⭐ Hero EXP: <b style="color: #60a5fa;">+<?php echo number_format($myContrib['est_exp']); ?></b></div>
+                <div>📦 Sumber Daya: <b style="color: #fed7aa;">+<?php echo number_format($myContrib['est_total_res']); ?></b> 
+                    <div style="font-size: 9.5px; color: #94a3b8; margin-top: 1px;">
+                        (🌲 <?php echo number_format($myContrib['est_wood']); ?> | 🧱 <?php echo number_format($myContrib['est_clay']); ?> | ⛏️ <?php echo number_format($myContrib['est_iron']); ?> | 🌾 <?php echo number_format($myContrib['est_crop']); ?>)
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php else: ?>
+    <div style="margin: 10px 0 12px 0; padding: 10px 12px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; color: #92400e;">
+        <div style="font-weight: bold; font-size: 11.5px; margin-bottom: 3px;">⚔️ Anda Belum Berpartisipasi dalam Raid World Boss Ini!</div>
+        <div style="font-size: 10.5px; line-height: 1.4; color: #78350f;">
+            Kirim serangan pasukan sekarang untuk berkontribusi damage dan memperebutkan bagian dari total 
+            <b><?php echo number_format($banditData['reward_silver']); ?> Silver</b>, 
+            <b><?php echo number_format($banditData['reward_cp']); ?> CP</b>, 
+            <b><?php echo number_format($banditData['reward_exp']); ?> Hero EXP</b>, dan 
+            <b><?php echo number_format((int)$banditData['bounty_wood'] * 4); ?> Sumber Daya</b> sesuai % kontribusi Anda!
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <!-- PAPAN KONTRIBUSI RAID LEADERBOARD -->
+    <div style="margin: 12px 0 6px 0; font-weight: bold; font-size: 11.5px; color: #334155; display: flex; justify-content: space-between; align-items: center;">
+        <span>⚔️ Papan Kontribusi Serangan Raid (World Boss Leaderboard)</span>
+        <span style="font-size: 10px; color: #64748b; font-weight: normal;">Total Damage: <b><?php echo number_format($bossRaid['total_damage']); ?></b></span>
+    </div>
+    <table id="boss_leaderboard" class="tableNone" style="margin-bottom: 12px; width: 100%; border-collapse: collapse; font-size: 10.5px;">
+        <thead>
+            <tr style="background: #334155; color: #f8fafc;">
+                <th style="padding: 4px 6px; text-align: center; width: 24px;">#</th>
+                <th style="padding: 4px 6px; text-align: left;">Pemain</th>
+                <th style="padding: 4px 6px; text-align: right;">Damage</th>
+                <th style="padding: 4px 6px; text-align: center;">Kontribusi</th>
+                <th style="padding: 4px 6px; text-align: right;">Estimasi Hadiah</th>
+            </tr>
+        </thead>
+        <tbody>
+        <?php if (empty($bossRaid['contributors'])): ?>
+            <tr><td colspan="5" style="text-align: center; color: #64748b; padding: 10px; font-style: italic;">
+                Belum ada pemain yang menyerang World Boss ini. Jadilah penyerang pertama!
+            </td></tr>
+        <?php else: ?>
+            <?php foreach ($bossRaid['contributors'] as $c): 
+                $isMe = ($c['uid'] === $myUid);
+                $rowBg = $isMe ? '#fef3c7' : (($c['rank'] % 2 === 0) ? '#f8fafc' : '#ffffff');
+                $boldStyle = $isMe ? 'font-weight: bold;' : '';
+            ?>
+            <tr style="background: <?php echo $rowBg; ?>; border-bottom: 1px solid #e2e8f0; <?php echo $boldStyle; ?>">
+                <td style="padding: 4px 6px; text-align: center; color: #475569;"><?php echo $c['rank']; ?></td>
+                <td style="padding: 4px 6px;">
+                    <a href="spieler.php?uid=<?php echo $c['uid']; ?>"><?php echo htmlspecialchars($c['username']); ?></a>
+                    <?php if ($isMe) echo ' <span style="font-size: 9px; color: #d97706;">(Anda)</span>'; ?>
+                </td>
+                <td style="padding: 4px 6px; text-align: right; color: #dc2626;"><?php echo number_format($c['damage']); ?></td>
+                <td style="padding: 4px 6px; text-align: center;">
+                    <span style="display: inline-block; padding: 1px 6px; background: #e0f2fe; color: #0369a1; border-radius: 10px; font-weight: bold; font-size: 10px;">
+                        <?php echo $c['percentage']; ?>%
+                    </span>
+                </td>
+                <td style="padding: 4px 6px; text-align: right; font-size: 10px;">
+                    <span style="color: #d97706;" title="Silver">🪙<?php echo number_format($c['est_silver']); ?></span> &bull; 
+                    <span style="color: #16a34a;" title="Culture Points">🏛️<?php echo number_format($c['est_cp']); ?></span> &bull; 
+                    <span style="color: #2563eb;" title="Hero EXP">⭐<?php echo number_format($c['est_exp']); ?></span> &bull; 
+                    <span style="color: #b45309;" title="Total Sumber Daya">📦<?php echo number_format($c['est_total_res']); ?></span>
+                </td>
+            </tr>
+            <?php endforeach; ?>
+        <?php endif; ?>
+        </tbody>
+    </table>
+    <?php endif; ?>
 
     <table class="tableNone rep"><thead><tr><th><?php echo REPORT;?>:</th></tr></thead><tbody>
     <?php
