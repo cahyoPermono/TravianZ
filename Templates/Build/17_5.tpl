@@ -465,6 +465,7 @@ if (!empty($_SESSION['bm_flash'])) {
                             $pTier = (int)($pItem['def']['tier'] ?? 1);
                             $pIsBag = ($pSlot === 7);
                             $appraisal = BlackMarket::getItemAppraisal($pItemid, 1);
+                            $silverAppraisal = BlackMarket::getItemSilverAppraisal($pItemid, 1);
                             $bonusTxt = function_exists('heroItemBonusText') ? heroItemBonusText($pItemid) : '';
                         ?>
                         <tr style="border-bottom: 1px solid #f0e9dc;">
@@ -498,27 +499,37 @@ if (!empty($_SESSION['bm_flash'])) {
                                 -<?php echo number_format($appraisal['fee_total']); ?> res
                                 <div style="font-size: 9px; color: #993333;">-30% jatah</div>
                             </td>
-                            <td style="text-align: right; vertical-align: middle; color: #1e7e34;">
-                                <b style="font-size: 11px;">+<?php echo number_format($appraisal['net_total']); ?></b> res
-                                <div style="font-size: 9px; color: #28a745;">(+<?php echo number_format($appraisal['net_each']); ?> tiap res)</div>
+                            <td style="text-align: right; vertical-align: middle;">
+                                <div style="color: #1e7e34;"><b style="font-size: 11px;">+<?php echo number_format($appraisal['net_total']); ?></b> res</div>
+                                <div style="color: #b8860b; font-size: 10px; font-weight: bold;">atau +<?php echo number_format($silverAppraisal['unit_silver']); ?> 🪙 Silver/pcs</div>
                             </td>
                             <td style="text-align: center; vertical-align: middle;">
-                                <form method="POST" action="build.php" style="margin: 0;" onsubmit="return confirm('Gadaikan <?php echo addslashes($pItem['name']); ?> ke tengkulak Pasar Gelap seharga +<?php echo number_format($appraisal['net_total']); ?> total resource?');">
-                                    <input type="hidden" name="ft" value="bm_pawn_item">
-                                    <input type="hidden" name="id" value="<?php echo (int)$id; ?>">
-                                    <input type="hidden" name="row_id" value="<?php echo (int)$pItem['id']; ?>">
-                                    <?php if ($pIsBag && $pQty > 1): ?>
-                                        <div style="display: flex; justify-content: center; align-items: center; gap: 2px; margin-bottom: 3px;">
-                                            <input type="number" name="qty" value="1" min="1" max="<?php echo $pQty; ?>" style="width: 38px; font-size: 10px; padding: 1px 2px; text-align: center; border: 1px solid #ccc; border-radius: 2px;">
-                                            <span style="font-size: 9px; color: #888;">pcs</span>
-                                        </div>
-                                    <?php else: ?>
-                                        <input type="hidden" name="qty" value="1">
-                                    <?php endif; ?>
-                                    <button type="submit" style="background: #8a3b14; color: #fff; border: 1px solid #6b2a09; padding: 3px 8px; font-size: 10px; font-weight: bold; border-radius: 3px; cursor: pointer; white-space: nowrap;">
-                                        🤝 Gadai
-                                    </button>
-                                </form>
+                                <?php if ($pIsBag && $pQty > 1): ?>
+                                    <div style="display: flex; justify-content: center; align-items: center; gap: 2px; margin-bottom: 4px;">
+                                        <input type="number" id="pawn_qty_<?php echo (int)$pItem['id']; ?>" value="1" min="1" max="<?php echo $pQty; ?>" style="width: 38px; font-size: 10px; padding: 1px 2px; text-align: center; border: 1px solid #ccc; border-radius: 2px;" oninput="document.getElementById('pawn_form_res_qty_<?php echo (int)$pItem['id']; ?>').value = this.value; document.getElementById('pawn_form_sil_qty_<?php echo (int)$pItem['id']; ?>').value = this.value;">
+                                        <span style="font-size: 9px; color: #888;">pcs</span>
+                                    </div>
+                                <?php endif; ?>
+                                <div style="display: flex; flex-direction: column; gap: 3px;">
+                                    <form method="POST" action="build.php" style="margin: 0;" onsubmit="return confirm('Gadaikan <?php echo addslashes($pItem['name']); ?> ke tengkulak Pasar Gelap untuk Resource?');">
+                                        <input type="hidden" name="ft" value="bm_pawn_item">
+                                        <input type="hidden" name="id" value="<?php echo (int)$id; ?>">
+                                        <input type="hidden" name="row_id" value="<?php echo (int)$pItem['id']; ?>">
+                                        <input type="hidden" id="pawn_form_res_qty_<?php echo (int)$pItem['id']; ?>" name="qty" value="1">
+                                        <button type="submit" style="width: 100%; background: #8a3b14; color: #fff; border: 1px solid #6b2a09; padding: 2px 6px; font-size: 9.5px; font-weight: bold; border-radius: 3px; cursor: pointer; white-space: nowrap;">
+                                            🤝 Gadai (Res)
+                                        </button>
+                                    </form>
+                                    <form method="POST" action="build.php" style="margin: 0;" onsubmit="return confirm('Gadaikan <?php echo addslashes($pItem['name']); ?> ke tengkulak Pasar Gelap untuk Koin Silver?');">
+                                        <input type="hidden" name="ft" value="bm_pawn_item_silver">
+                                        <input type="hidden" name="id" value="<?php echo (int)$id; ?>">
+                                        <input type="hidden" name="row_id" value="<?php echo (int)$pItem['id']; ?>">
+                                        <input type="hidden" id="pawn_form_sil_qty_<?php echo (int)$pItem['id']; ?>" name="qty" value="1">
+                                        <button type="submit" style="width: 100%; background: #4a5568; color: #ffeb3b; border: 1px solid #2d3748; padding: 2px 6px; font-size: 9.5px; font-weight: bold; border-radius: 3px; cursor: pointer; white-space: nowrap;">
+                                            🪙 Gadai (Silver)
+                                        </button>
+                                    </form>
+                                </div>
                             </td>
                         </tr>
                         <?php endforeach; ?>

@@ -659,6 +659,149 @@ class BlackMarket
     }
 
     /**
+     * Appraise an item for Silver payout.
+     */
+    public static function getItemSilverAppraisal(int $itemid, int $quantity = 1): array
+    {
+        global $heroItemCatalog;
+        if (!isset($heroItemCatalog)) {
+            require_once __DIR__ . '/Data/hero_items.php';
+        }
+
+        $item = $heroItemCatalog[$itemid] ?? null;
+        $itemName = function_exists('heroItemName') ? heroItemName($itemid) : ($item['name'] ?? ('Item #' . $itemid));
+        $tier = (int)($item['tier'] ?? 1);
+        $slot = (int)($item['slot'] ?? 0);
+        $quantity = max(1, (int)$quantity);
+
+        $unitSilver = 5;
+        if ($item !== null) {
+            if ($slot === (defined('HSLOT_BAG') ? HSLOT_BAG : 7)) {
+                // Consumables
+                switch ($itemid) {
+                    case 200: // Salep / Ointment
+                    case 206: // Small Bandages
+                        $unitSilver = 2;
+                        break;
+                    case 207: // Large Bandages
+                        $unitSilver = 4;
+                        break;
+                    case 208: // Cage / Kandang
+                        $unitSilver = 5;
+                        break;
+                    case 201: // Scroll / Gulungan XP
+                        $unitSilver = 10;
+                        break;
+                    case 203: // Tablets of Law
+                        $unitSilver = 20;
+                        break;
+                    case 204: // Book of Wisdom
+                        $unitSilver = 60;
+                        break;
+                    case 205: // Artwork
+                        $unitSilver = 100;
+                        break;
+                    case 202: // Bucket of Life / Ember Kehidupan
+                        $unitSilver = 120;
+                        break;
+                    default:
+                        $unitSilver = 5;
+                        break;
+                }
+            } else {
+                // Equipment items based on tier
+                if ($tier === 1) {
+                    $unitSilver = 50;
+                } elseif ($tier === 2) {
+                    $unitSilver = 120;
+                } elseif ($tier === 3) {
+                    $unitSilver = 250;
+                } else {
+                    $unitSilver = 50;
+                }
+            }
+        }
+
+        $totalSilver = $unitSilver * $quantity;
+
+        return [
+            'itemid'       => $itemid,
+            'name'         => $itemName,
+            'tier'         => $tier,
+            'slot'         => $slot,
+            'quantity'     => $quantity,
+            'unit_silver'  => $unitSilver,
+            'total_silver' => $totalSilver,
+        ];
+    }
+
+    /**
+     * Sell an unequipped hero item to the Black Market for Silver coins.
+     */
+    public static function sellHeroItemForSilver(int $uid, int $vref, int $rowId, int $quantity = 1): array
+    {
+        $db = self::db();
+        $uid = (int)$uid;
+        $vref = (int)$vref;
+        $rowId = (int)$rowId;
+        $quantity = max(1, (int)$quantity);
+
+        if (!$db || $uid <= 0 || $rowId <= 0) {
+            return ['success' => false, 'message' => 'Parameter penjualan barang tidak valid.'];
+        }
+
+        // Verify ownership and equipped status
+        $stmt = @mysqli_prepare($db, "SELECT id, uid, itemid, quantity, equipped FROM `" . TB_PREFIX . "hero_items` WHERE uid = ? AND id = ? LIMIT 1");
+        if (!$stmt) {
+            return ['success' => false, 'message' => 'Gagal membaca data inventori hero.'];
+        }
+        mysqli_stmt_bind_param($stmt, 'ii', $uid, $rowId);
+        mysqli_stmt_execute($stmt);
+        $res = mysqli_stmt_get_result($stmt);
+        $row = $res ? mysqli_fetch_assoc($res) : null;
+        mysqli_stmt_close($stmt);
+
+        if (!$row) {
+            return ['success' => false, 'message' => 'Barang tidak ditemukan di dalam tas inventori Anda.'];
+        }
+
+        if ((int)$row['equipped'] === 1) {
+            return ['success' => false, 'message' => 'Barang sedang dipakai oleh Hero! Lepaskan terlebih dahulu sebelum menggadaikannya ke Pasar Gelap.'];
+        }
+
+        $availQty = (int)$row['quantity'];
+        if ($availQty < $quantity) {
+            return ['success' => false, 'message' => 'Jumlah barang yang ingin dijual (' . $quantity . ') melebihi stok di tas (' . $availQty . ').'];
+        }
+
+        $itemid = (int)$row['itemid'];
+        $appraisal = self::getItemSilverAppraisal($itemid, $quantity);
+        $totalSilver = (int)$appraisal['total_silver'];
+
+        // Remove item from inventory
+        if (!class_exists('HeroItems')) {
+            require_once __DIR__ . '/HeroItems.php';
+        }
+        $heroItems = new HeroItems();
+        if (!$heroItems->removeItem($uid, $rowId, $quantity)) {
+            return ['success' => false, 'message' => 'Gagal memotong barang dari inventori hero.'];
+        }
+
+        // Add Silver to hero
+        self::addSilver($uid, $totalSilver);
+
+        // Log transaction
+        $itemName = $appraisal['name'];
+        $details = "Gadai " . $quantity . "x " . $itemName . " -> Total " . number_format($totalSilver) . " Silver.";
+        self::logAction($uid, $vref, 'pawn_item_silver', $details, 0);
+
+        return [
+            'success' => true,
+            'message' => "🤝 Transaksi tuntas! " . $quantity . "x " . $itemName . " berhasil digadaikan. Anda menerima +" . number_format($totalSilver) . " Koin Silver!"
+        ];
+    }
+
+    /**
      * Get tribe name.
      */
     public static function getTribeName(int $tribe): string
@@ -1064,6 +1207,10 @@ class BlackMarket
             $rowId = (int)($post['row_id'] ?? 0);
             $qty   = max(1, (int)($post['qty'] ?? 1));
             $result = self::sellHeroItem($uid, $vref, $rowId, $qty);
+        } elseif ($post['ft'] === 'bm_pawn_item_silver') {
+            $rowId = (int)($post['row_id'] ?? 0);
+            $qty   = max(1, (int)($post['qty'] ?? 1));
+            $result = self::sellHeroItemForSilver($uid, $vref, $rowId, $qty);
         } elseif ($post['ft'] === 'bm_change_tribe') {
             $newTribe = (int)($post['new_tribe'] ?? 0);
             $result   = self::changeTribe($uid, $vref, $newTribe);
