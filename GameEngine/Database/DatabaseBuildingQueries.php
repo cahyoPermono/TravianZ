@@ -27,7 +27,22 @@ trait DatabaseBuildingQueries {
 		$x = "UPDATE " . TB_PREFIX . "fdata SET f" . $field . "t=" . $type . " WHERE vref=" . $wid;
 		mysqli_query($this->dblink,$x);
 		$q = "INSERT into " . TB_PREFIX . "bdata values (0, $wid, $field, $type, $loop, $time, $master, $level)";
-		return mysqli_query($this->dblink,$q);
+		$result = mysqli_query($this->dblink,$q);
+
+		// Record Daily Quest progress when building is queued (normal construction)
+		if ($result && (int)$master === 0) {
+			$vOwner = (int)$this->getVillageField($wid, 'owner');
+			if ($vOwner > 0) {
+				if (!class_exists('DailyQuests')) {
+					@include_once dirname(__DIR__) . '/DailyQuests.php';
+				}
+				if (class_exists('DailyQuests')) {
+					DailyQuests::recordProgress($vOwner, 'build', 1);
+				}
+			}
+		}
+
+		return $result;
 	}
 
 	/**

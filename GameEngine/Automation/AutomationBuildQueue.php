@@ -90,6 +90,16 @@ trait AutomationBuildQueue {
                     else $loopconUpdates[$indi['wid']] = ' AND field < 19';                                      
                 }
 
+                // Record Daily Quest progress
+                if ($villageOwner > 0) {
+                    if (!class_exists('DailyQuests')) {
+                        @include_once dirname(__DIR__) . '/DailyQuests.php';
+                    }
+                    if (class_exists('DailyQuests')) {
+                        DailyQuests::recordProgress((int)$villageOwner, 'build', 1);
+                    }
+                }
+
                 $dbIdsToDelete[] = (int) $indi['id'];
             }
 
@@ -98,6 +108,11 @@ trait AutomationBuildQueue {
 
             // update the requested fields, all at once
             $database->setVillageFields($indi['wid'], array_keys($fieldsToSet), array_values($fieldsToSet));
+        }
+
+        // Invalidate resource level cache if any building finished
+        if (count($villagesAffected) > 0 && method_exists($database, 'clearResourseLevelsCache')) {
+            $database->clearResourseLevelsCache();
         }
 
         // update statistical data for affected villages
