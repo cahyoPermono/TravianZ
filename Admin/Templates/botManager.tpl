@@ -302,7 +302,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
             $reportHtml .= "</ul>";
             $flashSuccess = "🎯 <b>Operasi Militer Bot AI Diluncurkan!</b> " . $res['message'] . $reportHtml;
         } else {
-            $flashError = "❌ Gagal meluncurkan serangan bot: " . htmlspecialchars($res['message']);
+            $reportHtml = "";
+            if (!empty($res['reports'])) {
+                $reportHtml = "<ul style='margin:6px 0 0 16px; padding:0; max-height:260px; overflow-y:auto;'>";
+                foreach ($res['reports'] as $rep) {
+                    $reportHtml .= "<li style='margin-bottom:4px;'>$rep</li>";
+                }
+                $reportHtml .= "</ul>";
+            }
+            $flashError = "❌ Gagal meluncurkan serangan bot: " . $res['message'] . $reportHtml;
         }
     }
     // 6. ASSIGN BOTS TO ALLIANCE
@@ -1410,12 +1418,15 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
                 <div class="botm-form-group">
                     <label>Komposisi Pasukan:</label>
                     <select name="composition" class="botm-form-control">
-                        <option value="balanced">⚔️ Seimbang (Infanteri + Kavaleri + Pengepungan)</option>
-                        <option value="defense">🛡️ Garnisun Pertahanan (Infanteri & Kavaleri Defensif)</option>
-                        <option value="cavalry">🐎 Kavaleri Cepat (Serbuan Kuda Kilat)</option>
-                        <option value="infantry">⚔️ Barisan Infanteri (Pedang & Tombak)</option>
-                        <option value="siege">💣 Penghancur Benteng (Catapult & Ram)</option>
+                        <option value="balanced">⚔️ Pasukan Serang Seimbang (Infanteri & Kavaleri Serang)</option>
+                        <option value="cavalry">🐎 Kavaleri Cepat (100% Kavaleri Kilat - Tanpa Infanteri)</option>
+                        <option value="infantry">⚔️ Barisan Infanteri Serang (Khusus Infanteri Penyerang)</option>
+                        <option value="siege">💣 Penghancur Benteng (Catapult & Ram + Pasukan Pengawal)</option>
+                        <option value="defense">🛡️ Garnisun Pertahanan (Phalanx, Praetorian, Tombak - Khusus Bantuan/Defense)</option>
                     </select>
+                    <span style="font-size:10px; color:#94a3b8; display:block; margin-top:3px;">
+                        💡 <b>Kuda Full / Kavaleri Cepat:</b> Dijamin 100% hanya unit berkuda tanpa infanteri agar pergerakan super kilat. Pada serangan tempur/raid, bot menyaring ketat hanya pasukan khusus serang (Ghalia tidak akan pernah menyerang dengan Phalanx).
+                    </span>
                 </div>
 
                 <div class="botm-form-group">

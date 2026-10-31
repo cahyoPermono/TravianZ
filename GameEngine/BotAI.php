@@ -2815,18 +2815,15 @@ class BotAI {
             }
         }
 
-        // Gather all offensive and combat units
-        $combatRoles = ['inf_adv', 'cav_light', 'cav_heavy', 'basic', 'ram', 'catapult'];
+        // Gather offensive combat units only (strictly excluding defensive units like Phalanx, Praetorian, Spearman)
+        $offensiveUnits = self::getOffensiveUnits($tribe, false);
         $availableCombat = [];
         $totalCombatAvailable = 0;
-        foreach ($combatRoles as $role) {
-            if (isset($tribeUnits[$role])) {
-                $uNum = $tribeUnits[$role];
-                $cnt = (int)($homeUnits['u' . $uNum] ?? 0);
-                if ($cnt > 0 && !isset($availableCombat[$uNum])) {
-                    $availableCombat[$uNum] = $cnt;
-                    $totalCombatAvailable += $cnt;
-                }
+        foreach ($offensiveUnits as $uNum) {
+            $cnt = (int)($homeUnits['u' . $uNum] ?? 0);
+            if ($cnt > 0 && !isset($availableCombat[$uNum])) {
+                $availableCombat[$uNum] = $cnt;
+                $totalCombatAvailable += $cnt;
             }
         }
 
@@ -3223,32 +3220,27 @@ class BotAI {
         $catNum = $tribeUnits['catapult'] ?? null;
         $siegeUnits = array_values(array_filter([$ramNum, $catNum]));
 
-        // Distinguish non-siege combat units (infantry & cavalry) vs siege units (rams & catapults)
-        $nonSiegeRoles = ['basic', 'inf_def', 'inf_adv', 'cav_light', 'cav_def', 'cav_heavy'];
+        // Distinguish non-siege offensive combat units vs siege units (rams & catapults)
+        // Strictly exclude defensive units (e.g. Phalanx u21, Praetorian u2, Spearman u12, Druidrider u25)
+        $offensiveUnits = self::getOffensiveUnits($tribe, false);
         $availableNonSiege = [];
         $totalNonSiegeAvailable = 0;
 
-        foreach ($nonSiegeRoles as $role) {
-            if (isset($tribeUnits[$role])) {
-                $uNum = $tribeUnits[$role];
-                $cnt = (int)($homeUnits['u' . $uNum] ?? 0);
-                if ($cnt > 0) {
-                    $availableNonSiege[$uNum] = $cnt;
-                    $totalNonSiegeAvailable += $cnt;
-                }
+        foreach ($offensiveUnits as $uNum) {
+            $cnt = (int)($homeUnits['u' . $uNum] ?? 0);
+            if ($cnt > 0) {
+                $availableNonSiege[$uNum] = $cnt;
+                $totalNonSiegeAvailable += $cnt;
             }
         }
 
         $availableSiege = [];
         $totalSiegeAvailable = 0;
-        foreach (['ram', 'catapult'] as $role) {
-            if (isset($tribeUnits[$role])) {
-                $uNum = $tribeUnits[$role];
-                $cnt = (int)($homeUnits['u' . $uNum] ?? 0);
-                if ($cnt > 0) {
-                    $availableSiege[$uNum] = $cnt;
-                    $totalSiegeAvailable += $cnt;
-                }
+        foreach ($siegeUnits as $uNum) {
+            $cnt = (int)($homeUnits['u' . $uNum] ?? 0);
+            if ($cnt > 0) {
+                $availableSiege[$uNum] = $cnt;
+                $totalSiegeAvailable += $cnt;
             }
         }
 
@@ -3922,6 +3914,7 @@ class BotAI {
 
         $incSpeed = defined('INCREASE_SPEED') ? max(1, (int)INCREASE_SPEED) : 1;
         $dispatchedReports = [];
+        $actualDispatchedCount = 0;
 
         foreach ($selectedBots as $botIndex => $bot) {
             $bWid = (int)$bot['wref'];
@@ -3997,28 +3990,64 @@ class BotAI {
             $chiefU = $baseUnit + 9;
             $ramU = $tribeUnits['ram'] ?? null;
             $catU = $tribeUnits['catapult'] ?? null;
-            $siegeUnits = array_values(array_filter([$ramU, $catU]));
+            $siegeUnits = self::getSiegeUnits($bTribe);
+            $scoutU = $tribeUnits['scout'] ?? null;
 
-            // Fetch available regular combat units at home (strictly only troops the bot actually owns, NO auto-provisioning)
-            // Rules:
-            // 1. Settlers (slot 10) never participate in attacks or raids.
-            // 2. Chiefs (slot 9) only participate in Normal Attacks (Type 3) to conquer villages.
-            // 3. Rams and Catapults ONLY participate in Normal Attacks (Type 3).
-            //    In Raids (Type 4) or Reinforcements (Type 2), siege units are strictly excluded
-            //    because they have no raid function and severely slow down movement speed.
+            $allCav = self::getCavalryUnits($bTribe, false);
+            $offCav = self::getCavalryUnits($bTribe, true);
+            $allInf = self::getInfantryUnits($bTribe, false);
+            $offInf = self::getInfantryUnits($bTribe, true);
+            $defUnits = self::getDefensiveUnits($bTribe);
+
+            // Determine allowed unit candidates according to operation ($attackType) and $composition
+            if ($attackType === 2) {
+                // Reinforcement (Bantuan Bertahan)
+                if ($composition === 'cavalry') {
+                    $eligibleUnitIds = $allCav;
+                } elseif ($composition === 'infantry') {
+                    $eligibleUnitIds = $defUnits;
+                } else {
+                    $eligibleUnitIds = $defUnits;
+                }
+            } else {
+                // Attacks / Raids (attackType 3 or 4) - STRICTLY OFFENSIVE FORCE ONLY!
+                if ($composition === 'cavalry') {
+                    // STRICTLY CAVALRY ONLY (100% horses). ZERO infantry allowed, so march speed is never penalized!
+                    $eligibleUnitIds = !empty($offCav) ? $offCav : $allCav;
+                } elseif ($composition === 'infantry') {
+                    // STRICTLY OFFENSIVE INFANTRY ONLY. Exclude defensive infantry (Phalanx, Praetorian, Spearman, etc.)
+                    $eligibleUnitIds = $offInf;
+                } elseif ($composition === 'siege') {
+                    if ($attackType === 3) {
+                        $eligibleUnitIds = array_unique(array_merge($siegeUnits, $offInf, $offCav));
+                    } else {
+                        // In raid, siege cannot participate
+                        $eligibleUnitIds = array_unique(array_merge($offInf, $offCav));
+                    }
+                } elseif ($composition === 'defense') {
+                    $eligibleUnitIds = $defUnits;
+                } else { // balanced
+                    // Offensive units only (Swordsmen, Theutates, Haeduan, etc.)
+                    $eligibleUnitIds = self::getOffensiveUnits($bTribe, $attackType === 3);
+                }
+            }
+
+            // Exclude non-combat / special units
+            if ($attackType === 4) {
+                $eligibleUnitIds = array_values(array_diff($eligibleUnitIds, $siegeUnits));
+            }
+            if ($scoutU) {
+                $eligibleUnitIds = array_values(array_diff($eligibleUnitIds, [$scoutU]));
+            }
+            $eligibleUnitIds = array_values(array_diff($eligibleUnitIds, [$settlerU]));
+            if ($attackType !== 3) {
+                $eligibleUnitIds = array_values(array_diff($eligibleUnitIds, [$chiefU]));
+            }
+
+            // Fetch available units from eligible list only
             $availableUnits = [];
             $totalAvailable = 0;
-            foreach ($tribeUnits['all'] as $uNum) {
-                if ($uNum === $settlerU) {
-                    continue;
-                }
-                if ($uNum === $chiefU && $attackType !== 3) {
-                    continue;
-                }
-                if (in_array($uNum, $siegeUnits, true) && $attackType !== 3) {
-                    continue;
-                }
-
+            foreach ($eligibleUnitIds as $uNum) {
                 $cur = (int)($homeUnits['u' . $uNum] ?? 0);
                 if ($cur > 0) {
                     $availableUnits[$uNum] = $cur;
@@ -4028,11 +4057,20 @@ class BotAI {
 
             // Check hero availability
             $sendHero = 0;
-            $hCheck = $database->query_return("SELECT u.hero, h.dead, h.health FROM " . TB_PREFIX . "units u LEFT JOIN " . TB_PREFIX . "hero h ON h.uid = $bUid WHERE u.vref = $bWid LIMIT 1");
+            $hCheck = $database->query_return("SELECT u.hero, h.dead, h.health, h.unit FROM " . TB_PREFIX . "units u LEFT JOIN " . TB_PREFIX . "hero h ON h.uid = $bUid WHERE u.vref = $bWid LIMIT 1");
             $heroAvailable = (!empty($hCheck[0]) && (int)($hCheck[0]['hero'] ?? 0) > 0 && (int)($hCheck[0]['dead'] ?? 0) === 0 && (float)($hCheck[0]['health'] ?? 0) >= 25);
+            $heroUnit = !empty($hCheck[0]) ? (int)($hCheck[0]['unit'] ?? 0) : 0;
+            $isHeroMounted = in_array($heroUnit, $allCav, true);
 
-            // If the bot has no troops at all and no ready hero, skip this bot
-            if ($totalAvailable <= 0 && !$heroAvailable) {
+            // If no eligible troops at all:
+            if ($totalAvailable <= 0) {
+                if ($composition === 'cavalry') {
+                    $dispatchedReports[] = "⚠️ <b>{$bot['username']}</b> [{$bot['vname']}] dilewati karena tidak memiliki unit kavaleri di desanya.";
+                } elseif ($composition === 'infantry') {
+                    $dispatchedReports[] = "⚠️ <b>{$bot['username']}</b> [{$bot['vname']}] dilewati karena tidak memiliki infantri penyerang di desanya.";
+                } elseif ($attackType === 3 || $attackType === 4) {
+                    $dispatchedReports[] = "⚠️ <b>{$bot['username']}</b> [{$bot['vname']}] dilewati karena tidak memiliki pasukan khusus serang di desanya (hanya memiliki garnisun pertahanan).";
+                }
                 continue;
             }
 
@@ -4040,55 +4078,32 @@ class BotAI {
             if ($troopCount > 0) {
                 $targetSend = min((int)$troopCount, $totalAvailable);
             } else {
-                // Default: send all troops if small garrison (<= 50), or up to 50
                 $targetSend = min(50, $totalAvailable);
             }
 
-            // If nothing to send and no hero, skip
-            if ($targetSend <= 0 && !$heroAvailable) {
+            if ($targetSend <= 0) {
                 continue;
             }
 
             $dispatched = [];
             if ($targetSend >= $totalAvailable) {
                 $dispatched = $availableUnits;
-            } elseif ($targetSend > 0) {
-                // Select $targetSend units from $availableUnits based on requested composition
-                $basicU   = $tribeUnits['basic'];
-                $defU     = $tribeUnits['inf_def'] ?? $basicU;
-                $cavDefU  = $tribeUnits['cav_def'] ?? null;
-                $advU     = $tribeUnits['inf_adv'] ?? $basicU;
-                $lightCav = $tribeUnits['cav_light'] ?? null;
-                $heavyCav = $tribeUnits['cav_heavy'] ?? $lightCav;
-                $ramU     = $tribeUnits['ram'] ?? null;
-                $catU     = $tribeUnits['catapult'] ?? null;
-                $scoutU   = $tribeUnits['scout'] ?? null;
-
+            } else {
                 $weights = [];
                 foreach ($availableUnits as $uNum => $avail) {
                     $w = 1.0;
-                    $isScout = ($scoutU && $uNum === $scoutU);
-                    $isCav   = in_array($uNum, array_filter([$lightCav, $heavyCav, $cavDefU]), true);
-                    $isSiege = in_array($uNum, array_filter([$ramU, $catU]), true);
-                    $isInf   = in_array($uNum, array_filter([$basicU, $defU, $advU]), true);
-                    $isDef   = in_array($uNum, array_filter([$defU, $cavDefU, $basicU]), true);
+                    $isCav = in_array($uNum, $allCav, true);
+                    $isSiege = in_array($uNum, $siegeUnits, true);
 
-                    if ($composition === 'siege' && $attackType !== 3) {
-                        $w = $isCav ? 1.5 : ($isInf ? 1.0 : 0.8);
-                    } elseif ($isScout) {
-                        $w = 0.05; // Do not send scouts unless only scouts are available
-                    } elseif ($composition === 'cavalry') {
-                        $w = $isCav ? 5.0 : ($isInf ? 1.0 : 0.5);
+                    if ($composition === 'cavalry') {
+                        $w = in_array($uNum, $offCav, true) ? 2.0 : 1.0;
+                    } elseif ($composition === 'siege' && $attackType === 3) {
+                        $w = $isSiege ? 3.0 : ($isCav ? 1.5 : 1.0);
                     } elseif ($composition === 'infantry') {
-                        $w = $isInf ? 5.0 : ($isCav ? 1.0 : 0.5);
-                    } elseif ($composition === 'siege') {
-                        $w = $isSiege ? 5.0 : ($isInf ? 1.0 : 0.5);
-                    } elseif ($composition === 'defense') {
-                        $w = $isDef ? 5.0 : 1.0;
+                        $w = in_array($uNum, $offInf, true) ? 2.0 : 1.0;
                     } else { // balanced
-                        $w = $isCav ? 1.5 : ($isInf ? 1.0 : 0.8);
+                        $w = $isCav ? 1.5 : 1.0;
                     }
-
                     $weights[$uNum] = $w * $avail;
                 }
 
@@ -4127,32 +4142,36 @@ class BotAI {
                 }
             }
 
-            // Filter out any 0 amounts
             $dispatched = array_filter($dispatched, function($cnt) { return $cnt > 0; });
 
-            // Strict enforcement: Rams and Catapults can ONLY march on Normal Attacks ($attackType === 3).
-            // In Raids ($attackType === 4), purge any siege units that might have been included.
+            // Ensure no siege in raid
             if ($attackType !== 3 && !empty($dispatched)) {
                 foreach ($siegeUnits as $su) {
-                    if (isset($dispatched[$su])) {
-                        unset($dispatched[$su]);
-                    }
+                    unset($dispatched[$su]);
                 }
             }
 
-            if (empty($dispatched) && !$heroAvailable) {
+            if (empty($dispatched)) {
                 continue;
             }
 
             // Deduct dispatched units from bot village (mode 0 = subtract)
-            if (!empty($dispatched)) {
-                $database->modifyUnit($bWid, array_keys($dispatched), array_values($dispatched), array_fill(0, count($dispatched), 0));
-            }
+            $database->modifyUnit($bWid, array_keys($dispatched), array_values($dispatched), array_fill(0, count($dispatched), 0));
 
             // Hero participation
+            // On pure cavalry operations, only send hero if hero is mounted so hero doesn't slow down cavalry!
             if ($heroAvailable) {
-                $sendHero = 1;
-                $database->query("UPDATE " . TB_PREFIX . "units SET hero = hero - 1 WHERE vref = $bWid AND hero > 0");
+                if ($composition === 'cavalry') {
+                    if ($isHeroMounted) {
+                        $sendHero = 1;
+                    }
+                } else {
+                    $sendHero = 1;
+                }
+
+                if ($sendHero) {
+                    $database->query("UPDATE " . TB_PREFIX . "units SET hero = hero - 1 WHERE vref = $bWid AND hero > 0");
+                }
             }
 
             // March speed
@@ -4202,6 +4221,8 @@ class BotAI {
                 time() + $duration
             );
 
+            $actualDispatchedCount++;
+
             $troopBreakdown = [];
             foreach ($dispatched as $uNum => $c) {
                 $troopBreakdown[] = self::getUnitName($uNum) . ": " . number_format($c);
@@ -4217,27 +4238,32 @@ class BotAI {
             $dispatchedReports[] = "<b>{$attackerAliPrefix}{$bot['username']}</b> [{$bot['vname']}] mengerahkan " . ($sumDispatched + $sendHero) . " pasukan (" . implode(', ', $troopBreakdown) . ") via {$attackVerb} ke <b>{$targetAliPrefix}{$targetUser}</b> [{$targetVname} ({$targetX}|{$targetY})], tiba dalam " . round($duration / 60, 1) . " menit (Jarak: " . round($dist, 1) . " petak).";
         }
 
-        if (empty($dispatchedReports)) {
+        if ($actualDispatchedCount === 0) {
             return [
                 'status'  => 'error',
-                'message' => 'Tidak ada pasukan yang dapat dikerahkan. Bot yang dipilih tidak memiliki pasukan atau hero yang siap dikirim di desanya.'
+                'reports' => $dispatchedReports,
+                'message' => 'Tidak ada pasukan yang dapat dikerahkan. Bot yang dipilih tidak memiliki pasukan yang sesuai dengan komposisi yang diminta di desanya.'
             ];
         }
 
         $summaryMsg = "";
         if ($attackType === 2) {
-            $summaryMsg = "🛡️ <b>BANTUAN BERTAHAN BERHASIL DIKERAHKAN!</b> Sebanyak " . count($dispatchedReports) . " bot meluncurkan bala bantuan pasukan ke {$targetUser}!";
+            $summaryMsg = "🛡️ <b>BANTUAN BERTAHAN BERHASIL DIKERAHKAN!</b> Sebanyak " . $actualDispatchedCount . " bot meluncurkan bala bantuan pasukan ke {$targetUser}!";
         } elseif ($isAllianceTarget && $attackerAllianceInfo !== null) {
-            $summaryMsg = "⚔️ <b>PERANG ALIANSI PECAH!</b> Aliansi [{$attackerAllianceInfo['tag']}] {$attackerAllianceInfo['name']} mengerahkan " . count($dispatchedReports) . " bot untuk menyerang seluruh anggota Aliansi [{$targetAlliance['tag']}] {$targetAlliance['name']} secara merata!";
+            $summaryMsg = "⚔️ <b>PERANG ALIANSI PECAH!</b> Aliansi [{$attackerAllianceInfo['tag']}] {$attackerAllianceInfo['name']} mengerahkan " . $actualDispatchedCount . " bot untuk menyerang seluruh anggota Aliansi [{$targetAlliance['tag']}] {$targetAlliance['name']} secara merata!";
         } elseif ($isAllianceTarget) {
-            $summaryMsg = "🎯 <b>SERANGAN MASSAL KE ALIANSI!</b> Sebanyak " . count($dispatchedReports) . " bot dikerahkan untuk menggempur seluruh anggota Aliansi [{$targetAlliance['tag']}] {$targetAlliance['name']} secara merata!";
+            $summaryMsg = "🎯 <b>SERANGAN MASSAL KE ALIANSI!</b> Sebanyak " . $actualDispatchedCount . " bot dikerahkan untuk menggempur seluruh anggota Aliansi [{$targetAlliance['tag']}] {$targetAlliance['name']} secara merata!";
         } else {
-            $summaryMsg = "🎯 Berhasil memerintahkan " . count($dispatchedReports) . " bot untuk melancarkan serangan ke {$targetUser}!";
+            $summaryMsg = "🎯 Berhasil memerintahkan " . $actualDispatchedCount . " bot untuk melancarkan serangan ke {$targetUser}!";
+        }
+        if (count($dispatchedReports) > $actualDispatchedCount) {
+            $skippedCount = count($dispatchedReports) - $actualDispatchedCount;
+            $summaryMsg .= " ($skippedCount bot dilewati karena tidak memiliki unit yang sesuai).";
         }
 
         return [
             'status'   => 'success',
-            'count'    => count($dispatchedReports),
+            'count'    => $actualDispatchedCount,
             'reports'  => $dispatchedReports,
             'message'  => $summaryMsg
         ];
@@ -4350,6 +4376,152 @@ class BotAI {
 
         $info['all'] = $all;
         return $info;
+    }
+
+    /**
+     * Returns siege unit IDs (ram, catapult) for a given tribe.
+     *
+     * @param int $tribe
+     * @return int[]
+     */
+    public static function getSiegeUnits(int $tribe): array {
+        $base = ($tribe - 1) * 10;
+        return [$base + 7, $base + 8];
+    }
+
+    /**
+     * Returns pure offensive unit IDs for a given tribe.
+     * Guaranteed to exclude defensive units (e.g. Phalanx u21, Praetorian u2, Spearman u12, Prajurit Tombak u92).
+     *
+     * @param int $tribe
+     * @param bool $includeSiege Whether to include rams and catapults
+     * @return int[]
+     */
+    public static function getOffensiveUnits(int $tribe, bool $includeSiege = true): array {
+        $units = [
+            // Romans: Imperian (3), Equites Imperatoris (5), Equites Caesaris (6), Rams (7), Catapults (8), Legionnaire (1).
+            // Praetorian (2) is STRICTLY DEFENSIVE (30 atk, 65 di) - NEVER ATTACK!
+            1 => [3, 5, 6, 7, 8, 1],
+            // Teutons: Clubswinger (11), Axeman (13), Teutonic Knight (16), Ram (17), Catapult (18).
+            // Spearman (12) is STRICTLY DEFENSIVE (10 atk, 60 dc) - NEVER ATTACK!
+            // Paladin (15) is defensive cavalry (55 atk, 100 di).
+            2 => [11, 13, 16, 17, 18],
+            // Gauls: Swordsman (22), Theutates Thunder (24), Haeduan (26), Ram (27), Trebuchet (28).
+            // Phalanx (21) is STRICTLY DEFENSIVE (15 atk, 40 di, 50 dc) - NEVER ATTACK!
+            // Druidrider (25) is defensive cavalry (45 atk, 115 di) - NEVER ATTACK!
+            3 => [22, 24, 26, 27, 28],
+            // Huns: Mercenary (51), Horse Archer (53), Steppe Rider (54), Hun Lancer (55), Elite Rider (56), Ram (57), Catapult (58).
+            6 => [51, 53, 54, 55, 56, 57, 58],
+            // Egyptians: Khopesh Warrior (63), Resheph Chariot (66), Ram (67), Catapult (68).
+            // Slave (61) and Ash Warden (62) are low-attack / defensive.
+            7 => [63, 66, 67, 68],
+            // Spartans: Homoioi (73), Hippeis (76), Ram (77), Catapult (78), Spartan Hoplite (71).
+            // Sentinel (72) and Spartan Rider (75) are defensive.
+            8 => [73, 76, 77, 78, 71],
+            // Vikings: Viking Raider (81), Berserker (84), Viking Rider (85), Huscarl (86), Ram (87), Catapult (88), Axeman (83).
+            9 => [81, 84, 85, 86, 87, 88, 83],
+            // Nusantara: Pendekar Keris (91), Pemanah Busur Gendewa (93), Prajurit Berkuda (95), Kavaleri Berat (96), Penghancur Gerbang (97), Pelepar Batu (98).
+            // Prajurit Tombak (92) is STRICTLY DEFENSIVE (25 atk, 60 dc) - NEVER ATTACK!
+            10 => [91, 93, 95, 96, 97, 98],
+        ];
+
+        $tribeOff = $units[$tribe] ?? [];
+        if (!$includeSiege) {
+            $siege = self::getSiegeUnits($tribe);
+            $tribeOff = array_values(array_diff($tribeOff, $siege));
+        }
+        return $tribeOff;
+    }
+
+    /**
+     * Returns defensive unit IDs for a given tribe.
+     *
+     * @param int $tribe
+     * @return int[]
+     */
+    public static function getDefensiveUnits(int $tribe): array {
+        $units = [
+            1  => [2, 1],          // Praetorian, Legionnaire
+            2  => [12, 15],        // Spearman, Paladin
+            3  => [21, 25],        // Phalanx, Druidrider
+            6  => [51],            // Hun Mercenary
+            7  => [61, 62, 65],    // Slave, Egyptian Fighter/Ash Warden, Anhur Guard
+            8  => [72, 75],        // Agoge Warrior, Spartan Rider
+            9  => [83],            // Axeman / Shieldmaiden
+            10 => [92],            // Prajurit Tombak
+        ];
+        return $units[$tribe] ?? [];
+    }
+
+    /**
+     * Returns combat cavalry unit IDs for a given tribe (scout excluded).
+     *
+     * @param int $tribe
+     * @param bool $offensiveOnly If true, returns only offensive cavalry.
+     * @return int[]
+     */
+    public static function getCavalryUnits(int $tribe, bool $offensiveOnly = true): array {
+        if ($offensiveOnly) {
+            $cav = [
+                1  => [5, 6],               // Equites Imperatoris, Equites Caesaris
+                2  => [16],                 // Teutonic Knight (Paladin 15 is defensive!)
+                3  => [24, 26],             // Theutates Thunder (spd 19), Haeduan (Druidrider 25 is defensive!)
+                6  => [53, 54, 55, 56],     // Horse Archer, Steppe Rider, Hun Lancer, Elite Rider
+                7  => [66],                 // Resheph Chariot (Anhur Guard 65 is def)
+                8  => [76],                 // Hippeis (Spartan Rider 75 is def)
+                9  => [85, 86],             // Viking Rider, Huscarl
+                10 => [95, 96],             // Prajurit Berkuda (120 atk), Kavaleri Berat (190 atk)
+            ];
+            return $cav[$tribe] ?? [];
+        }
+
+        // All combat cavalry (excluding scout)
+        $cavAll = [
+            1  => [5, 6],
+            2  => [15, 16],
+            3  => [24, 25, 26],
+            6  => [53, 54, 55, 56],
+            7  => [65, 66],
+            8  => [75, 76],
+            9  => [85, 86],
+            10 => [95, 96],
+        ];
+        return $cavAll[$tribe] ?? [];
+    }
+
+    /**
+     * Returns infantry unit IDs for a given tribe.
+     *
+     * @param int $tribe
+     * @param bool $offensiveOnly If true, returns only offensive infantry.
+     * @return int[]
+     */
+    public static function getInfantryUnits(int $tribe, bool $offensiveOnly = true): array {
+        if ($offensiveOnly) {
+            $inf = [
+                1  => [3, 1],       // Imperian (70 atk), Legionnaire (40 atk)
+                2  => [11, 13],     // Clubswinger, Axeman
+                3  => [22],         // Swordsman ONLY! STRICTLY NO Phalanx (21)!
+                6  => [51],         // Hun Mercenary
+                7  => [63],         // Khopesh Warrior
+                8  => [73, 71],     // Homoioi, Hoplite
+                9  => [81, 84, 83], // Viking Raider, Berserker, Axeman
+                10 => [91, 93],     // Pendekar Keris, Pemanah Busur Gendewa
+            ];
+            return $inf[$tribe] ?? [];
+        }
+
+        $base = ($tribe - 1) * 10;
+        $tribeUnits = self::getTribeUnits($tribe);
+        $scout = $tribeUnits['scout'] ?? null;
+        $cav = self::getCavalryUnits($tribe, false);
+        $siege = self::getSiegeUnits($tribe);
+        $chief = $base + 9;
+        $settler = $base + 10;
+
+        $exclude = array_filter(array_merge([$scout, $chief, $settler], $cav, $siege));
+        $all = range($base + 1, $base + 10);
+        return array_values(array_diff($all, $exclude));
     }
 
     /**
