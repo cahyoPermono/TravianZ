@@ -3002,6 +3002,13 @@ trait AutomationBattleResolution {
                             $bounceTime = $units->getWalkingTroopsTime($from['wref'], $data['to'], $from['owner'], $owntribe, $data, 1, 't');
                             $bounceEnd  = $database->getArtifactsValueInfluence($from['owner'], $from['wref'], 2, $bounceTime) + $AttackArrivalTime;
                             $database->addMovement(4, $data['to'], $from['wref'], $data['ref'], $AttackArrivalTime, $bounceEnd);
+
+                            if (file_exists(dirname(__DIR__) . '/BanditCamp.php')) {
+                                require_once dirname(__DIR__) . '/BanditCamp.php';
+                                if (method_exists('BanditCamp', 'handleArrivedAtClearedCamp')) {
+                                    \BanditCamp::handleArrivedAtClearedCamp((int)$data['to'], (int)$from['owner'], (int)$bounceEnd);
+                                }
+                            }
                         }
                         $data_num++;
                         continue;

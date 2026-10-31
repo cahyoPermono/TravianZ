@@ -51,6 +51,7 @@ $noticeClass[25] = TZ_RT_VALLEY_OCCUPIED;
 // HERO T4 REPORTS - sparse indices 24/25
 $noticeClass[26] = HERO_ADV_MOV_OUT;
 $noticeClass[27] = HERO_ADV_MOV_BACK;       
+$noticeClass[28] = 'Intel Sarang Penyamun';       
 
 // ======================== GOLD CHECK (cached query) ========================
 $uid = (int)$session->uid;
@@ -215,11 +216,18 @@ for ($i = (1 + $s); $i <= (10 + $s); $i++) {
                    alt=\"".$noticeClass[$type]."\"
                    title=\"".$noticeClass[$type]."\" />";
 
+        } elseif ($type == 28) {
+
+            // Bandit Intel / Turnaround report - scout icon (18)
+            echo "<img src=\"img/x.gif\" class=\"iReport iReport18\"
+                   alt=\"".($noticeClass[$type] ?? 'Intel')."\"
+                   title=\"".($noticeClass[$type] ?? 'Intel')."\" />";
+
         } else {
 
             echo "<img src=\"img/x.gif\" class=\"iReport iReport".$type."\"
-                   alt=\"".$noticeClass[$type]."\"
-                   title=\"".$noticeClass[$type]."\" />";
+                   alt=\"".($noticeClass[$type] ?? '')."\"
+                   title=\"".($noticeClass[$type] ?? '')."\" />";
         }
 
         // ================= SUBJECT =================

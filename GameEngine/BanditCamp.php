@@ -803,7 +803,7 @@ class BanditCamp {
                            "📦 Sumber Daya (ke Desa): +" . number_format($shareTotalRes) . " Total\n" .
                            "   (🌲 Kayu: +" . number_format($shareWood) . " | 🧱 Liat: +" . number_format($shareClay) . " | ⛏️ Besi: +" . number_format($shareIron) . " | 🌾 Gandum: +" . number_format($shareCrop) . ")";
 
-                $database->addNotice($cUid, $wref, 0, 1, $bossTopic, $bossMsg, $time);
+                $database->addNotice($cUid, $wref, 0, 28, $bossTopic, $bossMsg, $time);
             }
         } else {
             // 1. Award rewards to single conqueror
@@ -835,7 +835,7 @@ class BanditCamp {
                     ");
                 }
 
-                // Notice / In-game report
+                // Notice / In-game report (type 28: custom bandit card)
                 $tierLabel = self::getTierLabel((int)$camp['tier']);
                 $topic = "🏆 [KEMENANGAN] {$camp['name']} Berhasil Dihancurkan!";
                 $bonusSpoils = "";
@@ -845,11 +845,14 @@ class BanditCamp {
                 $noticeData = "Selamat! Pasukanmu berhasil menumpas seluruh penjaga di {$camp['name']} ({$tierLabel}). " .
                               "Hadiah Kemenangan: +{$expBonus} Hero EXP, +{$cpBonus} CP, +{$silverBonus} Silver." . $bonusSpoils;
 
-                $database->addNotice($conquerorUid, $wref, 0, 1, $topic, $noticeData, $time);
+                $database->addNotice($conquerorUid, $wref, 0, 28, $topic, $noticeData, $time);
             }
         }
 
-        // 2. Cleanup village data and free map tile
+        // 2. Automatically recall and turn around in-flight armies heading to this cleared camp
+        self::recallInFlightArmies($camp, $conquerorUid, $conquerorName);
+
+        // 3. Cleanup village data and free map tile
         $database->query("DELETE FROM " . TB_PREFIX . "vdata WHERE wref = $wref");
         $database->query("DELETE FROM " . TB_PREFIX . "fdata WHERE vref = $wref");
         $database->query("DELETE FROM " . TB_PREFIX . "units WHERE vref = $wref");
@@ -994,5 +997,214 @@ class BanditCamp {
         }
 
         return sqrt($xd * $xd + $yd * $yd);
+    }
+
+    /**
+     * Format a duration in seconds into human-readable Indonesian string.
+     */
+    public static function formatDuration(int $seconds): string {
+        if ($seconds <= 0) return '0 detik';
+        $hours = floor($seconds / 3600);
+        $minutes = floor(($seconds % 3600) / 60);
+        $secs = $seconds % 60;
+        $parts = [];
+        if ($hours > 0) $parts[] = $hours . ' jam';
+        if ($minutes > 0) $parts[] = $minutes . ' menit';
+        if ($secs > 0 || empty($parts)) $parts[] = $secs . ' detik';
+        return implode(' ', $parts);
+    }
+
+    /**
+     * Automatically recall and turn around in-flight armies heading to a cleared bandit camp.
+     * Cuts return travel time based on elapsed travel so far and awards a small scout intel consolation
+     * (+25 Silver & +25 Hero EXP).
+     *
+     * @param array $camp Camp data array (wref, name, etc.)
+     * @param int $conquerorUid Player UID who destroyed the camp
+     * @param string $conquerorName Conqueror player name
+     * @return int Number of in-flight armies recalled
+     */
+    public static function recallInFlightArmies(array $camp, int $conquerorUid, string $conquerorName = ''): int {
+        global $database;
+
+        $wref = (int)($camp['wref'] ?? 0);
+        if ($wref <= 0) return 0;
+
+        $campName = !empty($camp['name']) ? $camp['name'] : 'Sarang Penyamun';
+        $now = time();
+
+        if (empty($conquerorName) && $conquerorUid > 0) {
+            $uRes = $database->query_return("SELECT username FROM " . TB_PREFIX . "users WHERE id = $conquerorUid LIMIT 1");
+            $conquerorName = !empty($uRes[0]['username']) ? $uRes[0]['username'] : 'Pejuang Sekutu';
+        } elseif (empty($conquerorName)) {
+            $conquerorName = 'Pejuang Sekutu';
+        }
+
+        // Find all in-flight attacks heading to this camp
+        $sql = "
+            SELECT m.*, v.owner as sender_uid, u.username as sender_name, v.name as village_name
+            FROM " . TB_PREFIX . "movement m
+            LEFT JOIN " . TB_PREFIX . "vdata v ON m.`from` = v.wref
+            LEFT JOIN " . TB_PREFIX . "users u ON v.owner = u.id
+            WHERE m.`to` = $wref AND m.sort_type = 3 AND m.proc = 0
+        ";
+        $movements = $database->query_return($sql);
+        if (empty($movements)) {
+            return 0;
+        }
+
+        $recalledCount = 0;
+        $compensatedUsers = [];
+
+        foreach ($movements as $m) {
+            $moveId = (int)$m['moveid'];
+            $fromWref = (int)$m['from'];
+            $toWref = (int)$m['to'];
+            $ref = (int)$m['ref'];
+            $startTime = (int)$m['starttime'];
+            $endTime = (int)$m['endtime'];
+            $senderUid = (int)($m['sender_uid'] ?? 0);
+
+            // Atomically claim the cancellation to prevent race conditions
+            $database->query("UPDATE " . TB_PREFIX . "movement SET proc = 1 WHERE moveid = $moveId AND proc = 0");
+            if (mysqli_affected_rows($database->dblink) !== 1) {
+                continue;
+            }
+
+            // Calculate return travel duration from current position on map:
+            // Troops turn around immediately from where they are, so return time equals elapsed journey time
+            $totalDuration = max(1, $endTime - $startTime);
+            $elapsed = max(1, $now - $startTime);
+            $returnDuration = min($elapsed, $totalDuration);
+            $returnEnd = $now + $returnDuration;
+
+            // Insert return movement (sort_type = 4: from target/camp back to sender's village)
+            $database->addMovement(4, $toWref, $fromWref, $ref, $now, $returnEnd);
+            $recalledCount++;
+
+            // Award consolation scout bonus (+25 Silver & +25 Hero EXP) once per user per camp clear
+            $awardedBonus = false;
+            if ($senderUid > 0 && !isset($compensatedUsers[$senderUid])) {
+                $compensatedUsers[$senderUid] = true;
+                $awardedBonus = true;
+
+                $database->query("
+                    UPDATE " . TB_PREFIX . "hero
+                    SET experience = IFNULL(experience, 0) + 25, silver = IFNULL(silver, 0) + 25
+                    WHERE uid = $senderUid
+                ");
+                $hCheck = $database->query_return("SELECT heroid FROM " . TB_PREFIX . "hero WHERE uid = $senderUid LIMIT 1");
+                if (empty($hCheck)) {
+                    $hVid = (int)$database->getVillageID($senderUid);
+                    $database->query("INSERT INTO " . TB_PREFIX . "hero (uid, wref, experience, silver) VALUES ($senderUid, $hVid, 25, 25)");
+                }
+            }
+
+            // Send in-game Intel Notice (ntype = 28)
+            if ($senderUid > 0) {
+                $topic = "🏹 [INTEL PENYAMUN] Pasukan Berbalik Arah dari " . $campName;
+                $durStr = self::formatDuration($returnDuration);
+                $origDurStr = self::formatDuration($totalDuration);
+
+                $dataPayload = http_build_query([
+                    'type' => 'bandit_intel',
+                    'camp_name' => $campName,
+                    'conqueror' => $conquerorName,
+                    'conqueror_uid' => $conquerorUid,
+                    'wref' => $wref,
+                    'from_wref' => $fromWref,
+                    'return_duration' => $durStr,
+                    'orig_duration' => $origDurStr,
+                    'return_end' => $returnEnd,
+                    'silver' => ($awardedBonus ? 25 : 0),
+                    'exp' => ($awardedBonus ? 25 : 0),
+                    'bonus_awarded' => ($awardedBonus ? 1 : 0),
+                    'message' => "Pengintai garis depan melaporkan bahwa {$campName} telah ditaklukkan oleh {$conquerorName}! Pasukanmu langsung diperintahkan memutar balik dari posisinya saat ini menuju desa asal (waktu perjalanan pulang dipangkas menjadi {$durStr}). Bekal intel pengintai +25 Silver & +25 Hero EXP telah diberikan sebagai kompensasi bekal jalan."
+                ]);
+
+                $database->addNotice($senderUid, $fromWref, 0, 28, $topic, $dataPayload, $now);
+            }
+        }
+
+        return $recalledCount;
+    }
+
+    /**
+     * Fallback handler for troops that arrived at a razed tile that was a recently cleared bandit camp.
+     */
+    public static function handleArrivedAtClearedCamp(int $targetWref, int $attackerUid, int $returnEnd = 0): void {
+        global $database;
+
+        if ($targetWref <= 0 || $attackerUid <= 0) return;
+
+        self::ensureTable();
+
+        // Check if target was a bandit camp cleared in the last 24 hours
+        $timeLimit = time() - 86400;
+        $camps = $database->query_return("
+            SELECT id, name, cleared_by, cleared_time
+            FROM " . TB_PREFIX . "bandit_camps
+            WHERE wref = $targetWref AND status = 0 AND cleared_time >= $timeLimit
+            ORDER BY cleared_time DESC
+            LIMIT 1
+        ");
+
+        if (empty($camps[0])) {
+            return;
+        }
+
+        $camp = $camps[0];
+        $campName = !empty($camp['name']) ? $camp['name'] : 'Sarang Penyamun';
+        $conquerorUid = (int)$camp['cleared_by'];
+        $conquerorName = 'Pejuang Sekutu';
+        if ($conquerorUid > 0) {
+            $uRes = $database->query_return("SELECT username FROM " . TB_PREFIX . "users WHERE id = $conquerorUid LIMIT 1");
+            if (!empty($uRes[0]['username'])) {
+                $conquerorName = $uRes[0]['username'];
+            }
+        }
+
+        // Avoid double-awarding if user already received notice within 10 minutes of cleared_time
+        $recentNotice = $database->query_return("
+            SELECT id FROM " . TB_PREFIX . "ndata
+            WHERE uid = $attackerUid AND ntype = 28 AND time >= " . ((int)$camp['cleared_time'] - 300) . "
+            LIMIT 1
+        ");
+        if (!empty($recentNotice)) {
+            return;
+        }
+
+        // Award +25 Silver & +25 Hero EXP
+        $database->query("
+            UPDATE " . TB_PREFIX . "hero
+            SET experience = IFNULL(experience, 0) + 25, silver = IFNULL(silver, 0) + 25
+            WHERE uid = $attackerUid
+        ");
+        $hCheck = $database->query_return("SELECT heroid FROM " . TB_PREFIX . "hero WHERE uid = $attackerUid LIMIT 1");
+        if (empty($hCheck)) {
+            $hVid = (int)$database->getVillageID($attackerUid);
+            $database->query("INSERT INTO " . TB_PREFIX . "hero (uid, wref, experience, silver) VALUES ($attackerUid, $hVid, 25, 25)");
+        }
+
+        $now = time();
+        $remTime = max(0, $returnEnd - $now);
+        $durStr = self::formatDuration($remTime);
+        $topic = "🏹 [INTEL PENYAMUN] Pasukan Berbalik Arah dari " . $campName;
+        $dataPayload = http_build_query([
+            'type' => 'bandit_intel',
+            'camp_name' => $campName,
+            'conqueror' => $conquerorName,
+            'conqueror_uid' => $conquerorUid,
+            'wref' => $targetWref,
+            'from_wref' => 0,
+            'return_duration' => $durStr,
+            'return_end' => $returnEnd,
+            'silver' => 25,
+            'exp' => 25,
+            'bonus_awarded' => 1,
+            'message' => "Pasukanmu tiba di lokasi {$campName}, tetapi sarang telah dihancurkan oleh {$conquerorName}! Pasukan langsung berbalik pulang. Sebagai kompensasi perjalanan, Anda menerima bekal pengintai +25 Silver & +25 Hero EXP."
+        ]);
+
+        $database->addNotice($attackerUid, $targetWref, 0, 28, $topic, $dataPayload, $now);
     }
 }

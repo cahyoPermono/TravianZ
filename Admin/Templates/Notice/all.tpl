@@ -23,6 +23,11 @@ $noticeClass =
     "Won scouting as defender",
     "Lost scouting as defender",
     "Scout Report"];
+$noticeClass[24] = "New Village Founded";
+$noticeClass[25] = "Settlers Returned";
+$noticeClass[26] = "Hero Adventure";
+$noticeClass[27] = "Hero Auction";
+$noticeClass[28] = "Bandit Camp Intel";
 ?>
 	<table cellpadding="1" cellspacing="1" id="overview"
 		class="row_table_data">
@@ -71,9 +76,10 @@ for ($i = (1 + $s); $i <= (10 + $s); $i ++) {
             $type -= 11;
             echo "<img src=\"img/x.gif\" class=\"iReport iReport$type\" alt=\"" . $noticeClass[$type] . "\" title=\"" . $noticeClass[$type] . "\" />";
         } else if ($type >= 18 && $type <= 22) {
-            echo "<img src=\"../gpack/travian_default/img/scouts/$type.gif\" alt=\"" . $noticeClass[$type] . "\" title=\"" . $noticeClass[$type] . "\" />";
+            echo "<img src=\"../gpack/travian_default/img/scouts/$type.gif\" alt=\"" . ($noticeClass[$type] ?? '') . "\" title=\"" . ($noticeClass[$type] ?? '') . "\" />";
         } else {
-            echo "<img src=\"img/x.gif\" class=\"iReport iReport$type\" alt=\"" . $noticeClass[$type] . "\" title=\"" . $noticeClass[$type] . "\" />";
+            $iconClass = ($type == 28) ? 18 : $type;
+            echo "<img src=\"img/x.gif\" class=\"iReport iReport$iconClass\" alt=\"" . ($noticeClass[$type] ?? '') . "\" title=\"" . ($noticeClass[$type] ?? '') . "\" />";
         }
         echo "<div><a href=\"admin.php?p=report&bid=" . $rep1[$i - 1]['id'] . "\">" . $rep1[$i - 1]['topic'] . "</a> ";
         $date = $generator->procMtime($rep1[$i - 1]['time']);

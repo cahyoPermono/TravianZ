@@ -18,7 +18,17 @@
 ## --------------------------------------------------------------------------- ##
 #################################################################################
 
+if (!function_exists('tz_expand_report')) {
+    function tz_expand_report($s) { return $s; }
+}
+
 $dataarray = array_map('tz_expand_report', explode(",", $message->readingNotice['data']));
+
+// Fallback for custom text / system reports (prevents crashes if ntype was 1)
+if (count($dataarray) < 15 && !empty($message->readingNotice['data']) && !is_numeric($dataarray[0] ?? '')) {
+    include __DIR__ . '/28.tpl';
+    return;
+}
 
 // ======================== SPY REPORT DETECTION ========================
 $spyData = null;

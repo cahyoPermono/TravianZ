@@ -135,7 +135,7 @@ class Message
                     $type = [1, 2, 3, 4, 5, 6, 7];
                     break;
                 case 4:
-                    $type = [0, 18, 19, 20, 21, 24, 25];
+                    $type = [0, 18, 19, 20, 21, 24, 25, 26, 27, 28];
                     break;
                 case 5:
                     if (!$session->plus) {
@@ -516,6 +516,10 @@ class Message
             // Hero auction report (T4 hero port)
             case 27:
                 return 27;
+
+            // Bandit camp intel / turnaround report
+            case 28:
+                return 28;
         }
         return $type;
     }
