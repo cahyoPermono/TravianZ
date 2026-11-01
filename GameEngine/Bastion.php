@@ -1569,6 +1569,13 @@ class Bastion {
     }
 
     /**
+     * Alias method for getBastionGarrison()
+     */
+    public static function getTotalTroops(int $wref = 0): array {
+        return self::getBastionGarrison();
+    }
+
+    /**
      * Get aggregated breakdown of all stationed troops at Bastion (own units + reinforcements).
      * Returns ['total' => int, 'breakdown' => [unit_id => count], 'hero' => int]
      */

@@ -170,6 +170,7 @@ echo "PASS: Bot sends Reinforcements (attack_type = 2) only when its alliance ho
 mysqli_query($db, "DELETE FROM `" . TB_PREFIX . "movement` WHERE `from` = $testBotWid");
 
 // C. SCENARIO: Bot Alliance was recently dethroned -> Bot launches COUNTER-ATTACK (attack_type = 3)
+mysqli_query($db, "UPDATE `" . TB_PREFIX . "units` SET `u1` = 50, `u2` = 50, `u3` = 50, `u4` = 10, `u5` = 20 WHERE `vref` = $testBotWid");
 setBastionEventState(Bastion::STATUS_ACTIVE, $rivalAlly, 5555, $botAlly);
 
 $actionReclaim = BotAI::processBastionWarfare($botArray);

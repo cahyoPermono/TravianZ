@@ -939,6 +939,16 @@ class BotAI {
         $adminMaxArmy = (int)self::getConfig('BOT_AI_MAX_ARMY', 2500);
         $maxTroops = max($homeReserve + 20, min($adminMaxArmy, $maxTroops));
 
+        // Mode Mobilisasi Perang Benteng Kuno (Bastion War Mobilization):
+        // Jika aliansi bot sedang bersiap merebut Benteng Kuno, tingkatkan batas pasukan desa
+        // agar bot tidak mentok di batas populasi kecil (misal pop 100 mentok di 125 tentara).
+        $isBastionContender = self::isBastionContestingBot($bot);
+        $bastionTarget = $isBastionContender ? self::getBastionTargetStrikeForce() : 0;
+        if ($isBastionContender && self::getConfig('BOT_AI_BASTION_WAR_MOBILIZATION', true)) {
+            $bastionArmyCap = max($bastionTarget + $homeReserve + 30, (int)round($pop * 2.5));
+            $maxTroops = max($maxTroops, min($adminMaxArmy, $bastionArmyCap));
+        }
+
         $tribeUnits = self::getTribeUnits($tribe);
 
         // Sum standing army across all 10 unit columns for this tribe
@@ -982,13 +992,14 @@ class BotAI {
             return null; // Batas pasukan wajar tercapai
         }
 
-        // Mode Pemulihan Darurat: Jika pasukan bot berada di bawah batas garnisun rumah (Home Reserve)
+        // Mode Pemulihan Darurat atau Mode Himpun Pasukan Benteng Kuno
         $isEmergencyRecovery = ($totalArmy < $homeReserve);
+        $isAmassingBastion = ($isBastionContender && $atHomeTotal < ($bastionTarget + $homeReserve) && self::getConfig('BOT_AI_BASTION_WAR_MOBILIZATION', true));
 
         // Batas antrean pelatihan di barak/stable:
         // Semakin maju desanya, semakin banyak antrean yang diizinkan agar barak/stable aktif berproduksi secara natural
-        if ($isEmergencyRecovery) {
-            $maxQueued = ($pop >= 400) ? 40 : min(25, $homeReserve);
+        if ($isEmergencyRecovery || $isAmassingBastion) {
+            $maxQueued = ($pop >= 400) ? 50 : max(25, min(40, $homeReserve));
         } else {
             if ($pop >= 500 && $brLevel >= 8) {
                 $maxQueued = 35;
@@ -1003,10 +1014,10 @@ class BotAI {
         }
 
         // Pacing pelatihan:
-        // 100% aktif saat pemulihan darurat;
+        // 100% aktif saat pemulihan darurat atau himpun pasukan Benteng Kuno;
         // Untuk desa berpopulasi >= 200 dengan antrean sedikit (queued < 5): 85% peluang aktif melatih;
         // Lainnya: 50% peluang melatih per tick
-        if (!$isEmergencyRecovery) {
+        if (!$isEmergencyRecovery && !$isAmassingBastion) {
             $chance = ($pop >= 200 && $queuedTotal < 5) ? 85 : 50;
             if (rand(1, 100) > $chance) {
                 return null; // Menunggu tick berikutnya
@@ -1025,6 +1036,20 @@ class BotAI {
             $trainCandidates[$tribeUnits['basic']] = 75;
             if (!empty($tribeUnits['inf_def']) && ($brLevel >= 2 || $pop >= 50)) {
                 $trainCandidates[$tribeUnits['inf_def']] = 25;
+            }
+        } elseif ($isAmassingBastion) {
+            // Mode Mobilisasi Benteng Kuno: Prioritaskan infanteri ofensif & senjata kepung
+            $trainCandidates[$tribeUnits['basic']] = ($tribe === 2) ? 60 : 35;
+            if (!empty($tribeUnits['inf_adv']) && ($acLevel >= 1 || $brLevel >= 2 || $pop >= 50)) {
+                $trainCandidates[$tribeUnits['inf_adv']] = 40;
+            }
+            if ($enableCavalry && $stLevel >= 1) {
+                if (!empty($tribeUnits['cav_heavy'])) $trainCandidates[$tribeUnits['cav_heavy']] = 25;
+                elseif (!empty($tribeUnits['cav_light'])) $trainCandidates[$tribeUnits['cav_light']] = 20;
+            }
+            if ($wsLevel >= 1) {
+                if (!empty($tribeUnits['ram'])) $trainCandidates[$tribeUnits['ram']] = 15;
+                if (!empty($tribeUnits['catapult'])) $trainCandidates[$tribeUnits['catapult']] = 15;
             }
         } else {
             // Basic infantry is always eligible (Barracks >= 1)
@@ -2602,6 +2627,60 @@ class BotAI {
      * @param array $bot Bot village data row
      * @return string|null Log summary if action dispatched, or null
      */
+    /**
+     * Check if the bot village belongs to an alliance that is actively competing for Benteng Kuno.
+     */
+    public static function isBastionContestingBot(array $bot): bool {
+        if (!class_exists('Bastion')) {
+            require_once __DIR__ . '/Bastion.php';
+        }
+        if (!Bastion::isEventActive()) {
+            return false;
+        }
+        $botAlliance = (int)($bot['alliance'] ?? 0);
+        if ($botAlliance <= 0) {
+            return false;
+        }
+        $event = Bastion::getEvent();
+        $holderAlly = (int)($event['holder_alliance'] ?? 0);
+        return ($holderAlly !== $botAlliance);
+    }
+
+    /**
+     * Calculate the dynamic required strike force against Benteng Kuno.
+     * Evaluates the fortress garrison at (0|0) and prevents tiny/tickle attacks.
+     * Bots will amass troops until reaching this threshold before attacking.
+     */
+    public static function getBastionTargetStrikeForce(int $bastionWref = 0): int {
+        if ($bastionWref <= 0) {
+            $bastionWref = class_exists('Bastion') ? Bastion::BASTION_WREF : 20201;
+        }
+        $defenderCount = 0;
+        if (class_exists('Bastion')) {
+            if (method_exists('Bastion', 'getBastionGarrison')) {
+                $stationed = Bastion::getBastionGarrison();
+                $defenderCount = (int)($stationed['total'] ?? 0);
+            } elseif (method_exists('Bastion', 'getTotalTroops')) {
+                $stationed = Bastion::getTotalTroops($bastionWref);
+                $defenderCount = (int)($stationed['total'] ?? 0);
+            }
+        }
+
+        // Ambang batas dasar minimal serang (default: 200, atau sesuai config admin)
+        $baseMin = (int)self::getConfig('BOT_AI_BASTION_MIN_ATTACK_TROOPS', 200);
+        $intelRatio = (float)self::getConfig('BOT_AI_BASTION_GARRISON_FACTOR', 0.35);
+
+        // Jika benteng memiliki penjaga kuat (misal 500 - 1.000 pasukan), bot cerdas memperhitungkan kekuatan minimal:
+        // Bot menargetkan minimal 35% dari total garnisun benteng atau minimal $baseMin (dibatasi wajar maks 1200)
+        // Jika benteng kosong / 0 defender (misal saat baru spawn/reset), batas minimal diatur ke min($baseMin, 80)
+        if ($defenderCount > 0) {
+            $scaled = max($baseMin, (int)round($defenderCount * $intelRatio));
+        } else {
+            $scaled = min($baseMin, 80);
+        }
+        return min(1500, $scaled);
+    }
+
     public static function processBastionWarfare(array $bot): ?string {
         global $database;
         if (!isset($database) || $database === null) {
@@ -2832,15 +2911,25 @@ class BotAI {
         $homeReserve = max(self::getHomeReserve($pop), (int)round($totalCombatAvailable * $reservePercent));
         $deployableCombat = max(0, $totalCombatAvailable - $homeReserve);
 
-        // Minimum army requirements:
-        // Regular conquest: requires pop >= 60, total army >= 25, deployable >= 15
-        // Counter-attack: requires pop >= 50, total army >= 20, deployable >= 10
-        $minTotalArmy = $isCounterAttack ? 20 : 25;
-        $minDeployable = $isCounterAttack ? 10 : 15;
-        $minPop = $isCounterAttack ? 50 : 60;
+        // 1. Dapatkan info pertahanan terkini di Benteng Kuno (0|0)
+        $bastionGarrison = ['total' => 0];
+        if (class_exists('Bastion')) {
+            if (method_exists('Bastion', 'getBastionGarrison')) {
+                $bastionGarrison = Bastion::getBastionGarrison();
+            } elseif (method_exists('Bastion', 'getTotalTroops')) {
+                $bastionGarrison = Bastion::getTotalTroops($bastionWref);
+            }
+        }
+        $defenderCount = (int)($bastionGarrison['total'] ?? 0);
+
+        // 2. Ambang batas target ekspedisi serang (Kumpulin Pasukan Dulu, cegah serangan geli-geli)
+        $targetMinArmy = self::getBastionTargetStrikeForce($bastionWref);
+        $minPop = (int)self::getConfig('BOT_AI_BASTION_MIN_POP', 80);
+        $minTotalArmy = $isCounterAttack ? max(60, (int)round($targetMinArmy * 0.75)) : $targetMinArmy;
+        $minDeployable = (int)round($minTotalArmy * 0.75);
 
         if ($pop < $minPop || $totalCombatAvailable < $minTotalArmy || $deployableCombat < $minDeployable) {
-            return null; // Desa bot belum cukup matang / tentara sedang dipulihkan
+            return "Benteng Kuno: Menghimpun kekuatan tempur ($totalCombatAvailable / $minTotalArmy prajurit) sebelum melancarkan ekspedisi.";
         }
 
         // Coordination limiter: allow up to 3 simultaneous attacks en route per alliance (up to 4 if counter-attack)
@@ -2864,13 +2953,12 @@ class BotAI {
         }
 
         // Massive Expeditionary Siege Force:
-        // Regular attack: mobilize 75% to 85% of deployable combat forces
+        // Regular attack: mobilize 80% to 90% of deployable combat forces
         // Counter-attack: mobilize 85% to 95% of deployable combat forces
         // Generous ceiling up to 3,500 troops so high-level bots send massive siege forces!
-        $ratio = $isCounterAttack ? 0.90 : 0.80;
+        $ratio = $isCounterAttack ? 0.90 : 0.85;
         $maxCap = (int)self::getConfig('BOT_AI_BASTION_MAX_ATTACK_TROOPS', 3500);
-        $minParty = min($deployableCombat, 30);
-        $partySize = min($maxCap, max($minParty, (int)floor($deployableCombat * $ratio)));
+        $partySize = min($maxCap, max($minDeployable, (int)floor($deployableCombat * $ratio)));
         $partySize = min($partySize, $deployableCombat);
 
         $dispatched = [];
@@ -3249,6 +3337,16 @@ class BotAI {
         $deployableCombat = max(0, $totalCombatAvailable - $homeReserve);
         if ($deployableCombat < $minAttackForce) {
             return null; // Garnisun pertahanan rumah wajib dipertahankan; sisa pasukan tempur belum cukup untuk menyerang
+        }
+
+        // Cek apakah desa sedang fokus menghimpun pasukan untuk ekspedisi Benteng Kuno (War Mobilization)
+        if (self::isBastionContestingBot($bot) && self::getConfig('BOT_AI_BASTION_WAR_MOBILIZATION', true)) {
+            $bastionTarget = self::getBastionTargetStrikeForce();
+            // Jika total pasukan tempur ofensif saat ini masih di bawah target Benteng Kuno,
+            // tahan serangan raid biasa agar pasukan tidak terpecah atau mati sia-sia sebelum perang benteng!
+            if ($totalCombatAvailable < $bastionTarget) {
+                return null; // Tahan pasukan tempur untuk persiapan ekspedisi Benteng Kuno
+            }
         }
 
         // Check active outgoing attacks (only count real attacks/raids; exclude defensive reinforcements)

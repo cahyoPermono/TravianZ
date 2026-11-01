@@ -542,6 +542,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
         $pureDefOnly = !empty($_POST['bot_defense_pure_def_only']);
         $maxDefDistance = max(20.0, min(500.0, (float)($_POST['bot_max_defense_distance'] ?? 120.0)));
 
+        // Ancient Bastion warfare & troop amassing settings
+        $bastionMinAttackTroops = max(50, min(5000, (int)($_POST['bot_bastion_min_attack_troops'] ?? 250)));
+        $bastionMinPop = max(40, min(1000, (int)($_POST['bot_bastion_min_pop'] ?? 80)));
+        $bastionGarrisonFactor = max(0.1, min(1.0, (float)($_POST['bot_bastion_garrison_factor'] ?? 0.35)));
+        $bastionWarMobilization = !empty($_POST['bot_bastion_war_mobilization']);
+
         $saveSuccess = BotAI::saveConfig([
             'BOT_AI_MAX_POP' => $maxPop,
             'BOT_AI_MAX_BUILDING_LEVEL' => $maxBuildingLvl,
@@ -559,6 +565,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
             'BOT_AI_MAX_HELPERS_PER_VILLAGE' => $maxHelpers,
             'BOT_AI_DEFENSE_PURE_DEF_ONLY' => $pureDefOnly,
             'BOT_AI_MAX_DEFENSE_DISTANCE' => $maxDefDistance,
+            'BOT_AI_BASTION_MIN_ATTACK_TROOPS' => $bastionMinAttackTroops,
+            'BOT_AI_BASTION_MIN_POP' => $bastionMinPop,
+            'BOT_AI_BASTION_GARRISON_FACTOR' => $bastionGarrisonFactor,
+            'BOT_AI_BASTION_WAR_MOBILIZATION' => $bastionWarMobilization,
         ]);
 
         if ($saveSuccess) {
@@ -571,6 +581,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
                 . "• Mobilisasi saat Kawan Diserang: <b>" . ($defenseRatioActive * 100) . "%</b> pasukan cadangan (Maks <b>$defenseMaxCap</b> unit/bot, Kuota: <b>$maxHelpers</b> bot penolong/desa)<br>"
                 . "• Filter Unit Pertahanan Murni: <b>" . ($pureDefOnly ? "Aktif (Hanya spesialis defense; cegah Clubswinger/Axeman mati sia-sia)" : "Nonaktif") . "</b><br>"
                 . "• Unit Scout (Pengintai): <b>" . ($scoutEnabled ? "Aktif (Latih di Barak/Stable, Anti-Spionase & Patroli Intai)" : "Nonaktif") . "</b><br>"
+                . "• Perang Benteng Kuno (Kumpul Pasukan): <b>" . ($bastionWarMobilization ? "Aktif (Himpun Pasukan Sebelum Serang)" : "Nonaktif") . "</b> (Minimal: <b>$bastionMinAttackTroops</b> prajurit serbu / <b>" . ($bastionGarrisonFactor * 100) . "%</b> dari garnisun benteng)<br>"
                 . "• Ekspansi Desa Baru: <b>" . ($expansionEnabled ? "Aktif (Maks $maxVillages Desa/Bot)" : "Nonaktif") . "</b> (Berjalan secara natural via Padepokan Lvl 10, pelatihan 3 Pionir, CP, dan perjalanan perintis).<br>"
                 . "• Sanggar Paranormal Nusantara: <b>" . ($paranormalEnabled ? "Aktif (Natural & Bertahap)" : "Nonaktif") . "</b> (Konstruksi GID 51 di slot 38, pemanggilan Pocong/Kunti/Genderuwo & ritual Tuyul sesuai sumber daya).<br>"
                 . "<span style='color:#34d399;'>💾 Pengaturan tersimpan aman di Database &amp; file konfigurasi server (kebal terhadap extract zip patch).</span>";
@@ -604,6 +615,12 @@ $currentDefMaxCapRecovery = (int)BotAI::getConfig('BOT_AI_DEFENSE_MAX_CAP_RECOVE
 $currentMaxHelpers = (int)BotAI::getConfig('BOT_AI_MAX_HELPERS_PER_VILLAGE', 6);
 $currentPureDefOnly = !empty(BotAI::getConfig('BOT_AI_DEFENSE_PURE_DEF_ONLY', true));
 $currentMaxDefDist = (float)BotAI::getConfig('BOT_AI_MAX_DEFENSE_DISTANCE', 120.0);
+
+// Current Ancient Bastion Warfare Configurations
+$currentBastionMinTroops = (int)BotAI::getConfig('BOT_AI_BASTION_MIN_ATTACK_TROOPS', 250);
+$currentBastionMinPop = (int)BotAI::getConfig('BOT_AI_BASTION_MIN_POP', 80);
+$currentBastionGarrisonFactor = (float)BotAI::getConfig('BOT_AI_BASTION_GARRISON_FACTOR', 0.35);
+$currentBastionWarMobilization = !empty(BotAI::getConfig('BOT_AI_BASTION_WAR_MOBILIZATION', true));
 
 $botsQuery = "
     SELECT u.id, u.username, u.tribe, u.regtime, u.desc1, u.alliance,
@@ -1303,6 +1320,73 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
                     <b style="color:#a5b4fc;">📊 Simulasi Perbandingan Bantuan:</b><br>
                     • <b>Sebelumnya (Lama):</b> Plafon 100 unit &times; maks 3 bot = hanya <b>maksimal ~160-300 unit</b> bantuan (termasuk Clubswinger rapuh yang mudah tewas).<br>
                     • <b>Dengan Pengaturan Saat Ini:</b> Plafon <?php echo $currentDefMaxCap; ?> unit &times; <?php echo $currentMaxHelpers; ?> bot = mampu menumpuk <b>hingga <?php echo ($currentDefMaxCap * $currentMaxHelpers); ?> unit pasukan spesialis defense murni</b> (Spearman, Praetorian, Phalanx, Ash Warden, Pendekar Tombak) + Hero, cukup untuk menahan gelombang ratusan/ribuan penyerang!
+                </div>
+            </div>
+
+            <!-- Panel Pengaturan Benteng Kuno & Kumpul Pasukan Bot -->
+            <div style="background:#13122b; border:1px solid #6366f1; border-radius:8px; padding:16px; margin-bottom:16px;">
+                <h4 style="color:#a5b4fc; margin:0 0 8px 0; font-size:13px; display:flex; align-items:center; gap:8px;">
+                    🏰 <span>Perang Benteng Kuno &amp; Kumpul Pasukan Bot AI (Ancient Bastion Warfare)</span>
+                </h4>
+                <p style="font-size:11px; color:#cbd5e1; margin:0 0 12px 0; line-height:1.5;">
+                    Cegah bot meluncurkan serangan bunuh diri kecil ("geli-geli" berisi 15-25 prajurit). Dengan fitur ini, bot aliansi akan <b>menghimpun dan mengumpulkan pasukan terlebih dahulu (*massing troops*)</b> secara masif sebelum mengirimkan ekspedisi pengepungan besar bersama senjata kepung dan hero!
+                </p>
+
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:14px;">
+                    <!-- Min Attack Troops -->
+                    <div class="botm-form-group">
+                        <label>Batas Minimal Pasukan Serbu Benteng Kuno:</label>
+                        <div style="background:#0f172a; border:1px solid #1e293b; border-radius:6px; padding:6px 10px; margin-bottom:5px; font-size:11px; color:#a5b4fc;">
+                            📌 <b>Settingan Aktif:</b> Minimal <b><?php echo number_format($currentBastionMinTroops); ?></b> Prajurit Serbu
+                        </div>
+                        <input type="number" name="bot_bastion_min_attack_troops" class="botm-form-control" value="<?php echo $currentBastionMinTroops; ?>" min="50" max="3000" required>
+                        <span style="font-size:10px; color:#94a3b8; display:block; margin-top:3px;">
+                            Bot dilarang menyerang Benteng Kuno jika pasukan ofensifnya belum mencapai angka ini.
+                        </span>
+                    </div>
+
+                    <!-- Garrison Scaling Factor -->
+                    <div class="botm-form-group">
+                        <label>Skala Intelijen Garnisun Bertahan:</label>
+                        <div style="background:#0f172a; border:1px solid #1e293b; border-radius:6px; padding:6px 10px; margin-bottom:5px; font-size:11px; color:#a5b4fc;">
+                            📌 <b>Settingan Aktif:</b> <b><?php echo ($currentBastionGarrisonFactor * 100); ?>%</b> dari Garnisun Lawan
+                        </div>
+                        <select name="bot_bastion_garrison_factor" class="botm-form-control">
+                            <option value="0.25" <?php echo abs($currentBastionGarrisonFactor - 0.25) < 0.05 ? 'selected' : ''; ?>>25% dari Total Garnisun Lawan</option>
+                            <option value="0.35" <?php echo abs($currentBastionGarrisonFactor - 0.35) < 0.05 ? 'selected' : ''; ?>>35% dari Total Garnisun Lawan (Rekomendasi Seimbang)</option>
+                            <option value="0.50" <?php echo abs($currentBastionGarrisonFactor - 0.50) < 0.05 ? 'selected' : ''; ?>>50% dari Total Garnisun Lawan (Agresif &amp; Berat)</option>
+                            <option value="0.75" <?php echo abs($currentBastionGarrisonFactor - 0.75) < 0.05 ? 'selected' : ''; ?>>75% dari Total Garnisun Lawan (Pengepungan Ekstrem)</option>
+                        </select>
+                        <span style="font-size:10px; color:#94a3b8; display:block; margin-top:3px;">
+                            Bila benteng dijaga 1.000 pasukan, bot menghitung target kumpul pasukan proporsional agar tidak kalah telak.
+                        </span>
+                    </div>
+
+                    <!-- Min Pop for Village -->
+                    <div class="botm-form-group">
+                        <label>Minimal Populasi Desa Penyerang:</label>
+                        <div style="background:#0f172a; border:1px solid #1e293b; border-radius:6px; padding:6px 10px; margin-bottom:5px; font-size:11px; color:#a5b4fc;">
+                            📌 <b>Settingan Aktif:</b> Minimal <b><?php echo $currentBastionMinPop; ?> Pop</b>
+                        </div>
+                        <input type="number" name="bot_bastion_min_pop" class="botm-form-control" value="<?php echo $currentBastionMinPop; ?>" min="40" max="800" required>
+                        <span style="font-size:10px; color:#94a3b8; display:block; margin-top:3px;">
+                            Hanya desa bot yang telah mapan yang boleh meluncurkan ekspedisi pengepungan.
+                        </span>
+                    </div>
+
+                    <!-- War Mobilization Toggle -->
+                    <div class="botm-form-group">
+                        <label>Mode Mobilisasi &amp; Kumpul Pasukan:</label>
+                        <div style="background:#0f172a; padding:10px 12px; border-radius:6px; border:1px solid #1e293b; margin-top:2px;">
+                            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:#f8fafc; font-weight:bold; font-size:12px;">
+                                <input type="checkbox" name="bot_bastion_war_mobilization" value="1" <?php echo $currentBastionWarMobilization ? 'checked' : ''; ?> style="width:16px; height:16px; cursor:pointer;">
+                                <span>Aktifkan Mode Mobilisasi &amp; Kumpul Pasukan Otomatis</span>
+                            </label>
+                            <span style="font-size:10px; color:<?php echo $currentBastionWarMobilization ? '#34d399' : '#f87171'; ?>; display:block; margin-top:4px;">
+                                <?php echo $currentBastionWarMobilization ? '🟢 AKTIF (Bot menaikkan cap antrean pelatihan &amp; menahan raid kecil demi menabung pasukan perang benteng)' : '🔴 NONAKTIF (Pelatihan berjalan normal)'; ?>
+                            </span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
