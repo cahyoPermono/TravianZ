@@ -454,6 +454,46 @@ function __construct() {
             return;
         }
 
+        // SELF-HEALING: Jika hero pemain wref-nya tersangkut di Benteng Kuno (20201),
+        // pulihkan wref ke desa pemain yang memiliki units.hero, atau bantuan benteng, atau ibukota!
+        $bastionWref = class_exists('Bastion') ? Bastion::BASTION_WREF : 20201;
+        $checkWrefQ = "SELECT heroid, wref FROM " . TB_PREFIX . "hero WHERE uid = $uid AND wref = $bastionWref LIMIT 1";
+        $checkWrefRes = @mysqli_query($database->dblink, $checkWrefQ);
+        if ($checkWrefRes && ($hw = mysqli_fetch_assoc($checkWrefRes))) {
+            $villageIDs = implode(', ', array_map('intval', $this->villages));
+            $targetWid = 0;
+            if (!empty($villageIDs)) {
+                $findHomeQ = "SELECT vref FROM " . TB_PREFIX . "units WHERE vref IN ($villageIDs) AND hero > 0 LIMIT 1";
+                $findHomeRes = @mysqli_query($database->dblink, $findHomeQ);
+                if ($findHomeRes && ($homeRow = mysqli_fetch_assoc($findHomeRes))) {
+                    $targetWid = (int)$homeRow['vref'];
+                }
+            }
+            if ($targetWid <= 0 && !empty($villageIDs)) {
+                $findReinfQ = "SELECT `from` FROM " . TB_PREFIX . "enforcement WHERE vref = $bastionWref AND `from` IN ($villageIDs) AND hero > 0 LIMIT 1";
+                $findReinfRes = @mysqli_query($database->dblink, $findReinfQ);
+                if ($findReinfRes && ($reinfRow = mysqli_fetch_assoc($findReinfRes))) {
+                    $targetWid = (int)$reinfRow['from'];
+                }
+            }
+            if ($targetWid <= 0) {
+                $findCapQ = "SELECT wref FROM " . TB_PREFIX . "vdata WHERE owner = $uid AND capital = 1 LIMIT 1";
+                $findCapRes = @mysqli_query($database->dblink, $findCapQ);
+                if ($findCapRes && ($capRow = mysqli_fetch_assoc($findCapRes))) {
+                    $targetWid = (int)$capRow['wref'];
+                }
+            }
+            if ($targetWid <= 0 && !empty($this->villages[0])) {
+                $targetWid = (int)$this->villages[0];
+            }
+            if ($targetWid > 0) {
+                @mysqli_query($database->dblink, "UPDATE " . TB_PREFIX . "hero SET wref = $targetWid WHERE heroid = " . (int)$hw['heroid']);
+                if (method_exists($database, 'clearHeroCache')) {
+                    $database->clearHeroCache();
+                }
+            }
+        }
+
         $advOut  = defined('MOVEMENT_ADVENTURE_OUT')  ? (int) MOVEMENT_ADVENTURE_OUT  : 20;
         $advBack = defined('MOVEMENT_ADVENTURE_BACK') ? (int) MOVEMENT_ADVENTURE_BACK : 21;
 

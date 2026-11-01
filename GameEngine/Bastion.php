@@ -121,6 +121,32 @@ class Bastion {
             }
         }
 
+        // Self-Healing: Pastikan tidak ada hero pemain yang wref-nya tersangkut di Benteng Kuno (20201).
+        // Hero di Benteng Kuno berstatus bantuan pertahanan (enforcement), wref desa asalnya tidak boleh berubah.
+        // 1. Pulihkan ke desa pemain yang saat ini memiliki units.hero > 0
+        @mysqli_query($db, "UPDATE `" . TB_PREFIX . "hero` h
+            INNER JOIN `" . TB_PREFIX . "units` u ON u.hero > 0
+            INNER JOIN `" . TB_PREFIX . "vdata` v ON v.wref = u.vref AND v.owner = h.uid
+            SET h.wref = v.wref
+            WHERE h.wref = " . self::BASTION_WREF);
+
+        // 2. Pulihkan ke desa asal pengirim jika hero saat ini sedang menjadi bantuan di Benteng Kuno
+        @mysqli_query($db, "UPDATE `" . TB_PREFIX . "hero` h
+            INNER JOIN `" . TB_PREFIX . "enforcement` e ON e.vref = " . self::BASTION_WREF . " AND e.hero > 0
+            INNER JOIN `" . TB_PREFIX . "vdata` v ON v.wref = e.`from` AND v.owner = h.uid
+            SET h.wref = v.wref
+            WHERE h.wref = " . self::BASTION_WREF);
+
+        // 3. Fallback: Pulihkan ke desa ibukota (capital) atau desa pertama pemain
+        @mysqli_query($db, "UPDATE `" . TB_PREFIX . "hero` h
+            INNER JOIN `" . TB_PREFIX . "vdata` v ON v.owner = h.uid AND v.capital = 1
+            SET h.wref = v.wref
+            WHERE h.wref = " . self::BASTION_WREF);
+        @mysqli_query($db, "UPDATE `" . TB_PREFIX . "hero` h
+            INNER JOIN (SELECT owner, MIN(wref) as first_wref FROM `" . TB_PREFIX . "vdata` GROUP BY owner) v ON v.owner = h.uid
+            SET h.wref = v.first_wref
+            WHERE h.wref = " . self::BASTION_WREF);
+
         // 2. Table riwayat pertarungan dan log event benteng
         $q2 = "CREATE TABLE IF NOT EXISTS `" . TB_PREFIX . "bastion_logs` (
             `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -819,14 +845,14 @@ class Bastion {
             }
         }
 
-        // 5. Jika hero ikut selamat, perbarui lokasi hero ke Benteng Kuno (0|0)
+        // 5. Jika hero ikut selamat, hero bersiaga sebagai garnisun bantuan di tabel enforcement.
+        // CATATAN: Desa asal (wref) hero TIDAK BOLEH diubah ke Benteng Kuno (20201),
+        // karena Benteng Kuno adalah situs cagar netral, bukan desa milik pemain.
+        // Hero tetap bernaung di desa asalnya agar produksi bonus T4 (resources) di desa asal
+        // tetap berjalan normal dan status hero tidak berpindah ke Benteng Kuno.
         if ($heroAlive > 0 && $senderUid > 0) {
-            $heroid = $database->getHeroField($senderUid, 'heroid');
-            if ($heroid) {
-                $database->modifyHero("wref", $wref, $heroid);
-                if (method_exists($database, 'clearHeroCache')) {
-                    $database->clearHeroCache();
-                }
+            if (method_exists($database, 'clearHeroCache')) {
+                $database->clearHeroCache();
             }
         }
 
@@ -900,14 +926,12 @@ class Bastion {
             }
         }
 
-        // 2. Jika membawa hero, pastikan hero tercatat berada di Benteng Kuno
+        // 2. Jika membawa hero, hero tercatat sebagai bantuan di tabel enforcement.
+        // CATATAN: Desa asal (wref) hero TIDAK BOLEH diubah ke Benteng Kuno (20201)
+        // agar produksi sumber daya (resources T4) di desa asal tetap aktif.
         if ((int)($data['t11'] ?? 0) > 0 && $senderUid > 0) {
-            $heroid = $database->getHeroField($senderUid, 'heroid');
-            if ($heroid) {
-                $database->modifyHero("wref", $toWref, $heroid);
-                if (method_exists($database, 'clearHeroCache')) {
-                    $database->clearHeroCache();
-                }
+            if (method_exists($database, 'clearHeroCache')) {
+                $database->clearHeroCache();
             }
         }
 
@@ -991,9 +1015,12 @@ class Bastion {
                 if ($hero > 0 && $ownerUid > 0) {
                     $heroid = $database->getHeroField($ownerUid, 'heroid');
                     if ($heroid) {
-                        $database->modifyHero("wref", $fromWref, $heroid);
-                        if (method_exists($database, 'clearHeroCache')) {
-                            $database->clearHeroCache();
+                        $currWref = (int)$database->getHeroField($ownerUid, 'wref');
+                        if ($currWref === self::BASTION_WREF || $currWref <= 0) {
+                            $database->modifyHero("wref", $fromWref, $heroid);
+                            if (method_exists($database, 'clearHeroCache')) {
+                                $database->clearHeroCache();
+                            }
                         }
                     }
                 }

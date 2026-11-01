@@ -47,6 +47,26 @@ trait DatabaseHeroQueries {
 		$result = mysqli_query($this->dblink, $q);
 		$row    = $result ? mysqli_fetch_assoc($result) : null;
 
+		if (!$row) {
+			// Self-healing fallback: Jika hero pemilik desa ini wref-nya tersangkut di Benteng Kuno (20201),
+			// pulihkan wref ke desa ini ($wid) agar produksi bonus sumber daya T4 tidak hilang!
+			$bWref = defined('Bastion::BASTION_WREF') ? (int)constant('Bastion::BASTION_WREF') : 20201;
+			$qHeal = "SELECT h.heroid, h.uid, h.wref, h.resources, h.res_type
+			            FROM " . TB_PREFIX . "hero h
+			            JOIN " . TB_PREFIX . "vdata v ON v.owner = h.uid AND v.wref = " . $wid . "
+			           WHERE h.wref = " . $bWref . "
+			             AND h.dead = 0
+			             AND COALESCE(h.intraining, 0) = 0
+			           LIMIT 1";
+			$resHeal = mysqli_query($this->dblink, $qHeal);
+			if ($resHeal && ($hRow = mysqli_fetch_assoc($resHeal))) {
+				mysqli_query($this->dblink, "UPDATE " . TB_PREFIX . "hero SET wref = " . $wid . " WHERE heroid = " . (int)$hRow['heroid']);
+				$hRow['wref'] = $wid;
+				$row = $hRow;
+				self::clearHeroCache();
+			}
+		}
+
 		return self::$heroVillageCache[$wid] = ($row ?: null);
 	}
 

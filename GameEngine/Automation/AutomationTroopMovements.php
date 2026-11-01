@@ -161,9 +161,9 @@ trait AutomationTroopMovements {
         	}
         }
 
-        //check if the hero is present and we're not sending him to an occupied oasis
+        //check if the hero is present and we're not sending him to an occupied oasis or Bastion
         //only add hero if we're sending him alone
-        if($data['t11'] > 0 && !$isoasis && !$troopsPresent) {
+        if($data['t11'] > 0 && !$isoasis && !$troopsPresent && !$isBastion) {
         	//check if we're sending a hero between own villages
             if($AttackerID == $DefenderID) {
                 //don't reinforce, addunit instead (transfers home village to target village even without Hero's Mansion)
@@ -278,6 +278,24 @@ trait AutomationTroopMovements {
             			[$data['t1'], $data['t2'], $data['t3'], $data['t4'], $data['t5'], $data['t6'], $data['t7'], $data['t8'], $data['t9'], $data['t10'], $data['t11']],
             			[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
             			);
+
+            	// Jika ada hero yang kembali ke desa, pastikan hero.wref tidak tersangkut di Benteng Kuno (20201)
+            	if (!empty($data['t11']) && (int)$data['t11'] > 0) {
+            	    $ownerUid = (int)$database->getVillageField($data['to'], "owner");
+            	    if ($ownerUid > 0) {
+            	        $heroid = $database->getHeroField($ownerUid, 'heroid');
+            	        if ($heroid) {
+            	            $currWref = (int)$database->getHeroField($ownerUid, 'wref');
+            	            $bWref = class_exists('Bastion') ? Bastion::BASTION_WREF : 20201;
+            	            if ($currWref === $bWref || $currWref <= 0) {
+            	                $database->modifyHero("wref", $data['to'], $heroid);
+            	                if (method_exists($database, 'clearHeroCache')) {
+            	                    $database->clearHeroCache();
+            	                }
+            	            }
+            	        }
+            	    }
+            	}
             	
             	//If there's at least 1 resource, add it to the village
             	if($data['wood'] + $data['clay'] + $data['iron'] + $data['crop'] > 0){
