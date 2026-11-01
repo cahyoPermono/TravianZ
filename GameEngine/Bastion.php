@@ -276,6 +276,13 @@ class Bastion {
     }
 
     /**
+     * Alias for getEvent() to retrieve current Bastion event state.
+     */
+    public static function getEventState(): array {
+        return self::getEvent();
+    }
+
+    /**
      * Ensure the Guardian User and Bot Alliance exist.
      * Returns array ['uid' => int, 'ally' => int]
      */

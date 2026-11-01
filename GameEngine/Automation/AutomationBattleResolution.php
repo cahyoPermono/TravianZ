@@ -2668,25 +2668,15 @@ trait AutomationBattleResolution {
             $database->addNotice($to['owner'],$to['wref'],$targetally,$noticeNtype,$topic,$data2,$AttackArrivalTime);
 
             // SPECIAL FOR BENTENG KUNO (Ancient Bastion):
-            // When Benteng Kuno is attacked, also dispatch the full combat report to:
-            // 1. The current Bastion holder (if held by a player and not equal to $to['owner'])
-            // 2. All unique players who have reinforcements defending Benteng Kuno
+            // When Benteng Kuno is attacked, also dispatch the full combat report to
+            // the current Bastion holder (if held by a player and not equal to $to['owner']).
+            // Reinforcers already received their consolidated reinforcement notices (15/16/17).
             if (class_exists('Bastion') && Bastion::isBastionVillage($to['wref'])) {
                 $dispatchedUids = [(int)$to['owner']];
-                $bState = Bastion::getEventState();
+                $bState = method_exists('Bastion', 'getEvent') ? Bastion::getEvent() : (method_exists('Bastion', 'getEventState') ? Bastion::getEventState() : []);
                 if (!empty($bState['holder_uid']) && (int)$bState['holder_uid'] > 0 && !in_array((int)$bState['holder_uid'], $dispatchedUids, true)) {
                     $dispatchedUids[] = (int)$bState['holder_uid'];
                     $database->addNotice((int)$bState['holder_uid'], $to['wref'], $targetally, $noticeNtype, $topic, $data2, $AttackArrivalTime);
-                }
-                $qReinf = @mysqli_query($database->dblink, "SELECT DISTINCT v.owner FROM " . TB_PREFIX . "enforcement e JOIN " . TB_PREFIX . "vdata v ON e.from = v.wref WHERE e.vref = " . (int)$to['wref']);
-                if ($qReinf) {
-                    while ($rRow = mysqli_fetch_assoc($qReinf)) {
-                        $rUid = (int)$rRow['owner'];
-                        if ($rUid > 0 && !in_array($rUid, $dispatchedUids, true)) {
-                            $dispatchedUids[] = $rUid;
-                            $database->addNotice($rUid, $to['wref'], $targetally, $noticeNtype, $topic, $data2, $AttackArrivalTime);
-                        }
-                    }
                 }
             }
         }
@@ -2981,6 +2971,7 @@ trait AutomationBattleResolution {
 
             // calculate battles
             foreach($dataarray as $data) {
+                try {
                 //set base things
 				$totaltraped_att = 0;
 				for($i = 1; $i <= 11; $i++) ${'traped'.$i} = 0;
@@ -3765,6 +3756,13 @@ trait AutomationBattleResolution {
                     ,$DefenderUnit
                     ,$info_trap
                     ,$report);
+                } catch (\Throwable $battleErr) {
+                    error_log("AutomationBattleResolution fatal error processing attack moveid=" . (int)($data['moveid'] ?? 0) . ": " . $battleErr->getMessage() . "\n" . $battleErr->getTraceAsString());
+                    if (!empty($data['moveid']) && isset($database)) {
+                        $database->setMovementProc($data['moveid']);
+                    }
+                    $data_num++;
+                }
             }
         }
     }
