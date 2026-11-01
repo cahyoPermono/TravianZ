@@ -1474,9 +1474,25 @@ class Bastion {
         }
 
         // Buat serangan bot natural ke (0|0)
-        // Regu penguji kecil (total 25-35 unit: 15 Pikeman, 10 Axerider, 5 Kavaleri)
+        // Regu penguji skala penuh (diskalakan dengan garnisun benteng, minimal 250 unit + senjata pengepungan)
         if ($database) {
-            $t1 = 15; $t2 = 10; $t3 = 5; $t4 = 0; $t5 = 0; $t6 = 0; $t7 = 0; $t8 = 0; $t9 = 0; $t10 = 0; $t11 = 0;
+            $garrison = self::getBastionGarrison();
+            $defenderCount = (int)($garrison['total'] ?? 0);
+            $targetCount = max(250, (int)round($defenderCount * 0.40));
+            $targetCount = min(1500, $targetCount);
+
+            // Alokasikan komposisi pasukan: Infantri, Kavaleri, Battering Ram, Ketapel Api
+            $t1 = (int)round($targetCount * 0.45); // Infantri utama
+            $t2 = (int)round($targetCount * 0.25); // Infantri pendukung
+            $t3 = 0;
+            $t4 = 0;
+            $t5 = (int)round($targetCount * 0.15); // Kavaleri tempur
+            $t6 = 0;
+            $t7 = max(10, (int)round($targetCount * 0.10)); // Battering Ram
+            $t8 = max(5, (int)round($targetCount * 0.05));  // Catapult
+            $t9 = 0; $t10 = 0; $t11 = 0;
+            $totalWave = $t1 + $t2 + $t3 + $t4 + $t5 + $t6 + $t7 + $t8;
+
             $duration = 1800; // 30 menit perjalanan
             $endtime = $now + $duration;
 
@@ -1484,7 +1500,7 @@ class Bastion {
             if ($ref) {
                 $database->addMovement(3, $fromWref, self::BASTION_WREF, $ref, $now, $endtime);
                 self::addLog('bot_attack', $botAlly, $botUid, '⚔️ Regu Pasukan Kuno Bergerak ke Benteng', 
-                    "Pasukan Kuno telah memberangkatkan 30 prajurit dari $fromName menuju Benteng Kuno untuk menguji kesiapan garnisun pertahanan!");
+                    "Pasukan Kuno telah memberangkatkan {$totalWave} prajurit dari $fromName menuju Benteng Kuno untuk menantang pertahanan!");
             }
         }
     }

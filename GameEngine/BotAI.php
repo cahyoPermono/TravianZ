@@ -2652,6 +2652,9 @@ class BotAI {
      * Bots will amass troops until reaching this threshold before attacking.
      */
     public static function getBastionTargetStrikeForce(int $bastionWref = 0): int {
+        if (!class_exists('Bastion')) {
+            require_once __DIR__ . '/Bastion.php';
+        }
         if ($bastionWref <= 0) {
             $bastionWref = class_exists('Bastion') ? Bastion::BASTION_WREF : 20201;
         }
@@ -2666,19 +2669,19 @@ class BotAI {
             }
         }
 
-        // Ambang batas dasar minimal serang (default: 200, atau sesuai config admin)
-        $baseMin = (int)self::getConfig('BOT_AI_BASTION_MIN_ATTACK_TROOPS', 200);
+        // Ambang batas dasar minimal serang (default: 250, atau sesuai config admin)
+        $baseMin = (int)self::getConfig('BOT_AI_BASTION_MIN_ATTACK_TROOPS', 250);
         $intelRatio = (float)self::getConfig('BOT_AI_BASTION_GARRISON_FACTOR', 0.35);
 
         // Jika benteng memiliki penjaga kuat (misal 500 - 1.000 pasukan), bot cerdas memperhitungkan kekuatan minimal:
-        // Bot menargetkan minimal 35% dari total garnisun benteng atau minimal $baseMin (dibatasi wajar maks 1200)
-        // Jika benteng kosong / 0 defender (misal saat baru spawn/reset), batas minimal diatur ke min($baseMin, 80)
+        // Bot menargetkan minimal 35% dari total garnisun benteng atau minimal $baseMin (dibatasi wajar maks 1500)
+        // Jika benteng kosong / 0 defender (misal saat baru spawn/reset), batas minimal diatur ke min($baseMin, 100)
         if ($defenderCount > 0) {
             $scaled = max($baseMin, (int)round($defenderCount * $intelRatio));
         } else {
-            $scaled = min($baseMin, 80);
+            $scaled = min($baseMin, 100);
         }
-        return min(1500, $scaled);
+        return min(2500, $scaled);
     }
 
     public static function processBastionWarfare(array $bot): ?string {
@@ -2925,8 +2928,8 @@ class BotAI {
         // 2. Ambang batas target ekspedisi serang (Kumpulin Pasukan Dulu, cegah serangan geli-geli)
         $targetMinArmy = self::getBastionTargetStrikeForce($bastionWref);
         $minPop = (int)self::getConfig('BOT_AI_BASTION_MIN_POP', 80);
-        $minTotalArmy = $isCounterAttack ? max(60, (int)round($targetMinArmy * 0.75)) : $targetMinArmy;
-        $minDeployable = (int)round($minTotalArmy * 0.75);
+        $minTotalArmy = $isCounterAttack ? max(100, (int)round($targetMinArmy * 0.80)) : $targetMinArmy;
+        $minDeployable = (int)round($minTotalArmy * 0.80);
 
         if ($pop < $minPop || $totalCombatAvailable < $minTotalArmy || $deployableCombat < $minDeployable) {
             return "Benteng Kuno: Menghimpun kekuatan tempur ($totalCombatAvailable / $minTotalArmy prajurit) sebelum melancarkan ekspedisi.";
@@ -3461,6 +3464,7 @@ class BotAI {
 
             if (!empty($attackerWrefs)) {
                 $wrefList = implode(',', array_keys($attackerWrefs));
+                $bastionWref = class_exists('Bastion') ? Bastion::BASTION_WREF : 20201;
                 $targetVillages = $database->query_return("
                     SELECT v.wref, v.owner, v.name as vname, v.pop, w.x, w.y, u.username, u.access, u.protect, u.alliance
                     FROM " . TB_PREFIX . "vdata v
@@ -3468,6 +3472,7 @@ class BotAI {
                     JOIN " . TB_PREFIX . "users u ON v.owner = u.id
                     WHERE v.wref IN ($wrefList)
                       AND v.wref != $wid
+                      AND v.wref != $bastionWref
                       AND v.owner != $uid
                       AND u.access < 8
                       AND u.protect < " . time()
@@ -3591,6 +3596,7 @@ class BotAI {
                 return null;
             }
 
+            $bastionWref = class_exists('Bastion') ? Bastion::BASTION_WREF : 20201;
             // Query candidate target villages within local area ($maxDistance)
             $targets = $database->query_return("
                 SELECT v.wref, v.owner, v.name as vname, v.pop, w.x, w.y, u.username, u.access, u.protect, u.alliance
@@ -3598,6 +3604,7 @@ class BotAI {
                 JOIN " . TB_PREFIX . "wdata w ON v.wref = w.id
                 JOIN " . TB_PREFIX . "users u ON v.owner = u.id
                 WHERE v.wref != $wid
+                  AND v.wref != $bastionWref
                   AND v.owner != $uid
                   AND u.access < 8
                   AND u.protect < " . time()
