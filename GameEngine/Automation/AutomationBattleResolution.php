@@ -1481,7 +1481,7 @@ trait AutomationBattleResolution {
      * @param array $DefenderHeroesDeadArray [in/out] Dead reinforcement heroes per tribe, accumulated.
      * @return array Tribe-presence flags among the reinforcements: keys rom,ger,gal,nat,natar (0/1).
      */
-    private function applyReinforcementCasualties($data, $battlepart, $from, $to, $ownally, $AttackArrivalTime, $scout, array &$alldead, array &$DefenderHeroesDeadArray) {
+    private function applyReinforcementCasualties($data, $battlepart, $from, $to, $ownally, $AttackArrivalTime, $scout, array &$alldead, array &$DefenderHeroesDeadArray, $owntribe = 0) {
         global $database;
 
         $rom = $ger = $gal = $nat = $natar = $hun = $egy = $spa = $vik = $nus = 0;
@@ -1589,8 +1589,31 @@ trait AutomationBattleResolution {
             $notlifehero = (isset($dead['hero']) ? $dead['hero'] : 0);
             $totallife = (isset($enforce['hero']) ? $enforce['hero'] : 0)+$life1;
             $totalnotlife = (isset($dead['hero']) ? $dead['hero'] : 0)+$notlife1;
+            // Build attacker token for reinforcement notice so defender knows who attacked and with what troops
+            $attSentList = [];
+            $attDeadList = [];
+            for ($ai = 1; $ai <= 10; $ai++) {
+                $sCnt = (int)($data['t' . $ai] ?? 0);
+                $attSentList[] = $sCnt;
+                $dCnt = 0;
+                if (isset($battlepart['casualties_attacker'][$ai])) {
+                    $dCnt = min($sCnt, max(0, (int)$battlepart['casualties_attacker'][$ai]));
+                }
+                $attDeadList[] = $dCnt;
+            }
+            $attHeroS = (int)($data['t11'] ?? 0);
+            $attHeroD = 0;
+            if (isset($battlepart['casualties_attacker'][11])) {
+                $attHeroD = min($attHeroS, max(0, (int)$battlepart['casualties_attacker'][11]));
+            }
+            $attOwnerUid = (int)($from['owner'] ?? 0);
+            $resolvedAttTribe = (int)($owntribe > 0 ? $owntribe : ($database ? $database->getUserField($attOwnerUid, 'tribe', 0) : 1));
+            if ($resolvedAttTribe <= 0) $resolvedAttTribe = 1;
+            $attToken = 'ATTACKER:' . $attOwnerUid . ';' . (int)($from['wref'] ?? 0) . ';' . $resolvedAttTribe . ';'
+                . implode(';', $attSentList) . ';' . implode(';', $attDeadList) . ';' . $attHeroS . ';' . $attHeroD;
+
             //NEED TO SEND A RAPPORTAGE!!!
-            $data2 = ''.$database->getVillageField($enforce['from'], "owner").','.$to['wref'].','.addslashes($to['name']).','.$tribe.','.$life.','.$notlife.','.$lifehero.','.$notlifehero.','.$enforce['from'].'';
+            $data2 = ''.$database->getVillageField($enforce['from'], "owner").','.$to['wref'].','.addslashes($to['name']).','.$tribe.','.$life.','.$notlife.','.$lifehero.','.$notlifehero.','.$enforce['from'].','.$attToken.'';
             if (empty($scout)) {
                 if ($totalnotlife == 0) {
                     $database->addNotice($database->getVillageField($enforce['from'], "owner"), $from['wref'], $ownally, 15, 'Reinforcement in '.addslashes($to['name']).' was attacked', $data2, $AttackArrivalTime);
@@ -2595,14 +2618,40 @@ trait AutomationBattleResolution {
                 }
             }
         }else{
+            $noticeNtype = 6;
             if($totalsend_alldef == 0 && $totalsend_att - ($totaldead_att + (isset($totaltraped_att) ? $totaltraped_att : 0)) > 0){
-                $database->addNotice($to['owner'],$to['wref'],$targetally,7,''.addslashes($from['name']).' attacks '.addslashes($to['name']).'',$data2,$AttackArrivalTime);
+                $noticeNtype = 7;
             }else if($totaldead_alldef == 0){
-                $database->addNotice($to['owner'],$to['wref'],$targetally,4,''.addslashes($from['name']).' attacks '.addslashes($to['name']).'',$data2,$AttackArrivalTime);
+                $noticeNtype = 4;
             }else if($totalsend_alldef > $totaldead_alldef){
-                $database->addNotice($to['owner'],$to['wref'],$targetally,5,''.addslashes($from['name']).' attacks '.addslashes($to['name']).'',$data2,$AttackArrivalTime);
+                $noticeNtype = 5;
             }else if($totalsend_alldef == $totaldead_alldef){
-                $database->addNotice($to['owner'],$to['wref'],$targetally,6,''.addslashes($from['name']).' attacks '.addslashes($to['name']).'',$data2,$AttackArrivalTime);
+                $noticeNtype = 6;
+            }
+            $topic = ''.addslashes($from['name']).' attacks '.addslashes($to['name']).'';
+            $database->addNotice($to['owner'],$to['wref'],$targetally,$noticeNtype,$topic,$data2,$AttackArrivalTime);
+
+            // SPECIAL FOR BENTENG KUNO (Ancient Bastion):
+            // When Benteng Kuno is attacked, also dispatch the full combat report to:
+            // 1. The current Bastion holder (if held by a player and not equal to $to['owner'])
+            // 2. All unique players who have reinforcements defending Benteng Kuno
+            if (class_exists('Bastion') && Bastion::isBastionVillage($to['wref'])) {
+                $dispatchedUids = [(int)$to['owner']];
+                $bState = Bastion::getEventState();
+                if (!empty($bState['holder_uid']) && (int)$bState['holder_uid'] > 0 && !in_array((int)$bState['holder_uid'], $dispatchedUids, true)) {
+                    $dispatchedUids[] = (int)$bState['holder_uid'];
+                    $database->addNotice((int)$bState['holder_uid'], $to['wref'], $targetally, $noticeNtype, $topic, $data2, $AttackArrivalTime);
+                }
+                $qReinf = @mysqli_query($database->dblink, "SELECT DISTINCT v.owner FROM " . TB_PREFIX . "enforcement e JOIN " . TB_PREFIX . "vdata v ON e.from = v.wref WHERE e.vref = " . (int)$to['wref']);
+                if ($qReinf) {
+                    while ($rRow = mysqli_fetch_assoc($qReinf)) {
+                        $rUid = (int)$rRow['owner'];
+                        if ($rUid > 0 && !in_array($rUid, $dispatchedUids, true)) {
+                            $dispatchedUids[] = $rUid;
+                            $database->addNotice($rUid, $to['wref'], $targetally, $noticeNtype, $topic, $data2, $AttackArrivalTime);
+                        }
+                    }
+                }
             }
         }
     }
@@ -3321,7 +3370,7 @@ trait AutomationBattleResolution {
                     $owndead = $this->applyOwnDefenceCasualties($data, $targettribe, $battlepart, $defHeroSurvived, $totalDefHealed);
 
                     //kill other defence in village (reinforcements) — extracted to applyReinforcementCasualties() [#155]
-                    $tribesPresent = $this->applyReinforcementCasualties($data, $battlepart, $from, $to, $ownally, $AttackArrivalTime, $scout, $alldead, $DefenderHeroesDeadArray);
+                    $tribesPresent = $this->applyReinforcementCasualties($data, $battlepart, $from, $to, $ownally, $AttackArrivalTime, $scout, $alldead, $DefenderHeroesDeadArray, $owntribe);
                     $rom   = $tribesPresent['rom'];
                     $ger   = $tribesPresent['ger'];
                     $gal   = $tribesPresent['gal'];

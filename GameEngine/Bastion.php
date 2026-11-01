@@ -1508,19 +1508,21 @@ class Bastion {
         $ownUnits = $database ? $database->getUnit($wref, false) : [];
         $totalOwn = 0;
         if (is_array($ownUnits)) {
-            for ($i = 1; $i <= 50; $i++) {
+            for ($i = 1; $i <= 100; $i++) {
                 $totalOwn += (int)($ownUnits['u' . $i] ?? 0);
             }
+            $totalOwn += (int)($ownUnits['hero'] ?? 0);
         }
 
-        // Hitung bala bantuan di tabel enforcement
+        // Hitung bala bantuan di tabel enforcement (dukung unit 1..100 dan hero)
         $totalEnforce = 0;
         $qEnf = @mysqli_query($db, "SELECT * FROM `" . TB_PREFIX . "enforcement` WHERE vref = $wref");
         if ($qEnf) {
             while ($row = mysqli_fetch_assoc($qEnf)) {
-                for ($i = 1; $i <= 50; $i++) {
+                for ($i = 1; $i <= 100; $i++) {
                     $totalEnforce += (int)($row['u' . $i] ?? 0);
                 }
+                $totalEnforce += (int)($row['hero'] ?? 0);
             }
         }
 
@@ -1547,7 +1549,7 @@ class Bastion {
         $wref = self::BASTION_WREF;
         $ownUnits = $database ? $database->getUnit($wref, false) : [];
         if (is_array($ownUnits)) {
-            for ($i = 1; $i <= 60; $i++) {
+            for ($i = 1; $i <= 100; $i++) {
                 $c = (int)($ownUnits['u' . $i] ?? 0);
                 if ($c > 0) {
                     $breakdown[$i] = ($breakdown[$i] ?? 0) + $c;
@@ -1559,11 +1561,11 @@ class Bastion {
             }
         }
 
-        // Bala bantuan dari aliansi pemain
+        // Bala bantuan dari aliansi pemain (dukung seluruh suku 1..100)
         $qEnf = @mysqli_query($db, "SELECT * FROM `" . TB_PREFIX . "enforcement` WHERE vref = $wref");
         if ($qEnf) {
             while ($row = mysqli_fetch_assoc($qEnf)) {
-                for ($i = 1; $i <= 60; $i++) {
+                for ($i = 1; $i <= 100; $i++) {
                     $c = (int)($row['u' . $i] ?? 0);
                     if ($c > 0) {
                         $breakdown[$i] = ($breakdown[$i] ?? 0) + $c;
@@ -1580,6 +1582,117 @@ class Bastion {
             'total' => $total,
             'breakdown' => $breakdown,
             'hero' => $heroTotal
+        ];
+    }
+
+    /**
+     * Get detailed roster of all stationed armies at Benteng Kuno (primary garrison + individual reinforcements).
+     */
+    public static function getStationedArmiesDetails(): array {
+        global $database;
+        $db = self::db();
+        if (!$db) return ['own' => null, 'reinforcements' => [], 'grand_total' => 0];
+
+        $wref = self::BASTION_WREF;
+        $grandTotal = 0;
+
+        // 1. Garnisun Utama (Penjaga Kuno / Pasukan Penakluk di tabel units)
+        $ownUnits = $database ? $database->getUnit($wref, false) : [];
+        $ownData = null;
+        if (is_array($ownUnits)) {
+            $uList = [];
+            $ownCount = 0;
+            for ($i = 1; $i <= 100; $i++) {
+                $cnt = (int)($ownUnits['u' . $i] ?? 0);
+                if ($cnt > 0) {
+                    $uList[$i] = $cnt;
+                    $ownCount += $cnt;
+                }
+            }
+            $heroCnt = (int)($ownUnits['hero'] ?? 0);
+            $ownCount += $heroCnt;
+            if ($ownCount > 0) {
+                $ownTribe = 5; // default Natars
+                foreach ($uList as $uid => $cnt) {
+                    $ownTribe = (int)ceil($uid / 10);
+                    break;
+                }
+                $ownData = [
+                    'title' => 'Garnisun Utama Benteng Kuno',
+                    'tribe' => $ownTribe,
+                    'units' => $uList,
+                    'hero' => $heroCnt,
+                    'total' => $ownCount,
+                ];
+                $grandTotal += $ownCount;
+            }
+        }
+
+        // 2. Bala Bantuan Aliansi Pemain (di tabel enforcement)
+        $reinforcements = [];
+        $qEnf = @mysqli_query($db, "SELECT * FROM `" . TB_PREFIX . "enforcement` WHERE vref = $wref ORDER BY id ASC");
+        if ($qEnf) {
+            while ($row = mysqli_fetch_assoc($qEnf)) {
+                $fromWref = (int)$row['from'];
+                $uList = [];
+                $reinfCount = 0;
+                for ($i = 1; $i <= 100; $i++) {
+                    $cnt = (int)($row['u' . $i] ?? 0);
+                    if ($cnt > 0) {
+                        $uList[$i] = $cnt;
+                        $reinfCount += $cnt;
+                    }
+                }
+                $heroCnt = (int)($row['hero'] ?? 0);
+                $reinfCount += $heroCnt;
+
+                if ($reinfCount > 0) {
+                    $grandTotal += $reinfCount;
+                    $vName = $database ? $database->getVillageField($fromWref, 'name') : 'Desa';
+                    $ownerUid = $database ? (int)$database->getVillageField($fromWref, 'owner') : 0;
+                    $username = $database ? $database->getUserField($ownerUid, 'username', 0) : 'Pemain';
+                    $allyId = $database ? (int)$database->getUserField($ownerUid, 'alliance', 0) : 0;
+                    $allyTag = '';
+                    if ($allyId > 0) {
+                        $qA = @mysqli_query($db, "SELECT tag FROM `" . TB_PREFIX . "alidata` WHERE id = $allyId LIMIT 1");
+                        if ($qA && $a = mysqli_fetch_assoc($qA)) {
+                            $allyTag = $a['tag'];
+                        }
+                    }
+
+                    $userTribe = $database ? (int)$database->getUserField($ownerUid, 'tribe', 0) : 0;
+                    if ($userTribe <= 0) {
+                        foreach ($uList as $uid => $cnt) {
+                            $userTribe = (int)ceil($uid / 10);
+                            break;
+                        }
+                    }
+
+                    $coor = $database ? $database->getCoor($fromWref) : ['x' => 0, 'y' => 0];
+
+                    $reinforcements[] = [
+                        'id' => (int)$row['id'],
+                        'from_wref' => $fromWref,
+                        'from_name' => $vName,
+                        'from_x' => (int)($coor['x'] ?? 0),
+                        'from_y' => (int)($coor['y'] ?? 0),
+                        'owner_uid' => $ownerUid,
+                        'username' => $username,
+                        'alliance_id' => $allyId,
+                        'alliance_tag' => $allyTag,
+                        'tribe' => $userTribe,
+                        'units' => $uList,
+                        'hero' => $heroCnt,
+                        'total' => $reinfCount,
+                    ];
+                }
+            }
+        }
+
+        return [
+            'own' => $ownData,
+            'reinforcements' => $reinforcements,
+            'grand_total' => $grandTotal,
         ];
     }
 

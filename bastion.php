@@ -34,6 +34,7 @@ Bastion::processTick();
 $event = Bastion::getEvent();
 $wref = Bastion::BASTION_WREF;
 $garrison = Bastion::getBastionGarrison();
+$stationedArmies = Bastion::getStationedArmiesDetails();
 $recentLogs = Bastion::getRecentLogs(15);
 
 // Data Aliansi Penguasa
@@ -561,6 +562,77 @@ $secondsUntilStart = $nextStartTime ? max(0, $nextStartTime - $now) : 0;
 			font-size: 9px;
 			font-weight: bold;
 		}
+
+		/* NUSANTARA SPRITE SUPPORT */
+		img.u91, img.u92, img.u93, img.u94, img.u95, img.u96, img.u97, img.u98, img.u99, img.u100,
+		.unit.u91, .unit.u92, .unit.u93, .unit.u94, .unit.u95, .unit.u96, .unit.u97, .unit.u98, .unit.u99, .unit.u100 {
+			background-image: url('img/un/u/v10_nusantara2.gif?v=20261023c') !important;
+		}
+
+		/* STATIONED TROOPS ROSTER */
+		.bastion-troops-box {
+			background: #fff;
+			border: 1px solid #dcd1ba;
+			border-radius: 6px;
+			margin-bottom: 12px;
+			overflow: hidden;
+		}
+		.bastion-troops-header {
+			background: #f5efe3;
+			border-bottom: 1px solid #e5dac2;
+			padding: 8px 12px;
+			font-size: 11px;
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			flex-wrap: wrap;
+			gap: 6px;
+		}
+		.bastion-troops-table {
+			width: 100%;
+			border-collapse: collapse;
+			text-align: center;
+			font-size: 11px;
+		}
+		.bastion-troops-table th, .bastion-troops-table td {
+			padding: 5px 3px;
+			border: 1px solid #efe8da;
+		}
+		.bastion-troops-table th.ttitle {
+			text-align: left;
+			padding-left: 8px;
+			background: #faf6ee;
+			width: 65px;
+			font-weight: bold;
+			color: #6b5c43;
+		}
+		.bastion-troops-table td.none {
+			color: #bbb;
+		}
+		.tag-mine {
+			background: #dcfce7;
+			border: 1px solid #86efac;
+			color: #166534;
+			font-weight: bold;
+			font-size: 9.5px;
+			padding: 1px 6px;
+			border-radius: 3px;
+		}
+		.btn-recall {
+			background: #b91c1c;
+			color: #fff !important;
+			text-decoration: none;
+			padding: 3px 8px;
+			border-radius: 3px;
+			font-size: 10px;
+			font-weight: bold;
+			display: inline-flex;
+			align-items: center;
+			gap: 3px;
+		}
+		.btn-recall:hover {
+			background: #991b1b;
+		}
 	</style>
 </head>
 
@@ -735,7 +807,7 @@ $secondsUntilStart = $nextStartTime ? max(0, $nextStartTime - $now) : 0;
 					<!-- ESTIMASI GARNISUN BENTENG -->
 					<div style="background:#fff; border:1px solid #e7e5e4; border-radius:5px; padding:8px 12px; margin-top:10px; font-size:11px; display:flex; justify-content:space-between; align-items:center;">
 						<div>
-							🛡️ Estimasi Garnisun di Benteng: <b><?php echo number_format($garrison['total']); ?> Pasukan</b>
+							🛡️ Total Pasukan di Benteng: <b><?php echo number_format($stationedArmies['grand_total']); ?> Pasukan</b>
 							<span style="color:#78716c; font-size:10px;">(Tembok Kuno Lv 12)</span>
 						</div>
 						<div style="font-size:10px; color:#15803d; font-weight:bold;">
@@ -761,6 +833,169 @@ $secondsUntilStart = $nextStartTime ? max(0, $nextStartTime - $now) : 0;
 							🗺️ Buka Koordinat (0|0) di Peta Kerajaan
 						</a>
 					</div>
+				</div>
+
+				<!-- PASUKAN GARNISUN & BALA BANTUAN DI BENTENG KUNO -->
+				<div class="bastion-card">
+					<div class="bastion-card-header">
+						<div class="bastion-card-title">
+							<span>🛡️</span> Pasukan Garnisun & Bala Bantuan di Benteng Kuno
+						</div>
+						<div style="font-size:11px; font-weight:bold; color:#78350f;">
+							Total Pasukan: <span style="font-size:13px; color:#b91c1c;"><?php echo number_format($stationedArmies['grand_total']); ?></span> Prajurit
+						</div>
+					</div>
+
+					<div style="font-size:11px; color:#57534e; margin-bottom:12px; line-height:1.4;">
+						Semua pasukan yang berada di Benteng Kuno terlindungi oleh <b>Tembok Kuno Lv 12</b> dan mendapatkan fasilitas <b>Bebas Kelaparan Gandum (0 Crop Upkeep)</b>. Pasukan dapat ditarik pulang kapan saja oleh pemiliknya.
+					</div>
+
+					<?php 
+					$tribeNames = [
+						1 => defined('TRIBE1') ? TRIBE1 : 'Romans',
+						2 => defined('TRIBE2') ? TRIBE2 : 'Teutons',
+						3 => defined('TRIBE3') ? TRIBE3 : 'Gauls',
+						4 => defined('TRIBE4') ? TRIBE4 : 'Nature',
+						5 => defined('TRIBE5') ? TRIBE5 : 'Natars',
+						6 => defined('TRIBE6') ? TRIBE6 : 'Huns',
+						7 => defined('TRIBE7') ? TRIBE7 : 'Egyptians',
+						8 => defined('TRIBE8') ? TRIBE8 : 'Spartans',
+						9 => defined('TRIBE9') ? TRIBE9 : 'Vikings',
+						10 => defined('TRIBE10') ? TRIBE10 : 'Nusantara',
+					];
+					?>
+
+					<?php if ($stationedArmies['grand_total'] == 0): ?>
+						<div style="background:#fff; border:1px dashed #d6d3d1; border-radius:6px; padding:16px; text-align:center; color:#78716c; font-size:11px;">
+							🏰 Belum ada garnisun atau bala bantuan yang ditempatkan di Benteng Kuno saat ini.<br>
+							<span style="font-size:10px; color:#a8a29e;">Kirim bala bantuan dari desa Anda untuk memperkuat pertahanan aliansi!</span>
+						</div>
+					<?php else: ?>
+						<!-- 1. Garnisun Utama Benteng -->
+						<?php if (!empty($stationedArmies['own'])): 
+							$ownG = $stationedArmies['own'];
+							$ownTribe = (int)$ownG['tribe'];
+							if ($ownTribe <= 0) $ownTribe = 5;
+							$start = ($ownTribe - 1) * 10 + 1;
+							$hasHero = !empty($ownG['hero']);
+						?>
+							<div class="bastion-troops-box">
+								<div class="bastion-troops-header">
+									<div>
+										<b>🏛️ <?php echo htmlspecialchars($ownG['title']); ?></b>
+										<span style="color:#78716c; font-size:10px; margin-left:4px;">(Suku: <?php echo htmlspecialchars($tribeNames[$ownTribe] ?? 'Pasukan'); ?>)</span>
+									</div>
+									<div style="font-weight:bold; color:#1e293b;">
+										<?php echo number_format($ownG['total']); ?> Pasukan
+									</div>
+								</div>
+								<div style="overflow-x:auto;">
+									<table class="bastion-troops-table">
+										<thead>
+											<tr style="background:#faf6ee;">
+												<th class="ttitle">&nbsp;</th>
+												<?php for ($i = $start; $i <= ($start + 9); $i++): 
+													$uName = $technology->getUnitName($i);
+												?>
+													<td><img src="img/x.gif" class="unit u<?php echo $i; ?>" title="<?php echo htmlspecialchars($uName); ?>" alt="<?php echo htmlspecialchars($uName); ?>" /></td>
+												<?php endfor; ?>
+												<?php if ($hasHero): ?>
+													<td><img src="img/x.gif" class="unit uhero" title="Hero" alt="Hero" /></td>
+												<?php endif; ?>
+											</tr>
+										</thead>
+										<tbody>
+											<tr>
+												<th class="ttitle">Jumlah</th>
+												<?php for ($i = $start; $i <= ($start + 9); $i++): 
+													$cnt = (int)($ownG['units'][$i] ?? 0);
+												?>
+													<td class="<?php echo ($cnt == 0) ? 'none' : ''; ?>"><?php echo $cnt; ?></td>
+												<?php endfor; ?>
+												<?php if ($hasHero): ?>
+													<td><?php echo (int)$ownG['hero']; ?></td>
+												<?php endif; ?>
+											</tr>
+										</tbody>
+									</table>
+								</div>
+							</div>
+						<?php endif; ?>
+
+						<!-- 2. Bala Bantuan Pemain / Aliansi -->
+						<?php if (!empty($stationedArmies['reinforcements'])): ?>
+							<?php foreach ($stationedArmies['reinforcements'] as $reinf): 
+								$rTribe = (int)$reinf['tribe'];
+								if ($rTribe <= 0) $rTribe = 1;
+								$start = ($rTribe - 1) * 10 + 1;
+								$hasHero = !empty($reinf['hero']);
+								$isMine = (isset($session) && (int)$session->uid === (int)$reinf['owner_uid']);
+								$mapCheck = $generator->getMapCheck($reinf['from_wref']);
+							?>
+								<div class="bastion-troops-box" style="<?php echo $isMine ? 'border: 1.5px solid #86efac; box-shadow: 0 1px 4px rgba(22, 101, 52, 0.1);' : ''; ?>">
+									<div class="bastion-troops-header" style="<?php echo $isMine ? 'background:#f0fdf4;' : ''; ?>">
+										<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+											<a href="spieler.php?uid=<?php echo (int)$reinf['owner_uid']; ?>" style="font-weight:bold; color:#1c1917;">
+												<?php echo htmlspecialchars($reinf['username']); ?>
+											</a>
+											<?php if (!empty($reinf['alliance_tag'])): ?>
+												<a href="allianz.php?aid=<?php echo (int)$reinf['alliance_id']; ?>" style="color:#b91c1c; font-weight:bold;">
+													[<?php echo htmlspecialchars($reinf['alliance_tag']); ?>]
+												</a>
+											<?php endif; ?>
+											<span style="color:#78716c;">dari</span>
+											<a href="karte.php?d=<?php echo (int)$reinf['from_wref']; ?>&c=<?php echo $mapCheck; ?>">
+												<?php echo htmlspecialchars($reinf['from_name']); ?> (<?php echo (int)$reinf['from_x']; ?>|<?php echo (int)$reinf['from_y']; ?>)
+											</a>
+											<?php if ($isMine): ?>
+												<span class="tag-mine">● Pasukan Anda</span>
+											<?php endif; ?>
+										</div>
+										<div style="display:flex; align-items:center; gap:8px;">
+											<span style="font-weight:bold; color:#1e293b;">
+												<?php echo number_format($reinf['total']); ?> Pasukan
+											</span>
+											<?php if ($isMine): ?>
+												<a href="a2b.php?r=<?php echo (int)$reinf['id']; ?>" class="btn-recall" title="Tarik pasukan Anda pulang ke desa asal">
+													↩ Tarik Pulang
+												</a>
+											<?php endif; ?>
+										</div>
+									</div>
+									<div style="overflow-x:auto;">
+										<table class="bastion-troops-table">
+											<thead>
+												<tr style="background:#faf6ee;">
+													<th class="ttitle">&nbsp;</th>
+													<?php for ($i = $start; $i <= ($start + 9); $i++): 
+														$uName = $technology->getUnitName($i);
+													?>
+														<td><img src="img/x.gif" class="unit u<?php echo $i; ?>" title="<?php echo htmlspecialchars($uName); ?>" alt="<?php echo htmlspecialchars($uName); ?>" /></td>
+													<?php endfor; ?>
+													<?php if ($hasHero): ?>
+														<td><img src="img/x.gif" class="unit uhero" title="Hero" alt="Hero" /></td>
+													<?php endif; ?>
+												</tr>
+											</thead>
+											<tbody>
+												<tr>
+													<th class="ttitle">Jumlah</th>
+													<?php for ($i = $start; $i <= ($start + 9); $i++): 
+														$cnt = (int)($reinf['units'][$i] ?? 0);
+													?>
+														<td class="<?php echo ($cnt == 0) ? 'none' : ''; ?>"><?php echo $cnt; ?></td>
+													<?php endfor; ?>
+													<?php if ($hasHero): ?>
+														<td><?php echo (int)$reinf['hero']; ?></td>
+													<?php endif; ?>
+												</tr>
+											</tbody>
+										</table>
+									</div>
+								</div>
+							<?php endforeach; ?>
+						<?php endif; ?>
+					<?php endif; ?>
 				</div>
 
 				<!-- BERKAH KEDAULATAN BENTENG (BUFFS) -->
