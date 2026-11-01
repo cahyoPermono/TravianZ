@@ -359,6 +359,17 @@ References: User ID/Message ID, Mode
 		return mysqli_query($this->dblink,$q);
 	}
 
+	function noticeViewedDuplicates($uid, $time, $topic) {
+	    $uid = (int) $uid;
+	    $time = (int) $time;
+	    if ($uid <= 0 || $time <= 0 || empty($topic)) {
+	        return false;
+	    }
+	    $topicEsc = mysqli_real_escape_string($this->dblink, $topic);
+	    $q = "UPDATE " . TB_PREFIX . "ndata SET viewed = 1 WHERE uid = $uid AND time = $time AND topic = '$topicEsc' AND viewed = 0";
+	    return mysqli_query($this->dblink, $q);
+	}
+
 	/**
 	 * Buton "Read All" (cerut de Catalin, berichte.php): marcheaza TOATE
 	 * rapoartele necitite ale userului ca citite dintr-o singura interogare,

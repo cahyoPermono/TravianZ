@@ -459,6 +459,9 @@ class Message
         ) {
             if ($notice['uid'] == $session->uid) {
                 $database->noticeViewed($notice['id']);
+                if (!empty($notice['time']) && !empty($notice['topic'])) {
+                    $database->noticeViewedDuplicates($session->uid, (int)$notice['time'], $notice['topic']);
+                }
             }
             return $notice;
         }

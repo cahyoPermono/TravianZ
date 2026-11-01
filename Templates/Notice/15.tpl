@@ -82,20 +82,27 @@ foreach ($dataarray as $chunk) {
 }
 
 // 2. Fallback for existing/historical notices (e.g. Benteng Kuno battles in database)
-if (!$attackerInfo && isset($database) && isset($database->dblink)) {
+$isAttackerEmpty = empty($attackerInfo) || (array_sum(array_map('intval', $attackerInfo['units'] ?? [])) == 0 && (int)($attackerInfo['hero_sent'] ?? 0) == 0);
+
+if ($isAttackerEmpty && isset($database) && isset($database->dblink)) {
     $targetWref = (int)($dataarray[1] ?? 0);
     $nTime = (int)($message->readingNotice['time'] ?? 0);
-    $isBastion = ($targetWref === 20201 || (defined('Bastion::BASTION_WREF') && $targetWref === (int)constant('Bastion::BASTION_WREF')) || strpos($message->readingNotice['topic'] ?? '', 'Benteng Kuno') !== false);
+    $destNameRaw = !empty($dataarray[2]) ? stripslashes($dataarray[2]) : '';
+    $cleanDestName = ltrim($destNameRaw, '? ');
+    $isBastion = ($targetWref === 20201 || (defined('Bastion::BASTION_WREF') && $targetWref === (int)constant('Bastion::BASTION_WREF')) || strpos($message->readingNotice['topic'] ?? '', 'Benteng Kuno') !== false || strpos($cleanDestName, 'Benteng Kuno') !== false);
 
     if ($nTime > 0) {
-        $timeMin = $nTime - 6;
-        $timeMax = $nTime + 6;
+        $timeMin = $nTime - 60;
+        $timeMax = $nTime + 60;
         $wrefCond = $targetWref > 0 ? "toWref = $targetWref" : "(toWref = 20201 OR topic LIKE '%Benteng Kuno%')";
-        $q = @mysqli_query($database->dblink, "SELECT id, uid, toWref, ntype, data, topic, time FROM " . TB_PREFIX . "ndata WHERE $wrefCond AND ntype IN (1,2,4,5,6,7,22,23) AND time BETWEEN $timeMin AND $timeMax ORDER BY id DESC LIMIT 1");
+        if (!empty($cleanDestName)) {
+            $wrefCond .= " OR topic LIKE '%" . mysqli_real_escape_string($database->dblink, $cleanDestName) . "%'";
+        }
+        $q = @mysqli_query($database->dblink, "SELECT id, uid, toWref, ntype, data, topic, time FROM " . TB_PREFIX . "ndata WHERE ($wrefCond) AND ntype IN (1,2,3,4,5,6,7,22,23) AND time BETWEEN $timeMin AND $timeMax ORDER BY id DESC LIMIT 1");
         if ($q && $row = mysqli_fetch_assoc($q)) {
             $rowNtype = (int)$row['ntype'];
             $rowArr = explode(',', $row['data']);
-            if (in_array($rowNtype, [1, 2, 4, 5, 6, 7])) {
+            if (in_array($rowNtype, [1, 2, 3, 4, 5, 6, 7])) {
                 $attUid = (int)($rowArr[0] ?? 0);
                 $attWref = (int)($rowArr[1] ?? 0);
                 $attTribe = (int)($rowArr[2] ?? 1);
@@ -106,12 +113,13 @@ if (!$attackerInfo && isset($database) && isset($database->dblink)) {
                 $attackerInfo = [
                     'uid' => $attUid,
                     'wref' => $attWref,
-                    'tribe' => $attTribe,
+                    'tribe' => $attTribe > 0 ? $attTribe : 1,
                     'units' => $attSent,
                     'dead' => $attDead,
                     'hero_sent' => $hSent,
                     'hero_dead' => $hDead,
                 ];
+                $isAttackerEmpty = false;
             } elseif (in_array($rowNtype, [22, 23])) {
                 $attUid = (int)($rowArr[0] ?? 0);
                 $attWref = (int)($rowArr[1] ?? 0);
@@ -128,27 +136,63 @@ if (!$attackerInfo && isset($database) && isset($database->dblink)) {
                     'hero_sent' => $hSent,
                     'hero_dead' => 0,
                 ];
+                $isAttackerEmpty = false;
             }
         }
     }
 
-    // 3. Additional fallback: check bastion_logs
-    if (!$attackerInfo && $isBastion && $nTime > 0) {
-        $qLog = @mysqli_query($database->dblink, "SELECT * FROM " . TB_PREFIX . "bastion_logs WHERE ABS(event_time - $nTime) <= 6 AND uid > 0 ORDER BY id DESC LIMIT 1");
+    // 3. Additional fallback: check bastion_logs and extract troops from attacker's notice
+    if ($isAttackerEmpty && $isBastion && $nTime > 0) {
+        $qLog = @mysqli_query($database->dblink, "SELECT * FROM " . TB_PREFIX . "bastion_logs WHERE ABS(event_time - $nTime) <= 120 AND uid > 0 ORDER BY id DESC LIMIT 1");
         if ($qLog && $l = mysqli_fetch_assoc($qLog)) {
             $attUid = (int)$l['uid'];
             $attTribe = (int)$database->getUserField($attUid, 'tribe', 0);
             $qVill = @mysqli_query($database->dblink, "SELECT wref FROM " . TB_PREFIX . "vdata WHERE owner = $attUid LIMIT 1");
             $attWref = ($qVill && $v = mysqli_fetch_assoc($qVill)) ? (int)$v['wref'] : 0;
-            $attackerInfo = [
-                'uid' => $attUid,
-                'wref' => $attWref,
-                'tribe' => $attTribe > 0 ? $attTribe : 1,
-                'units' => array_fill(0, 10, 0),
-                'dead' => array_fill(0, 10, 0),
-                'hero_sent' => 0,
-                'hero_dead' => 0,
-            ];
+
+            // Search ndata for any attack notice belonging to this attacker
+            $qAttNotice = @mysqli_query($database->dblink, "SELECT data, ntype FROM " . TB_PREFIX . "ndata WHERE uid = $attUid AND ntype IN (1,2,3,4,5,6,7,22,23) AND ABS(time - $nTime) <= 120 ORDER BY id DESC LIMIT 1");
+            if ($qAttNotice && $attRow = mysqli_fetch_assoc($qAttNotice)) {
+                $rArr = explode(',', $attRow['data']);
+                if (in_array((int)$attRow['ntype'], [1, 2, 3, 4, 5, 6, 7])) {
+                    $attackerInfo = [
+                        'uid' => $attUid,
+                        'wref' => $attWref,
+                        'tribe' => $attTribe > 0 ? $attTribe : 1,
+                        'units' => array_slice($rArr, 3, 10),
+                        'dead' => array_slice($rArr, 13, 10),
+                        'hero_sent' => (int)($rArr[272] ?? $rArr[270] ?? 0),
+                        'hero_dead' => (int)($rArr[273] ?? $rArr[271] ?? 0),
+                    ];
+                } elseif (in_array((int)$attRow['ntype'], [22, 23])) {
+                    $attackerInfo = [
+                        'uid' => $attUid,
+                        'wref' => $attWref,
+                        'tribe' => $attTribe > 0 ? $attTribe : 1,
+                        'units' => array_slice($rArr, 4, 10),
+                        'dead' => array_fill(0, 10, 0),
+                        'hero_sent' => (int)($rArr[14] ?? 0),
+                        'hero_dead' => 0,
+                    ];
+                }
+            } else {
+                // Check recent attacks table for this village
+                $qAtk = @mysqli_query($database->dblink, "SELECT a.* FROM " . TB_PREFIX . "attacks a WHERE a.vref = $attWref ORDER BY a.id DESC LIMIT 1");
+                if ($qAtk && $aRow = mysqli_fetch_assoc($qAtk)) {
+                    $attackerInfo = [
+                        'uid' => $attUid,
+                        'wref' => $attWref,
+                        'tribe' => $attTribe > 0 ? $attTribe : 1,
+                        'units' => [
+                            $aRow['t1'] ?? 0, $aRow['t2'] ?? 0, $aRow['t3'] ?? 0, $aRow['t4'] ?? 0, $aRow['t5'] ?? 0,
+                            $aRow['t6'] ?? 0, $aRow['t7'] ?? 0, $aRow['t8'] ?? 0, $aRow['t9'] ?? 0, $aRow['t10'] ?? 0,
+                        ],
+                        'dead' => array_fill(0, 10, 0),
+                        'hero_sent' => (int)($aRow['t11'] ?? 0),
+                        'hero_dead' => 0,
+                    ];
+                }
+            }
         }
     }
 }
@@ -192,15 +236,16 @@ if ($hasAttacker) {
     $attTribe = (int)$attackerInfo['tribe'];
     if ($attTribe <= 0) $attTribe = 1;
     $attStart = ($attTribe - 1) * 10 + 1;
-    $attHeroSent = (int)$attackerInfo['hero_sent'];
-    $attHeroDead = (int)$attackerInfo['hero_dead'];
-    $attHasHero = ($attHeroSent > 0);
+    $attHeroSent = (int)($attackerInfo['hero_sent'] ?? 0);
+    $attHeroDead = (int)($attackerInfo['hero_dead'] ?? 0);
+    $attHasHero = ($attHeroSent > 0 || $attHeroDead > 0);
     $attColspan = $attHasHero ? 11 : 10;
 }
 
 // Destination village info (where the reinforcement was stationed)
 $destWref = (int)($dataarray[1] ?? 0);
 $destName = !empty($dataarray[2]) ? stripslashes($dataarray[2]) : ($destWref > 0 ? $database->getVillageField($destWref, 'name') : '');
+$cleanDestName = ltrim($destName, '? ');
 $isBastionDest = ($destWref === 20201 || (defined('Bastion::BASTION_WREF') && $destWref === (int)constant('Bastion::BASTION_WREF')) || strpos($destName, 'Benteng Kuno') !== false || strpos($message->readingNotice['topic'] ?? '', 'Benteng Kuno') !== false);
 ?>
 
@@ -265,6 +310,10 @@ img.u91, img.u92, img.u93, img.u94, img.u95, img.u96, img.u97, img.u98, img.u99,
 </thead>
 
 <tbody class="units">
+<?php
+$hasAttUnits = (array_sum(array_map('intval', $attackerInfo['units'] ?? [])) > 0 || $attHasHero);
+if ($hasAttUnits):
+?>
 <tr>
 <td>&nbsp;</td>
 
@@ -311,6 +360,13 @@ if ($attHasHero) {
 ?>
 
 </tr>
+<?php else: ?>
+<tr>
+    <td colspan="<?php echo $attColspan; ?>" style="text-align: center; color: #6b7280; font-style: italic; padding: 8px;">
+        Data rincian pasukan penyerang tidak tersedia.
+    </td>
+</tr>
+<?php endif; ?>
 </tbody>
 </table>
 <?php endif; ?>

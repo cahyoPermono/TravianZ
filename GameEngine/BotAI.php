@@ -2712,15 +2712,15 @@ class BotAI {
                 }
             }
 
-            // Troop preservation: keep at least 50% of defense troops safe at home
-            $homeReserve = max(self::getHomeReserve($pop), (int)round($totalDefAvailable * 0.50));
+            // Troop preservation: keep at least 25% of defense troops safe at home
+            $homeReserve = max(self::getHomeReserve($pop), (int)round($totalDefAvailable * 0.25));
             $deployableDef = max(0, $totalDefAvailable - $homeReserve);
             $minTroops = 10;
             if ($deployableDef < $minTroops) {
                 return null; // Garnisun pertahanan desa wajib aman
             }
 
-            // Cap alliance reinforcement helpers: max 2 simultaneous alliance reinforcement marches
+            // Cap alliance reinforcement helpers: allow up to 4 simultaneous alliance reinforcement marches
             $marchingHelpers = $database->query_return("
                 SELECT COUNT(*) as marching_cnt
                 FROM " . TB_PREFIX . "movement m
@@ -2729,12 +2729,12 @@ class BotAI {
                 WHERE u.alliance = $botAlliance AND m.`to` = $bastionWref 
                   AND m.sort_type = 3 AND m.proc = 0
             ");
-            if ((int)($marchingHelpers[0]['marching_cnt'] ?? 0) >= 2) {
+            if ((int)($marchingHelpers[0]['marching_cnt'] ?? 0) >= 4) {
                 return null;
             }
 
-            // Send conservative reinforcement party: 25% of deployable troops, capped at max 30 units
-            $partySize = min(30, max($minTroops, (int)floor($deployableDef * 0.25)));
+            // Send substantial reinforcement party: 70% of deployable troops, capped at max 1500 units
+            $partySize = min(1500, max($minTroops, (int)floor($deployableDef * 0.70)));
             $dispatched = [];
             $dispatchedSpeeds = [];
             $remainingNeed = $partySize;
@@ -2796,9 +2796,9 @@ class BotAI {
         // Check if this is a COUNTER-ATTACK (Aliansi bot baru saja dikalahkan/kehilangan benteng)
         $isCounterAttack = ($previousHolderAlly > 0 && $previousHolderAlly === $botAlliance && $holderAlly !== $botAlliance);
 
-        // 2. Alliance Pacing Cooldown: Space out attacks from same alliance to avoid troop suicide swarms
-        // 20 minutes between attacks for regular conquest, 10 minutes for counter-attack
-        $defaultAllyCd = $isCounterAttack ? 600 : 1200;
+        // 2. Alliance Pacing Cooldown: Space out attacks from same alliance to allow fierce coordinated waves
+        // 5 minutes between attacks for regular conquest, 2 minutes for counter-attack
+        $defaultAllyCd = $isCounterAttack ? 120 : 300;
         $allyCooldown = (int)self::getConfig('BOT_AI_BASTION_ALLY_COOLDOWN', $defaultAllyCd);
         if ($allyCooldown > 0) {
             $recentAllyAction = $database->query_return("
@@ -2815,8 +2815,8 @@ class BotAI {
             }
         }
 
-        // Gather offensive combat units only (strictly excluding defensive units like Phalanx, Praetorian, Spearman)
-        $offensiveUnits = self::getOffensiveUnits($tribe, false);
+        // Gather all offensive combat units INCLUDING siege weapons (rams, catapults) for a true epic siege!
+        $offensiveUnits = self::getOffensiveUnits($tribe, true);
         $availableCombat = [];
         $totalCombatAvailable = 0;
         foreach ($offensiveUnits as $uNum) {
@@ -2827,23 +2827,23 @@ class BotAI {
             }
         }
 
-        // Strict troop conservation: lock at least 50% (or 40% in counter-attack) of standing army at home
-        $reservePercent = $isCounterAttack ? 0.40 : 0.50;
+        // Army mobilization: keep small home reserve (20% or 15% in counter-attack)
+        $reservePercent = $isCounterAttack ? 0.15 : 0.20;
         $homeReserve = max(self::getHomeReserve($pop), (int)round($totalCombatAvailable * $reservePercent));
         $deployableCombat = max(0, $totalCombatAvailable - $homeReserve);
 
-        // Minimum army requirements to ensure bot is capable and doesn't waste troops:
-        // Regular conquest: requires pop >= 100, total army >= 40, and deployable >= 20
-        // Counter-attack: requires pop >= 80, total army >= 30, and deployable >= 15
-        $minTotalArmy = $isCounterAttack ? 30 : 40;
-        $minDeployable = $isCounterAttack ? 15 : 20;
-        $minPop = $isCounterAttack ? 80 : 100;
+        // Minimum army requirements:
+        // Regular conquest: requires pop >= 60, total army >= 25, deployable >= 15
+        // Counter-attack: requires pop >= 50, total army >= 20, deployable >= 10
+        $minTotalArmy = $isCounterAttack ? 20 : 25;
+        $minDeployable = $isCounterAttack ? 10 : 15;
+        $minPop = $isCounterAttack ? 50 : 60;
 
         if ($pop < $minPop || $totalCombatAvailable < $minTotalArmy || $deployableCombat < $minDeployable) {
             return null; // Desa bot belum cukup matang / tentara sedang dipulihkan
         }
 
-        // Coordination limiter: max 1 simultaneous attack en route per alliance (max 2 if counter-attack)
+        // Coordination limiter: allow up to 3 simultaneous attacks en route per alliance (up to 4 if counter-attack)
         $activeAllyAttacks = $database->query_return("
             SELECT COUNT(m.moveid) as ally_atks
             FROM " . TB_PREFIX . "movement m
@@ -2852,24 +2852,25 @@ class BotAI {
             WHERE u.alliance = $botAlliance AND m.`to` = $bastionWref 
               AND m.sort_type = 3 AND m.proc = 0
         ");
-        $maxConcurrent = $isCounterAttack ? 2 : 1;
+        $maxConcurrent = $isCounterAttack ? 4 : 3;
         if ((int)($activeAllyAttacks[0]['ally_atks'] ?? 0) >= $maxConcurrent) {
             return null;
         }
 
-        // Tactical pacing roll: default 25% (gentle and measured)
-        $bastionChance = (int)self::getConfig('BOT_AI_BASTION_ATTACK_CHANCE', 25);
+        // Tactical pacing roll: default 75% (aggressive focus on Benteng Kuno)
+        $bastionChance = (int)self::getConfig('BOT_AI_BASTION_ATTACK_CHANCE', 75);
         if (!$isCounterAttack && $bastionChance < 100 && rand(1, 100) > $bastionChance) {
             return null;
         }
 
-        // Expeditionary Party Size:
-        // Regular attack: send only ~30% of deployable troops, capped at max 35 units
-        // Counter-attack: send ~45% of deployable troops, capped at max 50 units
-        // This ensures the bot never commits army suicide and always retains strong garrison at home!
-        $ratio = $isCounterAttack ? 0.45 : 0.30;
-        $maxCap = $isCounterAttack ? 50 : 35;
-        $partySize = min($maxCap, max(15, (int)floor($deployableCombat * $ratio)));
+        // Massive Expeditionary Siege Force:
+        // Regular attack: mobilize 75% to 85% of deployable combat forces
+        // Counter-attack: mobilize 85% to 95% of deployable combat forces
+        // Generous ceiling up to 3,500 troops so high-level bots send massive siege forces!
+        $ratio = $isCounterAttack ? 0.90 : 0.80;
+        $maxCap = (int)self::getConfig('BOT_AI_BASTION_MAX_ATTACK_TROOPS', 3500);
+        $minParty = min($deployableCombat, 30);
+        $partySize = min($maxCap, max($minParty, (int)floor($deployableCombat * $ratio)));
         $partySize = min($partySize, $deployableCombat);
 
         $dispatched = [];

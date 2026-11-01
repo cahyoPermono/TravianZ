@@ -1489,6 +1489,7 @@ trait AutomationBattleResolution {
         //kill other defence in village
         // ... once again, units could have changed, so we need to reselect
         $enforcementarray3 = $database->getEnforceVillage($data['to'], 0);
+        $reinforceReportsByGroup = [];
         foreach ($enforcementarray3 as $enforce) {
             $life = ''; $notlife = ''; $wrong = false;
             // FIX: reuse the preflight resolver; never guess Nature for an
@@ -1581,14 +1582,41 @@ trait AutomationBattleResolution {
                 $database->modifyEnforce($enforceId, $enforceArray['units'], $enforceArray['amounts'], $enforceArray['modes']);
             }
 
-            $notlife = ''.$dead[$start].','.$dead[$start+1].','.$dead[$start+2].','.$dead[$start+3].','.$dead[$start+4].','.$dead[$start+5].','.$dead[$start+6].','.$dead[$start+7].','.$dead[$start+8].','.$dead[$start+9].'';
-            $notlife1 = $dead[$start]+$dead[$start+1]+$dead[$start+2]+$dead[$start+3]+$dead[$start+4]+$dead[$start+5]+$dead[$start+6]+$dead[$start+7]+$dead[$start+8]+$dead[$start+9];
-            $life = ''.$enforce['u'.$start.''].','.$enforce['u'.($start+1).''].','.$enforce['u'.($start+2).''].','.$enforce['u'.($start+3).''].','.$enforce['u'.($start+4).''].','.$enforce['u'.($start+5).''].','.$enforce['u'.($start+6).''].','.$enforce['u'.($start+7).''].','.$enforce['u'.($start+8).''].','.$enforce['u'.($start+9).''].'';
-            $life1 = $enforce['u'.$start.'']+$enforce['u'.($start+1).'']+$enforce['u'.($start+2).'']+$enforce['u'.($start+3).'']+$enforce['u'.($start+4).'']+$enforce['u'.($start+5).'']+$enforce['u'.($start+6).'']+$enforce['u'.($start+7).'']+$enforce['u'.($start+8).'']+$enforce['u'.($start+9).''];
-            $lifehero = (isset($enforce['hero']) ? $enforce['hero'] : 0);
-            $notlifehero = (isset($dead['hero']) ? $dead['hero'] : 0);
-            $totallife = (isset($enforce['hero']) ? $enforce['hero'] : 0)+$life1;
-            $totalnotlife = (isset($dead['hero']) ? $dead['hero'] : 0)+$notlife1;
+            // delete reinf entry ONLY when completely killed (no troops or hero survived)
+            if (!$hasSurvivors) {
+                $database->deleteReinf($enforce['id']);
+            }
+
+            // Consolidate reinforcement notice by defender owner UID & tribe to prevent duplicate report flooding
+            if (empty($scout)) {
+                $reinfOwnerUid = (int)$database->getVillageField($enforce['from'], "owner");
+                if ($reinfOwnerUid > 0) {
+                    $groupKey = $reinfOwnerUid . '_' . $tribe;
+                    if (!isset($reinforceReportsByGroup[$groupKey])) {
+                        $reinforceReportsByGroup[$groupKey] = [
+                            'owner' => $reinfOwnerUid,
+                            'from' => (int)$enforce['from'],
+                            'tribe' => $tribe,
+                            'start' => $start,
+                            'units_sent' => array_fill(1, 10, 0),
+                            'units_dead' => array_fill(1, 10, 0),
+                            'hero_sent' => 0,
+                            'hero_dead' => 0,
+                        ];
+                    }
+                    for ($ai = 0; $ai < 10; $ai++) {
+                        $uIdx = $start + $ai;
+                        $reinforceReportsByGroup[$groupKey]['units_sent'][$ai + 1] += (int)($enforce['u' . $uIdx] ?? 0);
+                        $reinforceReportsByGroup[$groupKey]['units_dead'][$ai + 1] += (int)($dead[$uIdx] ?? 0);
+                    }
+                    $reinforceReportsByGroup[$groupKey]['hero_sent'] += (int)($enforce['hero'] ?? 0);
+                    $reinforceReportsByGroup[$groupKey]['hero_dead'] += (int)($dead['hero'] ?? 0);
+                }
+            }
+        }
+
+        // Dispatch consolidated reinforcement notices (one clean report per player per tribe)
+        if (empty($scout) && !empty($reinforceReportsByGroup)) {
             // Build attacker token for reinforcement notice so defender knows who attacked and with what troops
             $attSentList = [];
             $attDeadList = [];
@@ -1612,18 +1640,26 @@ trait AutomationBattleResolution {
             $attToken = 'ATTACKER:' . $attOwnerUid . ';' . (int)($from['wref'] ?? 0) . ';' . $resolvedAttTribe . ';'
                 . implode(';', $attSentList) . ';' . implode(';', $attDeadList) . ';' . $attHeroS . ';' . $attHeroD;
 
-            //NEED TO SEND A RAPPORTAGE!!!
-            $data2 = ''.$database->getVillageField($enforce['from'], "owner").','.$to['wref'].','.addslashes($to['name']).','.$tribe.','.$life.','.$notlife.','.$lifehero.','.$notlifehero.','.$enforce['from'].','.$attToken.'';
-            if (empty($scout)) {
+            foreach ($reinforceReportsByGroup as $rpt) {
+                $rOwner = $rpt['owner'];
+                $rTribe = $rpt['tribe'];
+                $rLife = implode(',', array_values($rpt['units_sent']));
+                $rNotLife = implode(',', array_values($rpt['units_dead']));
+                $rLifeHero = $rpt['hero_sent'];
+                $rNotLifeHero = $rpt['hero_dead'];
+
+                $totallife = array_sum($rpt['units_sent']) + $rLifeHero;
+                $totalnotlife = array_sum($rpt['units_dead']) + $rNotLifeHero;
+
+                $data2 = '' . $rOwner . ',' . $to['wref'] . ',' . addslashes($to['name']) . ',' . $rTribe . ',' . $rLife . ',' . $rNotLife . ',' . $rLifeHero . ',' . $rNotLifeHero . ',' . $rpt['from'] . ',' . $attToken;
+
                 if ($totalnotlife == 0) {
-                    $database->addNotice($database->getVillageField($enforce['from'], "owner"), $from['wref'], $ownally, 15, 'Reinforcement in '.addslashes($to['name']).' was attacked', $data2, $AttackArrivalTime);
+                    $database->addNotice($rOwner, $from['wref'], $ownally, 15, 'Reinforcement in ' . addslashes($to['name']) . ' was attacked', $data2, $AttackArrivalTime);
                 } else if ($totallife > $totalnotlife) {
-                    $database->addNotice($database->getVillageField($enforce['from'], "owner"), $from['wref'], $ownally, 16, 'Reinforcement in '.addslashes($to['name']).' was attacked', $data2, $AttackArrivalTime);
+                    $database->addNotice($rOwner, $from['wref'], $ownally, 16, 'Reinforcement in ' . addslashes($to['name']) . ' was attacked', $data2, $AttackArrivalTime);
                 } else {
-                    $database->addNotice($database->getVillageField($enforce['from'], "owner"), $from['wref'], $ownally, 17, 'Reinforcement in '.addslashes($to['name']).' was attacked', $data2, $AttackArrivalTime);
+                    $database->addNotice($rOwner, $from['wref'], $ownally, 17, 'Reinforcement in ' . addslashes($to['name']) . ' was attacked', $data2, $AttackArrivalTime);
                 }
-                //delete reinf entry ONLY when completely killed (no troops or hero survived)
-                if (!$hasSurvivors) $database->deleteReinf($enforce['id']);
             }
         }
 
