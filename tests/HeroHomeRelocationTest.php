@@ -126,7 +126,7 @@ assertEqual($uid, $fromOwner, "Enforcement originates from same user");
 
 // Apply conversion logic
 $otherTroops = 0;
-for ($i = 1; $i <= 50; $i++) {
+for ($i = 1; $i <= 100; $i++) {
     if (!empty($enforce['u' . $i]) && (int)$enforce['u' . $i] > 0) {
         $otherTroops += (int)$enforce['u' . $i];
     }
@@ -154,8 +154,60 @@ assertEqual((int)$wref2, (int)$heroAfter['wref'], "Hero home village is now offi
 
 echo "PASS: Test 2 passed successfully!" . PHP_EOL;
 
-// Clean up test data
+// Clean up Test 2 enforcement
 $database->query("DELETE FROM " . TB_PREFIX . "enforcement WHERE id = $enforceId");
+
+// =========================================================================
+// TEST 3: Nusantara Tribe Support (u94 Scout + Hero)
+// =========================================================================
+echo "Test 3: Testing setherohome with Nusantara unit (u94) preserves regular troops as reinforcement..." . PHP_EOL;
+
+// Reset hero to village 1
+$database->query("UPDATE " . TB_PREFIX . "hero SET wref = $wref1 WHERE heroid = $heroid");
+$database->query("UPDATE " . TB_PREFIX . "units SET hero = 0 WHERE vref = $wref2");
+
+// Simulate Nusantara player sending Hero + 1 Scout (u94) as reinforcement to Village 2
+$database->query("INSERT INTO " . TB_PREFIX . "enforcement (vref, `from`, u94, hero) VALUES ($wref2, $wref1, 1, 1)");
+$enforceId3 = mysqli_insert_id($database->dblink);
+
+$enforce3 = $database->getEnforceArray($enforceId3, 0, false);
+assertTrue(!empty($enforce3), "Enforcement row for Nusantara must exist");
+assertEqual(1, (int)$enforce3['u94'], "Nusantara scout (u94) must be 1");
+assertEqual(1, (int)$enforce3['hero'], "Hero must be 1");
+
+// Execute setherohome logic with <= 100
+$otherTroops3 = 0;
+for ($i = 1; $i <= 100; $i++) {
+    if (!empty($enforce3['u' . $i]) && (int)$enforce3['u' . $i] > 0) {
+        $otherTroops3 += (int)$enforce3['u' . $i];
+    }
+}
+assertEqual(1, $otherTroops3, "otherTroops must detect the 1 u94 Nusantara scout");
+
+// Process setherohome
+if ($otherTroops3 === 0) {
+    $database->query("DELETE FROM " . TB_PREFIX . "enforcement WHERE id = $enforceId3");
+} else {
+    $database->query("UPDATE " . TB_PREFIX . "enforcement SET hero = hero - 1 WHERE id = $enforceId3");
+}
+$database->modifyUnit($wref2, ["hero"], [1], [1]);
+$database->modifyHero("wref", $wref2, $heroid);
+$database->clearHeroCache();
+
+// Verify enforcement row: u94 must NOT be deleted, hero must be 0
+$enforceAfter3 = $database->getEnforceArray($enforceId3, 0, false);
+assertTrue(!empty($enforceAfter3), "Enforcement row must NOT be deleted");
+assertEqual(0, (int)$enforceAfter3['hero'], "Enforcement hero must be reduced to 0");
+assertEqual(1, (int)$enforceAfter3['u94'], "Nusantara scout (u94 = 1) must remain safely stationed as reinforcement!");
+
+// Verify village 2 now has hero
+$units2After3 = $database->query_return("SELECT hero FROM " . TB_PREFIX . "units WHERE vref = $wref2")[0];
+assertEqual(1, (int)$units2After3['hero'], "Village 2 now natively owns the hero");
+
+echo "PASS: Test 3 passed successfully!" . PHP_EOL;
+
+// Clean up test data
+$database->query("DELETE FROM " . TB_PREFIX . "enforcement WHERE id = $enforceId3");
 $database->query("DELETE FROM " . TB_PREFIX . "hero WHERE heroid = $heroid");
 $database->query("DELETE FROM " . TB_PREFIX . "units WHERE vref IN ($wref1, $wref2)");
 $database->query("DELETE FROM " . TB_PREFIX . "vdata WHERE wref IN ($wref1, $wref2)");

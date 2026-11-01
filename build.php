@@ -361,9 +361,9 @@ if (isset($_GET['setherohome']) && is_numeric($_GET['setherohome'])) {
     if (!empty($enforce) && (int)$enforce['vref'] === (int)$village->wid && (int)$enforce['hero'] > 0) {
         $fromOwner = (int)$database->getVillageField($enforce['from'], 'owner');
         if ($fromOwner === (int)$session->uid) {
-            // Cek apakah ada unit lain selain hero di baris enforcement ini
+            // Cek apakah ada unit lain selain hero di baris enforcement ini (mendukung suku 1..10, termasuk Nusantara u91..u100)
             $otherTroops = 0;
-            for ($i = 1; $i <= 50; $i++) {
+            for ($i = 1; $i <= 100; $i++) {
                 if (!empty($enforce['u' . $i]) && (int)$enforce['u' . $i] > 0) {
                     $otherTroops += (int)$enforce['u' . $i];
                 }
