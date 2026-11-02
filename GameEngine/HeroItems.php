@@ -158,7 +158,7 @@ class HeroItems
 
         $bonuses = array(
             HB_FIGHT => 0, HB_DMG_REDUCE => 0, HB_REGEN_HP => 0, HB_XP => 0,
-            HB_CP => 0, HB_TRAIN_CAV => 0, HB_TRAIN_INF => 0, HB_VS_NATARS => 0,
+            HB_CP => 0, HB_TRAIN_CAV => 0, HB_TRAIN_CAV_SPEED => 0, HB_TRAIN_INF => 0, HB_VS_NATARS => 0,
             HB_RAID => 0, HB_RETURN_SPEED => 0, HB_SPEED_OWN => 0, HB_SPEED_ALLY => 0,
             HB_TROOP_SPEED_20 => 0, HB_HORSE_SPEED => 0, HB_MOUNT_SPEED => 0,
             HB_UNIT_BONUS => array(),

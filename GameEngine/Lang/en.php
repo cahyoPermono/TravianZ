@@ -3009,6 +3009,7 @@ tz_def('HB_TXT_XP',         'experience');
 tz_def('HB_TXT_REGEN',      'HP per day');
 tz_def('HB_TXT_CP',         'culture points per day');
 tz_def('HB_TXT_TRAIN_CAV',  'cavalry training time');
+tz_def('HB_TXT_TRAIN_CAV_SPEED', 'cavalry training speed');
 tz_def('HB_TXT_TRAIN_INF',  'infantry training time');
 tz_def('HB_TXT_DMG',        'damage taken by the hero');
 tz_def('HB_TXT_SPEED20',    'troop speed beyond 20 tiles');

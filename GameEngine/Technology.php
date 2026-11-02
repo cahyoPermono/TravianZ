@@ -833,40 +833,16 @@ class Technology {
 		return (int) round(($probe - $out) * 100 / $probe);
 	}
 
-	/** Procentul dat de coiful echipat al eroului (0 daca nu are). */
+	/** Procentul efectiv dat de echipamentul eroului (0 daca nu are). */
 	private function heroTrainingPercent($unit, array $footies, array $calvary) {
-		global $village, $database;
+		$probe = 1000000;
+		$out   = $this->applyHeroTrainingBonus($probe, $unit, $footies, $calvary);
 
-		if (!class_exists('HeroBattleBonus') || !HeroBattleBonus::enabled()) {
+		if ($out >= $probe) {
 			return 0;
 		}
 
-		$uid = (isset($village->wid) && $database)
-			? (int) $database->getVillageField($village->wid, 'owner')
-			: 0;
-
-		if ($uid <= 0) {
-			return 0;
-		}
-
-		$bonuses = HeroBattleBonus::bonuses($uid);
-
-		if (!$bonuses) {
-			return 0;
-		}
-
-		if (in_array($unit, $footies)) {
-			$percent = (int) $bonuses[HB_TRAIN_INF];
-		} elseif (in_array($unit, $calvary)) {
-			$percent = (int) $bonuses[HB_TRAIN_CAV];
-		} else {
-			return 0;
-		}
-
-		if ($percent < 0)  $percent = 0;
-		if ($percent > 90) $percent = 90;
-
-		return $percent;
+		return (int) round(($probe - $out) * 100 / $probe);
 	}
 
 	/**
@@ -993,24 +969,33 @@ class Technology {
 		}
 
 		$percent = 0;
+		$speedPercent = 0;
 
 		if (in_array($unit, $footies)) {
-			$percent = (int) $bonuses[HB_TRAIN_INF];
+			$percent = (int) ($bonuses[HB_TRAIN_INF] ?? 0);
 		} elseif (in_array($unit, $calvary)) {
-			$percent = (int) $bonuses[HB_TRAIN_CAV];
+			$percent = (int) ($bonuses[HB_TRAIN_CAV] ?? 0);
+			$speedPercent = (int) ($bonuses[HB_TRAIN_CAV_SPEED] ?? 0);
 		}
 
-		if ($percent <= 0) {
+		if ($percent <= 0 && $speedPercent <= 0) {
 			return $each;
 		}
 
-		// plasa de siguranta: chiar daca s-ar aduna mai multe surse, timpul nu
-		// poate cobori sub 10% din valoarea de baza
-		if ($percent > 90) {
-			$percent = 90;
+		// Peningkatan kecepatan pembuatan kavaleri (misal +200% speed -> 3x kecepatan pembuatan)
+		if ($speedPercent > 0) {
+			$mult = 1.0 + ($speedPercent / 100);
+			$each = max(1, (int) round($each / $mult));
 		}
 
-		$each = (int) round($each * (100 - $percent) / 100);
+		if ($percent > 0) {
+			// plasa de siguranta: chiar daca s-ar aduna mai multe surse, timpul nu
+			// poate cobori sub 10% din valoarea de baza
+			if ($percent > 90) {
+				$percent = 90;
+			}
+			$each = (int) round($each * (100 - $percent) / 100);
+		}
 
 		return $each > 0 ? $each : 1;
 	}
