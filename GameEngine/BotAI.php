@@ -241,6 +241,12 @@ class BotAI {
                 $botLogs[] = "Expansion: " . $expansionResult;
             }
 
+            // 3b. Automated Natural Chief Village Conquest (Penaklukan Desa Non-Capital dengan Chief & Pengawal)
+            $conquestResult = self::processConquest($bot);
+            if ($conquestResult) {
+                $botLogs[] = "Conquest: " . $conquestResult;
+            }
+
             // 4. Automated Troop Training
             $trainResult = self::processTrain($bot);
             if ($trainResult) {
@@ -714,12 +720,25 @@ class BotAI {
                     if ($grLevel < $maxBuildingLvl && !isset($busySlots[28])) $candidates[] = ['slot' => 28, 'type' => 11, 'lvl' => $grLevel + 1, 'name' => 'Granary'];
                     if ($wlLevel < $maxBuildingLvl && !isset($busySlots[40])) $candidates[] = ['slot' => 40, 'type' => $wallType, 'lvl' => $wlLevel + 1, 'name' => 'Wall'];
 
+                    // Rally Point progression (Lvl 5 for Teuton, Lvl 10 for others to meet Chief prerequisites)
+                    $rpChiefReq = ($tribe === 2) ? 5 : 10;
+                    if ($rpLevel < min($rpChiefReq, $maxBuildingLvl) && !isset($busySlots[39])) {
+                        $candidates[] = ['slot' => 39, 'type' => 16, 'lvl' => $rpLevel + 1, 'name' => 'Rally Point'];
+                        if (self::getConfig('BOT_AI_CONQUEST_ENABLED', true)) {
+                            $candidates[] = ['slot' => 39, 'type' => 16, 'lvl' => $rpLevel + 1, 'name' => 'Rally Point'];
+                        }
+                    }
+
                     $crMax = $dynamicScaling ? 10 : 3;
                     if ($crLevel < $crMax && !isset($busySlots[31])) $candidates[] = ['slot' => 31, 'type' => 23, 'lvl' => $crLevel + 1, 'name' => 'Cranny'];
 
                     if ($dynamicScaling) {
                         if ($acLevel > 0 && $acLevel < min(20, $maxBuildingLvl) && !isset($busySlots[22])) {
                             $candidates[] = ['slot' => 22, 'type' => 22, 'lvl' => $acLevel + 1, 'name' => 'Academy'];
+                            // Boost priority of Academy so bot naturally achieves level 20 for Chief research
+                            if (self::getConfig('BOT_AI_CONQUEST_ENABLED', true)) {
+                                $candidates[] = ['slot' => 22, 'type' => 22, 'lvl' => $acLevel + 1, 'name' => 'Academy'];
+                            }
                         }
                         if ($stLevel > 0 && $stLevel < min(20, $maxBuildingLvl) && !isset($busySlots[20])) {
                             $candidates[] = ['slot' => 20, 'type' => 20, 'lvl' => $stLevel + 1, 'name' => 'Stable'];
@@ -874,13 +893,22 @@ class BotAI {
      */
     public static function getBuildingLevel(int $wid, int $gid, array $fdata = []): int {
         global $database;
+        if (!empty($fdata)) {
+            $maxLvl = 0;
+            for ($i = 19; $i <= 40; $i++) {
+                if ((int)($fdata['f' . $i . 't'] ?? 0) === $gid) {
+                    $maxLvl = max($maxLvl, (int)($fdata['f' . $i] ?? 0));
+                }
+            }
+            return $maxLvl;
+        }
         if (method_exists($database, 'getFieldLevelInVillage')) {
-            $lvl = (int)$database->getFieldLevelInVillage($wid, $gid);
+            $lvl = (int)$database->getFieldLevelInVillage($wid, $gid, false);
             if ($lvl > 0) {
                 return $lvl;
             }
         }
-        if (empty($fdata) && method_exists($database, 'getResourceLevel')) {
+        if (method_exists($database, 'getResourceLevel')) {
             $fdata = $database->getResourceLevel($wid, false);
         }
         $maxLvl = 0;
@@ -1271,6 +1299,9 @@ class BotAI {
 
         // Proportional trimming: scales down existing unit types proportionally
         // so the army retains its balanced composition (defenders, attackers, scouts)
+        // Chiefs and Settlers are preserved to keep natural expansion/conquest plans intact
+        $chiefU = self::getChiefUnit($tribe);
+        $settlerU = $tribe * 10;
         $ratio = (float)$targetTotal / (float)$currentTotal;
         $updates = [];
         $newTotal = 0;
@@ -1278,6 +1309,11 @@ class BotAI {
 
         foreach ($tribeUnits['all'] as $u) {
             $cnt = (int)($row['u' . $u] ?? 0);
+            if ($u === $chiefU || $u === $settlerU) {
+                // Strictly preserve existing chiefs and settlers
+                $unitCounts[$u] = $cnt;
+                continue;
+            }
             if ($cnt > 0) {
                 $scaled = (int)floor($cnt * $ratio);
                 $unitCounts[$u] = $scaled;
@@ -1332,12 +1368,13 @@ class BotAI {
         $wallType = self::getTribeWallType($tribe);
 
         // Advanced buildings (unlocked only after maturity)
-        $acLvl = ($effectiveAgeDays >= 1.5) ? max(1, min(20, (int)floor(($effectiveAgeDays - 1.0) * 1.5))) : 0;
+        $acLvl = ($effectiveAgeDays >= 1.5) ? max(1, min(20, (int)floor(($effectiveAgeDays - 1.0) * 1.8))) : 0;
         $mpLvl = ($effectiveAgeDays >= 1.2) ? max(1, min(20, (int)floor($effectiveAgeDays * 0.8))) : 0;
         $stLvl = ($effectiveAgeDays >= 2.5) ? max(1, min(20, (int)floor(($effectiveAgeDays - 2.0) * 1.2))) : 0;
         $wsLvl = ($effectiveAgeDays >= 4.5) ? max(1, min(20, (int)floor(($effectiveAgeDays - 4.0) * 1.0))) : 0;
-        $rsLvl = ($effectiveAgeDays >= 3.0) ? max(1, min(10, (int)floor(($effectiveAgeDays - 2.5) * 1.0))) : 0;
+        $rsLvl = ($effectiveAgeDays >= 3.0) ? max(1, min(20, (int)floor(($effectiveAgeDays - 2.5) * 1.5))) : 0;
         $spLvl = ($tribe === 10 && $effectiveAgeDays >= 1.5) ? max(1, min(20, (int)floor(($effectiveAgeDays - 1.0) * 1.0))) : 0;
+        $rpLvl = ($effectiveAgeDays >= 2.0) ? max(1, min(10, (int)floor(($effectiveAgeDays - 1.0) * 1.5))) : 1;
 
         // Build full SQL update for fdata
         $setParts = [];
@@ -1349,7 +1386,7 @@ class BotAI {
         $setParts[] = "f26 = $mbLvl, f26t = 15"; // Main Building
         $setParts[] = "f25 = $whLvl, f25t = 10"; // Warehouse
         $setParts[] = "f28 = $grLvl, f28t = 11"; // Granary
-        $setParts[] = "f39 = 1, f39t = 16";      // Rally Point
+        $setParts[] = "f39 = $rpLvl, f39t = 16"; // Rally Point
         $setParts[] = "f21 = $brLvl, f21t = 19"; // Barracks
         $setParts[] = "f40 = $wlLvl, f40t = $wallType"; // Wall
         $setParts[] = "f31 = $crLvl, f31t = 23"; // Cranny
@@ -1609,6 +1646,26 @@ class BotAI {
 
         if ($usedSlots >= $allowedSlots) {
             return null; // All unlocked expansion slots for this village are already used
+        }
+
+        $freeSlots = $allowedSlots - $usedSlots;
+
+        // Check if expansion slot is already reserved / occupied by Chief (at home, in training, or marching)
+        $chiefUnit = self::getChiefUnit($tribe);
+        if ($chiefUnit > 0) {
+            $chiefRow = $database->query_return("SELECT u{$chiefUnit} as c FROM " . TB_PREFIX . "units WHERE vref = $wid");
+            $homeChiefs = (int)($chiefRow[0]['c'] ?? 0);
+            $chiefTrainRow = $database->query_return("SELECT SUM(amt) as queued FROM " . TB_PREFIX . "training WHERE vref = $wid AND unit = $chiefUnit");
+            $queuedChiefs = (int)($chiefTrainRow[0]['queued'] ?? 0);
+            $mChiefsRow = $database->query_return("
+                SELECT COUNT(*) as cnt FROM " . TB_PREFIX . "movement m
+                JOIN " . TB_PREFIX . "attacks a ON m.ref = a.id
+                WHERE m.from = $wid AND m.proc = 0 AND a.t9 > 0
+            ");
+            $marchingChiefs = (int)($mChiefsRow[0]['cnt'] ?? 0);
+            if (($homeChiefs + $queuedChiefs + $marchingChiefs) >= $freeSlots) {
+                return null; // Slot is occupied/reserved for Chief conquest
+            }
         }
 
         // 4. Check if there is already a settlement movement in progress from this village
@@ -1897,6 +1954,592 @@ class BotAI {
             'settlers_home' => $homeSettlers,
             'settlers_queued' => $queuedSettlers,
             'in_progress' => !empty($inProgress),
+            'status_text' => $statusText,
+        ];
+    }
+
+    /**
+     * Automated Natural Chief Village Conquest (Penaklukan Desa Non-Capital dengan Chief & Pasukan Pengawal).
+     * 100% Natural mechanics:
+     * - Requires genuine Academy (GID 22) lvl 20 and Rally Point (GID 16) lvl 10 (lvl 5 for Teutons).
+     * - Naturally researches Chief in Academy consuming genuine resources from resdata.php into research table.
+     * - Naturally trains Chief in Residence (GID 25) / Palace (GID 26) / Command Center (GID 44) consuming genuine resources from unitdata.php.
+     * - Requires available village expansion slot (exp1, exp2, exp3) and sufficient Culture Points (CP).
+     * - Strictly targets NON-CAPITAL villages (v.capital = 0, official Travian rule).
+     * - Strictly targets players who own more than 1 village (cannot conquer a player's last village).
+     * - Prioritizes real human player villages over bot villages (configurable).
+     * - Prioritizes villages with reduced loyalty (< 100) to ensure the conquest completes.
+     * - Requires sufficient escort army (BOT_AI_CONQUEST_MIN_ESCORT) while preserving village garrison defense.
+     * - Deploys Normal Attack (sort_type = 3, attack_type = 3) with Chief (t9=1), escort combat units, rams, catapults targeting Residence/Palace, and Hero.
+     */
+    public static function processConquest(array $bot): ?string {
+        global $database;
+
+        if (!self::getConfig('BOT_AI_CONQUEST_ENABLED', true)) {
+            return null;
+        }
+
+        $maxVillages = (int)self::getConfig('BOT_AI_MAX_VILLAGES', 2);
+        if ($maxVillages <= 1) {
+            return null;
+        }
+
+        $uid = (int)($bot['uid'] ?? $bot['id'] ?? 0);
+        $wid = (int)$bot['wref'];
+        $tribe = (int)$bot['tribe'];
+
+        // 1. Check total villages owned by this bot
+        $userVillages = $database->getProfileVillages($uid);
+        $villageCount = is_array($userVillages) ? count($userVillages) : 1;
+        if ($villageCount >= $maxVillages) {
+            return null; // Already reached max villages configured by admin
+        }
+
+        $chiefUnit = self::getChiefUnit($tribe);
+        if ($chiefUnit <= 0) {
+            return null; // Nature or Natars cannot conquer
+        }
+
+        // 2. Check Residence, Palace, or Command Center level
+        $rsLevel = self::getBuildingLevel($wid, 25, $bot['fdata'] ?? []);
+        $palaceLevel = self::getBuildingLevel($wid, 26, $bot['fdata'] ?? []);
+        $ccLevel = self::getBuildingLevel($wid, 44, $bot['fdata'] ?? []);
+
+        $allowedSlots = 0;
+        if ($rsLevel >= 20) {
+            $allowedSlots = 2;
+        } elseif ($rsLevel >= 10) {
+            $allowedSlots = 1;
+        }
+        if ($palaceLevel >= 20) {
+            $allowedSlots = max($allowedSlots, 3);
+        } elseif ($palaceLevel >= 15) {
+            $allowedSlots = max($allowedSlots, 2);
+        } elseif ($palaceLevel >= 10) {
+            $allowedSlots = max($allowedSlots, 1);
+        }
+        if ($ccLevel >= 20) {
+            $allowedSlots = max($allowedSlots, 3);
+        } elseif ($ccLevel >= 15) {
+            $allowedSlots = max($allowedSlots, 2);
+        } elseif ($ccLevel >= 10) {
+            $allowedSlots = max($allowedSlots, 1);
+        }
+
+        if ($allowedSlots < 1) {
+            return null; // Residence/Palace not yet level 10
+        }
+
+        // 3. Check used expansion slots
+        $vFields = method_exists($database, 'getVillageFields') ? $database->getVillageFields($wid, 'exp1, exp2, exp3', false) : null;
+        $usedSlots = 0;
+        if (!empty($vFields['exp1']) && (int)$vFields['exp1'] > 0) $usedSlots++;
+        if (!empty($vFields['exp2']) && (int)$vFields['exp2'] > 0) $usedSlots++;
+        if (!empty($vFields['exp3']) && (int)$vFields['exp3'] > 0) $usedSlots++;
+
+        $freeSlots = $allowedSlots - $usedSlots;
+        if ($freeSlots <= 0) {
+            return null; // No free expansion slot in this village
+        }
+
+        // 4. Check existing Chiefs & Settlers
+        $unitRow = $database->query_return("SELECT u{$chiefUnit} as c FROM " . TB_PREFIX . "units WHERE vref = $wid");
+        $homeChiefs = (int)($unitRow[0]['c'] ?? 0);
+
+        $trainRow = $database->query_return("
+            SELECT SUM(amt) as queued FROM " . TB_PREFIX . "training
+            WHERE vref = $wid AND unit = $chiefUnit
+        ");
+        $queuedChiefs = (int)($trainRow[0]['queued'] ?? 0);
+
+        $marchingChiefsRow = $database->query_return("
+            SELECT COUNT(*) as cnt FROM " . TB_PREFIX . "movement m
+            JOIN " . TB_PREFIX . "attacks a ON m.ref = a.id
+            WHERE m.from = $wid AND m.proc = 0 AND a.t9 > 0
+        ");
+        $marchingChiefs = (int)($marchingChiefsRow[0]['cnt'] ?? 0);
+
+        $settlerUnit = $tribe * 10;
+        $settlerRow = $database->query_return("SELECT u{$settlerUnit} as s FROM " . TB_PREFIX . "units WHERE vref = $wid");
+        $homeSettlers = (int)($settlerRow[0]['s'] ?? 0);
+        $settlerTrainRow = $database->query_return("
+            SELECT SUM(amt) as queued FROM " . TB_PREFIX . "training
+            WHERE vref = $wid AND unit = $settlerUnit
+        ");
+        $queuedSettlers = (int)($settlerTrainRow[0]['queued'] ?? 0);
+        $settlersInTransit = $database->query_return("
+            SELECT COUNT(*) as cnt FROM " . TB_PREFIX . "movement
+            WHERE `from` = $wid AND sort_type = 5 AND proc = 0
+        ");
+        $marchingSettlers = !empty($settlersInTransit[0]['cnt']) ? (int)$settlersInTransit[0]['cnt'] * 3 : 0;
+        $totalSettlers = $homeSettlers + $queuedSettlers + $marchingSettlers;
+        $settlerSlotsUsed = (int)ceil($totalSettlers / 3);
+
+        $occupiedSlots = $homeChiefs + $queuedChiefs + $marchingChiefs + $settlerSlotsUsed;
+
+        // 5. Research Chief in Academy if not yet researched
+        $tdataRow = $database->query_return("SELECT t{$chiefUnit} FROM " . TB_PREFIX . "tdata WHERE vref = $wid LIMIT 1");
+        $isResearched = !empty($tdataRow[0]['t' . $chiefUnit]);
+
+        if (!$isResearched) {
+            // Check if Chief research is already running in Academy
+            $resRow = $database->query_return("
+                SELECT id, timestamp FROM " . TB_PREFIX . "research
+                WHERE vref = $wid AND tech = 't{$chiefUnit}'
+                LIMIT 1
+            ");
+            if (!empty($resRow)) {
+                $remaining = max(0, (int)$resRow[0]['timestamp'] - time());
+                return "Chief research in progress in Academy (ready in " . round($remaining / 60) . " mins)";
+            }
+
+            // Check prerequisites: Academy 20, Rally Point 10 (or 5 for Teutons)
+            $acLevel = self::getBuildingLevel($wid, 22, $bot['fdata'] ?? []);
+            if ($acLevel < 20) {
+                return null; // Academy not yet level 20
+            }
+            $rpLevel = self::getBuildingLevel($wid, 16, $bot['fdata'] ?? []);
+            $rpReq = ($tribe === 2) ? 5 : 10;
+            if ($rpLevel < $rpReq) {
+                return null; // Rally Point not yet required level
+            }
+
+            // Check if Academy is currently busy researching another unit
+            $busyResearch = $database->query_return("
+                SELECT id FROM " . TB_PREFIX . "research
+                WHERE vref = $wid
+                LIMIT 1
+            ");
+            if (!empty($busyResearch)) {
+                return null; // Academy busy
+            }
+
+            // Load research cost
+            global ${'r' . $chiefUnit};
+            if (!isset(${'r' . $chiefUnit})) {
+                @include_once __DIR__ . '/Data/resdata.php';
+            }
+            $rData = ${'r' . $chiefUnit} ?? null;
+            if (!is_array($rData)) {
+                return null;
+            }
+
+            $curRes = method_exists($database, 'getVillageFields') ? $database->getVillageFields($wid, 'wood, clay, iron, crop', false) : null;
+            $curWood = (float)($curRes['wood'] ?? $bot['wood'] ?? 0);
+            $curClay = (float)($curRes['clay'] ?? $bot['clay'] ?? 0);
+            $curIron = (float)($curRes['iron'] ?? $bot['iron'] ?? 0);
+            $curCrop = (float)($curRes['crop'] ?? $bot['crop'] ?? 0);
+
+            $wCost = (int)$rData['wood'];
+            $cCost = (int)$rData['clay'];
+            $iCost = (int)$rData['iron'];
+            $crCost = (int)$rData['crop'];
+
+            if ($curWood >= $wCost && $curClay >= $cCost && $curIron >= $iCost && $curCrop >= $crCost) {
+                $database->modifyResource($wid, $wCost, $cCost, $iCost, $crCost, 0);
+
+                global $bid22;
+                if (!isset($bid22)) {
+                    @include_once __DIR__ . '/Data/buidata.php';
+                }
+                $speed = defined('SPEED') ? max(1, (float)SPEED) : 1.0;
+                $acFactor = isset($bid22[20]['attri']) ? ($bid22[20]['attri'] / 100.0) : 0.33;
+                $duration = max(60, (int)round(($rData['time'] * $acFactor) / $speed));
+                $finishTime = time() + $duration;
+
+                $database->addResearch($wid, "t" . $chiefUnit, $finishTime);
+                $chiefName = self::getUnitName($chiefUnit);
+                return "Started natural research for {$chiefName} (u{$chiefUnit}) in Academy (duration: " . round($duration / 60) . " mins, cost: {$wCost}w, {$cCost}c, {$iCost}i, {$crCost}cr)";
+            }
+
+            return null; // Saving resources for Chief research
+        }
+
+        // 6. Chief is Researched! Train Chief in Residence / Palace / Command Center
+        if ($occupiedSlots < $freeSlots && ($homeChiefs + $queuedChiefs + $marchingChiefs) < 1) {
+            global ${'u' . $chiefUnit};
+            if (!isset(${'u' . $chiefUnit})) {
+                @include_once __DIR__ . '/Data/unitdata.php';
+            }
+            $uData = ${'u' . $chiefUnit} ?? null;
+            if (is_array($uData)) {
+                $curRes = method_exists($database, 'getVillageFields') ? $database->getVillageFields($wid, 'wood, clay, iron, crop', false) : null;
+                $curWood = (float)($curRes['wood'] ?? $bot['wood'] ?? 0);
+                $curClay = (float)($curRes['clay'] ?? $bot['clay'] ?? 0);
+                $curIron = (float)($curRes['iron'] ?? $bot['iron'] ?? 0);
+                $curCrop = (float)($curRes['crop'] ?? $bot['crop'] ?? 0);
+
+                $wCost = (int)$uData['wood'];
+                $cCost = (int)$uData['clay'];
+                $iCost = (int)$uData['iron'];
+                $crCost = (int)$uData['crop'];
+
+                if ($curWood >= $wCost && $curClay >= $cCost && $curIron >= $iCost && $curCrop >= $crCost) {
+                    $database->modifyResource($wid, $wCost, $cCost, $iCost, $crCost, 0);
+
+                    $speed = defined('SPEED') ? max(1, (float)SPEED) : 1.0;
+                    $baseTime = (int)($uData['time'] ?? 90700);
+                    $effectiveLvl = max($rsLevel, max($palaceLevel, $ccLevel));
+                    $resBonus = pow(0.95, max(0, $effectiveLvl - 1));
+                    $duration = max(60, (int)round(($baseTime * $resBonus) / $speed));
+
+                    $now = time();
+                    $lastQueue = $database->query_return("
+                        SELECT timestamp FROM " . TB_PREFIX . "training
+                        WHERE vref = $wid AND unit IN ($chiefUnit, $settlerUnit)
+                        ORDER BY timestamp DESC LIMIT 1
+                    ");
+                    $startTime = !empty($lastQueue) ? max($now, (int)$lastQueue[0]['timestamp']) : $now;
+                    $endTime = $startTime + $duration;
+
+                    $unitPop = (int)($uData['pop'] ?? 1);
+                    $database->query("
+                        INSERT INTO " . TB_PREFIX . "training (vref, unit, amt, pop, timestamp, eachtime, timestamp2)
+                        VALUES ($wid, $chiefUnit, 1, $unitPop, $endTime, $duration, $startTime + $duration)
+                    ");
+
+                    $chiefName = self::getUnitName($chiefUnit);
+                    return "Trained {$chiefName} (u{$chiefUnit}) in Residence/Palace (queued, ready in " . round($duration / 60) . " mins, cost: {$wCost}w, {$cCost}c, {$iCost}i, {$crCost}cr)";
+                }
+            }
+        }
+
+        // 7. If Chief is currently in training, report progress
+        if ($homeChiefs < 1) {
+            if ($queuedChiefs > 0) {
+                $trainRow = $database->query_return("SELECT timestamp FROM " . TB_PREFIX . "training WHERE vref = $wid AND unit = $chiefUnit ORDER BY timestamp ASC LIMIT 1");
+                $remaining = !empty($trainRow) ? max(0, (int)$trainRow[0]['timestamp'] - time()) : 0;
+                return "Chief currently in training in Residence/Palace (completes in " . round($remaining / 60) . " mins)";
+            }
+            return null;
+        }
+
+        // 8. Chief is at home! Prepare Conquest Expedition
+        if ($marchingChiefs > 0) {
+            return "Conquest expedition currently in transit / marching with Chief";
+        }
+
+        if (self::isNightTime()) {
+            return "Chief ready at home; waiting for morning daylight before launching conquest march";
+        }
+
+        // Check Culture Points requirement
+        $mode = defined('CP') ? (int)CP : 1;
+        global ${'cp' . $mode};
+        if (!isset(${'cp' . $mode})) {
+            @include_once __DIR__ . '/Data/cp.php';
+        }
+        $cpTable = ${'cp' . $mode} ?? $GLOBALS['cp1'] ?? [];
+        $targetVillageIndex = $villageCount + 1;
+        $neededCP = (int)($cpTable[$targetVillageIndex] ?? 2000);
+        $userCP = (int)$database->getUserField($uid, 'cp', 0);
+
+        if ($userCP < $neededCP) {
+            return "Chief ready at home, awaiting Culture Points: {$userCP}/{$neededCP} CP needed for village #{$targetVillageIndex}";
+        }
+
+        // Escort army check: ensure sufficient combat escort so Chief survives
+        $minEscort = (int)self::getConfig('BOT_AI_CONQUEST_MIN_ESCORT', 80);
+        $homeReserve = self::getHomeReserve((int)($bot['pop'] ?? 50));
+
+        $unitsRow = $database->query_return("SELECT * FROM " . TB_PREFIX . "units WHERE vref = $wid LIMIT 1");
+        if (empty($unitsRow[0])) return null;
+        $uRow = $unitsRow[0];
+
+        $offensiveUnits = self::getOffensiveUnits($tribe, true); // includes rams & catapults
+        $basicUnit = self::getTribeBasicUnit($tribe);
+        $homeBasic = (int)($uRow['u' . $basicUnit] ?? 0);
+        $availBasic = max(0, $homeBasic - $homeReserve);
+
+        $dispatched = [];
+        $dispatchedSpeeds = [];
+        $totalEscort = 0;
+
+        foreach ($offensiveUnits as $uNum) {
+            if ($uNum === $chiefUnit || $uNum === $settlerUnit) continue;
+            $cnt = (int)($uRow['u' . $uNum] ?? 0);
+            if ($uNum === $basicUnit) {
+                $cnt = $availBasic;
+            }
+            if ($cnt > 0) {
+                $dispatched[$uNum] = $cnt;
+                $dispatchedSpeeds[] = self::getUnitSpeed($uNum);
+                $totalEscort += $cnt;
+            }
+        }
+
+        if ($totalEscort < $minEscort) {
+            return "Chief ready at home, amassing escort army: {$totalEscort}/{$minEscort} combat troops ready (preserving {$homeReserve} garrison reserve)";
+        }
+
+        // 9. Target Village Selection
+        $fromCoor = $database->getCoor($wid);
+        if (!$fromCoor) return null;
+        $fromX = (int)$fromCoor['x'];
+        $fromY = (int)$fromCoor['y'];
+
+        $maxDist = (float)self::getConfig('BOT_AI_CONQUEST_MAX_DISTANCE', 35.0);
+        $prioritizePlayers = (bool)self::getConfig('BOT_AI_CONQUEST_PRIORITIZE_PLAYERS', true);
+        $botAlliance = (int)($bot['alliance'] ?? 0);
+
+        $candidates = $database->query_return("
+            SELECT v.wref, v.name as vname, v.owner, v.pop, v.capital, v.loyalty,
+                   u.username, u.tribe as dtribe, u.alliance as dally, u.access, u.protect, u.is_bot, u.email, u.desc1, u.desc2,
+                   (SELECT COUNT(*) FROM " . TB_PREFIX . "vdata WHERE owner = v.owner) as owner_villages
+            FROM " . TB_PREFIX . "vdata v
+            JOIN " . TB_PREFIX . "users u ON v.owner = u.id
+            WHERE v.wref != $wid
+              AND v.owner != $uid
+              AND v.capital = 0
+              AND v.name != 'WW Buildingplan'
+              AND v.owner > 4
+              AND u.access != 0 AND u.access < 8
+              AND (u.protect IS NULL OR u.protect < " . time() . ")
+        ");
+
+        if (empty($candidates)) {
+            return "Chief ready at home with {$totalEscort} escort troops; searching for valid non-capital target villages";
+        }
+
+        $bestCandidate = null;
+        $bestScore = -999999;
+
+        foreach ($candidates as $cand) {
+            $toWid = (int)$cand['wref'];
+            $toCoor = $database->getCoor($toWid);
+            if (!$toCoor) continue;
+            $dist = self::getDistance($fromX, $fromY, (int)$toCoor['x'], (int)$toCoor['y']);
+            if ($dist > $maxDist) continue;
+            if ((int)$cand['owner_villages'] <= 1) continue; // Cannot take player's last village
+
+            if ($botAlliance > 0 && (int)$cand['dally'] === $botAlliance) {
+                continue; // Do not attack alliance members
+            }
+
+            $isBot = (!empty($cand['is_bot']) ||
+                      strpos((string)($cand['email'] ?? ''), '@bot.travianz') !== false ||
+                      strpos((string)($cand['desc1'] ?? ''), '[#BOT]') !== false ||
+                      strpos((string)($cand['desc2'] ?? ''), '[#BOT]') !== false ||
+                      strpos((string)($cand['username'] ?? ''), 'Bot_') === 0);
+
+            $loyalty = (float)($cand['loyalty'] ?? 100);
+
+            $score = 0;
+
+            // 1. TOP PRIORITY: Ongoing conquest!
+            // If loyalty < 100, someone (or this bot) is already reducing loyalty. Lock on until 0%!
+            if ($loyalty < 100) {
+                $score += 50000 + ((100.0 - $loyalty) * 200);
+            }
+
+            // 2. Prioritize non-bot players (real human accounts)
+            if (!$isBot && $prioritizePlayers) {
+                $score += 15000;
+            }
+
+            // 3. Proximity bonus
+            $score += (100 - ($dist * 2));
+
+            // 4. Village development
+            $score += min(500, (int)$cand['pop']);
+
+            if ($score > $bestScore) {
+                $bestScore = $score;
+                $bestCandidate = $cand;
+                $bestCandidate['dist'] = $dist;
+                $bestCandidate['is_bot_target'] = $isBot;
+            }
+        }
+
+        if (!$bestCandidate) {
+            return "Chief ready with {$totalEscort} escort troops; no valid target in range ({$maxDist} tiles)";
+        }
+
+        // 10. Assemble & Dispatch Expedition
+        // Add 1 Chief
+        $dispatched[$chiefUnit] = 1;
+        $dispatchedSpeeds[] = self::getUnitSpeed($chiefUnit);
+
+        // Hero participation: if bot hero is alive and stationed at home
+        $sendHero = 0;
+        if (!empty($uRow['hero']) && (int)$uRow['hero'] > 0) {
+            $hCheck = $database->query_return("SELECT heroid, health, dead FROM " . TB_PREFIX . "hero WHERE uid = $uid AND dead = 0 LIMIT 1");
+            if (!empty($hCheck[0]) && (int)$hCheck[0]['dead'] === 0 && (float)$hCheck[0]['health'] >= 30) {
+                $sendHero = 1;
+            }
+        }
+
+        // Deduct troops from bot village
+        $unitNums = array_keys($dispatched);
+        $amounts = array_values($dispatched);
+        $modes = array_fill(0, count($amounts), 0);
+        $database->modifyUnit($wid, $unitNums, $amounts, $modes);
+        if ($sendHero) {
+            $database->query("UPDATE " . TB_PREFIX . "units SET hero = hero - 1 WHERE vref = $wid AND hero > 0");
+        }
+
+        // Map to t1..t10 for addAttack
+        $t = array_fill(1, 10, 0);
+        $baseUnit = ($tribe - 1) * 10;
+        foreach ($dispatched as $uNum => $cnt) {
+            $slot = $uNum - $baseUnit;
+            if ($slot >= 1 && $slot <= 10) {
+                $t[$slot] = $cnt;
+            }
+        }
+
+        // Catapult targeting: target Residence (25) and Palace (26)
+        $ctar1 = 0;
+        $ctar2 = 0;
+        if (!empty($t[8]) && $t[8] > 0) {
+            $ctar1 = 25; // Residence
+            $ctar2 = 26; // Palace
+        }
+
+        // Travel time based on slowest marching unit
+        $marchSpeed = !empty($dispatchedSpeeds) ? min($dispatchedSpeeds) : 4;
+        $speedMultiplier = defined('INCREASE_SPEED') ? max(1, (float)INCREASE_SPEED) : (defined('SPEED') ? max(1, (float)SPEED) : 1.0);
+        $duration = max(30, (int)round(($bestCandidate['dist'] / $marchSpeed) * 3600 / $speedMultiplier));
+
+        // Create Attack: Normal Attack (type = 3) is REQUIRED for chief loyalty reduction!
+        $attackId = $database->addAttack(
+            $wid,
+            $t[1], $t[2], $t[3], $t[4], $t[5], $t[6], $t[7], $t[8], $t[9], $t[10], $sendHero,
+            3, // Normal Attack (Wajib tipe 3)
+            $ctar1, $ctar2,
+            0
+        );
+
+        if (!$attackId) {
+            // Rollback on failure
+            $database->modifyUnit($wid, $unitNums, $amounts, array_fill(0, count($amounts), 1));
+            if ($sendHero) {
+                $database->query("UPDATE " . TB_PREFIX . "units SET hero = hero + 1 WHERE vref = $wid");
+            }
+            return null;
+        }
+
+        // Dispatch movement (sort_type = 3 for attack)
+        $database->addMovement(
+            3,
+            $wid,
+            $bestCandidate['wref'],
+            $attackId,
+            time(),
+            time() + $duration
+        );
+
+        $targetTypeLabel = $bestCandidate['is_bot_target'] ? "Desa Bot" : "Pemain Manusia";
+        $chiefName = self::getUnitName($chiefUnit);
+        $catStr = (!empty($t[8]) && $t[8] > 0) ? " + {$t[8]} Ketapel (Target: Padepokan/Istana)" : "";
+        $heroStr = $sendHero ? " + Hero" : "";
+
+        return "🚩 Ekspedisi Penaklukan Diberangkatkan! 1 {$chiefName} + {$totalEscort} Pasukan Pengawal{$catStr}{$heroStr} menyerbu {$bestCandidate['vname']} ({$bestCandidate['username']} - {$targetTypeLabel}, Loyalitas: " . round($bestCandidate['loyalty']) . "%) - Jarak: " . round($bestCandidate['dist'], 1) . " kotak (tiba dlm " . round($duration / 60) . " menit)";
+    }
+
+    /**
+     * Get real-time status of Chief conquest progression for ACP dashboard.
+     */
+    public static function getConquestStatus(int $uid, int $wid, int $tribe): array {
+        global $database;
+
+        $userVillages = $database->getProfileVillages($uid);
+        $villageCount = is_array($userVillages) ? count($userVillages) : 1;
+        $maxVillages = (int)self::getConfig('BOT_AI_MAX_VILLAGES', 2);
+        $chiefUnit = self::getChiefUnit($tribe);
+
+        if ($chiefUnit <= 0) {
+            return [
+                'conquest_enabled' => false,
+                'status_text' => 'Nonaktif (Suku tidak memiliki Chief)',
+            ];
+        }
+
+        $chiefName = self::getUnitName($chiefUnit);
+        $acLevel = self::getBuildingLevel($wid, 22);
+        $rpLevel = self::getBuildingLevel($wid, 16);
+        $rsLevel = self::getBuildingLevel($wid, 25);
+        $palaceLevel = self::getBuildingLevel($wid, 26);
+        $ccLevel = self::getBuildingLevel($wid, 44);
+        $rpReq = ($tribe === 2) ? 5 : 10;
+
+        $tdataRow = $database->query_return("SELECT t{$chiefUnit} FROM " . TB_PREFIX . "tdata WHERE vref = $wid LIMIT 1");
+        $isResearched = !empty($tdataRow[0]['t' . $chiefUnit]);
+
+        $resRow = $database->query_return("
+            SELECT id, timestamp FROM " . TB_PREFIX . "research
+            WHERE vref = $wid AND tech = 't{$chiefUnit}'
+            LIMIT 1
+        ");
+        $isResearching = !empty($resRow);
+        $resTime = $isResearching ? max(0, (int)$resRow[0]['timestamp'] - time()) : 0;
+
+        $unitRow = $database->query_return("SELECT u{$chiefUnit} as c FROM " . TB_PREFIX . "units WHERE vref = $wid");
+        $homeChiefs = (int)($unitRow[0]['c'] ?? 0);
+
+        $trainRow = $database->query_return("
+            SELECT amt, timestamp FROM " . TB_PREFIX . "training
+            WHERE vref = $wid AND unit = $chiefUnit
+            ORDER BY timestamp ASC LIMIT 1
+        ");
+        $queuedChiefs = !empty($trainRow) ? (int)$trainRow[0]['amt'] : 0;
+        $trainTime = !empty($trainRow) ? max(0, (int)$trainRow[0]['timestamp'] - time()) : 0;
+
+        $marchingRow = $database->query_return("
+            SELECT m.moveid, m.endtime, w.x, w.y, v.name as target_name
+            FROM " . TB_PREFIX . "movement m
+            JOIN " . TB_PREFIX . "attacks a ON m.ref = a.id
+            LEFT JOIN " . TB_PREFIX . "vdata v ON m.to = v.wref
+            LEFT JOIN " . TB_PREFIX . "wdata w ON m.to = w.id
+            WHERE m.from = $wid AND m.proc = 0 AND a.t9 > 0
+            LIMIT 1
+        ");
+        $inProgress = !empty($marchingRow);
+        $marchTime = $inProgress ? max(0, (int)$marchingRow[0]['endtime'] - time()) : 0;
+
+        $mode = defined('CP') ? (int)CP : 1;
+        global ${'cp' . $mode};
+        if (!isset(${'cp' . $mode})) {
+            @include_once __DIR__ . '/Data/cp.php';
+        }
+        $cpTable = ${'cp' . $mode} ?? $GLOBALS['cp1'] ?? [];
+        $neededCP = (int)($cpTable[$villageCount + 1] ?? 2000);
+        $userCP = (int)$database->getUserField($uid, 'cp', 0);
+
+        $statusText = '';
+        if ($villageCount >= $maxVillages) {
+            $statusText = "✅ Memiliki $villageCount Desa (Maksimal)";
+        } elseif ($inProgress) {
+            $tName = $marchingRow[0]['target_name'] ?? 'Sasaran';
+            $statusText = "⚔️ Menyerbu {$tName} dgn {$chiefName} (" . round($marchTime / 60) . "m)";
+        } elseif ($homeChiefs >= 1) {
+            if ($userCP < $neededCP) {
+                $statusText = "⏳ {$chiefName} Siap (Menunggu CP: " . number_format($userCP) . "/" . number_format($neededCP) . ")";
+            } else {
+                $minEscort = (int)self::getConfig('BOT_AI_CONQUEST_MIN_ESCORT', 80);
+                $statusText = "🚩 {$chiefName} Siap (Mempersiapkan pengawal min {$minEscort} pasukan)";
+            }
+        } elseif ($queuedChiefs > 0) {
+            $statusText = "🔨 Melatih {$chiefName} (" . round($trainTime / 60) . "m)";
+        } elseif ($isResearched) {
+            $statusText = "🏛️ {$chiefName} Diteliti (Menabung bahan pelatihan)";
+        } elseif ($isResearching) {
+            $statusText = "🔬 Riset {$chiefName} di Akademi (" . round($resTime / 60) . "m)";
+        } elseif ($acLevel < 20 || $rpLevel < $rpReq) {
+            $statusText = "🏗️ Prasyarat: Akademi Lvl {$acLevel}/20, Titik Temu Lvl {$rpLevel}/{$rpReq}";
+        } else {
+            $statusText = "📖 Siap Riset {$chiefName} di Akademi";
+        }
+
+        return [
+            'conquest_enabled' => (bool)self::getConfig('BOT_AI_CONQUEST_ENABLED', true),
+            'chief_unit' => $chiefUnit,
+            'chief_name' => $chiefName,
+            'chief_researched' => $isResearched,
+            'chief_researching' => $isResearching,
+            'chiefs_home' => $homeChiefs,
+            'chiefs_queued' => $queuedChiefs,
+            'in_progress' => $inProgress,
             'status_text' => $statusText,
         ];
     }
@@ -3043,8 +3686,11 @@ class BotAI {
      * Attacks are only permitted from 08:00:00 to 19:59:59 server time.
      */
     public static function isNightTime(): bool {
-        $startHour = defined('BOT_AI_ATTACK_START_HOUR') ? (int)BOT_AI_ATTACK_START_HOUR : 8;
-        $endHour   = defined('BOT_AI_ATTACK_END_HOUR') ? (int)BOT_AI_ATTACK_END_HOUR : 20;
+        if (!self::getConfig('BOT_AI_NIGHT_SLEEP_ENABLED', true)) {
+            return false;
+        }
+        $startHour = (int)self::getConfig('BOT_AI_ATTACK_START_HOUR', defined('BOT_AI_ATTACK_START_HOUR') ? (int)BOT_AI_ATTACK_START_HOUR : 8);
+        $endHour   = (int)self::getConfig('BOT_AI_ATTACK_END_HOUR', defined('BOT_AI_ATTACK_END_HOUR') ? (int)BOT_AI_ATTACK_END_HOUR : 20);
         $hour      = (int)date('G');
 
         if ($startHour < $endHour) {
@@ -4423,6 +5069,39 @@ class BotAI {
         // Mounted scouts: Roman (1), Gaul (3), Hun (6), Egyptian (7), Nusantara (10)
         // Foot scouts: Teuton (2), Spartan (8), Viking (9)
         return in_array($tribe, [1, 3, 6, 7, 10]);
+    }
+
+    /**
+     * Resolves the chief unit ID for a given tribe.
+     * Returns 0 for Nature (4) and Natars (5).
+     */
+    public static function getChiefUnit(int $tribe): int {
+        if ($tribe <= 0 || $tribe === 4 || $tribe === 5) {
+            return 0;
+        }
+        return ($tribe * 10) - 1;
+    }
+
+    /**
+     * Determines whether a given user ID belongs to an AI bot account.
+     */
+    public static function isBotUser(int $userId): bool {
+        global $database;
+        if ($userId <= 0) return false;
+        $row = $database->query_return("
+            SELECT id, is_bot, email, desc1, desc2, username
+            FROM " . TB_PREFIX . "users
+            WHERE id = $userId
+            LIMIT 1
+        ");
+        if (empty($row[0])) return false;
+        $u = $row[0];
+        if (!empty($u['is_bot'])) return true;
+        if (strpos((string)($u['email'] ?? ''), '@bot.travianz') !== false) return true;
+        if (strpos((string)($u['desc1'] ?? ''), '[#BOT]') !== false) return true;
+        if (strpos((string)($u['desc2'] ?? ''), '[#BOT]') !== false) return true;
+        if (strpos((string)($u['username'] ?? ''), 'Bot_') === 0) return true;
+        return false;
     }
 
     /**

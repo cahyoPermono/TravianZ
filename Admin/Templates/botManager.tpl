@@ -548,6 +548,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
         $bastionGarrisonFactor = max(0.1, min(1.0, (float)($_POST['bot_bastion_garrison_factor'] ?? 0.35)));
         $bastionWarMobilization = !empty($_POST['bot_bastion_war_mobilization']);
 
+        // Chief Conquest settings (Penaklukan Desa Non-Capital dengan Chief & Pasukan Pengawal)
+        $conquestEnabled = !empty($_POST['bot_conquest_enabled']);
+        $conquestMinEscort = max(20, min(5000, (int)($_POST['bot_conquest_min_escort'] ?? 80)));
+        $conquestMaxDistance = max(5.0, min(500.0, (float)($_POST['bot_conquest_max_distance'] ?? 35.0)));
+        $conquestPrioritizePlayers = !empty($_POST['bot_conquest_prioritize_players']);
+
         $saveSuccess = BotAI::saveConfig([
             'BOT_AI_MAX_POP' => $maxPop,
             'BOT_AI_MAX_BUILDING_LEVEL' => $maxBuildingLvl,
@@ -569,6 +575,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
             'BOT_AI_BASTION_MIN_POP' => $bastionMinPop,
             'BOT_AI_BASTION_GARRISON_FACTOR' => $bastionGarrisonFactor,
             'BOT_AI_BASTION_WAR_MOBILIZATION' => $bastionWarMobilization,
+            'BOT_AI_CONQUEST_ENABLED' => $conquestEnabled,
+            'BOT_AI_CONQUEST_MIN_ESCORT' => $conquestMinEscort,
+            'BOT_AI_CONQUEST_MAX_DISTANCE' => $conquestMaxDistance,
+            'BOT_AI_CONQUEST_PRIORITIZE_PLAYERS' => $conquestPrioritizePlayers,
         ]);
 
         if ($saveSuccess) {
@@ -577,6 +587,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
                 . "• Batas Level Bangunan: <b>Level $maxBuildingLvl</b><br>"
                 . "• Batas Kuota Desa: <b>Maks $maxVillages Desa / Bot</b><br>"
                 . "• Rasio Pasukan: <b>" . ($troopPopFactor * 100) . "%</b> dari populasi desa (Maks: <b>$maxArmy</b> unit/desa)<br>"
+                . "• Penaklukan Desa (Chief Conquest): <b>" . ($conquestEnabled ? "Aktif" : "Nonaktif") . "</b> (Min Pengawal: <b>$conquestMinEscort</b> prajurit, Radius: <b>$conquestMaxDistance</b> kotak, Prioritas Pemain: <b>" . ($conquestPrioritizePlayers ? "Ya" : "Tidak") . "</b>)<br>"
                 . "• Bantuan Bertahan Aliansi: <b>" . ($allianceDefenseEnabled ? "Aktif (Solid & Tanggap)" : "Nonaktif") . "</b><br>"
                 . "• Mobilisasi saat Kawan Diserang: <b>" . ($defenseRatioActive * 100) . "%</b> pasukan cadangan (Maks <b>$defenseMaxCap</b> unit/bot, Kuota: <b>$maxHelpers</b> bot penolong/desa)<br>"
                 . "• Filter Unit Pertahanan Murni: <b>" . ($pureDefOnly ? "Aktif (Hanya spesialis defense; cegah Clubswinger/Axeman mati sia-sia)" : "Nonaktif") . "</b><br>"
@@ -621,6 +632,12 @@ $currentBastionMinTroops = (int)BotAI::getConfig('BOT_AI_BASTION_MIN_ATTACK_TROO
 $currentBastionMinPop = (int)BotAI::getConfig('BOT_AI_BASTION_MIN_POP', 80);
 $currentBastionGarrisonFactor = (float)BotAI::getConfig('BOT_AI_BASTION_GARRISON_FACTOR', 0.35);
 $currentBastionWarMobilization = !empty(BotAI::getConfig('BOT_AI_BASTION_WAR_MOBILIZATION', true));
+
+// Current Chief Conquest Configurations
+$currentConquestEnabled = !empty(BotAI::getConfig('BOT_AI_CONQUEST_ENABLED', true));
+$currentConquestMinEscort = (int)BotAI::getConfig('BOT_AI_CONQUEST_MIN_ESCORT', 80);
+$currentConquestMaxDist = (float)BotAI::getConfig('BOT_AI_CONQUEST_MAX_DISTANCE', 35.0);
+$currentConquestPrioritizePlayers = !empty(BotAI::getConfig('BOT_AI_CONQUEST_PRIORITIZE_PLAYERS', true));
 
 $botsQuery = "
     SELECT u.id, u.username, u.tribe, u.regtime, u.desc1, u.alliance,
@@ -1118,6 +1135,40 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
                         </span>
                         <span style="font-size:10px; color:#6ee7b7; display:block; margin-top:2px;">
                             Jika dicentang, bot yang memenuhi syarat akan mendirikan desa baru secara otomatis dan natural sesuai kuota maksimal desa.
+                        </span>
+                    </div>
+                </div>
+
+                <div class="botm-form-group">
+                    <label>Fitur Penaklukan Desa (Chief Conquest AI):</label>
+                    <div style="background:#0f172a; padding:10px 12px; border-radius:6px; border:1px solid #1e293b; margin-top:2px;">
+                        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:#f8fafc; font-weight:bold; font-size:12px;">
+                            <input type="checkbox" name="bot_conquest_enabled" value="1" <?php echo $currentConquestEnabled ? 'checked' : ''; ?> style="width:16px; height:16px; cursor:pointer;">
+                            <span>Aktifkan Penaklukan Desa dengan Chief / Senator / Patih (Maks <?php echo $currentMaxVil; ?> Desa / Bot)</span>
+                        </label>
+                        <span style="font-size:10px; color:<?php echo $currentConquestEnabled ? '#34d399' : '#f87171'; ?>; display:block; margin-top:4px;">
+                            📌 <b>Settingan Aktif Saat Ini:</b> <?php echo $currentConquestEnabled ? '🟢 AKTIF (Bot meneliti Chief, melatih di Padepokan, dan merebut desa non-capital)' : '🔴 NONAKTIF (Bot tidak akan merebut desa dengan Chief)'; ?>
+                        </span>
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px;">
+                            <div>
+                                <label style="font-size:11px; color:#94a3b8; display:block; margin-bottom:3px;">Minimal Pasukan Pengawal Chief:</label>
+                                <input type="number" name="bot_conquest_min_escort" class="botm-form-control" value="<?php echo $currentConquestMinEscort; ?>" min="20" max="5000" style="padding:4px 8px; font-size:12px;" required>
+                                <span style="font-size:9px; color:#64748b;">Memastikan Chief didampingi pasukan tempur agar tidak gugur di pertempuran.</span>
+                            </div>
+                            <div>
+                                <label style="font-size:11px; color:#94a3b8; display:block; margin-bottom:3px;">Radius Jarak Sasaran Maksimal (Kotak):</label>
+                                <input type="number" step="0.5" name="bot_conquest_max_distance" class="botm-form-control" value="<?php echo $currentConquestMaxDist; ?>" min="5" max="500" style="padding:4px 8px; font-size:12px;" required>
+                                <span style="font-size:9px; color:#64748b;">Jarak maksimal desa target yang akan diserang dengan Chief.</span>
+                            </div>
+                        </div>
+                        <div style="margin-top:8px;">
+                            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; color:#cbd5e1; font-size:11px;">
+                                <input type="checkbox" name="bot_conquest_prioritize_players" value="1" <?php echo $currentConquestPrioritizePlayers ? 'checked' : ''; ?> style="width:14px; height:14px; cursor:pointer;">
+                                <span>Prioritaskan merebut desa pemain manusia (bukan sesama bot)</span>
+                            </label>
+                        </div>
+                        <span style="font-size:10px; color:#93c5fd; display:block; margin-top:6px; line-height:1.4;">
+                            🛡️ <b>Mekanisme Alami 100%:</b> Bot wajib mencapai Akademi Lvl 20 &amp; Titik Temu Lvl 10 (Lvl 5 Teuton), meneliti Chief, melatih di Padepokan/Istana dengan SDA asli &amp; CP, menyertakan Ketapel target Padepokan/Istana, dan <b>hanya menyerang desa NON-CAPITAL</b> dari pemilik yang memiliki &gt; 1 desa.
                         </span>
                     </div>
                 </div>
@@ -1780,6 +1831,14 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
                                     <div style="font-size:10px; color:#cbd5e1; line-height:1.4;">
                                         <?php echo htmlspecialchars($expStatus['status_text'] ?? '-'); ?>
                                     </div>
+                                    <?php
+                                        $conqStatus = BotAI::getConquestStatus((int)$b['id'], (int)($b['wref'] ?? 0), $tNum);
+                                        if (!empty($conqStatus['status_text']) && $conqStatus['status_text'] !== ($expStatus['status_text'] ?? '')):
+                                    ?>
+                                        <div style="font-size:10px; color:#f8fafc; line-height:1.4; margin-top:3px; padding-top:2px; border-top:1px dashed #334155;">
+                                            <?php echo htmlspecialchars($conqStatus['status_text']); ?>
+                                        </div>
+                                    <?php endif; ?>
                                     <div style="font-size:9px; color:#64748b; margin-top:2px;">
                                         CP: <b style="color:#f59e0b;"><?php echo number_format($expStatus['cp'] ?? 0); ?></b> / <?php echo number_format($expStatus['cp_needed'] ?? 2000); ?>
                                     </div>
