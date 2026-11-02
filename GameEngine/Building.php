@@ -1615,6 +1615,11 @@ class Building {
 
     self::recountCP($this->db, $this->vil->wid);
 
+    // Recalculate training queues if any military building was finished
+    if (isset($technology) && method_exists($technology, 'recalculateTrainingQueue')) {
+        $technology->recalculateTrainingQueue($this->vil->wid);
+    }
+
     header('Location: '.(
         $redirect_url
             ? $redirect_url

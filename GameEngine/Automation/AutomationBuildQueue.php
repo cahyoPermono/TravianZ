@@ -100,6 +100,14 @@ trait AutomationBuildQueue {
                     }
                 }
 
+                // Recalculate training queues if a military training building was upgraded
+                if (in_array($indi['type'], [19, 20, 21, 25, 26, 29, 30, 36, 41, 44, 49])) {
+                    global $technology;
+                    if (isset($technology) && method_exists($technology, 'recalculateTrainingQueue')) {
+                        $technology->recalculateTrainingQueue((int)$indi['wid'], (int)$indi['type']);
+                    }
+                }
+
                 $dbIdsToDelete[] = (int) $indi['id'];
             }
 
@@ -253,6 +261,13 @@ trait AutomationBuildQueue {
                 $database->delDemolition($vil['vref'], true);
 
                 if ($type == 18) Automation::updateMax($database->getVillageField($vil['vref'], 'owner'));
+
+                if (in_array($type, [19, 20, 21, 25, 26, 29, 30, 36, 41, 44, 49])) {
+                    global $technology;
+                    if (isset($technology) && method_exists($technology, 'recalculateTrainingQueue')) {
+                        $technology->recalculateTrainingQueue((int)$vil['vref'], (int)$type);
+                    }
+                }
             }
         }
 

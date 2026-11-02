@@ -182,6 +182,12 @@ class Technology {
 
 	public function getTrainingList($type) {
 		global $database, $village, $session;
+		if (!empty($village->wid)) {
+			// Auto-recalculate training queue if building level was upgraded
+			$typeToBuilding = [1 => 19, 2 => 20, 3 => 21, 4 => 25, 5 => 29, 6 => 30, 7 => 49, 8 => 36];
+			$buildingGid = $typeToBuilding[$type] ?? 0;
+			$this->recalculateTrainingQueue($village->wid, $buildingGid);
+		}
 		$trainingarray = !empty($village->wid) ? $database->getTraining($village->wid) : [];
 		$listarray = [];
 
@@ -648,88 +654,129 @@ class Technology {
 		return true;
 	}
 
-	private function getTrainingTime($unit, $great) {
-		global $building, ${'u'.$unit}, $u99_trap, $bid19, $bid20, $bid21, $bid25, $bid26, $bid29, $bid30, $bid41, $bid44, $bid49, $session, $village;
-		
+	public function getTrainingTime($unit, $great = false, $vid = 0) {
+		global $building, $database, $session, $village;
+		global $bid19, $bid20, $bid21, $bid25, $bid26, $bid29, $bid30, $bid41, $bid44, $bid49;
+		global ${'u'.$unit}, $u99_trap;
+
+		if (!isset(${'u'.$unit})) {
+			@include_once __DIR__ . '/Data/unitdata.php';
+		}
+		if (!isset($bid19)) {
+			@include_once __DIR__ . '/Data/buidata.php';
+		}
+
+		$effectiveVid = $vid > 0 ? (int)$vid : (int)($village->wid ?? 0);
+
+		$getLevel = function($gid) use ($effectiveVid, $building, $database) {
+			if ($effectiveVid > 0) {
+				if (isset($building) && is_object($building) && method_exists($building, 'getTypeLevel')) {
+					$l = (int)$building->getTypeLevel($gid, $effectiveVid);
+					if ($l > 0) return $l;
+				}
+				if (isset($database) && is_object($database) && method_exists($database, 'getFieldLevelInVillage')) {
+					return (int)$database->getFieldLevelInVillage($effectiveVid, $gid);
+				}
+			}
+			if (isset($building) && is_object($building) && method_exists($building, 'getTypeLevel')) {
+				return (int)$building->getTypeLevel($gid);
+			}
+			return 0;
+		};
+
 		$footies = [1, 2, 3, 11, 12, 13, 14, 21, 22, 31, 32, 33, 34, 41, 42, 43, 44, 51, 52, 61, 62, 63, 71, 72, 73, 74, 81, 82, 83, 84, 91, 92, 93];
 		$calvary = [4, 5, 6, 15, 16, 23, 24, 25, 26, 35, 36, 45, 46, 53, 54, 55, 56, 64, 65, 66, 75, 76, 85, 86, 94, 95, 96];
 		$workshop = [7, 8, 17, 18, 27, 28, 37, 38, 47, 48, 57, 58, 67, 68, 77, 78, 87, 88, 97, 98];
-		$effectiveTribe = (int)($village->tribe ?? $session->tribe ?? 1);
-		$isTrap = ($unit == 99 && ($effectiveTribe == 3 || (isset($building) && $building->getTypeLevel(36) > 0)));
 		$special = [9, 10, 19, 20, 29, 30, 39, 40, 49, 50, 59, 60, 69, 70, 79, 80, 89, 90, 100];
+
+		$effectiveTribe = 0;
+		if ($effectiveVid > 0 && isset($database) && method_exists($database, 'getVillageField')) {
+			$effectiveTribe = (int)$database->getVillageField($effectiveVid, 'tribe');
+			if ($effectiveTribe <= 0) {
+				$ownerUid = (int)$database->getVillageField($effectiveVid, 'owner');
+				if ($ownerUid > 0 && method_exists($database, 'getUserField')) {
+					$effectiveTribe = (int)$database->getUserField($ownerUid, 'tribe', 0);
+				}
+			}
+		}
+		if ($effectiveTribe <= 0) {
+			$effectiveTribe = (int)($village->tribe ?? $session->tribe ?? 1);
+		}
+
+		$isTrap = ($unit == 99 && ($effectiveTribe == 3 || $getLevel(36) > 0));
 		if(!$isTrap) { $special[] = 99; }
 		$trapper = $isTrap ? [99] : [];
-		
+
+		$speed = defined('SPEED') && SPEED > 0 ? (float)SPEED : 1.0;
+		$baseUnitTime = isset(${'u'.$unit}['time']) ? (float)${'u'.$unit}['time'] : 1000.0;
+		$each = $baseUnitTime / $speed;
+
 		if(in_array($unit, $footies)) {		    
 			if($great) {
-				$each = round(($bid29[$building->getTypeLevel(29)]['attri'] / 100) * ${'u'.$unit}['time'] / SPEED);
+				$lvl = $getLevel(29);
+				$attri = isset($bid29[$lvl]['attri']) ? $bid29[$lvl]['attri'] : 100;
+				$each = round(($attri / 100) * $baseUnitTime / $speed);
 			} else {
-				$each = round(($bid19[$building->getTypeLevel(19)]['attri'] / 100) * ${'u'.$unit}['time'] / SPEED);
+				$lvl = $getLevel(19);
+				$attri = isset($bid19[$lvl]['attri']) ? $bid19[$lvl]['attri'] : 100;
+				$each = round(($attri / 100) * $baseUnitTime / $speed);
 			}
-		}
-		if(in_array($unit, $calvary)) {		    
+		} elseif(in_array($unit, $calvary)) {		    
+			$hdtLvl = $getLevel(41);
+			$hdtMult = ($hdtLvl >= 1 && isset($bid41[$hdtLvl]['attri']) && $bid41[$hdtLvl]['attri'] > 0) ? (1.0 / $bid41[$hdtLvl]['attri']) : 1.0;
 			if($great) {
-				$each = round(($bid30[$building->getTypeLevel(30)]['attri'] * ($building->getTypeLevel(41)>=1?(1/$bid41[$building->getTypeLevel(41)]['attri']):1) / 100) * ${'u'.$unit}['time'] / SPEED);
+				$lvl = $getLevel(30);
+				$attri = isset($bid30[$lvl]['attri']) ? $bid30[$lvl]['attri'] : 100;
+				$each = round(($attri * $hdtMult / 100) * $baseUnitTime / $speed);
 			} else {
-				$each = round(($bid20[$building->getTypeLevel(20)]['attri'] * ($building->getTypeLevel(41)>=1?(1/$bid41[$building->getTypeLevel(41)]['attri']):1) / 100) * ${'u'.$unit}['time'] / SPEED);
+				$lvl = $getLevel(20);
+				$attri = isset($bid20[$lvl]['attri']) ? $bid20[$lvl]['attri'] : 100;
+				$each = round(($attri * $hdtMult / 100) * $baseUnitTime / $speed);
 			}
-		}
-		if(in_array($unit, $workshop)) {	    
+		} elseif(in_array($unit, $workshop)) {	    
 			if($great) {
-				$each = round(($bid49[$building->getTypeLevel(49)]['attri'] / 100) * ${'u'.$unit}['time'] / SPEED);
+				$lvl = $getLevel(49);
+				$attri = isset($bid49[$lvl]['attri']) ? $bid49[$lvl]['attri'] : 100;
+				$each = round(($attri / 100) * $baseUnitTime / $speed);
 			} else {
-				$each = round(($bid21[$building->getTypeLevel(21)]['attri'] / 100) * ${'u'.$unit}['time'] / SPEED);
+				$lvl = $getLevel(21);
+				$attri = isset($bid21[$lvl]['attri']) ? $bid21[$lvl]['attri'] : 100;
+				$each = round(($attri / 100) * $baseUnitTime / $speed);
 			}
-		}
-		if(in_array($unit, $special)) {			    
-			if($building->getTypeLevel(25) > 0){
-				$each = round(($bid25[$building->getTypeLevel(25)]['attri'] / 100) * ${'u'.$unit}['time'] / SPEED);
-			} elseif($building->getTypeLevel(26) > 0) {
-				$each = round(($bid26[$building->getTypeLevel(26)]['attri'] / 100) * ${'u'.$unit}['time'] / SPEED);
+		} elseif(in_array($unit, $special)) {			    
+			if($getLevel(25) > 0){
+				$lvl = $getLevel(25);
+				$attri = isset($bid25[$lvl]['attri']) ? $bid25[$lvl]['attri'] : 100;
+				$each = round(($attri / 100) * $baseUnitTime / $speed);
+			} elseif($getLevel(26) > 0) {
+				$lvl = $getLevel(26);
+				$attri = isset($bid26[$lvl]['attri']) ? $bid26[$lvl]['attri'] : 100;
+				$each = round(($attri / 100) * $baseUnitTime / $speed);
 			} else {
-				// Command Center (Huni) - alternativa la Residence/Palace
-				$each = round(($bid44[$building->getTypeLevel(44)]['attri'] / 100) * ${'u'.$unit}['time'] / SPEED);
+				$lvl = $getLevel(44);
+				$attri = isset($bid44[$lvl]['attri']) ? $bid44[$lvl]['attri'] : 100;
+				$each = round(($attri / 100) * $baseUnitTime / $speed);
 			}
+		} elseif(in_array($unit, $trapper)) {
+			$trapTime = $u99_trap['time'] ?? 600;
+			$lvl = $getLevel(36);
+			$attri = isset($bid19[$lvl]['attri']) ? $bid19[$lvl]['attri'] : 100;
+			$each = round(($attri / 100) * $trapTime / $speed);
 		}
-		if(in_array($unit, $trapper)) {
-				$trapTime = $u99_trap['time'] ?? 600;
-				$each = round(($bid19[$building->getTypeLevel(36)]['attri'] / 100) * $trapTime / SPEED);
-		}	
-		
-		// FIX: bonusurile de instruire ale eroului (coifuri) nu erau aplicate
-		// NICAIERI - HB_TRAIN_INF si HB_TRAIN_CAV existau doar in definitia
-		// itemelor si in agregarea din HeroItems::getBonuses(), deci "Helmet of
-		// the Ruler" (-20% infanterie) sau "Helmet of the Heavy Cavalry" (-20%
-		// cavalerie) nu schimbau timpul cu nimic.
-		//
-		// Se aplica dupa formula cladirii, pe acelasi $each, deci merge identic
-		// in cazarma/grajd normale si in cele mari (Great Barracks/Great Stable),
-		// fiindca ramura e aleasa dupa TIPUL unitatii, nu dupa cladire.
-		// Nu se aplica la atelier, unitati speciale sau capcane - la fel ca in T4.
-		// FIX: artefactele de instruire (kind 5) erau aplicate DOAR la afisare,
-		// in sabloane - trainUnit() nu le folosea deloc. Un jucator cu artefact
-		// vedea jumatate din timp, dar trupele se antrenau in timpul intreg.
-		// Se aplica pe timpul dat de cladire, inaintea bonusurilor de erou si
-		// alianta, exact in ordinea in care sabloanele afisau pana acum.
-		$each = $this->applyArtifactTrainingBonus($each);
 
-		$each = $this->applyHeroTrainingBonus($each, $unit, $footies, $calvary);
-
-		// Bonusul de alianta "Recruitment": instruire mai rapida in toate
-		// cladirile de trupe. Se inmulteste cu bonusul eroului, ca in T4 (coiful
-		// mercenarului si bonusul de alianta se cumuleaza multiplicativ).
-		$each = $this->applyAllianceRecruitmentBonus($each);
+		$each = $this->applyArtifactTrainingBonus($each, $effectiveVid);
+		$each = $this->applyHeroTrainingBonus($each, $unit, $footies, $calvary, $effectiveVid);
+		$each = $this->applyAllianceRecruitmentBonus($each, $effectiveVid);
 
 		// Wabah Pestilensi Medan Tempur: waktu latih melambat +25% (1.25x)
 		if (file_exists(__DIR__ . '/Plague.php')) {
 			require_once __DIR__ . '/Plague.php';
-			global $village;
-			if (isset($village->wid) && $village->wid > 0) {
-				$each = (int)round($each * Plague::getTrainingTimeMultiplier((int)$village->wid));
+			if ($effectiveVid > 0) {
+				$each = (int)round($each * Plague::getTrainingTimeMultiplier((int)$effectiveVid));
 			}
 		}
 
-		return $each;
+		return (int)max(1, $each);
 	}
 
 	/**
@@ -907,20 +954,21 @@ class Technology {
 	* fie corect si cand codul ruleaza in alt context (cron, sitter, admin).
 	*/
 
-	private function applyArtifactTrainingBonus($each) {
+	private function applyArtifactTrainingBonus($each, $vid = 0) {
 		global $village, $database;
 
-		if (!$database || !isset($village->wid)) {
+		$targetVid = $vid > 0 ? (int)$vid : (int)($village->wid ?? 0);
+		if (!$database || $targetVid <= 0 || !method_exists($database, 'getVillageField') || !method_exists($database, 'getArtifactsValueInfluence')) {
 			return $each;
 		}
 
-		$uid = (int) $database->getVillageField($village->wid, 'owner');
+		$uid = (int) $database->getVillageField($targetVid, 'owner');
 
 		if ($uid <= 0) {
 			return $each;
 		}
 
-		$out = (int) $database->getArtifactsValueInfluence($uid, $village->wid, 5, $each);
+		$out = (int) $database->getArtifactsValueInfluence($uid, $targetVid, 5, $each);
 
 		return $out > 0 ? $out : 1;
 	}
@@ -932,16 +980,16 @@ class Technology {
 	* fie corect si cand codul ruleaza in alt context (cron, sitter).
 	*/
 	
-	private function applyAllianceRecruitmentBonus($each) {
+	private function applyAllianceRecruitmentBonus($each, $vid = 0) {
 		global $village, $database;
 
 		if (!class_exists('AllianceBonus') || !AllianceBonus::enabled()) {
 			return $each;
 		}
 
-		// acelasi mod de a afla proprietarul ca la bonusul de erou de mai jos
-		$owner = (isset($village->wid) && $database)
-			? (int) $database->getVillageField($village->wid, 'owner')
+		$targetVid = $vid > 0 ? (int)$vid : (int)($village->wid ?? 0);
+		$owner = ($targetVid > 0 && $database && method_exists($database, 'getVillageField'))
+			? (int) $database->getVillageField($targetVid, 'owner')
 			: 0;
 
 		if ($owner <= 0) {
@@ -967,19 +1015,16 @@ class Technology {
 	* cache per request, si intoarce null cand sistemul T4 e oprit.
 	*/
 
-	private function applyHeroTrainingBonus($each, $unit, array $footies, array $calvary) {
+	private function applyHeroTrainingBonus($each, $unit, array $footies, array $calvary, $vid = 0) {
 		global $village, $database;
 
 		if (!class_exists('HeroBattleBonus') || !HeroBattleBonus::enabled()) {
 			return $each;
 		}
 
-		// Proprietarul satului in care se instruieste, NU utilizatorul din
-		// sesiune: asa bonusul e corect si cand un admin lucreaza pe satul
-		// altui jucator (conteaza eroul proprietarului, nu al adminului).
-		// getVillageField e cache-uit per request, deci nu adauga query-uri.
-		$uid = (isset($village->wid) && $database)
-			? (int) $database->getVillageField($village->wid, 'owner')
+		$targetVid = $vid > 0 ? (int)$vid : (int)($village->wid ?? 0);
+		$uid = ($targetVid > 0 && $database && method_exists($database, 'getVillageField'))
+			? (int) $database->getVillageField($targetVid, 'owner')
 			: 0;
 
 		if ($uid <= 0) {
@@ -1309,6 +1354,171 @@ class Technology {
             $database->deleteReinf($id);
         }
 
+	}
+
+	/**
+	 * Recalculate ongoing training queue timestamps and eachtime for a village.
+	 * Triggered when a training building is upgraded (or opened), ensuring that
+	 * troops in training immediately benefit from the faster training speed of the new level.
+	 *
+	 * @param int $vid Village ID
+	 * @param int $buildingType Specific building GID (19, 20, 21, 25, 26, 29, 30, 36, 41, 44, 49) or 0 for all
+	 * @return int Number of training rows updated
+	 */
+	public function recalculateTrainingQueue($vid, $buildingType = 0) {
+		global $database;
+
+		$vid = (int)$vid;
+		if ($vid <= 0 || !isset($database) || !method_exists($database, 'getTraining') || !method_exists($database, 'query')) {
+			return 0;
+		}
+
+		$trainingarray = $database->getTraining($vid);
+		if (empty($trainingarray) || !is_array($trainingarray)) {
+			return 0;
+		}
+
+		// Ensure unit and building data are loaded
+		@include_once __DIR__ . '/Data/unitdata.php';
+		@include_once __DIR__ . '/Data/buidata.php';
+
+		$footies = [1, 2, 3, 11, 12, 13, 14, 21, 22, 31, 32, 33, 34, 41, 42, 43, 44, 51, 52, 61, 62, 63, 71, 72, 73, 74, 81, 82, 83, 84, 91, 92, 93];
+		$calvary = [4, 5, 6, 15, 16, 23, 24, 25, 26, 35, 36, 45, 46, 53, 54, 55, 56, 64, 65, 66, 75, 76, 85, 86, 94, 95, 96];
+		$workshop = [7, 8, 17, 18, 27, 28, 37, 38, 47, 48, 57, 58, 67, 68, 77, 78, 87, 88, 97, 98];
+		$special = [9, 10, 19, 20, 29, 30, 39, 40, 49, 50, 59, 60, 69, 70, 79, 80, 89, 90, 100];
+
+		$ownerTribe = 0;
+		if (method_exists($database, 'getVillageField')) {
+			$ownerTribe = (int)$database->getVillageField($vid, "tribe");
+			if ($ownerTribe <= 0) {
+				$uid = (int)$database->getVillageField($vid, "owner");
+				if ($uid > 0 && method_exists($database, 'getUserField')) {
+					$ownerTribe = (int)$database->getUserField($uid, "tribe", 0);
+				}
+			}
+		}
+		if ($ownerTribe !== 3) {
+			$special[] = 99;
+		}
+
+		// Group training rows by queue track / building queue:
+		// Track 1: Barracks (footies, normal)
+		// Track 2: Stables (calvary, normal)
+		// Track 3: Workshop (workshop, normal)
+		// Track 4: Residence / Palace / Command Center (special)
+		// Track 5: Great Barracks (footies + 1000)
+		// Track 6: Great Stables (calvary + 1000)
+		// Track 7: Great Workshop (workshop + 1000)
+		// Track 8: Trapper (trap)
+		$tracks = [];
+		foreach ($trainingarray as $train) {
+			$unit = (int)$train['unit'];
+			$isGreat = ($unit > 1000 && $unit != 99);
+			$baseUnit = $isGreat ? $unit - 1000 : $unit;
+
+			$trackId = 0;
+			if ($baseUnit == 99 && $ownerTribe == 3) {
+				$trackId = 8;
+			} elseif (in_array($baseUnit, $special)) {
+				$trackId = 4;
+			} elseif (in_array($baseUnit, $workshop)) {
+				$trackId = $isGreat ? 7 : 3;
+			} elseif (in_array($baseUnit, $calvary)) {
+				$trackId = $isGreat ? 6 : 2;
+			} elseif (in_array($baseUnit, $footies)) {
+				$trackId = $isGreat ? 5 : 1;
+			}
+
+			if ($trackId > 0) {
+				$tracks[$trackId][] = $train;
+			}
+		}
+
+		// Filter tracks if buildingType specified
+		$targetTracks = [];
+		if ($buildingType > 0) {
+			switch ((int)$buildingType) {
+				case 19: $targetTracks = [1]; break;
+				case 20: $targetTracks = [2]; break;
+				case 21: $targetTracks = [3]; break;
+				case 25: case 26: case 44: $targetTracks = [4]; break;
+				case 29: $targetTracks = [5]; break;
+				case 30: $targetTracks = [6]; break;
+				case 41: $targetTracks = [2, 6]; break;
+				case 49: $targetTracks = [7]; break;
+				case 36: $targetTracks = [8]; break;
+				default: $targetTracks = array_keys($tracks); break;
+			}
+		} else {
+			$targetTracks = array_keys($tracks);
+		}
+
+		$now = time();
+		$updatedCount = 0;
+
+		foreach ($targetTracks as $trackId) {
+			if (empty($tracks[$trackId])) {
+				continue;
+			}
+
+			$queueItems = $tracks[$trackId];
+			$chainEnd = 0;
+
+			foreach ($queueItems as $index => $train) {
+				$unit = (int)$train['unit'];
+				$amt = (int)$train['amt'];
+				if ($amt <= 0) {
+					continue;
+				}
+
+				$isGreat = ($unit > 1000 && $unit != 99);
+				$baseUnit = $isGreat ? $unit - 1000 : $unit;
+
+				$newEach = (int)$this->getTrainingTime($baseUnit, $isGreat, $vid);
+				if ($newEach <= 0) {
+					$newEach = 1;
+				}
+
+				$oldEach = max(1, (int)$train['eachtime']);
+				$oldTimestamp = (int)$train['timestamp'];
+				$oldTimestamp2 = (int)$train['timestamp2'];
+
+				if ($index === 0) {
+					// First batch currently in training
+					$remCurr = $oldTimestamp2 - $now;
+					if ($remCurr <= 0) {
+						// Overdue or ready right now
+						$remForFirst = 0;
+						$newTimestamp2 = $now;
+					} else {
+						$elapsed = max(0, $oldEach - $remCurr);
+						$progressRatio = min(0.99, max(0.0, (float)$elapsed / (float)$oldEach));
+						$remForFirst = max(1, (int)round((1.0 - $progressRatio) * (float)$newEach));
+						$newTimestamp2 = $now + $remForFirst;
+					}
+
+					$totalBatchDuration = $remForFirst + (($amt - 1) * $newEach);
+					$newTimestamp = $now + $totalBatchDuration;
+					$chainEnd = $newTimestamp;
+				} else {
+					// Subsequent batches queued behind
+					if ($chainEnd <= 0) {
+						$chainEnd = $now;
+					}
+					$newTimestamp2 = $chainEnd + $newEach;
+					$newTimestamp = $chainEnd + ($amt * $newEach);
+					$chainEnd = $newTimestamp;
+				}
+
+				// Only update if changed
+				if ($newEach != $oldEach || $newTimestamp != $oldTimestamp || $newTimestamp2 != $oldTimestamp2) {
+					$database->query("UPDATE " . TB_PREFIX . "training SET eachtime = $newEach, timestamp = $newTimestamp, timestamp2 = $newTimestamp2 WHERE id = " . (int)$train['id']);
+					$updatedCount++;
+				}
+			}
+		}
+
+		return $updatedCount;
 	}
 
 }

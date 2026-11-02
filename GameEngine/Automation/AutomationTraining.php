@@ -93,6 +93,24 @@ trait AutomationTraining {
         $time = time();
         $trainlist = $database->getTrainingList();
         if(count($trainlist) > 0){
+            // Ensure any active training queue has up-to-date speed after building upgrades
+            if (isset($technology) && method_exists($technology, 'recalculateTrainingQueue')) {
+                $checkedVids = [];
+                $needsReload = false;
+                foreach($trainlist as $train) {
+                    $tvref = (int)$train['vref'];
+                    if (!isset($checkedVids[$tvref])) {
+                        $checkedVids[$tvref] = true;
+                        if ($technology->recalculateTrainingQueue($tvref) > 0) {
+                            $needsReload = true;
+                        }
+                    }
+                }
+                if ($needsReload) {
+                    $trainlist = $database->getTrainingList();
+                }
+            }
+
             // preload village data
             $vilIDs = [];
             foreach($trainlist as $train){
