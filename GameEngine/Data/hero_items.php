@@ -62,7 +62,6 @@ if (!defined('HB_XP'))             define('HB_XP',             'xp_percent');   
 if (!defined('HB_REGEN_HP'))       define('HB_REGEN_HP',       'regen_hp');         // flat +HP per day
 if (!defined('HB_CP'))             define('HB_CP',             'culture_points');   // flat +culture points per day
 if (!defined('HB_TRAIN_CAV'))      define('HB_TRAIN_CAV',      'train_cavalry');    // -% cavalry training time
-if (!defined('HB_TRAIN_CAV_SPEED')) define('HB_TRAIN_CAV_SPEED', 'train_cavalry_speed'); // +% cavalry training speed
 if (!defined('HB_TRAIN_INF'))      define('HB_TRAIN_INF',      'train_infantry');   // -% infantry training time
 if (!defined('HB_DMG_REDUCE'))     define('HB_DMG_REDUCE',     'damage_reduce');    // flat damage reduction per hit
 if (!defined('HB_TROOP_SPEED_20')) define('HB_TROOP_SPEED_20', 'troop_speed_20');   // +% troop speed beyond 20 tiles
@@ -330,7 +329,7 @@ $heroItemCatalog = array(
     369 => array('name' => "Archer's Kyai Gendewa War Bow", 'slot' => HSLOT_RIGHT, 'tier' => 3, 'unit' => 93, 'bonus' => array(HB_FIGHT => 1500, HB_UNIT_BONUS => array('unit' => 93, 'per_unit' => 5))),
     370 => array('name' => "Cavalry's Light Pedang Sumping",'slot' => HSLOT_RIGHT, 'tier' => 1, 'unit' => 95, 'bonus' => array(HB_FIGHT => 500,  HB_UNIT_BONUS => array('unit' => 95, 'per_unit' => 6))),
     371 => array('name' => "Cavalry's Pedang Sumping",      'slot' => HSLOT_RIGHT, 'tier' => 2, 'unit' => 95, 'bonus' => array(HB_FIGHT => 1000, HB_UNIT_BONUS => array('unit' => 95, 'per_unit' => 8))),
-    372 => array('name' => "Cavalry's Heavy Pedang Sumping",'slot' => HSLOT_RIGHT, 'tier' => 3, 'unit' => 95, 'bonus' => array(HB_FIGHT => 300, HB_TRAIN_CAV_SPEED => 200, HB_UNIT_BONUS => array('unit' => 95, 'per_unit' => 10))),
+    372 => array('name' => "Cavalry's Heavy Pedang Sumping",'slot' => HSLOT_RIGHT, 'tier' => 3, 'unit' => 95, 'bonus' => array(HB_FIGHT => 1500, HB_UNIT_BONUS => array('unit' => 95, 'per_unit' => 10))),
     373 => array('name' => "Bhayangkara's Light Gada Rujakpala", 'slot' => HSLOT_RIGHT, 'tier' => 1, 'unit' => 96, 'bonus' => array(HB_FIGHT => 500,  HB_UNIT_BONUS => array('unit' => 96, 'per_unit' => 9))),
     374 => array('name' => "Bhayangkara's Gada Rujakpala",       'slot' => HSLOT_RIGHT, 'tier' => 2, 'unit' => 96, 'bonus' => array(HB_FIGHT => 1000, HB_UNIT_BONUS => array('unit' => 96, 'per_unit' => 12))),
     375 => array('name' => "Bhayangkara's Great Gada Rujakpala", 'slot' => HSLOT_RIGHT, 'tier' => 3, 'unit' => 96, 'bonus' => array(HB_FIGHT => 1500, HB_UNIT_BONUS => array('unit' => 96, 'per_unit' => 15))),
@@ -460,7 +459,6 @@ if (!function_exists('heroItemBonusText')) {
                 case HB_REGEN_HP:       $parts[] = '+' . $scale($value) . ' ' . $txt('HB_TXT_REGEN', 'HP per day'); break;
                 case HB_CP:             $parts[] = '+' . $scale($value) . ' ' . $txt('HB_TXT_CP', 'culture points per day'); break;
                 case HB_TRAIN_CAV:      $parts[] = '-' . $scale($value) . '% ' . $txt('HB_TXT_TRAIN_CAV', 'cavalry training time'); break;
-                case HB_TRAIN_CAV_SPEED:$parts[] = '+' . $scale($value) . '% ' . $txt('HB_TXT_TRAIN_CAV_SPEED', 'cavalry training speed'); break;
                 case HB_TRAIN_INF:      $parts[] = '-' . $scale($value) . '% ' . $txt('HB_TXT_TRAIN_INF', 'infantry training time'); break;
                 case HB_DMG_REDUCE:     $parts[] = '-' . $scale($value) . ' ' . $txt('HB_TXT_DMG', 'damage taken by the hero'); break;
                 case HB_TROOP_SPEED_20: $parts[] = '+' . $scale($value) . '% ' . $txt('HB_TXT_SPEED20', 'troop speed beyond 20 tiles'); break;
