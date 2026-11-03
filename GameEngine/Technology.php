@@ -41,6 +41,8 @@ if (!$autoloader_found) {
 
 // this is needed for installation, since the lang file would not be included yet
 include_once($autoprefix."GameEngine/Lang/en.php");
+@include_once __DIR__ . "/Data/unitdata.php";
+@include_once __DIR__ . "/Data/buidata.php";
 
 class Technology {
 
@@ -263,11 +265,11 @@ class Technology {
 
 	public function maxUnit($unit,$great=false) {
 		$unitStr = "u" . $unit;
-		global $village, $$unitStr, $database, $session, $building, $u99_trap;
+		global $village, $$unitStr, $database, $session, $building, $u99_trap, $u99_nusantara;
 		
 		$effectiveTribe = (int)($village->tribe ?? $session->tribe ?? 0);
 		$isTrap = ($unit == 99 || $unitStr == "u99") && ($effectiveTribe == 3 || (isset($building) && $building->getTypeLevel(36) > 0));
-		$unitarray = $isTrap ? ($u99_trap ?? $$unitStr) : $$unitStr;
+		$unitarray = ($unit == 99 || $unitStr == "u99") ? ($isTrap ? ($u99_trap ?? $$unitStr) : ($u99_nusantara ?? $$unitStr)) : $$unitStr;
 		$res = $database->getVillage($village->wid, 0, false);
 		if($res['wood'] > $res['maxstore']) $res['wood'] = $res['maxstore'];
 		if($res['clay'] > $res['maxstore']) $res['clay'] = $res['maxstore'];
@@ -289,11 +291,11 @@ class Technology {
 
 	public function maxUnitPlus($unit,$great=false) {
 		$unitStr = "u" . $unit;	
-		global $village, $$unitStr, $database, $session, $building, $u99_trap;
+		global $village, $$unitStr, $database, $session, $building, $u99_trap, $u99_nusantara;
 		
 		$effectiveTribe = (int)($village->tribe ?? $session->tribe ?? 0);
 		$isTrap = ($unit == 99 || $unitStr == "u99") && ($effectiveTribe == 3 || (isset($building) && $building->getTypeLevel(36) > 0));
-		$unitarray = $isTrap ? ($u99_trap ?? $$unitStr) : $$unitStr;
+		$unitarray = ($unit == 99 || $unitStr == "u99") ? ($isTrap ? ($u99_trap ?? $$unitStr) : ($u99_nusantara ?? $$unitStr)) : $$unitStr;
 		$res = $database->getVillage($village->wid);
 		$totalres = $res['wood'] + $res['clay'] + $res['iron'] + $res['crop'];
 		$totalresunit = ($unitarray['wood'] * ($great ? 3 : 1)) + ($unitarray['clay'] * ($great ? 3 : 1)) + ($unitarray['iron'] * ($great ? 3 : 1)) + ($unitarray['crop'] * ($great ? 3 : 1));
@@ -604,7 +606,7 @@ class Technology {
 	}
 
     private function trainUnit($unit, $amt, $great = false) {
-		global $database, ${'u'.$unit}, $village, $session, $building, $u99_trap;
+		global $database, ${'u'.$unit}, $village, $session, $building, $u99_trap, $u99_nusantara;
 		
 		if (!$database->getTrainingLock($village->wid)) return;
 		try {
@@ -616,7 +618,7 @@ class Technology {
 			$each = $this->getTrainingTime($unit, $great);
 			$amt = $this->getMaxTrainable($unit, $amt, $great);
 			
-			$unitData = $isTrap ? ($u99_trap ?? ${'u'.$unit}) : ${'u'.$unit};
+			$unitData = ($unit == 99) ? ($isTrap ? ($u99_trap ?? ${'u'.$unit}) : ($u99_nusantara ?? ${'u'.$unit})) : ${'u'.$unit};
 			$wood = $unitData['wood'] * $amt * ($great ? 3 : 1);
 			$clay = $unitData['clay'] * $amt * ($great ? 3 : 1);
 			$iron = $unitData['iron'] * $amt * ($great ? 3 : 1);
@@ -657,9 +659,9 @@ class Technology {
 	public function getTrainingTime($unit, $great = false, $vid = 0) {
 		global $building, $database, $session, $village;
 		global $bid19, $bid20, $bid21, $bid25, $bid26, $bid29, $bid30, $bid41, $bid44, $bid49;
-		global ${'u'.$unit}, $u99_trap;
+		global ${'u'.$unit}, $u99_trap, $u99_nusantara;
 
-		if (!isset(${'u'.$unit})) {
+		if (!isset(${'u'.$unit}) || !isset($u99_nusantara)) {
 			@include_once __DIR__ . '/Data/unitdata.php';
 		}
 		if (!isset($bid19)) {
@@ -708,7 +710,11 @@ class Technology {
 		$trapper = $isTrap ? [99] : [];
 
 		$speed = defined('SPEED') && SPEED > 0 ? (float)SPEED : 1.0;
-		$baseUnitTime = isset(${'u'.$unit}['time']) ? (float)${'u'.$unit}['time'] : 1000.0;
+		if ($unit == 99) {
+			$baseUnitTime = $isTrap ? (float)($u99_trap['time'] ?? 600.0) : (float)($u99_nusantara['time'] ?? (${'u99'}['time'] ?? 85000.0));
+		} else {
+			$baseUnitTime = isset(${'u'.$unit}['time']) ? (float)${'u'.$unit}['time'] : 1000.0;
+		}
 		$each = $baseUnitTime / $speed;
 
 		if(in_array($unit, $footies)) {		    
@@ -1483,13 +1489,20 @@ class Technology {
 				$oldTimestamp = (int)$train['timestamp'];
 				$oldTimestamp2 = (int)$train['timestamp2'];
 
+				// CRITICAL GUARD: If the training speed has not changed, the building level did NOT change.
+				// Do NOT alter timestamps or update database, avoiding countdown resets and loops.
+				if ($newEach == $oldEach) {
+					$chainEnd = $oldTimestamp;
+					continue;
+				}
+
 				if ($index === 0) {
 					// First batch currently in training
 					$remCurr = $oldTimestamp2 - $now;
 					if ($remCurr <= 0) {
-						// Overdue or ready right now
+						// Overdue or ready right now - preserve oldTimestamp2 so completion is not delayed or reset
 						$remForFirst = 0;
-						$newTimestamp2 = $now;
+						$newTimestamp2 = $oldTimestamp2;
 					} else {
 						$elapsed = max(0, $oldEach - $remCurr);
 						$progressRatio = min(0.99, max(0.0, (float)$elapsed / (float)$oldEach));
