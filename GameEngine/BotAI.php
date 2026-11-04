@@ -1027,14 +1027,16 @@ class BotAI {
         // Batas antrean pelatihan di barak/stable:
         // Semakin maju desanya, semakin banyak antrean yang diizinkan agar barak/stable aktif berproduksi secara natural
         if ($isEmergencyRecovery || $isAmassingBastion) {
-            $maxQueued = ($pop >= 400) ? 50 : max(25, min(40, $homeReserve));
+            $maxQueued = ($pop >= 400) ? 150 : max(50, min(100, $homeReserve * 2));
         } else {
             if ($pop >= 500 && $brLevel >= 8) {
-                $maxQueued = 35;
-            } elseif ($pop >= 200 && $brLevel >= 4) {
-                $maxQueued = 20;
+                $maxQueued = 200;
+            } elseif ($pop >= 300 && $brLevel >= 5) {
+                $maxQueued = 120;
+            } elseif ($pop >= 150 && $brLevel >= 3) {
+                $maxQueued = 60;
             } else {
-                $maxQueued = 10;
+                $maxQueued = 25;
             }
         }
         if ($queuedTotal >= $maxQueued) {
@@ -1043,10 +1045,9 @@ class BotAI {
 
         // Pacing pelatihan:
         // 100% aktif saat pemulihan darurat atau himpun pasukan Benteng Kuno;
-        // Untuk desa berpopulasi >= 200 dengan antrean sedikit (queued < 5): 85% peluang aktif melatih;
-        // Lainnya: 50% peluang melatih per tick
+        // Jaga agar antrean pelatihan tidak menganggur (idle) seperti pemain aktif
         if (!$isEmergencyRecovery && !$isAmassingBastion) {
-            $chance = ($pop >= 200 && $queuedTotal < 5) ? 85 : 50;
+            $chance = ($pop >= 200 && $queuedTotal < 25) ? 90 : (($pop >= 100) ? 75 : 60);
             if (rand(1, 100) > $chance) {
                 return null; // Menunggu tick berikutnya
             }
@@ -1247,16 +1248,18 @@ class BotAI {
 
         // Batch size natural sesuai kapasitas desa dan level gedung barak/kandang
         if ($scoutUnit && $chosenUnit === $scoutUnit) {
-            $batchSize = ($pop >= 400) ? rand(2, 5) : rand(1, 2);
+            $batchSize = ($pop >= 400) ? rand(3, 8) : rand(1, 3);
         } elseif ($isEmergencyRecovery) {
-            $batchSize = ($pop >= 400) ? rand(6, 12) : rand(3, 6);
+            $batchSize = ($pop >= 400) ? rand(15, 30) : rand(6, 15);
         } else {
-            if ($pop >= 500 && $brLevel >= 8) {
-                $batchSize = rand(4, 8);
-            } elseif ($pop >= 200 && $brLevel >= 4) {
-                $batchSize = rand(2, 5);
+            if ($pop >= 500 && $brLevel >= 12) {
+                $batchSize = rand(15, 35);
+            } elseif ($pop >= 300 && $brLevel >= 6) {
+                $batchSize = rand(10, 20);
+            } elseif ($pop >= 150 && $brLevel >= 3) {
+                $batchSize = rand(5, 12);
             } else {
-                $batchSize = rand(1, 3);
+                $batchSize = rand(2, 6);
             }
         }
         $trainCount = min($batchSize, $maxAffordable, $maxTroops - $totalArmy);
@@ -3968,14 +3971,14 @@ class BotAI {
 
         // Mandatory Home Garrison Reserve:
         $homeReserve = self::getHomeReserve($pop);
-        $minDeployable = max(15, min(30, (int)round($pop * 0.10)));
-        $minTroopsConfig = defined('BOT_AI_MIN_RAID_TROOPS') ? (int)BOT_AI_MIN_RAID_TROOPS : 15;
+        $minDeployable = max(20, min(50, (int)round($pop * 0.15)));
+        $minTroopsConfig = (int)self::getConfig('BOT_AI_MIN_RAID_TROOPS', defined('BOT_AI_MIN_RAID_TROOPS') ? (int)BOT_AI_MIN_RAID_TROOPS : 25);
         $minAttackForce = max($minDeployable, $minTroopsConfig);
 
-        $attackChance = defined('BOT_AI_ATTACK_CHANCE') ? (int)BOT_AI_ATTACK_CHANCE : 35;
-        $maxDistance = defined('BOT_AI_MAX_DISTANCE') ? (float)BOT_AI_MAX_DISTANCE : 70.0;
-        $maxConcurrent = defined('BOT_AI_MAX_CONCURRENT_ATTACKS') ? (int)BOT_AI_MAX_CONCURRENT_ATTACKS : 1;
-        $dynamicScaling = defined('BOT_AI_DYNAMIC_SCALING') ? (bool)BOT_AI_DYNAMIC_SCALING : true;
+        $attackChance = (int)self::getConfig('BOT_AI_ATTACK_CHANCE', defined('BOT_AI_ATTACK_CHANCE') ? (int)BOT_AI_ATTACK_CHANCE : 50);
+        $maxDistance = (float)self::getConfig('BOT_AI_MAX_DISTANCE', defined('BOT_AI_MAX_DISTANCE') ? (float)BOT_AI_MAX_DISTANCE : 70.0);
+        $maxConcurrent = (int)self::getConfig('BOT_AI_MAX_CONCURRENT_ATTACKS', defined('BOT_AI_MAX_CONCURRENT_ATTACKS') ? (int)BOT_AI_MAX_CONCURRENT_ATTACKS : 1);
+        $dynamicScaling = (bool)self::getConfig('BOT_AI_DYNAMIC_SCALING', defined('BOT_AI_DYNAMIC_SCALING') ? (bool)BOT_AI_DYNAMIC_SCALING : true);
 
         // Allow up to 2 concurrent raids for developed villages
         if ($dynamicScaling && $pop >= 300) {
@@ -4363,11 +4366,12 @@ class BotAI {
                     continue;
                 }
 
-                // 2. Cooldown antar serangan dari bot ini ke desa yang sama (minimal 1 jam / 3600 detik)
+                // 2. Cooldown antar serangan dari bot ini ke desa yang sama (default 30 menit / 1800 detik)
+                $cooldownSec = (int)self::getConfig('BOT_AI_TARGET_COOLDOWN', 1800);
                 $recentAttack = $database->query_return("
                     SELECT moveid
                     FROM " . TB_PREFIX . "movement
-                    WHERE `from` = $wid AND `to` = $tw AND sort_type = 3 AND starttime >= " . (time() - 3600) . "
+                    WHERE `from` = $wid AND `to` = $tw AND sort_type = 3 AND starttime >= " . (time() - $cooldownSec) . "
                     LIMIT 1
                 ");
                 if (!empty($recentAttack)) {
@@ -4381,6 +4385,18 @@ class BotAI {
                         WHERE `to` = " . $tw . " AND sort_type = 3 AND proc = 0
                     ");
                     if ((int)($incoming[0]['total'] ?? 0) >= 2) {
+                        continue;
+                    }
+                }
+
+                // Smart Target Matching: Jangan kirim pasukan kecil ke sarang pemain besar/berkembang!
+                if (!$isBot) {
+                    $tgtPop = (int)($tgt['pop'] ?? 0);
+                    if ($tgtPop >= 350 && $deployableCombat < 180) {
+                        // Pemain besar/raksasa: bot wajib memiliki minimal 180 pasukan serang sebelum berani menyerang!
+                        continue;
+                    } elseif ($tgtPop >= 180 && $deployableCombat < 70) {
+                        // Pemain menengah: bot wajib memiliki minimal 70 pasukan serang
                         continue;
                     }
                 }
@@ -4426,16 +4442,22 @@ class BotAI {
         // =========================================================================
         // ATTACK TYPE & TROOP DISPATCH CALCULATION
         // =========================================================================
+        $targetPop = (int)($target['pop'] ?? 0);
+        $isHumanTarget = empty($target['is_bot']);
+
         // Calculate tentative target party size based on deployable surplus:
         if ($isRevenge) {
-            // Retaliation strike: Send ~50% of deployable surplus (up to 150 troops)
-            $targetPartySize = min(150, max($minAttackForce, (int)floor($deployableCombat * 0.50)));
+            // Retaliation strike: Send ~60% of deployable surplus (up to 400 troops)
+            $targetPartySize = min(400, max($minAttackForce, (int)floor($deployableCombat * 0.60)));
+        } elseif ($isHumanTarget && $targetPop >= 200) {
+            // Serangan ke Pemain Manusia Berkembang: Kerahkan 70% kekuatan tempur siap tempur (hingga 800 pasukan)!
+            $targetPartySize = min(800, max($minAttackForce, (int)floor($deployableCombat * 0.70)));
         } elseif ($dynamicScaling) {
-            // Dynamic scaling attack: ~35% of deployable surplus, up to 100 troops
-            $targetPartySize = min(100, max($minAttackForce, (int)floor($deployableCombat * 0.35)));
+            // Dynamic scaling attack: ~45% of deployable surplus, up to 350 troops
+            $targetPartySize = min(350, max($minAttackForce, (int)floor($deployableCombat * 0.45)));
         } else {
-            // Legacy cap
-            $targetPartySize = min(15, max($minAttackForce, (int)floor($deployableCombat * 0.40)));
+            // Standard cap
+            $targetPartySize = min(150, max($minAttackForce, (int)floor($deployableCombat * 0.40)));
         }
         $targetPartySize = min($targetPartySize, $deployableCombat);
 
