@@ -554,6 +554,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
         $conquestMaxDistance = max(5.0, min(500.0, (float)($_POST['bot_conquest_max_distance'] ?? 35.0)));
         $conquestPrioritizePlayers = !empty($_POST['bot_conquest_prioritize_players']);
 
+        // Player Targeting & Raid Priority
+        $targetPlayerPercent = max(50, min(100, (int)($_POST['bot_target_player_percent'] ?? 90)));
+        $maxPlayerDist = max(50.0, min(500.0, (float)($_POST['bot_max_player_distance'] ?? 200.0)));
+        $revengePrioritizePlayers = !empty($_POST['bot_revenge_prioritize_players']);
+
         $saveSuccess = BotAI::saveConfig([
             'BOT_AI_MAX_POP' => $maxPop,
             'BOT_AI_MAX_BUILDING_LEVEL' => $maxBuildingLvl,
@@ -579,6 +584,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
             'BOT_AI_CONQUEST_MIN_ESCORT' => $conquestMinEscort,
             'BOT_AI_CONQUEST_MAX_DISTANCE' => $conquestMaxDistance,
             'BOT_AI_CONQUEST_PRIORITIZE_PLAYERS' => $conquestPrioritizePlayers,
+            'BOT_AI_TARGET_PLAYER_PERCENT' => $targetPlayerPercent,
+            'BOT_AI_MAX_PLAYER_DISTANCE' => $maxPlayerDist,
+            'BOT_AI_REVENGE_PRIORITIZE_PLAYERS' => $revengePrioritizePlayers,
         ]);
 
         if ($saveSuccess) {
@@ -638,6 +646,11 @@ $currentConquestEnabled = !empty(BotAI::getConfig('BOT_AI_CONQUEST_ENABLED', tru
 $currentConquestMinEscort = (int)BotAI::getConfig('BOT_AI_CONQUEST_MIN_ESCORT', 80);
 $currentConquestMaxDist = (float)BotAI::getConfig('BOT_AI_CONQUEST_MAX_DISTANCE', 35.0);
 $currentConquestPrioritizePlayers = !empty(BotAI::getConfig('BOT_AI_CONQUEST_PRIORITIZE_PLAYERS', true));
+
+// Current Player Targeting & Raid Configurations
+$currentTargetPlayerPercent = (int)BotAI::getConfig('BOT_AI_TARGET_PLAYER_PERCENT', 90);
+$currentMaxPlayerDist = (float)BotAI::getConfig('BOT_AI_MAX_PLAYER_DISTANCE', 200.0);
+$currentRevengePrioritizePlayers = !empty(BotAI::getConfig('BOT_AI_REVENGE_PRIORITIZE_PLAYERS', true));
 
 $botsQuery = "
     SELECT u.id, u.username, u.tribe, u.regtime, u.desc1, u.alliance,
@@ -1170,6 +1183,38 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
                         <span style="font-size:10px; color:#93c5fd; display:block; margin-top:6px; line-height:1.4;">
                             🛡️ <b>Mekanisme Alami 100%:</b> Bot wajib mencapai Akademi Lvl 20 &amp; Titik Temu Lvl 10 (Lvl 5 Teuton), meneliti Chief, melatih di Padepokan/Istana dengan SDA asli &amp; CP, menyertakan Ketapel target Padepokan/Istana, dan <b>hanya menyerang desa NON-CAPITAL</b> dari pemilik yang memiliki &gt; 1 desa.
                         </span>
+                    </div>
+                </div>
+
+                <div class="botm-form-group">
+                    <label>🎯 Prioritas Target Serangan Otomatis (Player vs Bot):</label>
+                    <div style="background:#0f172a; padding:10px 12px; border-radius:6px; border:1px solid #1e293b; margin-top:2px;">
+                        <div style="background:#022c22; border:1px solid #059669; border-radius:6px; padding:6px 10px; margin-bottom:8px; font-size:11px; color:#a7f3d0;">
+                            📌 <b>Settingan Aktif Saat Ini:</b> <?php echo $currentTargetPlayerPercent; ?>% Prioritas Pemain Manusia &bull; Radius Jangkauan: <?php echo $currentMaxPlayerDist; ?> Kotak Peta
+                        </div>
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                            <div>
+                                <label style="font-size:11px; color:#94a3b8; display:block; margin-bottom:3px;">Persentase Prioritas Serang Pemain Manusia:</label>
+                                <select name="bot_target_player_percent" class="botm-form-control" style="padding:4px 8px; font-size:12px;">
+                                    <option value="70" <?php echo $currentTargetPlayerPercent === 70 ? 'selected' : ''; ?>>70% Pemain (Standar)</option>
+                                    <option value="85" <?php echo $currentTargetPlayerPercent === 85 ? 'selected' : ''; ?>>85% Pemain (Agresif)</option>
+                                    <option value="90" <?php echo $currentTargetPlayerPercent === 90 ? 'selected' : ''; ?>>90% Pemain (Sangat Agresif - Rekomendasi)</option>
+                                    <option value="100" <?php echo $currentTargetPlayerPercent === 100 ? 'selected' : ''; ?>>100% Eksklusif Pemain Manusia (Hanya Serang Manusia)</option>
+                                </select>
+                                <span style="font-size:9px; color:#64748b;">Menentukan seberapa kuat bot memprioritaskan menyerang akun pemain manusia dibandingkan sesama bot.</span>
+                            </div>
+                            <div>
+                                <label style="font-size:11px; color:#94a3b8; display:block; margin-bottom:3px;">Radius Jangkauan Cari Pemain (Kotak Peta):</label>
+                                <input type="number" step="10" name="bot_max_player_distance" class="botm-form-control" value="<?php echo $currentMaxPlayerDist; ?>" min="50" max="500" style="padding:4px 8px; font-size:12px;" required>
+                                <span style="font-size:9px; color:#64748b;">Jangkauan radar bot dalam mencari desa pemain manusia di peta. Rekomendasi: 150 - 250 kotak.</span>
+                            </div>
+                        </div>
+                        <div style="margin-top:8px;">
+                            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; color:#cbd5e1; font-size:11px;">
+                                <input type="checkbox" name="bot_revenge_prioritize_players" value="1" <?php echo $currentRevengePrioritizePlayers ? 'checked' : ''; ?> style="width:14px; height:14px; cursor:pointer;">
+                                <span>Prioritaskan Balas Dendam ke Pemain Manusia (Mencegah bot terjebak perang balas dendam sesama bot)</span>
+                            </label>
+                        </div>
                     </div>
                 </div>
 

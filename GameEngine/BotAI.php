@@ -4088,6 +4088,7 @@ class BotAI {
         // PRIORITY 1: GLOBAL & ALLIANCE REVENGE (Balas Dendam Aktif & Laporan Tempur)
         // =========================================================================
         $revengeTarget = null;
+        $pendingBotRevengeTarget = null;
         $isRevenge = false;
 
         if (!defined('BOT_AI_REVENGE_ENABLED') || BOT_AI_REVENGE_ENABLED) {
@@ -4172,8 +4173,13 @@ class BotAI {
             if (!empty($attackerWrefs)) {
                 $wrefList = implode(',', array_keys($attackerWrefs));
                 $bastionWref = class_exists('Bastion') ? Bastion::BASTION_WREF : 20201;
+                $adminRaidSql = (defined('ADMIN_ALLOW_INCOMING_RAIDS') && ADMIN_ALLOW_INCOMING_RAIDS)
+                    ? "(u.access < 8 OR u.access = 9)"
+                    : "u.access < 8";
+
                 $targetVillages = $database->query_return("
-                    SELECT v.wref, v.owner, v.name as vname, v.pop, w.x, w.y, u.username, u.access, u.protect, u.alliance
+                    SELECT v.wref, v.owner, v.name as vname, v.pop, w.x, w.y, u.username, u.access, u.protect, u.alliance,
+                           u.is_bot, u.email, u.desc1, u.desc2
                     FROM " . TB_PREFIX . "vdata v
                     JOIN " . TB_PREFIX . "wdata w ON v.wref = w.id
                     JOIN " . TB_PREFIX . "users u ON v.owner = u.id
@@ -4181,12 +4187,16 @@ class BotAI {
                       AND v.wref != $wid
                       AND v.wref != $bastionWref
                       AND v.owner != $uid
-                      AND u.access < 8
+                      AND u.id NOT IN (1, 2, 4, 5)
+                      AND u.access != 0
+                      AND $adminRaidSql
                       AND u.protect < " . time()
                 );
 
                 if (!empty($targetVillages)) {
-                    $validRevengeTargets = [];
+                    $validPlayerRevenge = [];
+                    $validBotRevenge = [];
+
                     foreach ($targetVillages as $tgt) {
                         if (in_array($tgt['username'], $protectedList, true)) {
                             continue;
@@ -4259,20 +4269,40 @@ class BotAI {
 
                         $tgt['dist'] = $dist;
                         $tgt['last_incident_time'] = $lastAtkTime;
-                        $validRevengeTargets[] = $tgt;
+
+                        $isBotTarget = (!empty($tgt['is_bot']) ||
+                                        strpos((string)($tgt['email'] ?? ''), '@bot.travianz') !== false ||
+                                        strpos((string)($tgt['desc1'] ?? ''), '[#BOT]') !== false ||
+                                        strpos((string)($tgt['desc2'] ?? ''), '[#BOT]') !== false ||
+                                        strpos((string)($tgt['username'] ?? ''), 'Bot_') === 0);
+                        $tgt['is_bot'] = $isBotTarget;
+
+                        if ($isBotTarget) {
+                            $validBotRevenge[] = $tgt;
+                        } else {
+                            $validPlayerRevenge[] = $tgt;
+                        }
                     }
 
-                    if (!empty($validRevengeTargets)) {
-                        // Urutkan: Serangan musuh paling baru diprioritaskan, jika sama prioritaskan terdekat
-                        usort($validRevengeTargets, function($a, $b) {
+                    $sortRevenge = function(&$arr) {
+                        usort($arr, function($a, $b) {
                             if ($a['last_incident_time'] !== $b['last_incident_time']) {
                                 return $b['last_incident_time'] <=> $a['last_incident_time'];
                             }
                             return $a['dist'] <=> $b['dist'];
                         });
+                    };
 
-                        $revengeTarget = $validRevengeTargets[0];
+                    // Jika ada pemain manusia yang menyerang, ITU ADALAH PRIORITAS BALAS DENDAM UTAMA (#1)
+                    if (!empty($validPlayerRevenge)) {
+                        $sortRevenge($validPlayerRevenge);
+                        $revengeTarget = $validPlayerRevenge[0];
                         $isRevenge = true;
+                    } elseif (!empty($validBotRevenge)) {
+                        // Jika yang menyerang sesama bot, simpan sebagai opsi cadangan,
+                        // JANGAN kunci langsung agar bot tidak terjebak loop perang sesama bot!
+                        $sortRevenge($validBotRevenge);
+                        $pendingBotRevengeTarget = $validBotRevenge[0];
                     }
                 }
             }
@@ -4284,7 +4314,7 @@ class BotAI {
         $target = null;
 
         if ($revengeTarget !== null) {
-            // REVENGE IS ACTIVE (100% pasti membalas dalam jam aktif 08:00 - 20:00):
+            // REVENGE IS ACTIVE (Balas dendam nyata ke pemain manusia):
             $target = $revengeTarget;
         } else {
             // REGULAR RANDOM RAID (FARMING):
@@ -4298,13 +4328,17 @@ class BotAI {
                 return null; // Outside attack hours
             }
 
-            // Probability roll for regular raids (default 35%)
+            // Probability roll for regular raids (default 50%)
             if (rand(1, 100) > $attackChance) {
                 return null;
             }
 
             $bastionWref = class_exists('Bastion') ? Bastion::BASTION_WREF : 20201;
-            // Query candidate target villages within local area ($maxDistance)
+            $adminRaidSql = (defined('ADMIN_ALLOW_INCOMING_RAIDS') && ADMIN_ALLOW_INCOMING_RAIDS)
+                ? "(u.access < 8 OR u.access = 9)"
+                : "u.access < 8";
+
+            // Query candidate target villages
             $targets = $database->query_return("
                 SELECT v.wref, v.owner, v.name as vname, v.pop, w.x, w.y, u.username, u.access, u.protect, u.alliance,
                        u.is_bot, u.email, u.desc1, u.desc2
@@ -4314,108 +4348,107 @@ class BotAI {
                 WHERE v.wref != $wid
                   AND v.wref != $bastionWref
                   AND v.owner != $uid
-                  AND u.access < 8
+                  AND u.id NOT IN (1, 2, 4, 5)
+                  AND u.access != 0
+                  AND $adminRaidSql
                   AND u.protect < " . time()
             );
 
-            if (empty($targets)) {
+            if (empty($targets) && empty($pendingBotRevengeTarget)) {
                 return null;
             }
 
             $candidates = [];
             $playerCandidates = [];
             $botCandidates = [];
+            $maxPlayerDist = (float)self::getConfig('BOT_AI_MAX_PLAYER_DISTANCE', 200.0);
 
-            foreach ($targets as $tgt) {
-                if (in_array($tgt['username'], $protectedList, true)) {
-                    continue;
-                }
-                if ($botAlliance > 0 && !empty($tgt['alliance']) && (int)$tgt['alliance'] === $botAlliance) {
-                    continue;
-                }
+            if (!empty($targets)) {
+                foreach ($targets as $tgt) {
+                    if (in_array($tgt['username'], $protectedList, true)) {
+                        continue;
+                    }
+                    if ($botAlliance > 0 && !empty($tgt['alliance']) && (int)$tgt['alliance'] === $botAlliance) {
+                        continue;
+                    }
 
-                $dist = self::getDistance($botCoor['x'], $botCoor['y'], $tgt['x'], $tgt['y']);
-                if ($dist < 0.5) {
-                    continue;
-                }
+                    $dist = self::getDistance($botCoor['x'], $botCoor['y'], $tgt['x'], $tgt['y']);
+                    if ($dist < 0.5) {
+                        continue;
+                    }
 
-                // Deteksi apakah target adalah bot atau pemain asli (manusia)
-                $isBot = (!empty($tgt['is_bot']) ||
-                          strpos((string)($tgt['email'] ?? ''), '@bot.travianz') !== false ||
-                          strpos((string)($tgt['desc1'] ?? ''), '[#BOT]') !== false ||
-                          strpos((string)($tgt['desc2'] ?? ''), '[#BOT]') !== false ||
-                          strpos((string)($tgt['username'] ?? ''), 'Bot_') === 0);
-                $tgt['is_bot'] = $isBot;
+                    // Deteksi apakah target adalah bot atau pemain asli (manusia)
+                    $isBot = (!empty($tgt['is_bot']) ||
+                              strpos((string)($tgt['email'] ?? ''), '@bot.travianz') !== false ||
+                              strpos((string)($tgt['desc1'] ?? ''), '[#BOT]') !== false ||
+                              strpos((string)($tgt['desc2'] ?? ''), '[#BOT]') !== false ||
+                              strpos((string)($tgt['username'] ?? ''), 'Bot_') === 0);
+                    $tgt['is_bot'] = $isBot;
 
-                // Batas jangkauan: untuk pemain asli diberi toleransi jangkauan hingga 100 tile agar tetap terjangkau
-                $maxAllowedDist = $isBot ? $maxDistance : max($maxDistance, 100.0);
-                if ($dist > $maxAllowedDist) {
-                    continue;
-                }
+                    // Batas jangkauan: untuk pemain asli diberi toleransi jangkauan hingga 200 tile agar selalu terjangkau
+                    $maxAllowedDist = $isBot ? $maxDistance : max($maxDistance, $maxPlayerDist);
+                    if ($dist > $maxAllowedDist) {
+                        continue;
+                    }
 
-                $tw = (int)$tgt['wref'];
+                    $tw = (int)$tgt['wref'];
 
-                // 1. Cek apakah bot ini sudah memiliki gerakan serangan aktif yang sedang berjalan ke desa target
-                $ongoingToTarget = $database->query_return("
-                    SELECT moveid
-                    FROM " . TB_PREFIX . "movement
-                    WHERE `from` = $wid AND `to` = $tw AND sort_type = 3 AND proc = 0
-                    LIMIT 1
-                ");
-                if (!empty($ongoingToTarget)) {
-                    continue;
-                }
-
-                // 2. Cooldown antar serangan dari bot ini ke desa yang sama (default 30 menit / 1800 detik)
-                $cooldownSec = (int)self::getConfig('BOT_AI_TARGET_COOLDOWN', 1800);
-                $recentAttack = $database->query_return("
-                    SELECT moveid
-                    FROM " . TB_PREFIX . "movement
-                    WHERE `from` = $wid AND `to` = $tw AND sort_type = 3 AND starttime >= " . (time() - $cooldownSec) . "
-                    LIMIT 1
-                ");
-                if (!empty($recentAttack)) {
-                    continue;
-                }
-
-                if (defined('BOT_AI_GANG_ATTACK_ENABLED') && !BOT_AI_GANG_ATTACK_ENABLED) {
-                    $incoming = $database->query_return("
-                        SELECT COUNT(*) as total
+                    // 1. Cek apakah bot ini sudah memiliki gerakan serangan aktif yang sedang berjalan ke desa target
+                    $ongoingToTarget = $database->query_return("
+                        SELECT moveid
                         FROM " . TB_PREFIX . "movement
-                        WHERE `to` = " . $tw . " AND sort_type = 3 AND proc = 0
+                        WHERE `from` = $wid AND `to` = $tw AND sort_type = 3 AND proc = 0
+                        LIMIT 1
                     ");
-                    if ((int)($incoming[0]['total'] ?? 0) >= 2) {
+                    if (!empty($ongoingToTarget)) {
                         continue;
                     }
-                }
 
-                // Smart Target Matching: Jangan kirim pasukan kecil ke sarang pemain besar/berkembang!
-                if (!$isBot) {
+                    // 2. Cooldown antar serangan dari bot ini ke desa yang sama (default 30 menit / 1800 detik)
+                    $cooldownSec = (int)self::getConfig('BOT_AI_TARGET_COOLDOWN', 1800);
+                    $recentAttack = $database->query_return("
+                        SELECT moveid
+                        FROM " . TB_PREFIX . "movement
+                        WHERE `from` = $wid AND `to` = $tw AND sort_type = 3 AND starttime >= " . (time() - $cooldownSec) . "
+                        LIMIT 1
+                    ");
+                    if (!empty($recentAttack)) {
+                        continue;
+                    }
+
+                    if (defined('BOT_AI_GANG_ATTACK_ENABLED') && !BOT_AI_GANG_ATTACK_ENABLED) {
+                        $incoming = $database->query_return("
+                            SELECT COUNT(*) as total
+                            FROM " . TB_PREFIX . "movement
+                            WHERE `to` = " . $tw . " AND sort_type = 3 AND proc = 0
+                        ");
+                        if ((int)($incoming[0]['total'] ?? 0) >= 2) {
+                            continue;
+                        }
+                    }
+
+                    // Smart Target Matching: Jangan serang desa metropolis raksasa (>600 pop) dengan pasukan < 50 unit
                     $tgtPop = (int)($tgt['pop'] ?? 0);
-                    if ($tgtPop >= 350 && $deployableCombat < 180) {
-                        // Pemain besar/raksasa: bot wajib memiliki minimal 180 pasukan serang sebelum berani menyerang!
-                        continue;
-                    } elseif ($tgtPop >= 180 && $deployableCombat < 70) {
-                        // Pemain menengah: bot wajib memiliki minimal 70 pasukan serang
+                    if ($tgtPop >= 600 && $deployableCombat < 50) {
                         continue;
                     }
-                }
 
-                $tgt['dist'] = $dist;
-                $candidates[] = $tgt;
-                if ($isBot) {
-                    $botCandidates[] = $tgt;
-                } else {
-                    $playerCandidates[] = $tgt;
+                    $tgt['dist'] = $dist;
+                    $candidates[] = $tgt;
+                    if ($isBot) {
+                        $botCandidates[] = $tgt;
+                    } else {
+                        $playerCandidates[] = $tgt;
+                    }
                 }
             }
 
-            if (empty($candidates)) {
+            if (empty($candidates) && empty($pendingBotRevengeTarget)) {
                 return null;
             }
 
-            // Target Pemain Asli (Real Human Player): 70% prioritas menyerang pemain manusia jika ada dalam jangkauan
-            $targetPlayerPercent = (int)self::getConfig('BOT_AI_TARGET_PLAYER_PERCENT', 70);
+            // Target Pemain Asli (Real Human Player): Default 90% prioritas menyerang pemain manusia jika ada dalam jangkauan
+            $targetPlayerPercent = (int)self::getConfig('BOT_AI_TARGET_PLAYER_PERCENT', 90);
             $chosenPool = [];
 
             if (!empty($playerCandidates) && !empty($botCandidates)) {
@@ -4426,17 +4459,23 @@ class BotAI {
                 }
             } elseif (!empty($playerCandidates)) {
                 $chosenPool = $playerCandidates;
+            } elseif (!empty($pendingBotRevengeTarget)) {
+                // Jika tidak ada kandidat pemain manusia yang valid/terjangkau, baru balas dendam ke bot penyerang
+                $target = $pendingBotRevengeTarget;
+                $isRevenge = true;
             } else {
                 $chosenPool = $botCandidates;
             }
 
-            // Urutkan berdasarkan jarak terdekat dan pilih acak dari 3 terdekat dalam pool yang terpilih
-            usort($chosenPool, function($a, $b) {
-                return $a['dist'] <=> $b['dist'];
-            });
+            if ($target === null && !empty($chosenPool)) {
+                // Urutkan berdasarkan jarak terdekat dan pilih acak dari 3 terdekat dalam pool yang terpilih
+                usort($chosenPool, function($a, $b) {
+                    return $a['dist'] <=> $b['dist'];
+                });
 
-            $topCandidates = array_slice($chosenPool, 0, min(3, count($chosenPool)));
-            $target = $topCandidates[array_rand($topCandidates)];
+                $topCandidates = array_slice($chosenPool, 0, min(3, count($chosenPool)));
+                $target = $topCandidates[array_rand($topCandidates)];
+            }
         }
 
         // =========================================================================

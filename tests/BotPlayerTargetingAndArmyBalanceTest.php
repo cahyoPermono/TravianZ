@@ -81,7 +81,7 @@ assertEqual(25, $deployableCombat, "All 25 Swordsmen are deployable for attack w
 
 echo "PASSED" . PHP_EOL;
 
-echo "=== 2. Testing BotAI 70% Real Player Target Selection Ratio ===" . PHP_EOL;
+echo "=== 2. Testing BotAI 90% Real Player Target Selection Ratio ===" . PHP_EOL;
 
 // Setup mock candidate pool: 3 real players and 10 bot villages
 $playerCandidates = [
@@ -100,8 +100,8 @@ for ($i = 1; $i <= 10; $i++) {
     ];
 }
 
-$targetPlayerPercent = (int)BotAI::getConfig('BOT_AI_TARGET_PLAYER_PERCENT', 70);
-assertEqual(70, $targetPlayerPercent, "BOT_AI_TARGET_PLAYER_PERCENT config must be 70");
+$targetPlayerPercent = (int)BotAI::getConfig('BOT_AI_TARGET_PLAYER_PERCENT', 90);
+assertEqual(90, $targetPlayerPercent, "BOT_AI_TARGET_PLAYER_PERCENT config must be 90");
 
 // Run 1000 trials to verify selection distribution
 $playerHits = 0;
@@ -134,24 +134,25 @@ for ($t = 0; $t < $trials; $t++) {
 
 $playerRatio = ($playerHits / $trials) * 100.0;
 echo "Ran $trials target selection trials: Player Hits = $playerHits ({$playerRatio}%), Bot Hits = $botHits" . PHP_EOL;
-assertTrue($playerRatio >= 64.0 && $playerRatio <= 76.0, "Player target ratio must be approximately 70% (observed: {$playerRatio}%)");
+assertTrue($playerRatio >= 84.0 && $playerRatio <= 96.0, "Player target ratio must be approximately 90% (observed: {$playerRatio}%)");
 
 echo "PASSED" . PHP_EOL;
 
-echo "=== 3. Testing Real Player Distance Tolerance ===" . PHP_EOL;
+echo "=== 3. Testing Real Player Distance Tolerance (Up to 200 Tiles) ===" . PHP_EOL;
 
 $botCoor = ['x' => 0, 'y' => 0];
 $maxDistance = 70.0;
+$maxPlayerDist = (float)BotAI::getConfig('BOT_AI_MAX_PLAYER_DISTANCE', 200.0);
 
-// Test a real player at 85 tiles (beyond 70, within 100)
-$playerAt85 = ['is_bot' => false, 'dist' => 85.0];
-$maxAllowedPlayerDist = $playerAt85['is_bot'] ? $maxDistance : max($maxDistance, 100.0);
-assertTrue($playerAt85['dist'] <= $maxAllowedPlayerDist, "Player at 85 tiles must be accepted within 100 tile limit");
+// Test a real player at 150 tiles (beyond 70, within 200)
+$playerAt150 = ['is_bot' => false, 'dist' => 150.0];
+$maxAllowedPlayerDist = $playerAt150['is_bot'] ? $maxDistance : max($maxDistance, $maxPlayerDist);
+assertTrue($playerAt150['dist'] <= $maxAllowedPlayerDist, "Player at 150 tiles must be accepted within 200 tile limit");
 
-// Test a bot at 85 tiles (beyond 70)
-$botAt85 = ['is_bot' => true, 'dist' => 85.0];
-$maxAllowedBotDist = $botAt85['is_bot'] ? $maxDistance : max($maxDistance, 100.0);
-assertFalse($botAt85['dist'] <= $maxAllowedBotDist, "Bot at 85 tiles must be rejected exceeding 70 tile limit");
+// Test a bot at 150 tiles (beyond 70)
+$botAt150 = ['is_bot' => true, 'dist' => 150.0];
+$maxAllowedBotDist = $botAt150['is_bot'] ? $maxDistance : max($maxDistance, $maxPlayerDist);
+assertFalse($botAt150['dist'] <= $maxAllowedBotDist, "Bot at 150 tiles must be rejected exceeding 70 tile limit");
 
 echo "PASSED" . PHP_EOL;
 
