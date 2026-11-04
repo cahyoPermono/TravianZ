@@ -269,5 +269,7 @@ $database->query("DELETE FROM " . TB_PREFIX . "research WHERE vref = $testBotWid
 $database->query("DELETE FROM " . TB_PREFIX . "training WHERE vref = $testBotWid");
 $database->query("DELETE FROM " . TB_PREFIX . "movement WHERE `from` = $testBotWid");
 $database->query("DELETE FROM " . TB_PREFIX . "users WHERE id IN ($humanUid, $botUid)");
+BotAI::saveConfig(['BOT_AI_NIGHT_SLEEP_ENABLED' => true]);
+BotAI::resetRuntimeConfig();
 
 echo "=== All BotChiefConquestTest Passed Successfully! ===" . PHP_EOL;
