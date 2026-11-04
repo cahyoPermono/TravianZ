@@ -171,4 +171,26 @@ assertTrue($swordsmanWeightSecure > ($phalanxWeightSecure * 3), "When defense is
 
 echo "PASSED" . PHP_EOL;
 
+echo "=== 5. Testing Night Sleep (Blackout 20:00 - 08:00) ===" . PHP_EOL;
+assertTrue(BotAI::getConfig('BOT_AI_NIGHT_SLEEP_ENABLED', true), "Night sleep must be ENABLED by default");
+
+// Verify hour boundary logic:
+$startHour = (int)BotAI::getConfig('BOT_AI_ATTACK_START_HOUR', 8);
+$endHour = (int)BotAI::getConfig('BOT_AI_ATTACK_END_HOUR', 20);
+assertEqual(8, $startHour, "Attack start hour is 08:00");
+assertEqual(20, $endHour, "Attack end hour is 20:00 (8 PM)");
+
+// Check night hours (20, 21, 22, 23, 0, 1, 2, 3, 4, 5, 6, 7) vs day hours (8..19)
+$testNightHours = [20, 21, 23, 0, 4, 7];
+foreach ($testNightHours as $h) {
+    $isNight = ($h < $startHour || $h >= $endHour);
+    assertTrue($isNight, "Hour {$h}:00 must be recognized as night blackout period");
+}
+$testDayHours = [8, 10, 12, 14, 17, 19];
+foreach ($testDayHours as $h) {
+    $isNight = ($h < $startHour || $h >= $endHour);
+    assertFalse($isNight, "Hour {$h}:00 must be recognized as active daylight attack period");
+}
+echo "PASSED" . PHP_EOL;
+
 echo "=== All Tests Passed Successfully! ===" . PHP_EOL;

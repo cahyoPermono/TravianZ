@@ -558,6 +558,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
         $targetPlayerPercent = max(50, min(100, (int)($_POST['bot_target_player_percent'] ?? 90)));
         $maxPlayerDist = max(50.0, min(500.0, (float)($_POST['bot_max_player_distance'] ?? 200.0)));
         $revengePrioritizePlayers = !empty($_POST['bot_revenge_prioritize_players']);
+        $nightSleepEnabled = !empty($_POST['bot_night_sleep_enabled']);
+        $attackStartHour = max(0, min(23, (int)($_POST['bot_attack_start_hour'] ?? 8)));
+        $attackEndHour = max(0, min(23, (int)($_POST['bot_attack_end_hour'] ?? 20)));
 
         $saveSuccess = BotAI::saveConfig([
             'BOT_AI_MAX_POP' => $maxPop,
@@ -587,6 +590,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
             'BOT_AI_TARGET_PLAYER_PERCENT' => $targetPlayerPercent,
             'BOT_AI_MAX_PLAYER_DISTANCE' => $maxPlayerDist,
             'BOT_AI_REVENGE_PRIORITIZE_PLAYERS' => $revengePrioritizePlayers,
+            'BOT_AI_NIGHT_SLEEP_ENABLED' => $nightSleepEnabled,
+            'BOT_AI_ATTACK_START_HOUR' => $attackStartHour,
+            'BOT_AI_ATTACK_END_HOUR' => $attackEndHour,
         ]);
 
         if ($saveSuccess) {
@@ -651,6 +657,9 @@ $currentConquestPrioritizePlayers = !empty(BotAI::getConfig('BOT_AI_CONQUEST_PRI
 $currentTargetPlayerPercent = (int)BotAI::getConfig('BOT_AI_TARGET_PLAYER_PERCENT', 90);
 $currentMaxPlayerDist = (float)BotAI::getConfig('BOT_AI_MAX_PLAYER_DISTANCE', 200.0);
 $currentRevengePrioritizePlayers = !empty(BotAI::getConfig('BOT_AI_REVENGE_PRIORITIZE_PLAYERS', true));
+$currentNightSleepEnabled = !empty(BotAI::getConfig('BOT_AI_NIGHT_SLEEP_ENABLED', true));
+$currentAttackStartHour = (int)BotAI::getConfig('BOT_AI_ATTACK_START_HOUR', 8);
+$currentAttackEndHour = (int)BotAI::getConfig('BOT_AI_ATTACK_END_HOUR', 20);
 
 $botsQuery = "
     SELECT u.id, u.username, u.tribe, u.regtime, u.desc1, u.alliance,
@@ -1214,6 +1223,15 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
                                 <input type="checkbox" name="bot_revenge_prioritize_players" value="1" <?php echo $currentRevengePrioritizePlayers ? 'checked' : ''; ?> style="width:14px; height:14px; cursor:pointer;">
                                 <span>Prioritaskan Balas Dendam ke Pemain Manusia (Mencegah bot terjebak perang balas dendam sesama bot)</span>
                             </label>
+                        </div>
+                        <div style="margin-top:8px; border-top:1px dashed #334155; padding-top:8px;">
+                            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; color:#f8fafc; font-size:11px; font-weight:600;">
+                                <input type="checkbox" name="bot_night_sleep_enabled" value="1" <?php echo $currentNightSleepEnabled ? 'checked' : ''; ?> style="width:14px; height:14px; cursor:pointer;">
+                                <span>🌙 Jam Tidur Malam (Blackout Serangan): Dilarang Menyerang Pukul 20:00 - 08:00 Server Time</span>
+                            </label>
+                            <span style="font-size:9px; color:#94a3b8; display:block; margin-left:20px; margin-top:2px;">
+                                Melarang bot melancarkan serangan baru (raid, penaklukan chief, maupun benteng kuno) antara pukul 20:00 (8 malam) hingga 08:00 (8 pagi) waktu server agar pemain manusia dapat beristirahat dengan tenang tanpa khawatir diserang bot.
+                            </span>
                         </div>
                     </div>
                 </div>
