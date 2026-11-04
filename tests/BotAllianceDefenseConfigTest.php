@@ -253,4 +253,63 @@ assertTrue($matureSent <= 450, "Mature bot cap with 600 pop should allow up to 4
 
 echo "✓ Test 4: Mature bot dynamic bonus cap passed successfully!\n";
 
+// -----------------------------------------------------------------------------
+// Test 5: Bot with ONLY Offensive Troops Never Dispatches When Pure Def Is ON
+// -----------------------------------------------------------------------------
+class MockDatabaseOffensiveOnly {
+    public function escape($str) { return addslashes($str); }
+    public function getCoor($wid) { return ['x' => 10, 'y' => 20]; }
+    public function query_return($sql) {
+        // Teuton bot has ONLY Clubswingers (u11) and Axemen (u13), ZERO Spearmen/Paladins
+        if (strpos($sql, "FROM " . TB_PREFIX . "units WHERE vref = 104") !== false) {
+            return [[
+                'u11' => 500, // Clubswinger (pure offense)
+                'u12' => 0,   // Spearman (def)
+                'u13' => 200, // Axeman (offense)
+                'u14' => 0,
+                'u15' => 0,   // Paladin (def)
+                'u16' => 0,
+                'u17' => 0,
+                'u18' => 0,
+                'u19' => 0,
+                'u20' => 0,
+                'hero' => 0
+            ]];
+        }
+        if (strpos($sql, "m.`from` = 104 AND m.sort_type = 3 AND m.proc = 0 AND a.attack_type = 2") !== false) {
+            return [['active_reinf' => 0]];
+        }
+        if (strpos($sql, "u.alliance = 5") !== false && strpos($sql, "m.sort_type = 3") !== false) {
+            return [[
+                'moveid' => 1002,
+                'target_wid' => 202,
+                'attacker_wid' => 999,
+                'endtime' => time() + 600,
+                'vname' => 'Desa Julian_R',
+                'pop' => 450,
+                'x' => 12,
+                'y' => 24,
+                'ally_username' => 'Julian_R',
+                'ally_uid' => 60,
+                'attack_type' => 3
+            ]];
+        }
+        return [];
+    }
+}
+
+$database = new MockDatabaseOffensiveOnly();
+$botOffensiveOnly = [
+    'uid' => 18,
+    'username' => 'Bot_Teuton_AttackerOnly',
+    'tribe' => 2,
+    'wref' => 104,
+    'pop' => 350,
+    'alliance' => 5
+];
+
+$reportOffOnly = BotAI::processAllianceDefense($botOffensiveOnly);
+assertEqual(null, $reportOffOnly, "Bot with only offensive troops must NOT dispatch reinforcement when pure defense mode is active!");
+echo "✓ Test 5: Bot with only offensive troops correctly skips reinforcement!\n";
+
 echo "\nALL TESTS PASSED SUCCESSFULLY!\n";

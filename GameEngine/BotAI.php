@@ -2954,9 +2954,9 @@ class BotAI {
             }
         }
 
-        // Jika mode pertahanan murni diaktifkan tetapi bot sama sekali belum punya spesialis defense,
-        // izinkan fallback ke infanteri dasar agar desa kawan tidak dibiarkan kosong tanpa bantuan
-        if ($totalDefAvailable <= 0 && $pureDefOnly) {
+        // Jika mode pertahanan murni TIDAK aktif dan bot belum punya spesialis defense,
+        // izinkan fallback ke infanteri/kavaleri dasar jika diizinkan admin
+        if ($totalDefAvailable <= 0 && !$pureDefOnly) {
             foreach (['basic', 'inf_adv', 'cav_light'] as $fallbackRole) {
                 if (isset($tribeUnits[$fallbackRole])) {
                     $uNum = $tribeUnits[$fallbackRole];
