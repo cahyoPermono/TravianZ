@@ -73,6 +73,14 @@ $battle->procSim($_POST);
 <h1>Combat simulator</h1>
 <form action="warsim.php" method="post">
 <?php
+$isFromBandit = (!empty($_GET['from']) && $_GET['from'] === 'bandit') || !empty($_POST['from_bandit']);
+if ($isFromBandit): ?>
+<input type="hidden" name="from_bandit" value="1" />
+<div style="margin: 8px 0 12px 0; padding: 10px 14px; background: #eaf2f8; border-left: 4px solid #2980b9; border-radius: 4px; font-size: 11px; color: #2c3e50; line-height: 1.5;">
+	⚔️ <b>Simulasi Sarang Bandit:</b> Pasukan penjaga sarang bandit telah otomatis diisikan ke tabel <b>Defender (Nature)</b> di bawah. Silakan masukkan jumlah pasukan serang Anda di tabel <b>Attacker</b>, lalu klik tombol <b>OK</b> untuk menyimulasikan pertempuran!
+</div>
+<?php endif; ?>
+<?php
 if(isset($_POST['result'])) {
 	$target = isset($_POST['target'])? $_POST['target'] : array();
 	$tribe = isset($_POST['mytribe'])? $_POST['mytribe'] : $session->tribe;
@@ -150,23 +158,67 @@ if(isset($_POST['result'])) {
 	}
 }
 
-if (!empty($_GET['target'])) {
-    // this only works for Nature, as GET links like this one will come from an oasis
-    if (!$_GET['target'] != 4) {
-        $_GET['target'] = 4;
+// -----------------------------------------------------------------------------
+// Auto-populate defender units & tribe from GET parameters (Oasis & Bandit Camps)
+// -----------------------------------------------------------------------------
+if (!empty($_GET['wref']) && isset($database) && method_exists($database, 'getUnit')) {
+    $simWref = (int)$_GET['wref'];
+    $simUnits = $database->getUnit($simWref, false);
+    if (!empty($simUnits)) {
+        $foundTargets = [];
+        for ($u = 1; $u <= 100; $u++) {
+            $amt = (int)($simUnits['u' . $u] ?? 0);
+            if ($amt > 0) {
+                if (!isset($_GET['u' . $u])) {
+                    $form->setValue('a2_' . $u, $amt);
+                }
+                $uTribe = (int)ceil($u / 10);
+                if (!in_array($uTribe, $foundTargets, true)) {
+                    $foundTargets[] = $uTribe;
+                }
+            }
+        }
+        if (!empty($foundTargets) && empty($_GET['target'])) {
+            $_GET['target'] = $foundTargets;
+        }
     }
+}
+
+if (!empty($_GET['target'])) {
+    if (is_array($_GET['target'])) {
+        $parsedTargets = array_map('intval', $_GET['target']);
+    } else {
+        $rawTargets = explode(',', (string)$_GET['target']);
+        $parsedTargets = [];
+        foreach ($rawTargets as $rt) {
+            $rtInt = (int)$rt;
+            if ($rtInt >= 1 && $rtInt <= 10) {
+                $parsedTargets[] = $rtInt;
+            }
+        }
+    }
+    if (empty($parsedTargets)) {
+        $parsedTargets = [4];
+    }
+    $_GET['target'] = $parsedTargets;
 
     // fill-in session value-array data
     foreach ($_GET as $key => $value) {
         if ($key[0] === 'u' && is_numeric($value)) {
-            $form->setValue('a2_' . substr($key, 1), $value);
+            $form->setValue('a2_' . substr($key, 1), (int)$value);
         }
     }
-
-
 }
 
-$target = isset($_POST['target'])? $_POST['target'] : (!empty($_GET['target']) ? array((int) $_GET['target']) : array());
+if (isset($_GET['ktyp'])) {
+    $form->setValue('ktyp', (int)$_GET['ktyp']);
+}
+
+$target = isset($_POST['target'])
+    ? $_POST['target']
+    : (!empty($_GET['target'])
+        ? (is_array($_GET['target']) ? $_GET['target'] : [(int)$_GET['target']])
+        : []);
 $tribe = isset($_POST['mytribe'])? $_POST['mytribe'] : $session->tribe;
 if(count($target) > 0) {
 	$myHero = null;

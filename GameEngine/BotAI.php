@@ -1058,52 +1058,93 @@ class BotAI {
         $wsLevel = self::getBuildingLevel($wid, 21);
         $enableCavalry = defined('BOT_AI_ENABLE_CAVALRY') ? (bool)BOT_AI_ENABLE_CAVALRY : true;
 
+        // Hitung kekuatan pertahanan vs serangan saat ini di desa bot
+        $offensiveUnits = self::getOffensiveUnits($tribe, false);
+        $isBasicOffensive = in_array($tribeUnits['basic'], $offensiveUnits, true);
+        $scoutU = $tribeUnits['scout'] ?? 0;
+        $chiefU = self::getChiefUnit($tribe);
+        $settlerU = $tribe * 10;
+        $standingDef = 0;
+        $standingOff = 0;
+        foreach ($tribeUnits['all'] as $u) {
+            $uCount = (int)($res[0]['u' . $u] ?? 0);
+            if (in_array($u, $offensiveUnits, true)) {
+                $standingOff += $uCount;
+            } else {
+                if ($u !== $scoutU && $u !== $settlerU && $u !== $chiefU) {
+                    $standingDef += $uCount;
+                }
+            }
+        }
+
         $trainCandidates = [];
         if ($isEmergencyRecovery) {
-            // Mode Darurat: Fokus prioritaskan infanteri dasar & infanteri pertahanan agar segera pulih
-            $trainCandidates[$tribeUnits['basic']] = 75;
-            if (!empty($tribeUnits['inf_def']) && ($brLevel >= 2 || $pop >= 50)) {
-                $trainCandidates[$tribeUnits['inf_def']] = 25;
+            // Mode Darurat: Fokus prioritaskan pemulihan pertahanan desa
+            if ($isBasicOffensive) {
+                $trainCandidates[$tribeUnits['basic']] = 60;
+                if (!empty($tribeUnits['inf_def'])) {
+                    $trainCandidates[$tribeUnits['inf_def']] = 40;
+                }
+            } else {
+                $trainCandidates[$tribeUnits['basic']] = 50;
+                if (!empty($tribeUnits['inf_def'])) {
+                    $trainCandidates[$tribeUnits['inf_def']] = 25;
+                }
+                if (!empty($tribeUnits['inf_adv'])) {
+                    $trainCandidates[$tribeUnits['inf_adv']] = 25;
+                }
             }
         } elseif ($isAmassingBastion) {
             // Mode Mobilisasi Benteng Kuno: Prioritaskan infanteri ofensif & senjata kepung
             $trainCandidates[$tribeUnits['basic']] = ($tribe === 2) ? 60 : 35;
-            if (!empty($tribeUnits['inf_adv']) && ($acLevel >= 1 || $brLevel >= 2 || $pop >= 50)) {
-                $trainCandidates[$tribeUnits['inf_adv']] = 40;
+            if (!empty($tribeUnits['inf_adv']) && ($acLevel >= 1 || $brLevel >= 2 || $pop >= 40)) {
+                $trainCandidates[$tribeUnits['inf_adv']] = 45;
             }
             if ($enableCavalry && $stLevel >= 1) {
-                if (!empty($tribeUnits['cav_heavy'])) $trainCandidates[$tribeUnits['cav_heavy']] = 25;
-                elseif (!empty($tribeUnits['cav_light'])) $trainCandidates[$tribeUnits['cav_light']] = 20;
+                if (!empty($tribeUnits['cav_heavy'])) $trainCandidates[$tribeUnits['cav_heavy']] = 30;
+                elseif (!empty($tribeUnits['cav_light'])) $trainCandidates[$tribeUnits['cav_light']] = 25;
             }
             if ($wsLevel >= 1) {
                 if (!empty($tribeUnits['ram'])) $trainCandidates[$tribeUnits['ram']] = 15;
                 if (!empty($tribeUnits['catapult'])) $trainCandidates[$tribeUnits['catapult']] = 15;
             }
         } else {
-            // Basic infantry is always eligible (Barracks >= 1)
-            $trainCandidates[$tribeUnits['basic']] = 40;
+            // Mode Normal: Seimbang & Agresif (Proporsi Serang 60% - 75% saat pertahanan rumah sudah aman)
+            $defenseSecure = ($standingDef >= $homeReserve);
 
-            // Defensive infantry: Membutuhkan barak lvl 2 atau pop >= 50 dan umur >= 0.8 hari
-            if (!empty($tribeUnits['inf_def']) && ($brLevel >= 2 || $pop >= 50) && $effectiveAgeDays >= 0.8) {
-                $trainCandidates[$tribeUnits['inf_def']] = 30;
+            // 1. Infanteri Dasar
+            if ($isBasicOffensive) {
+                // Untuk suku dengan unit dasar serang (Teuton Clubswinger, Hun, Viking, Nusantara):
+                $trainCandidates[$tribeUnits['basic']] = $defenseSecure ? 45 : 35;
+            } else {
+                // Untuk suku dengan unit dasar defensif/hybrid (Gaul Phalanx, Romawi Legionnaire, Mesir, Spartan):
+                $trainCandidates[$tribeUnits['basic']] = $defenseSecure ? 15 : 30;
             }
 
-            // Advanced / Elite offensive infantry: Membutuhkan akademi atau barak lvl 3 dan pop >= 80, umur >= 1.5 hari
-            if (!empty($tribeUnits['inf_adv']) && ($acLevel >= 1 || $brLevel >= 3) && $pop >= 80 && $effectiveAgeDays >= 1.5) {
-                $trainCandidates[$tribeUnits['inf_adv']] = 20;
+            // 2. Infanteri Bertahan Murni (Praetorian, Tombak, Ash Warden, Sentinel):
+            if (!empty($tribeUnits['inf_def']) && ($brLevel >= 2 || $pop >= 40)) {
+                $trainCandidates[$tribeUnits['inf_def']] = $defenseSecure ? 10 : 25;
             }
 
-            // Kavaleri: Hanya terbuka setelah bot berumur >= 2.5 hari, pop >= 100, dan memiliki Stable (lvl >= 1)
-            if ($enableCavalry && $effectiveAgeDays >= 2.5 && $pop >= 100 && $stLevel >= 1) {
-                if (!empty($tribeUnits['cav_light'])) $trainCandidates[$tribeUnits['cav_light']] = 15;
+            // 3. Infanteri Serang Mahir (Pedang Galia, Imperian Romawi, Kapak Teuton, Khopesh, Homoioi, Pemanah Nusantara):
+            // Syarat dibuat lebih wajar: Barak lvl 2 atau Akademi lvl 1 atau pop >= 40 atau umur >= 0.5 hari
+            if (!empty($tribeUnits['inf_adv']) && ($acLevel >= 1 || $brLevel >= 2 || $pop >= 40 || $effectiveAgeDays >= 0.5)) {
+                $trainCandidates[$tribeUnits['inf_adv']] = $defenseSecure ? 55 : 40;
+            }
+
+            // 4. Kavaleri: Terbuka jika memiliki Stable (lvl >= 1) dan pop >= 50 atau umur >= 0.8 hari
+            if ($enableCavalry && $stLevel >= 1 && ($pop >= 50 || $effectiveAgeDays >= 0.8)) {
+                if (!empty($tribeUnits['cav_light'])) $trainCandidates[$tribeUnits['cav_light']] = $defenseSecure ? 30 : 20;
                 if (!empty($tribeUnits['cav_def']) && $stLevel >= 2) $trainCandidates[$tribeUnits['cav_def']] = 10;
-                if (!empty($tribeUnits['cav_heavy']) && $stLevel >= 3 && $pop >= 150) $trainCandidates[$tribeUnits['cav_heavy']] = 10;
+                if (!empty($tribeUnits['cav_heavy']) && $stLevel >= 3 && ($pop >= 100 || $effectiveAgeDays >= 1.5)) {
+                    $trainCandidates[$tribeUnits['cav_heavy']] = $defenseSecure ? 20 : 10;
+                }
             }
 
-            // Senjata Pengepungan: Hanya terbuka setelah bot berumur >= 4.5 hari, pop >= 180, dan memiliki Workshop (lvl >= 1)
-            if ($effectiveAgeDays >= 4.5 && $pop >= 180 && $wsLevel >= 1) {
-                if (!empty($tribeUnits['ram'])) $trainCandidates[$tribeUnits['ram']] = 5;
-                if (!empty($tribeUnits['catapult']) && $wsLevel >= 2) $trainCandidates[$tribeUnits['catapult']] = 4;
+            // 5. Senjata Pengepungan: Terbuka jika memiliki Workshop (lvl >= 1) dan pop >= 100 atau umur >= 2.0 hari
+            if ($wsLevel >= 1 && ($pop >= 100 || $effectiveAgeDays >= 2.0)) {
+                if (!empty($tribeUnits['ram'])) $trainCandidates[$tribeUnits['ram']] = 10;
+                if (!empty($tribeUnits['catapult']) && $wsLevel >= 2) $trainCandidates[$tribeUnits['catapult']] = 8;
             }
         }
 
@@ -3983,9 +4024,26 @@ class BotAI {
         }
 
         $totalCombatAvailable = $totalNonSiegeAvailable + $totalSiegeAvailable;
-        $deployableCombat = max(0, $totalCombatAvailable - $homeReserve);
+
+        // Hitung total pasukan bertahan murni yang sedang ada di rumah (misal Phalanx, Praetorian, Tombak, dll.)
+        $scoutU = $tribeUnits['scout'] ?? 0;
+        $chiefU = self::getChiefUnit($tribe);
+        $settlerU = $tribe * 10;
+        $totalDefensiveAtHome = 0;
+        foreach ($tribeUnits['all'] as $uNum) {
+            if (!in_array($uNum, $offensiveUnits, true) && !in_array($uNum, $siegeUnits, true)) {
+                // Kecualikan scout, settler, chief dari hitungan pertahanan aktif
+                if ($uNum === $scoutU || $uNum === $settlerU || $uNum === $chiefU) continue;
+                $totalDefensiveAtHome += (int)($homeUnits['u' . $uNum] ?? 0);
+            }
+        }
+
+        // Defisit pertahanan rumah: Jika pasukan bertahan sudah mencukupi $homeReserve,
+        // seluruh pasukan serang ($totalCombatAvailable) bebas dikerahkan tanpa ditahan!
+        $defenseDeficit = max(0, $homeReserve - $totalDefensiveAtHome);
+        $deployableCombat = max(0, $totalCombatAvailable - $defenseDeficit);
         if ($deployableCombat < $minAttackForce) {
-            return null; // Garnisun pertahanan rumah wajib dipertahankan; sisa pasukan tempur belum cukup untuk menyerang
+            return null; // Pasukan tempur ofensif belum mencukupi batas minimal serangan
         }
 
         // Cek apakah desa sedang fokus menghimpun pasukan untuk ekspedisi Benteng Kuno (War Mobilization)
@@ -4245,7 +4303,8 @@ class BotAI {
             $bastionWref = class_exists('Bastion') ? Bastion::BASTION_WREF : 20201;
             // Query candidate target villages within local area ($maxDistance)
             $targets = $database->query_return("
-                SELECT v.wref, v.owner, v.name as vname, v.pop, w.x, w.y, u.username, u.access, u.protect, u.alliance
+                SELECT v.wref, v.owner, v.name as vname, v.pop, w.x, w.y, u.username, u.access, u.protect, u.alliance,
+                       u.is_bot, u.email, u.desc1, u.desc2
                 FROM " . TB_PREFIX . "vdata v
                 JOIN " . TB_PREFIX . "wdata w ON v.wref = w.id
                 JOIN " . TB_PREFIX . "users u ON v.owner = u.id
@@ -4261,6 +4320,9 @@ class BotAI {
             }
 
             $candidates = [];
+            $playerCandidates = [];
+            $botCandidates = [];
+
             foreach ($targets as $tgt) {
                 if (in_array($tgt['username'], $protectedList, true)) {
                     continue;
@@ -4270,7 +4332,21 @@ class BotAI {
                 }
 
                 $dist = self::getDistance($botCoor['x'], $botCoor['y'], $tgt['x'], $tgt['y']);
-                if ($dist > $maxDistance || $dist < 0.5) {
+                if ($dist < 0.5) {
+                    continue;
+                }
+
+                // Deteksi apakah target adalah bot atau pemain asli (manusia)
+                $isBot = (!empty($tgt['is_bot']) ||
+                          strpos((string)($tgt['email'] ?? ''), '@bot.travianz') !== false ||
+                          strpos((string)($tgt['desc1'] ?? ''), '[#BOT]') !== false ||
+                          strpos((string)($tgt['desc2'] ?? ''), '[#BOT]') !== false ||
+                          strpos((string)($tgt['username'] ?? ''), 'Bot_') === 0);
+                $tgt['is_bot'] = $isBot;
+
+                // Batas jangkauan: untuk pemain asli diberi toleransi jangkauan hingga 100 tile agar tetap terjangkau
+                $maxAllowedDist = $isBot ? $maxDistance : max($maxDistance, 100.0);
+                if ($dist > $maxAllowedDist) {
                     continue;
                 }
 
@@ -4311,18 +4387,39 @@ class BotAI {
 
                 $tgt['dist'] = $dist;
                 $candidates[] = $tgt;
+                if ($isBot) {
+                    $botCandidates[] = $tgt;
+                } else {
+                    $playerCandidates[] = $tgt;
+                }
             }
 
             if (empty($candidates)) {
                 return null;
             }
 
-            // Sort by distance ascending and pick randomly from closest 3
-            usort($candidates, function($a, $b) {
+            // Target Pemain Asli (Real Human Player): 70% prioritas menyerang pemain manusia jika ada dalam jangkauan
+            $targetPlayerPercent = (int)self::getConfig('BOT_AI_TARGET_PLAYER_PERCENT', 70);
+            $chosenPool = [];
+
+            if (!empty($playerCandidates) && !empty($botCandidates)) {
+                if (rand(1, 100) <= $targetPlayerPercent) {
+                    $chosenPool = $playerCandidates;
+                } else {
+                    $chosenPool = $botCandidates;
+                }
+            } elseif (!empty($playerCandidates)) {
+                $chosenPool = $playerCandidates;
+            } else {
+                $chosenPool = $botCandidates;
+            }
+
+            // Urutkan berdasarkan jarak terdekat dan pilih acak dari 3 terdekat dalam pool yang terpilih
+            usort($chosenPool, function($a, $b) {
                 return $a['dist'] <=> $b['dist'];
             });
 
-            $topCandidates = array_slice($candidates, 0, 3);
+            $topCandidates = array_slice($chosenPool, 0, min(3, count($chosenPool)));
             $target = $topCandidates[array_rand($topCandidates)];
         }
 
@@ -4477,7 +4574,8 @@ class BotAI {
         $summaryStr = implode(', ', $summaryParts);
 
         $revengePrefix = $isRevenge ? "[BALAS DENDAM ALIANSI / REVENGE] " : "";
-        return "{$revengePrefix}{$attackTypeName} dispatched! " . ($totalDispatched + $sendHero) . " troops [{$summaryStr}] marched towards {$target['vname']} ({$target['username']}) - distance: " . round($target['dist'], 1) . " tiles, arrival in {$duration}s";
+        $targetTypeLabel = !empty($target['is_bot']) ? "[Desa Bot]" : "[Pemain Asli]";
+        return "{$revengePrefix}{$attackTypeName} {$targetTypeLabel} dispatched! " . ($totalDispatched + $sendHero) . " troops [{$summaryStr}] marched towards {$target['vname']} ({$target['username']}) - distance: " . round($target['dist'], 1) . " tiles, arrival in {$duration}s";
     }
 
     /**

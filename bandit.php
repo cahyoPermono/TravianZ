@@ -433,6 +433,23 @@ if ($tab === 'history') {
 		.btn-pve-raid:hover {
 			background: #962d22;
 		}
+		.btn-pve-sim {
+			display: inline-block;
+			background: #2980b9;
+			color: #ffffff !important;
+			padding: 3px 8px;
+			border-radius: 3px;
+			font-weight: bold;
+			font-size: 10px;
+			text-decoration: none !important;
+			border: 1px solid #1f618d;
+			box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+			transition: background 0.15s ease, transform 0.1s ease;
+		}
+		.btn-pve-sim:hover {
+			background: #1f618d;
+			color: #ffffff !important;
+		}
 		.btn-pve-rally {
 			display: inline-block;
 			background: #e67e22;
@@ -684,6 +701,7 @@ if ($tab === 'history') {
 					// Fetch guard breakdown (bypass cache)
 					$unitData = $database->getUnit($camp['wref'], false);
 					$guardsList = [];
+					$simParams = ['target=4', 'from=bandit', 'wref=' . (int)$camp['wref']];
 					if (!empty($unitData)) {
 						for ($u = 1; $u <= 50; $u++) {
 							if (!empty($unitData['u' . $u]) && $unitData['u' . $u] > 0) {
@@ -692,9 +710,11 @@ if ($tab === 'history') {
 									'name' => defined('U' . $u) ? constant('U' . $u) : "U$u",
 									'count' => (int)$unitData['u' . $u]
 								];
+								$simParams[] = 'u' . $u . '=' . (int)$unitData['u' . $u];
 							}
 						}
 					}
+					$simUrl = 'warsim.php?' . implode('&amp;', $simParams);
 
 					$campImg = file_exists(__DIR__ . "/img/bandit/camp_tier_{$tier}.png") 
 						? "img/bandit/camp_tier_{$tier}.png" 
@@ -736,6 +756,9 @@ if ($tab === 'history') {
 							<!-- Action Buttons Right on the Card Body -->
 							<div class="pve-actions-strip">
 								<a class="btn-pve-map" href="karte.php?d=<?php echo $camp['wref']; ?>&c=<?php echo $mapCheck; ?>">🗺️ Peta</a>
+								<?php if (!empty($guardsList) && (int)$camp['cur_hp'] > 0) { ?>
+									<a class="btn-pve-sim" href="<?php echo $simUrl; ?>" target="_blank" title="Simulasi pertempuran melawan penjaga sarang ini di Combat Simulator">🧮 Kalkulator</a>
+								<?php } ?>
 								<?php if ($village->resarray['f39'] > 0) { ?>
 									<a class="btn-pve-raid" href="a2b.php?s=2&z=<?php echo $camp['wref']; ?>">⚔️ Serang / Jarah</a>
 								<?php } else { ?>
@@ -771,7 +794,12 @@ if ($tab === 'history') {
 
 					<!-- Guards Breakdown -->
 					<div class="pve-guards-strip">
-						<div class="guards-header">Penjaga Sarang:</div>
+						<div class="guards-header" style="display: flex; justify-content: space-between; align-items: center;">
+							<span>Penjaga Sarang:</span>
+							<?php if (!empty($guardsList) && (int)$camp['cur_hp'] > 0) { ?>
+								<a href="<?php echo $simUrl; ?>" target="_blank" style="color: #2980b9; text-decoration: underline; font-weight: bold; font-size: 10px;" title="Buka Combat Simulator dengan penjaga sarang ini">🧮 Uji di Kalkulator Perang &raquo;</a>
+							<?php } ?>
+						</div>
 						<div class="guards-chips-row">
 							<?php if (empty($guardsList)) { ?>
 								<span style="color: #27ae60; font-weight: bold;">Seluruh penjaga telah tumbang!</span>
