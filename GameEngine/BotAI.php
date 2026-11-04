@@ -2322,7 +2322,7 @@ class BotAI {
         $fromX = (int)$fromCoor['x'];
         $fromY = (int)$fromCoor['y'];
 
-        $maxDist = (float)self::getConfig('BOT_AI_CONQUEST_MAX_DISTANCE', 35.0);
+        $maxDist = (float)self::getConfig('BOT_AI_CONQUEST_MAX_DISTANCE', 200.0);
         $prioritizePlayers = (bool)self::getConfig('BOT_AI_CONQUEST_PRIORITIZE_PLAYERS', true);
         $botAlliance = (int)($bot['alliance'] ?? 0);
 
@@ -2346,8 +2346,9 @@ class BotAI {
             return "Chief ready at home with {$totalEscort} escort troops; searching for valid non-capital target villages";
         }
 
-        $bestCandidate = null;
-        $bestScore = -999999;
+        $playerCandidates = [];
+        $botCandidates = [];
+        $ongoingConquests = [];
 
         foreach ($candidates as $cand) {
             $toWid = (int)$cand['wref'];
@@ -2368,32 +2369,35 @@ class BotAI {
                       strpos((string)($cand['username'] ?? ''), 'Bot_') === 0);
 
             $loyalty = (float)($cand['loyalty'] ?? 100);
-
-            $score = 0;
+            $cand['dist'] = $dist;
+            $cand['is_bot_target'] = $isBot;
 
             // 1. TOP PRIORITY: Ongoing conquest!
             // If loyalty < 100, someone (or this bot) is already reducing loyalty. Lock on until 0%!
             if ($loyalty < 100) {
-                $score += 50000 + ((100.0 - $loyalty) * 200);
+                $cand['ongoing_score'] = (100.0 - $loyalty) * 100 + (!$isBot ? 5000 : 0);
+                $ongoingConquests[] = $cand;
+            } elseif (!$isBot) {
+                $playerCandidates[] = $cand;
+            } else {
+                $botCandidates[] = $cand;
             }
+        }
 
-            // 2. Prioritize non-bot players (real human accounts)
-            if (!$isBot && $prioritizePlayers) {
-                $score += 15000;
-            }
+        $bestCandidate = null;
 
-            // 3. Proximity bonus
-            $score += (100 - ($dist * 2));
-
-            // 4. Village development
-            $score += min(500, (int)$cand['pop']);
-
-            if ($score > $bestScore) {
-                $bestScore = $score;
-                $bestCandidate = $cand;
-                $bestCandidate['dist'] = $dist;
-                $bestCandidate['is_bot_target'] = $isBot;
-            }
+        // A. Jika ada penaklukan yang sedang berjalan (loyalitas < 100%), kunci target sampai tuntas 0%
+        if (!empty($ongoingConquests)) {
+            usort($ongoingConquests, function($a, $b) {
+                return $b['ongoing_score'] <=> $a['ongoing_score'];
+            });
+            $bestCandidate = $ongoingConquests[0];
+        } elseif (!empty($playerCandidates)) {
+            // B. Utamakan desa ke-2 atau ke-3 pemain manusia dulu, scan semua lalu pilih RANDOM (bukan hanya yang dekat)
+            $bestCandidate = $playerCandidates[array_rand($playerCandidates)];
+        } elseif (!empty($botCandidates)) {
+            // C. Jika belum ada desa non-capital pemain manusia, pilih random dari desa ke-2 sesama bot
+            $bestCandidate = $botCandidates[array_rand($botCandidates)];
         }
 
         if (!$bestCandidate) {
@@ -2591,7 +2595,7 @@ class BotAI {
                 } elseif (self::isNightTime()) {
                     $statusText = "🌙 {$chiefName} & " . number_format($totalEscort) . " Pengawal Siap (Menunggu fajar pk 08:00 WIB)";
                 } else {
-                    $maxDist = (float)self::getConfig('BOT_AI_CONQUEST_MAX_DISTANCE', 35.0);
+                    $maxDist = (float)self::getConfig('BOT_AI_CONQUEST_MAX_DISTANCE', 200.0);
                     $fromCoor = $database->getCoor($wid);
                     $fromX = (int)($fromCoor['x'] ?? 0);
                     $fromY = (int)($fromCoor['y'] ?? 0);
@@ -2601,7 +2605,7 @@ class BotAI {
                     $accessClause = $adminRaids ? "(u.access < 8 OR u.access = 9)" : "u.access < 8";
 
                     $candidates = $database->query_return("
-                        SELECT v.wref, v.name as vname, u.alliance as dally,
+                        SELECT v.wref, v.name as vname, u.alliance as dally, u.is_bot, u.email, u.desc1, u.desc2, u.username,
                                (SELECT COUNT(*) FROM " . TB_PREFIX . "vdata WHERE owner = v.owner) as owner_villages
                         FROM " . TB_PREFIX . "vdata v
                         JOIN " . TB_PREFIX . "users u ON v.owner = u.id
@@ -2615,7 +2619,8 @@ class BotAI {
                           AND (u.protect IS NULL OR u.protect < " . time() . ")
                     ");
 
-                    $validTargetName = null;
+                    $playerTargetCount = 0;
+                    $botTargetCount = 0;
                     if (!empty($candidates)) {
                         foreach ($candidates as $cand) {
                             if ((int)$cand['owner_villages'] <= 1) continue;
@@ -2624,14 +2629,24 @@ class BotAI {
                             if (!$toCoor) continue;
                             $dist = self::getDistance($fromX, $fromY, (int)$toCoor['x'], (int)$toCoor['y']);
                             if ($dist <= $maxDist) {
-                                $validTargetName = $cand['vname'];
-                                break;
+                                $isBot = (!empty($cand['is_bot']) ||
+                                          strpos((string)($cand['email'] ?? ''), '@bot.travianz') !== false ||
+                                          strpos((string)($cand['desc1'] ?? ''), '[#BOT]') !== false ||
+                                          strpos((string)($cand['desc2'] ?? ''), '[#BOT]') !== false ||
+                                          strpos((string)($cand['username'] ?? ''), 'Bot_') === 0);
+                                if ($isBot) {
+                                    $botTargetCount++;
+                                } else {
+                                    $playerTargetCount++;
+                                }
                             }
                         }
                     }
 
-                    if ($validTargetName !== null) {
-                        $statusText = "⚔️ {$chiefName} & " . number_format($totalEscort) . " Pengawal Siap (Sasaran: {$validTargetName})";
+                    if ($playerTargetCount > 0) {
+                        $statusText = "⚔️ {$chiefName} & " . number_format($totalEscort) . " Pengawal Siap ({$playerTargetCount} desa ke-2/3 player di radar {$maxDist} kotak - pilih acak saat siklus)";
+                    } elseif ($botTargetCount > 0) {
+                        $statusText = "⚔️ {$chiefName} & " . number_format($totalEscort) . " Pengawal Siap ({$botTargetCount} desa ke-2/3 bot di radar {$maxDist} kotak - pilih acak saat siklus)";
                     } else {
                         $statusText = "🚩 {$chiefName} & " . number_format($totalEscort) . " Pengawal Siap (Menunggu sasaran desa non-capital di radar {$maxDist} kotak)";
                     }

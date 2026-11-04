@@ -84,7 +84,7 @@ echo "Test 3: Conquest Configuration Persistence... ";
 $saveOk = BotAI::saveConfig([
     'BOT_AI_CONQUEST_ENABLED' => true,
     'BOT_AI_CONQUEST_MIN_ESCORT' => 75,
-    'BOT_AI_CONQUEST_MAX_DISTANCE' => 28.5,
+    'BOT_AI_CONQUEST_MAX_DISTANCE' => 200.0,
     'BOT_AI_CONQUEST_PRIORITIZE_PLAYERS' => true,
     'BOT_AI_NIGHT_SLEEP_ENABLED' => false,
 ]);
@@ -93,7 +93,7 @@ BotAI::resetRuntimeConfig();
 
 assertTrue(BotAI::getConfig('BOT_AI_CONQUEST_ENABLED'), "BOT_AI_CONQUEST_ENABLED should be true");
 assertEqual(75, (int)BotAI::getConfig('BOT_AI_CONQUEST_MIN_ESCORT'), "BOT_AI_CONQUEST_MIN_ESCORT should be 75");
-assertEqual(28.5, (float)BotAI::getConfig('BOT_AI_CONQUEST_MAX_DISTANCE'), "BOT_AI_CONQUEST_MAX_DISTANCE should be 28.5");
+assertEqual(200.0, (float)BotAI::getConfig('BOT_AI_CONQUEST_MAX_DISTANCE'), "BOT_AI_CONQUEST_MAX_DISTANCE should be 200.0");
 assertTrue(BotAI::getConfig('BOT_AI_CONQUEST_PRIORITIZE_PLAYERS'), "BOT_AI_CONQUEST_PRIORITIZE_PLAYERS should be true");
 echo "PASSED" . PHP_EOL;
 
@@ -216,14 +216,14 @@ $database->query("REPLACE INTO " . TB_PREFIX . "wdata (id, x, y) VALUES ($widOth
 // Dispatch conquest
 $resAttack = BotAI::processConquest($botData);
 assertTrue($resAttack !== null && strpos($resAttack, 'Ekspedisi Penaklukan Diberangkatkan') !== false, "Expedition should be dispatched: $resAttack");
-assertTrue(strpos($resAttack, 'Human Outpost') !== false, "Must target Human Outpost, NOT capital and NOT bot farm even if bot farm was closer! Output: $resAttack");
+assertTrue(strpos($resAttack, 'Pemain Manusia') !== false, "Must target a human player non-capital village! Output: $resAttack");
 assertTrue(strpos($resAttack, 'Target: Padepokan/Istana') !== false, "Catapults must target Residence/Palace! Output: $resAttack");
 
 // Verify attack entry in database
 $attacks = $database->query_return("
     SELECT a.* FROM " . TB_PREFIX . "attacks a
     JOIN " . TB_PREFIX . "movement m ON m.ref = a.id
-    WHERE m.from = $testBotWid AND m.to = $widHumanNonCap
+    WHERE m.from = $testBotWid
 ");
 assertTrue(!empty($attacks), "Attack record must exist in DB");
 assertEqual(1, (int)$attacks[0]['t9'], "t9 must be 1 (Chief)");
@@ -259,9 +259,51 @@ assertTrue(strpos($resRelentless, 'Loyalitas: 75%') !== false, "Output should sh
 echo "PASSED" . PHP_EOL;
 
 // ------------------------------------------------------------------------------
+// TEST 8: 200-Tile Radius & Random Selection Across All Player Non-Capitals
+// ------------------------------------------------------------------------------
+echo "Test 8: 200-Tile Radius & Non-Proximity Random Player Target Selection... ";
+
+// Set default conquest radius to 200
+$conquestMaxDist = (float)BotAI::getConfig('BOT_AI_CONQUEST_MAX_DISTANCE', 200.0);
+assertEqual(200.0, $conquestMaxDist, "Conquest max distance must be 200 tiles");
+
+// Reset Outpost loyalty back to 100% so all villages are fresh candidates
+$database->query("UPDATE " . TB_PREFIX . "vdata SET loyalty = 100 WHERE wref = $widHumanNonCap");
+
+// Add Far player non-capital village at (110, 10) -> distance 100 tiles
+$widFar = 444007;
+$database->query("DELETE FROM " . TB_PREFIX . "vdata WHERE wref = $widFar");
+$database->query("
+    INSERT INTO " . TB_PREFIX . "vdata (wref, owner, name, capital, pop, loyalty)
+    VALUES ($widFar, $humanUid, 'Human Far Outpost', 0, 450, 100)
+");
+$database->query("REPLACE INTO " . TB_PREFIX . "wdata (id, x, y) VALUES ($widFar, 110, 10)");
+
+// Perform multiple trial selections by resetting movements and checking targets picked
+$hitClose = 0;
+$hitFar = 0;
+$trials = 40;
+
+for ($i = 0; $i < $trials; $i++) {
+    $database->query("DELETE FROM " . TB_PREFIX . "movement WHERE `from` = $testBotWid");
+    $database->query("UPDATE " . TB_PREFIX . "units SET u19 = 1, u11 = 200, u13 = 100, u18 = 10 WHERE vref = $testBotWid");
+
+    $trialRes = BotAI::processConquest($botData);
+    if ($trialRes && strpos($trialRes, 'Human Far Outpost') !== false) {
+        $hitFar++;
+    } elseif ($trialRes && (strpos($trialRes, 'Human Juicy City') !== false || strpos($trialRes, 'Human Outpost') !== false)) {
+        $hitClose++;
+    }
+}
+
+assertTrue($hitFar > 0, "Far player village at distance 100 must be chosen in random selection (Hit far: $hitFar/$trials)");
+assertTrue($hitClose > 0, "Close player villages must also be chosen in random selection (Hit close: $hitClose/$trials)");
+echo "PASSED (Far Hits: $hitFar, Close Hits: $hitClose out of $trials trials)" . PHP_EOL;
+
+// ------------------------------------------------------------------------------
 // CLEANUP
 // ------------------------------------------------------------------------------
-$database->query("DELETE FROM " . TB_PREFIX . "vdata WHERE wref IN ($testBotWid, $widHumanCap, $widHumanNonCap, $widOtherBot, 444005, $widJuicy)");
+$database->query("DELETE FROM " . TB_PREFIX . "vdata WHERE wref IN ($testBotWid, $widHumanCap, $widHumanNonCap, $widOtherBot, 444005, $widJuicy, $widFar)");
 $database->query("DELETE FROM " . TB_PREFIX . "fdata WHERE vref = $testBotWid");
 $database->query("DELETE FROM " . TB_PREFIX . "units WHERE vref = $testBotWid");
 $database->query("DELETE FROM " . TB_PREFIX . "tdata WHERE vref = $testBotWid");
@@ -269,7 +311,7 @@ $database->query("DELETE FROM " . TB_PREFIX . "research WHERE vref = $testBotWid
 $database->query("DELETE FROM " . TB_PREFIX . "training WHERE vref = $testBotWid");
 $database->query("DELETE FROM " . TB_PREFIX . "movement WHERE `from` = $testBotWid");
 $database->query("DELETE FROM " . TB_PREFIX . "users WHERE id IN ($humanUid, $botUid)");
-BotAI::saveConfig(['BOT_AI_NIGHT_SLEEP_ENABLED' => true]);
+BotAI::saveConfig(['BOT_AI_NIGHT_SLEEP_ENABLED' => true, 'BOT_AI_CONQUEST_MAX_DISTANCE' => 200.0]);
 BotAI::resetRuntimeConfig();
 
 echo "=== All BotChiefConquestTest Passed Successfully! ===" . PHP_EOL;

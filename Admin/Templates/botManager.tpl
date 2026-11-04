@@ -551,7 +551,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
         // Chief Conquest settings (Penaklukan Desa Non-Capital dengan Chief & Pasukan Pengawal)
         $conquestEnabled = !empty($_POST['bot_conquest_enabled']);
         $conquestMinEscort = max(20, min(5000, (int)($_POST['bot_conquest_min_escort'] ?? 80)));
-        $conquestMaxDistance = max(5.0, min(500.0, (float)($_POST['bot_conquest_max_distance'] ?? 35.0)));
+        $conquestMaxDistance = max(5.0, min(500.0, (float)($_POST['bot_conquest_max_distance'] ?? 200.0)));
         $conquestPrioritizePlayers = !empty($_POST['bot_conquest_prioritize_players']);
 
         // Player Targeting & Raid Priority
@@ -654,7 +654,7 @@ $currentBastionWarMobilization = !empty(BotAI::getConfig('BOT_AI_BASTION_WAR_MOB
 // Current Chief Conquest Configurations
 $currentConquestEnabled = !empty(BotAI::getConfig('BOT_AI_CONQUEST_ENABLED', true));
 $currentConquestMinEscort = (int)BotAI::getConfig('BOT_AI_CONQUEST_MIN_ESCORT', 80);
-$currentConquestMaxDist = (float)BotAI::getConfig('BOT_AI_CONQUEST_MAX_DISTANCE', 35.0);
+$currentConquestMaxDist = (float)BotAI::getConfig('BOT_AI_CONQUEST_MAX_DISTANCE', 200.0);
 $currentConquestPrioritizePlayers = !empty(BotAI::getConfig('BOT_AI_CONQUEST_PRIORITIZE_PLAYERS', true));
 
 // Current Player Targeting & Raid Configurations
@@ -1186,13 +1186,13 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
                             <div>
                                 <label style="font-size:11px; color:#94a3b8; display:block; margin-bottom:3px;">Radius Jarak Sasaran Maksimal (Kotak):</label>
                                 <input type="number" step="0.5" name="bot_conquest_max_distance" class="botm-form-control" value="<?php echo $currentConquestMaxDist; ?>" min="5" max="500" style="padding:4px 8px; font-size:12px;" required>
-                                <span style="font-size:9px; color:#64748b;">Jarak maksimal desa target yang akan diserang dengan Chief.</span>
+                                <span style="font-size:9px; color:#64748b;">Jarak maksimal radar desa target yang akan ditaklukkan dengan Chief (Rekomendasi: 200 kotak).</span>
                             </div>
                         </div>
                         <div style="margin-top:8px;">
                             <label style="display:flex; align-items:center; gap:6px; cursor:pointer; color:#cbd5e1; font-size:11px;">
                                 <input type="checkbox" name="bot_conquest_prioritize_players" value="1" <?php echo $currentConquestPrioritizePlayers ? 'checked' : ''; ?> style="width:14px; height:14px; cursor:pointer;">
-                                <span>Prioritaskan merebut desa pemain manusia (bukan sesama bot)</span>
+                                <span>🎯 Utamakan desa ke-2/ke-3 pemain manusia dulu, scan seluruh radar &amp; pilih acak (random) biar seru</span>
                             </label>
                         </div>
                         <span style="font-size:10px; color:#93c5fd; display:block; margin-top:6px; line-height:1.4;">
