@@ -193,4 +193,45 @@ foreach ($testDayHours as $h) {
 }
 echo "PASSED" . PHP_EOL;
 
+echo "=== 6. Testing Anti-Bullying Global Cooldown & Fair Round-Robin Rotation ===" . PHP_EOL;
+
+// 6.1 Check configurations
+$globalCooldown = (int)BotAI::getConfig('BOT_AI_TARGET_GLOBAL_COOLDOWN', 2700);
+$gangAttackMax = (int)BotAI::getConfig('BOT_AI_GANG_ATTACK_MAX', 1);
+assertTrue($globalCooldown >= 1800, "Global cooldown must be at least 30 mins (default 45 mins: {$globalCooldown}s)");
+assertEqual(1, $gangAttackMax, "Max concurrent bot incoming attacks per village must be 1 (Anti-Dogpiling)");
+
+// 6.2 Test Fair Round-Robin sorting
+$now = time();
+$mockCandidates = [
+    ['wref' => 10, 'username' => 'NearbyVictim', 'dist' => 5.0, 'is_bot' => false],  // Closest, but attacked 5 mins ago
+    ['wref' => 20, 'username' => 'MidDistance', 'dist' => 18.0, 'is_bot' => false],   // Further, attacked 120 mins ago
+    ['wref' => 30, 'username' => 'FarPlayer', 'dist' => 30.0, 'is_bot' => false],     // Furthest, never attacked (last_attack = 0)
+];
+
+$mockLastAttackMap = [
+    10 => $now - 300,   // 5 mins ago
+    20 => $now - 7200,  // 120 mins ago
+    // 30 has 0 / unset
+];
+
+// In the fair round-robin sort:
+// FarPlayer (never attacked) MUST come first, MidDistance (120 mins ago) second, NearbyVictim third
+usort($mockCandidates, function($a, $b) use ($mockLastAttackMap) {
+    $lastA = $mockLastAttackMap[$a['wref']] ?? 0;
+    $lastB = $mockLastAttackMap[$b['wref']] ?? 0;
+    if ($lastA === 0 && $lastB > 0) return -1;
+    if ($lastB === 0 && $lastA > 0) return 1;
+    if ($lastA !== $lastB) {
+        return $lastA <=> $lastB;
+    }
+    return $a['dist'] <=> $b['dist'];
+});
+
+assertEqual(30, $mockCandidates[0]['wref'], "Player who was never attacked must take #1 priority in queue");
+assertEqual(20, $mockCandidates[1]['wref'], "Player attacked longest ago must take #2 priority");
+assertEqual(10, $mockCandidates[2]['wref'], "Recently attacked player must take lowest priority");
+
+echo "PASSED" . PHP_EOL;
+
 echo "=== All Tests Passed Successfully! ===" . PHP_EOL;

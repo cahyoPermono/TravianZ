@@ -561,6 +561,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
         $nightSleepEnabled = !empty($_POST['bot_night_sleep_enabled']);
         $attackStartHour = max(0, min(23, (int)($_POST['bot_attack_start_hour'] ?? 8)));
         $attackEndHour = max(0, min(23, (int)($_POST['bot_attack_end_hour'] ?? 20)));
+        $targetGlobalCooldown = max(300, min(14400, (int)($_POST['bot_target_global_cooldown'] ?? 2700)));
+        $gangAttackMax = max(1, min(5, (int)($_POST['bot_gang_attack_max'] ?? 1)));
 
         $saveSuccess = BotAI::saveConfig([
             'BOT_AI_MAX_POP' => $maxPop,
@@ -593,6 +595,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
             'BOT_AI_NIGHT_SLEEP_ENABLED' => $nightSleepEnabled,
             'BOT_AI_ATTACK_START_HOUR' => $attackStartHour,
             'BOT_AI_ATTACK_END_HOUR' => $attackEndHour,
+            'BOT_AI_TARGET_GLOBAL_COOLDOWN' => $targetGlobalCooldown,
+            'BOT_AI_GANG_ATTACK_MAX' => $gangAttackMax,
         ]);
 
         if ($saveSuccess) {
@@ -660,6 +664,8 @@ $currentRevengePrioritizePlayers = !empty(BotAI::getConfig('BOT_AI_REVENGE_PRIOR
 $currentNightSleepEnabled = !empty(BotAI::getConfig('BOT_AI_NIGHT_SLEEP_ENABLED', true));
 $currentAttackStartHour = (int)BotAI::getConfig('BOT_AI_ATTACK_START_HOUR', 8);
 $currentAttackEndHour = (int)BotAI::getConfig('BOT_AI_ATTACK_END_HOUR', 20);
+$currentTargetGlobalCooldown = (int)BotAI::getConfig('BOT_AI_TARGET_GLOBAL_COOLDOWN', 2700);
+$currentGangAttackMax = (int)BotAI::getConfig('BOT_AI_GANG_ATTACK_MAX', 1);
 
 $botsQuery = "
     SELECT u.id, u.username, u.tribe, u.regtime, u.desc1, u.alliance,
@@ -1196,10 +1202,10 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
                 </div>
 
                 <div class="botm-form-group">
-                    <label>🎯 Prioritas Target Serangan Otomatis (Player vs Bot):</label>
+                    <label>🎯 Prioritas Target Serangan Otomatis &amp; Proteksi Anti-Bullying (Player vs Bot):</label>
                     <div style="background:#0f172a; padding:10px 12px; border-radius:6px; border:1px solid #1e293b; margin-top:2px;">
                         <div style="background:#022c22; border:1px solid #059669; border-radius:6px; padding:6px 10px; margin-bottom:8px; font-size:11px; color:#a7f3d0;">
-                            📌 <b>Settingan Aktif Saat Ini:</b> <?php echo $currentTargetPlayerPercent; ?>% Prioritas Pemain Manusia &bull; Radius Jangkauan: <?php echo $currentMaxPlayerDist; ?> Kotak Peta
+                            📌 <b>Settingan Aktif Saat Ini:</b> <?php echo $currentTargetPlayerPercent; ?>% Prioritas Pemain &bull; Jeda Perlindungan: <?php echo round($currentTargetGlobalCooldown / 60); ?> Menit &bull; Anti-Kerubung: Maks <?php echo $currentGangAttackMax; ?> Serangan Serentak
                         </div>
                         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
                             <div>
@@ -1218,6 +1224,32 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
                                 <span style="font-size:9px; color:#64748b;">Jangkauan radar bot dalam mencari desa pemain manusia di peta. Rekomendasi: 150 - 250 kotak.</span>
                             </div>
                         </div>
+
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:8px; border-top:1px dashed #334155; padding-top:8px;">
+                            <div>
+                                <label style="font-size:11px; color:#94a3b8; display:block; margin-bottom:3px;">🛡️ Jeda Perlindungan Target Pasca-Serangan (Anti-Bullying):</label>
+                                <select name="bot_target_global_cooldown" class="botm-form-control" style="padding:4px 8px; font-size:12px;">
+                                    <option value="1800" <?php echo $currentTargetGlobalCooldown === 1800 ? 'selected' : ''; ?>>30 Menit (Cepat)</option>
+                                    <option value="2700" <?php echo $currentTargetGlobalCooldown === 2700 ? 'selected' : ''; ?>>45 Menit (Rekomendasi Seimbang)</option>
+                                    <option value="3600" <?php echo $currentTargetGlobalCooldown === 3600 ? 'selected' : ''; ?>>60 Menit (Damai &amp; Santai)</option>
+                                    <option value="5400" <?php echo $currentTargetGlobalCooldown === 5400 ? 'selected' : ''; ?>>90 Menit (Sangat Damai)</option>
+                                </select>
+                                <span style="font-size:9px; color:#64748b;">Setelah diserang salah satu bot, desa pemain dilindungi dari serangan seluruh bot lain selama waktu jeda ini.</span>
+                            </div>
+                            <div>
+                                <label style="font-size:11px; color:#94a3b8; display:block; margin-bottom:3px;">🚫 Batas Serangan Bot Serentak (Anti-Dogpiling):</label>
+                                <select name="bot_gang_attack_max" class="botm-form-control" style="padding:4px 8px; font-size:12px;">
+                                    <option value="1" <?php echo $currentGangAttackMax === 1 ? 'selected' : ''; ?>>Maksimal 1 Serangan (Dilarang Keroyokan Simultan - Rekomendasi)</option>
+                                    <option value="2" <?php echo $currentGangAttackMax === 2 ? 'selected' : ''; ?>>Maksimal 2 Serangan</option>
+                                </select>
+                                <span style="font-size:9px; color:#64748b;">Mencegah banyak bot mengerubungi 1 desa pemain secara serentak bersamaan.</span>
+                            </div>
+                        </div>
+
+                        <div style="background:#022c22; border:1px dashed #059669; border-radius:6px; padding:6px 10px; margin-top:8px; font-size:10px; color:#a7f3d0; line-height:1.4;">
+                            ⚖️ <b>Rotasi Bergilir Adil (Fair Round-Robin):</b> Aktif otomatis. Bot memprioritaskan pemain manusia yang paling lama belum pernah diserang bot, mencegah pemain terdekat menjadi satu-satunya korban yang diserang terus-menerus.
+                        </div>
+
                         <div style="margin-top:8px;">
                             <label style="display:flex; align-items:center; gap:6px; cursor:pointer; color:#cbd5e1; font-size:11px;">
                                 <input type="checkbox" name="bot_revenge_prioritize_players" value="1" <?php echo $currentRevengePrioritizePlayers ? 'checked' : ''; ?> style="width:14px; height:14px; cursor:pointer;">

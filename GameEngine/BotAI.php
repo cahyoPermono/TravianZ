@@ -2337,7 +2337,8 @@ class BotAI {
               AND v.capital = 0
               AND v.name != 'WW Buildingplan'
               AND v.owner > 4
-              AND u.access != 0 AND u.access < 8
+              AND u.id NOT IN (1, 2, 4, 5)
+              AND u.access != 0 AND " . ((defined('ADMIN_ALLOW_INCOMING_RAIDS') && ADMIN_ALLOW_INCOMING_RAIDS) ? "(u.access < 8 OR u.access = 9)" : "u.access < 8") . "
               AND (u.protect IS NULL OR u.protect < " . time() . ")
         ");
 
@@ -2561,7 +2562,80 @@ class BotAI {
                 $statusText = "⏳ {$chiefName} Siap (Menunggu CP: " . number_format($userCP) . "/" . number_format($neededCP) . ")";
             } else {
                 $minEscort = (int)self::getConfig('BOT_AI_CONQUEST_MIN_ESCORT', 80);
-                $statusText = "🚩 {$chiefName} Siap (Mempersiapkan pengawal min {$minEscort} pasukan)";
+                $vData = $database->query_return("SELECT pop FROM " . TB_PREFIX . "vdata WHERE wref = $wid LIMIT 1");
+                $botPop = !empty($vData[0]) ? (int)$vData[0]['pop'] : 50;
+                $homeReserve = self::getHomeReserve($botPop);
+
+                $unitsRow = $database->query_return("SELECT * FROM " . TB_PREFIX . "units WHERE vref = $wid LIMIT 1");
+                $uRow = !empty($unitsRow[0]) ? $unitsRow[0] : [];
+                $offensiveUnits = self::getOffensiveUnits($tribe, true);
+                $basicUnit = self::getTribeBasicUnit($tribe);
+                $homeBasic = (int)($uRow['u' . $basicUnit] ?? 0);
+                $availBasic = max(0, $homeBasic - $homeReserve);
+
+                $totalEscort = 0;
+                $settlerUnit = $tribe * 10;
+                foreach ($offensiveUnits as $uNum) {
+                    if ($uNum === $chiefUnit || $uNum === $settlerUnit) continue;
+                    $cnt = (int)($uRow['u' . $uNum] ?? 0);
+                    if ($uNum === $basicUnit) {
+                        $cnt = $availBasic;
+                    }
+                    if ($cnt > 0) {
+                        $totalEscort += $cnt;
+                    }
+                }
+
+                if ($totalEscort < $minEscort) {
+                    $statusText = "🚩 {$chiefName} Siap (Mempersiapkan pengawal: " . number_format($totalEscort) . "/{$minEscort} unit)";
+                } elseif (self::isNightTime()) {
+                    $statusText = "🌙 {$chiefName} & " . number_format($totalEscort) . " Pengawal Siap (Menunggu fajar pk 08:00 WIB)";
+                } else {
+                    $maxDist = (float)self::getConfig('BOT_AI_CONQUEST_MAX_DISTANCE', 35.0);
+                    $fromCoor = $database->getCoor($wid);
+                    $fromX = (int)($fromCoor['x'] ?? 0);
+                    $fromY = (int)($fromCoor['y'] ?? 0);
+
+                    $botAlliance = (int)$database->getUserField($uid, 'alliance', 0);
+                    $adminRaids = (defined('ADMIN_ALLOW_INCOMING_RAIDS') && ADMIN_ALLOW_INCOMING_RAIDS);
+                    $accessClause = $adminRaids ? "(u.access < 8 OR u.access = 9)" : "u.access < 8";
+
+                    $candidates = $database->query_return("
+                        SELECT v.wref, v.name as vname, u.alliance as dally,
+                               (SELECT COUNT(*) FROM " . TB_PREFIX . "vdata WHERE owner = v.owner) as owner_villages
+                        FROM " . TB_PREFIX . "vdata v
+                        JOIN " . TB_PREFIX . "users u ON v.owner = u.id
+                        WHERE v.wref != $wid
+                          AND v.owner != $uid
+                          AND v.capital = 0
+                          AND v.name != 'WW Buildingplan'
+                          AND v.owner > 4
+                          AND u.id NOT IN (1, 2, 4, 5)
+                          AND u.access != 0 AND {$accessClause}
+                          AND (u.protect IS NULL OR u.protect < " . time() . ")
+                    ");
+
+                    $validTargetName = null;
+                    if (!empty($candidates)) {
+                        foreach ($candidates as $cand) {
+                            if ((int)$cand['owner_villages'] <= 1) continue;
+                            if ($botAlliance > 0 && (int)($cand['dally'] ?? 0) === $botAlliance) continue;
+                            $toCoor = $database->getCoor((int)$cand['wref']);
+                            if (!$toCoor) continue;
+                            $dist = self::getDistance($fromX, $fromY, (int)$toCoor['x'], (int)$toCoor['y']);
+                            if ($dist <= $maxDist) {
+                                $validTargetName = $cand['vname'];
+                                break;
+                            }
+                        }
+                    }
+
+                    if ($validTargetName !== null) {
+                        $statusText = "⚔️ {$chiefName} & " . number_format($totalEscort) . " Pengawal Siap (Sasaran: {$validTargetName})";
+                    } else {
+                        $statusText = "🚩 {$chiefName} & " . number_format($totalEscort) . " Pengawal Siap (Menunggu sasaran desa non-capital di radar {$maxDist} kotak)";
+                    }
+                }
             }
         } elseif ($queuedChiefs > 0) {
             $statusText = "🔨 Melatih {$chiefName} (" . round($trainTime / 60) . "m)";
@@ -4358,6 +4432,45 @@ class BotAI {
                 return null;
             }
 
+            // Anti-Bullying, Anti-Dogpiling, and Fair Rotation Protection:
+            $globalCooldownSec = (int)self::getConfig('BOT_AI_TARGET_GLOBAL_COOLDOWN', 2700); // Default 45 mins
+            $maxIncomingBotAttacks = (int)self::getConfig('BOT_AI_GANG_ATTACK_MAX', 1); // Max 1 active incoming bot attack per village
+
+            $activeBotAttacksMap = [];
+            $recentBotAttacksMap = [];
+
+            // 1. Serangan bot yang sedang aktif berjalan ke suatu desa (proc = 0)
+            $activeIncomingRows = $database->query_return("
+                SELECT m.`to` as target_wref, COUNT(m.moveid) as cnt
+                FROM " . TB_PREFIX . "movement m
+                JOIN " . TB_PREFIX . "vdata v ON m.`from` = v.wref
+                JOIN " . TB_PREFIX . "users u ON v.owner = u.id
+                WHERE m.sort_type = 3 AND m.proc = 0
+                  AND (u.is_bot = 1 OR u.email LIKE '%@bot.travianz' OR u.desc1 LIKE '%[#BOT]%' OR u.desc2 LIKE '%[#BOT]%' OR u.username LIKE 'Bot_%')
+                GROUP BY m.`to`
+            ");
+            if (!empty($activeIncomingRows)) {
+                foreach ($activeIncomingRows as $air) {
+                    $activeBotAttacksMap[(int)$air['target_wref']] = (int)$air['cnt'];
+                }
+            }
+
+            // 2. Serangan bot terakhir ke suatu desa dalam kurun masa jeda global
+            $recentBotRows = $database->query_return("
+                SELECT m.`to` as target_wref, MAX(m.starttime) as last_time
+                FROM " . TB_PREFIX . "movement m
+                JOIN " . TB_PREFIX . "vdata v ON m.`from` = v.wref
+                JOIN " . TB_PREFIX . "users u ON v.owner = u.id
+                WHERE m.sort_type = 3 AND m.starttime >= " . (time() - $globalCooldownSec) . "
+                  AND (u.is_bot = 1 OR u.email LIKE '%@bot.travianz' OR u.desc1 LIKE '%[#BOT]%' OR u.desc2 LIKE '%[#BOT]%' OR u.username LIKE 'Bot_%')
+                GROUP BY m.`to`
+            ");
+            if (!empty($recentBotRows)) {
+                foreach ($recentBotRows as $rbr) {
+                    $recentBotAttacksMap[(int)$rbr['target_wref']] = (int)$rbr['last_time'];
+                }
+            }
+
             $candidates = [];
             $playerCandidates = [];
             $botCandidates = [];
@@ -4404,7 +4517,20 @@ class BotAI {
                         continue;
                     }
 
-                    // 2. Cooldown antar serangan dari bot ini ke desa yang sama (default 30 menit / 1800 detik)
+                    // 2. Anti-Dogpiling: Jangan kerubungi desa yang saat ini sedang diserang oleh bot lain
+                    $activeIncoming = $activeBotAttacksMap[$tw] ?? 0;
+                    if ($activeIncoming >= $maxIncomingBotAttacks) {
+                        continue;
+                    }
+
+                    // 3. Global Grace Period / Anti-Bullying Cooldown:
+                    // Jika desa pemain manusia baru saja diserang bot mana pun dalam kurun masa jeda ($globalCooldownSec),
+                    // beri waktu istirahat agar tidak dirundung non-stop!
+                    if (!$isBot && isset($recentBotAttacksMap[$tw])) {
+                        continue;
+                    }
+
+                    // 4. Cooldown antar serangan dari bot ini ke desa yang sama (default 30 menit / 1800 detik)
                     $cooldownSec = (int)self::getConfig('BOT_AI_TARGET_COOLDOWN', 1800);
                     $recentAttack = $database->query_return("
                         SELECT moveid
@@ -4414,17 +4540,6 @@ class BotAI {
                     ");
                     if (!empty($recentAttack)) {
                         continue;
-                    }
-
-                    if (defined('BOT_AI_GANG_ATTACK_ENABLED') && !BOT_AI_GANG_ATTACK_ENABLED) {
-                        $incoming = $database->query_return("
-                            SELECT COUNT(*) as total
-                            FROM " . TB_PREFIX . "movement
-                            WHERE `to` = " . $tw . " AND sort_type = 3 AND proc = 0
-                        ");
-                        if ((int)($incoming[0]['total'] ?? 0) >= 2) {
-                            continue;
-                        }
                     }
 
                     // Smart Target Matching: Jangan serang desa metropolis raksasa (>600 pop) dengan pasukan < 50 unit
@@ -4468,13 +4583,52 @@ class BotAI {
             }
 
             if ($target === null && !empty($chosenPool)) {
-                // Urutkan berdasarkan jarak terdekat dan pilih acak dari 3 terdekat dalam pool yang terpilih
-                usort($chosenPool, function($a, $b) {
-                    return $a['dist'] <=> $b['dist'];
-                });
+                $isPlayerPool = (!empty($chosenPool[0]) && empty($chosenPool[0]['is_bot']));
 
-                $topCandidates = array_slice($chosenPool, 0, min(3, count($chosenPool)));
-                $target = $topCandidates[array_rand($topCandidates)];
+                if ($isPlayerPool) {
+                    // ROTASI ADIL (ROUND-ROBIN FAIR PLAY):
+                    // Query waktu serangan bot terakhir untuk sistem rotasi adil
+                    $allLastAttacks = $database->query_return("
+                        SELECT m.`to` as target_wref, MAX(m.starttime) as last_time
+                        FROM " . TB_PREFIX . "movement m
+                        JOIN " . TB_PREFIX . "vdata v ON m.`from` = v.wref
+                        JOIN " . TB_PREFIX . "users u ON v.owner = u.id
+                        WHERE m.sort_type = 3
+                          AND (u.is_bot = 1 OR u.email LIKE '%@bot.travianz' OR u.desc1 LIKE '%[#BOT]%' OR u.desc2 LIKE '%[#BOT]%' OR u.username LIKE 'Bot_%')
+                        GROUP BY m.`to`
+                    ");
+                    $lastAttackMap = [];
+                    if (!empty($allLastAttacks)) {
+                        foreach ($allLastAttacks as $ala) {
+                            $lastAttackMap[(int)$ala['target_wref']] = (int)$ala['last_time'];
+                        }
+                    }
+
+                    // Prioritaskan pemain yang paling lama tidak diserang bot (atau belum pernah diserang).
+                    // Hal ini mencegah pemain terdekat menjadi satu-satunya korban yang diserang terus-menerus!
+                    usort($chosenPool, function($a, $b) use ($lastAttackMap) {
+                        $lastA = $lastAttackMap[$a['wref']] ?? 0;
+                        $lastB = $lastAttackMap[$b['wref']] ?? 0;
+                        if ($lastA === 0 && $lastB > 0) return -1;
+                        if ($lastB === 0 && $lastA > 0) return 1;
+                        if ($lastA !== $lastB) {
+                            return $lastA <=> $lastB; // Yang lebih lama (timestamp lebih kecil) didahulukan
+                        }
+                        return $a['dist'] <=> $b['dist']; // Jarak sebagai penentu jika waktu serangan sama
+                    });
+
+                    // Ambil dari kandidat dengan antrean giliran tertinggi (maksimal 3 teratas yang paling siap diserang)
+                    $topCandidates = array_slice($chosenPool, 0, min(3, count($chosenPool)));
+                    $target = $topCandidates[array_rand($topCandidates)];
+                } else {
+                    // Pool bot: urutkan berdasarkan jarak terdekat
+                    usort($chosenPool, function($a, $b) {
+                        return $a['dist'] <=> $b['dist'];
+                    });
+
+                    $topCandidates = array_slice($chosenPool, 0, min(3, count($chosenPool)));
+                    $target = $topCandidates[array_rand($topCandidates)];
+                }
             }
         }
 
