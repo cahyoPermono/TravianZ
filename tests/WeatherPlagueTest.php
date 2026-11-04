@@ -69,6 +69,14 @@ assertEqual(1.15, Weather::getWallBonusMultiplier(), "Monsoon grants 15% wall de
 assertEqual(0.80, Weather::getSpeedMultiplier(1, false), "Monsoon slows normal troops to 80% speed");
 assertEqual(0.95, Weather::getSpeedMultiplier(10, false), "Nusantara troops resist monsoon slowdown (95% speed)");
 
+// Force Drought Weather (Kemarau Panjang & Terik)
+Weather::generateNextWeather('global', Weather::TYPE_DROUGHT);
+assertEqual(0.80, Weather::getProductionMultiplier(1, 'crop'), "Drought cuts crop production to 80% (-20%)");
+assertEqual(0.90, Weather::getProductionMultiplier(1, 'clay'), "Drought cuts clay production to 90% (-10%)");
+assertEqual(1.10, Weather::getProductionMultiplier(1, 'iron'), "Drought boosts iron production to 110% (+10%)");
+$infoDrought = Weather::getWeatherInfo(Weather::TYPE_DROUGHT);
+assertTrue(in_array('🧱 Produksi Tanah Liat -10%', $infoDrought['effects']), "Drought banner correctly lists Clay -10% effect");
+
 // Force Fog Weather
 Weather::generateNextWeather('global', Weather::TYPE_FOG);
 assertEqual(1.30, Weather::getScoutBonusMultiplier(), "Fog grants 30% scouting efficiency bonus");

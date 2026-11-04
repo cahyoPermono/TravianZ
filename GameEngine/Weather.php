@@ -197,6 +197,7 @@ class Weather {
                 'desc' => 'Panas menyengat mengeringkan sungai dan ladang. Penambangan besi lebih leluasa, namun cadangan gandum terancam susut cepat.',
                 'effects' => [
                     '🌾 Produksi Gandum -20%',
+                    '🧱 Produksi Tanah Liat -10%',
                     '⛓️ Produksi Besi +10%',
                     '🏃 Kecepatan Pasukan +10% (Jalan Kering)',
                     '🐫 Kecepatan Pedagang +10%',
