@@ -353,6 +353,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
         BotAI::clearConquestOrder($cancelWid);
         $flashSuccess = "Misi penaklukan bot untuk desa #$cancelWid berhasil dibatalkan.";
     }
+    // 5d. ABORT ACTIVE MOVEMENT
+    elseif ($action === 'abort_movement') {
+        $abortMoveId = (int)($_POST['abort_moveid'] ?? 0);
+        $res = BotAI::abortMovement($abortMoveId, true);
+        if ($res['status'] === 'success') {
+            $flashSuccess = "✅ " . $res['message'];
+        } else {
+            $flashError = "❌ " . $res['message'];
+        }
+    }
     // 6. ASSIGN BOTS TO ALLIANCE
     elseif ($action === 'join_alliance') {
         $aid = (int)($_POST['aid'] ?? 0);
@@ -1770,6 +1780,65 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
                                 <input type="hidden" name="bot_action" value="cancel_conquest_order">
                                 <input type="hidden" name="cancel_bot_wid" value="<?php echo $bWref; ?>">
                                 <button type="submit" class="btn-danger" style="padding:4px 10px; font-size:11px;">Hentikan / Batal</button>
+                            </form>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        <?php endif; ?>
+
+        <?php 
+            $inFlightBotMovements = $database->query_return("
+                SELECT m.moveid, m.from, m.to, m.starttime, m.endtime, m.sort_type,
+                       v1.name as from_name, w1.x as from_x, w1.y as from_y, u1.username as from_user,
+                       v2.name as to_name, w2.x as to_x, w2.y as to_y, u2.username as to_user,
+                       a.attack_type, a.t9
+                FROM " . TB_PREFIX . "movement m
+                JOIN " . TB_PREFIX . "vdata v1 ON m.from = v1.wref
+                JOIN " . TB_PREFIX . "wdata w1 ON v1.wref = w1.id
+                JOIN " . TB_PREFIX . "users u1 ON v1.owner = u1.id
+                JOIN " . TB_PREFIX . "vdata v2 ON m.to = v2.wref
+                JOIN " . TB_PREFIX . "wdata w2 ON v2.wref = w2.id
+                JOIN " . TB_PREFIX . "users u2 ON v2.owner = u2.id
+                LEFT JOIN " . TB_PREFIX . "attacks a ON m.ref = a.id
+                WHERE m.proc = 0 AND m.sort_type = 3
+                  AND (u1.is_bot = 1 OR u1.email LIKE '%@bot.travianz' OR u1.desc1 LIKE '%[#BOT]%' OR u1.desc2 LIKE '%[#BOT]%' OR u1.username LIKE 'Bot_%')
+                ORDER BY m.endtime ASC
+                LIMIT 15
+            ");
+        ?>
+        <?php if (!empty($inFlightBotMovements)): ?>
+            <div style="background:#0f172a; border:1px solid #dc2626; border-radius:8px; padding:14px; margin-bottom:16px;">
+                <h4 style="margin:0 0 10px 0; color:#f87171; font-size:13px; display:flex; align-items:center; gap:6px;">
+                    ⚔️ Serangan / Ekspedisi Bot yang Sedang Berjalan Menuju Target:
+                </h4>
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                    <?php foreach ($inFlightBotMovements as $mv): ?>
+                        <?php 
+                            $remSec = max(0, (int)$mv['endtime'] - time());
+                            $remStr = sprintf('%02d:%02d:%02d', floor($remSec / 3600), floor(($remSec % 3600) / 60), $remSec % 60);
+                            $isChiefAtk = !empty($mv['t9']) && (int)$mv['t9'] > 0;
+                        ?>
+                        <div style="display:flex; justify-content:space-between; align-items:center; background:#1e293b; padding:10px 12px; border-radius:6px; flex-wrap:wrap; gap:8px;">
+                            <div>
+                                Bot <b><?php echo htmlspecialchars($mv['from_user']); ?></b> [<?php echo htmlspecialchars($mv['from_name']); ?> (<?php echo $mv['from_x']; ?>|<?php echo $mv['from_y']; ?>)]
+                                ➔ <b><?php echo htmlspecialchars($mv['to_name']); ?></b> (Milik: <?php echo htmlspecialchars($mv['to_user']); ?>)
+                                <?php if ($isChiefAtk): ?>
+                                    <span style="background:#d97706; color:#fff; font-size:10px; padding:2px 6px; border-radius:4px; font-weight:bold; margin-left:6px;">🚩 Ekspedisi Chief</span>
+                                <?php endif; ?>
+                                <br>
+                                <span style="font-size:11px; color:#cbd5e1;">
+                                    Tiba dalam: <b style="color:#fbbf24;"><?php echo $remStr; ?></b> (pk <?php echo date('H:i:s', $mv['endtime']); ?> WIB)
+                                    • ID Pergerakan: #<?php echo $mv['moveid']; ?>
+                                </span>
+                            </div>
+                            <form method="post" action="admin.php?p=botManager" style="margin:0;" onsubmit="return confirm('Apakah Anda yakin ingin membatalkan dan menarik serangan ini seketika?');">
+                                <?php echo csrf_field(); ?>
+                                <input type="hidden" name="bot_action" value="abort_movement">
+                                <input type="hidden" name="abort_moveid" value="<?php echo $mv['moveid']; ?>">
+                                <button type="submit" class="btn-danger" style="padding:6px 14px; font-size:11px; font-weight:bold; background:#dc2626; cursor:pointer;">
+                                    ❌ Batalkan & Tarik Serangan Ini
+                                </button>
                             </form>
                         </div>
                     <?php endforeach; ?>

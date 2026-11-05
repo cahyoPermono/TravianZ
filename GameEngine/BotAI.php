@@ -5937,6 +5937,77 @@ class BotAI {
     }
 
     /**
+     * Admin Command: Abort an active in-flight bot movement immediately.
+     * Deletes movement and attack records, and refunds troops to the sender village.
+     *
+     * @param int $moveid Movement ID to cancel
+     * @param bool $refundTroops Whether to return troops to sender village units table
+     * @return array Status array
+     */
+    public static function abortMovement(int $moveid, bool $refundTroops = true): array {
+        global $database;
+        if (!isset($database) || $database === null) {
+            require_once __DIR__ . '/Database.php';
+        }
+
+        $mRow = $database->query_return("
+            SELECT m.*, v1.name as from_name, v2.name as to_name, u1.tribe
+            FROM " . TB_PREFIX . "movement m
+            JOIN " . TB_PREFIX . "vdata v1 ON m.from = v1.wref
+            JOIN " . TB_PREFIX . "vdata v2 ON m.to = v2.wref
+            JOIN " . TB_PREFIX . "users u1 ON v1.owner = u1.id
+            WHERE m.moveid = $moveid AND m.proc = 0
+            LIMIT 1
+        ");
+
+        if (empty($mRow[0])) {
+            return ['status' => 'error', 'message' => "Pergerakan pasukan #$moveid tidak ditemukan atau sudah selesai/diproses."];
+        }
+
+        $mov = $mRow[0];
+        $fromWid = (int)$mov['from'];
+        $refId = (int)$mov['ref'];
+        $tribe = (int)$mov['tribe'];
+
+        // Optionally refund troops from attacks table
+        if ($refundTroops && $refId > 0) {
+            $attRow = $database->query_return("SELECT * FROM " . TB_PREFIX . "attacks WHERE id = $refId LIMIT 1");
+            if (!empty($attRow[0])) {
+                $att = $attRow[0];
+                $baseUnit = ($tribe - 1) * 10;
+                $refunds = [];
+                for ($i = 1; $i <= 10; $i++) {
+                    $cnt = (int)($att['t' . $i] ?? 0);
+                    if ($cnt > 0) {
+                        $uNum = $baseUnit + $i;
+                        $refunds[] = "u{$uNum} = u{$uNum} + {$cnt}";
+                    }
+                }
+                if (!empty($att['t11']) && (int)$att['t11'] > 0) {
+                    $refunds[] = "hero = hero + 1";
+                }
+                if (!empty($refunds)) {
+                    $database->query("UPDATE " . TB_PREFIX . "units SET " . implode(', ', $refunds) . " WHERE vref = $fromWid");
+                }
+            }
+        }
+
+        // Delete movement and attack
+        $database->query("DELETE FROM " . TB_PREFIX . "movement WHERE moveid = $moveid");
+        if ($refId > 0) {
+            $database->query("DELETE FROM " . TB_PREFIX . "attacks WHERE id = $refId");
+        }
+
+        // Clear active conquest order if any for this village
+        self::clearConquestOrder($fromWid);
+
+        return [
+            'status' => 'success',
+            'message' => "Serangan dari <b>{$mov['from_name']}</b> ke <b>{$mov['to_name']}</b> (Move ID #{$moveid}) berhasil dibatalkan dan ditarik seketika! Indikator serangan target telah dihapus.",
+        ];
+    }
+
+    /**
      * Map wrap-around distance calculation.
      */
     public static function getDistance($x1, $y1, $x2, $y2) {

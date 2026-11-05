@@ -349,6 +349,48 @@ $database->query("UPDATE " . TB_PREFIX . "wdata SET occupied = 0 WHERE id = $bot
 echo "PASSED" . PHP_EOL;
 
 // ------------------------------------------------------------------------------
+// TEST 9: Admin Abort Movement (Cancel Active In-Flight Attack Instantly)
+// ------------------------------------------------------------------------------
+echo "Test 9: Admin Abort Movement (Cancel Active Attack)... ";
+// Create an in-flight attack movement
+$database->query("UPDATE " . TB_PREFIX . "units SET u11 = 200, u19 = 1 WHERE vref = $botWid");
+$testOrder = BotAI::orderConquest("village:{$botWid}", (string)$secWid, [
+    'escort_count' => 100,
+    'catapult_count' => 10,
+    'auto_prepare' => false,
+]);
+assertEqual('success', $testOrder['status'], "Order conquest must launch attack");
+
+// Retrieve movement ID
+$mRow = $database->query_return("
+    SELECT moveid, ref FROM " . TB_PREFIX . "movement
+    WHERE `from` = $botWid AND `to` = $secWid AND proc = 0
+    ORDER BY moveid DESC
+    LIMIT 1
+");
+assertFalse(empty($mRow[0]), "In-flight movement must exist");
+$testMoveId = (int)$mRow[0]['moveid'];
+$testAttId = (int)$mRow[0]['ref'];
+
+// Abort the movement
+$abortRes = BotAI::abortMovement($testMoveId, true);
+assertEqual('success', $abortRes['status'], "Abort movement must succeed");
+
+// Verify movement was deleted
+$checkMov = $database->query_return("SELECT * FROM " . TB_PREFIX . "movement WHERE moveid = $testMoveId");
+assertTrue(empty($checkMov), "Movement record must be deleted");
+
+// Verify attack was deleted
+$checkAtt = $database->query_return("SELECT * FROM " . TB_PREFIX . "attacks WHERE id = $testAttId");
+assertTrue(empty($checkAtt), "Attack record must be deleted");
+
+// Verify active order was cleared
+$checkOrd = BotAI::getConquestOrder($botWid);
+assertEqual(null, $checkOrd, "Conquest order must be cleared");
+
+echo "PASSED" . PHP_EOL;
+
+// ------------------------------------------------------------------------------
 // CLEANUP
 // ------------------------------------------------------------------------------
 echo "Cleaning up test records... ";
