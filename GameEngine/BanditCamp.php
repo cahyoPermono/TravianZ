@@ -145,6 +145,14 @@ class BanditCamp {
             return;
         }
 
+        // Ignore bot attacks: Bandit Camps & World Bosses are strictly for human players
+        if (!class_exists('BotAI')) {
+            @include_once __DIR__ . '/BotAI.php';
+        }
+        if (class_exists('BotAI') && BotAI::isBotUser($uid)) {
+            return;
+        }
+
         self::ensureTable();
         $q = "INSERT INTO " . TB_PREFIX . "bandit_camp_attacks (camp_id, uid, damage_dealt, timestamp)
               VALUES ($campId, $uid, $damageDealt, $time)";
@@ -670,6 +678,15 @@ class BanditCamp {
     public static function onBattleCompleted(int $targetWref, int $attackerUid, int $attackerWref = 0, int $damageDealt = 0) {
         global $database;
 
+        // Bandit Camps & World Bosses are strictly reserved for real human players.
+        // Bots are not eligible to damage, clear, or claim rewards from Bandit Camps.
+        if (!class_exists('BotAI')) {
+            @include_once __DIR__ . '/BotAI.php';
+        }
+        if (class_exists('BotAI') && BotAI::isBotUser($attackerUid)) {
+            return null;
+        }
+
         self::ensureTable();
 
         $camps = $database->query_return("
@@ -707,6 +724,29 @@ class BanditCamp {
         }
 
         return null;
+    }
+
+    /**
+     * Check if a village wref is an active Bandit Camp or World Boss.
+     */
+    public static function isBanditCamp(int $wref): bool {
+        global $database;
+        $wref = (int)$wref;
+        if ($wref <= 0) return false;
+        static $banditMap = null;
+        static $lastCheck = 0;
+        $now = time();
+        if ($banditMap === null || ($now - $lastCheck) > 30) {
+            $banditMap = [];
+            $rows = $database->query_return("SELECT wref FROM " . TB_PREFIX . "bandit_camps WHERE status = 1");
+            if (!empty($rows)) {
+                foreach ($rows as $r) {
+                    $banditMap[(int)$r['wref']] = true;
+                }
+            }
+            $lastCheck = $now;
+        }
+        return isset($banditMap[$wref]);
     }
 
     /**

@@ -2406,6 +2406,9 @@ class BotAI {
               AND v.name != 'WW Buildingplan'
               AND v.owner > 4
               AND u.id NOT IN (1, 2, 4, 5)
+              AND u.username != 'Gembong Bandit'
+              AND u.email NOT LIKE '%bandit@system%'
+              AND v.wref NOT IN (SELECT wref FROM " . TB_PREFIX . "bandit_camps WHERE status = 1)
               AND u.access != 0 AND " . ((defined('ADMIN_ALLOW_INCOMING_RAIDS') && ADMIN_ALLOW_INCOMING_RAIDS) ? "(u.access < 8 OR u.access = 9)" : "u.access < 8") . "
               AND (u.protect IS NULL OR u.protect < " . time() . ")
         ");
@@ -2420,6 +2423,7 @@ class BotAI {
 
         foreach ($candidates as $cand) {
             $toWid = (int)$cand['wref'];
+            if (self::isBanditTarget($toWid)) continue;
             $toCoor = $database->getCoor($toWid);
             if (!$toCoor) continue;
             $dist = self::getDistance($fromX, $fromY, (int)$toCoor['x'], (int)$toCoor['y']);
@@ -2683,6 +2687,9 @@ class BotAI {
                           AND v.name != 'WW Buildingplan'
                           AND v.owner > 4
                           AND u.id NOT IN (1, 2, 4, 5)
+                          AND u.username != 'Gembong Bandit'
+                          AND u.email NOT LIKE '%bandit@system%'
+                          AND v.wref NOT IN (SELECT wref FROM " . TB_PREFIX . "bandit_camps WHERE status = 1)
                           AND u.access != 0 AND {$accessClause}
                           AND (u.protect IS NULL OR u.protect < " . time() . ")
                     ");
@@ -2691,6 +2698,7 @@ class BotAI {
                     $botTargetCount = 0;
                     if (!empty($candidates)) {
                         foreach ($candidates as $cand) {
+                            if (self::isBanditTarget((int)$cand['wref'])) continue;
                             if ((int)$cand['owner_villages'] <= 1) continue;
                             if ($botAlliance > 0 && (int)($cand['dally'] ?? 0) === $botAlliance) continue;
                             $toCoor = $database->getCoor((int)$cand['wref']);
@@ -3986,12 +3994,19 @@ class BotAI {
             JOIN " . TB_PREFIX . "wdata w ON v.wref = w.id
             WHERE v.wref != $wid
               AND u.id != $uid
+              AND u.id NOT IN (1, 2, 4, 5)
+              AND u.username != 'Gembong Bandit'
+              AND u.email NOT LIKE '%bandit@system%'
+              AND v.wref NOT IN (SELECT wref FROM " . TB_PREFIX . "bandit_camps WHERE status = 1)
               AND u.access = 2
             LIMIT 40
         ");
 
         if (!empty($villages)) {
             foreach ($villages as $v) {
+                if (self::isBanditTarget((int)$v['wref'])) {
+                    continue;
+                }
                 // Skip ally
                 if ($botAlliance > 0 && (int)$v['alliance'] === $botAlliance) {
                     continue;
@@ -4347,6 +4362,9 @@ class BotAI {
                       AND v.wref != $bastionWref
                       AND v.owner != $uid
                       AND u.id NOT IN (1, 2, 4, 5)
+                      AND u.username != 'Gembong Bandit'
+                      AND u.email NOT LIKE '%bandit@system%'
+                      AND v.wref NOT IN (SELECT wref FROM " . TB_PREFIX . "bandit_camps WHERE status = 1)
                       AND u.access != 0
                       AND $adminRaidSql
                       AND u.protect < " . time()
@@ -4357,6 +4375,9 @@ class BotAI {
                     $validBotRevenge = [];
 
                     foreach ($targetVillages as $tgt) {
+                        if (self::isBanditTarget((int)$tgt['wref'])) {
+                            continue;
+                        }
                         if (in_array($tgt['username'], $protectedList, true)) {
                             continue;
                         }
@@ -4508,6 +4529,9 @@ class BotAI {
                   AND v.wref != $bastionWref
                   AND v.owner != $uid
                   AND u.id NOT IN (1, 2, 4, 5)
+                  AND u.username != 'Gembong Bandit'
+                  AND u.email NOT LIKE '%bandit@system%'
+                  AND v.wref NOT IN (SELECT wref FROM " . TB_PREFIX . "bandit_camps WHERE status = 1)
                   AND u.access != 0
                   AND $adminRaidSql
                   AND u.protect < " . time()
@@ -4563,6 +4587,9 @@ class BotAI {
 
             if (!empty($targets)) {
                 foreach ($targets as $tgt) {
+                    if (self::isBanditTarget((int)$tgt['wref'])) {
+                        continue;
+                    }
                     if (in_array($tgt['username'], $protectedList, true)) {
                         continue;
                     }
@@ -4809,7 +4836,7 @@ class BotAI {
             }
         }
 
-        if ($totalDispatched <= 0) {
+        if ($totalDispatched <= 0 || self::isBanditTarget((int)$target['wref'])) {
             return null;
         }
 
@@ -4936,7 +4963,12 @@ class BotAI {
                     ORDER BY v.pop DESC
                 ");
                 if (!empty($tVils)) {
-                    $targetVillages = $tVils;
+                    $targetVillages = array_values(array_filter($tVils, function($tv) {
+                        return !BotAI::isBanditTarget((int)$tv['wref']);
+                    }));
+                    if (empty($targetVillages)) {
+                        return ['status' => 'error', 'message' => "Aliansi target tidak memiliki desa yang valid (konten bandit diabaikan)."];
+                    }
                 } else {
                     return ['status' => 'error', 'message' => "Aliansi target [{$targetAlliance['tag']}] {$targetAlliance['name']} tidak memiliki desa yang aktif."];
                 }
@@ -4969,6 +5001,10 @@ class BotAI {
 
             if (empty($singleTarget) || empty($singleTarget['wref']) || empty($singleTarget['owner'])) {
                 return ['status' => 'error', 'message' => "Target '{$targetInput}' tidak ditemukan atau bukan desa yang dihuni."];
+            }
+
+            if (self::isBanditTarget((int)$singleTarget['wref'])) {
+                return ['status' => 'error', 'message' => "Target adalah Sarang Bandit / World Boss! Konten PvE Bandit hanya untuk pemain asli."];
             }
 
             $targetOwner = (int)$singleTarget['owner'];
@@ -5524,6 +5560,9 @@ class BotAI {
         }
 
         $targetWid = (int)$targetVillage['wref'];
+        if (self::isBanditTarget($targetWid)) {
+            return ['status' => 'error', 'message' => "Target adalah Sarang Bandit / World Boss! Konten PvE Bandit hanya untuk pemain asli."];
+        }
         $targetOwner = (int)$targetVillage['owner'];
         $targetX = (int)$targetVillage['x'];
         $targetY = (int)$targetVillage['y'];
@@ -6097,6 +6136,35 @@ class BotAI {
 
     public static function isBot(int $userId): bool {
         return self::isBotUser($userId);
+    }
+
+    /**
+     * Check if a village belongs to Bandit Camps or World Bosses (strictly reserved for real human players).
+     */
+    public static function isBanditTarget(int $wref): bool {
+        global $database;
+        $wref = (int)$wref;
+        if ($wref <= 0) return false;
+        static $banditMap = null;
+        static $lastCheck = 0;
+        $now = time();
+        if ($banditMap === null || ($now - $lastCheck) > 30) {
+            $banditMap = [];
+            $rows = $database->query_return("
+                SELECT wref FROM " . TB_PREFIX . "bandit_camps WHERE status = 1
+                UNION
+                SELECT v.wref FROM " . TB_PREFIX . "vdata v
+                JOIN " . TB_PREFIX . "users u ON v.owner = u.id
+                WHERE u.username = 'Gembong Bandit' OR u.email LIKE '%bandit@system%'
+            ");
+            if (!empty($rows)) {
+                foreach ($rows as $r) {
+                    $banditMap[(int)$r['wref']] = true;
+                }
+            }
+            $lastCheck = $now;
+        }
+        return isset($banditMap[$wref]);
     }
 
     /**
