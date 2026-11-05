@@ -255,6 +255,45 @@ assertTrue((int)$mov['endtime'] > (int)$mov['starttime'], "Endtime must be after
 echo "PASSED" . PHP_EOL;
 
 // ------------------------------------------------------------------------------
+// TEST 7: Persistent Conquest Target Lock & Repeated Waves Until Conquest
+// ------------------------------------------------------------------------------
+echo "Test 7: Persistent Conquest Target Lock (Auto Repeat Waves)... ";
+$activeOrd = BotAI::getConquestOrder($botWid);
+assertFalse(empty($activeOrd), "Active conquest order must be registered");
+assertEqual($secWid, (int)$activeOrd['target_wid'], "Active order target must match target_wid");
+
+// Simulate Chief returning home: clear in-flight attacks & movements, place Chief back at home
+$database->query("DELETE FROM " . TB_PREFIX . "movement WHERE `from` = $botWid");
+$database->query("UPDATE " . TB_PREFIX . "units SET u19 = 1, u11 = 200 WHERE vref = $botWid");
+
+// Disable night mode temporarily for test
+BotAI::saveConfig(['BOT_AI_NIGHT_SLEEP_ENABLED' => false]);
+
+$loopResult = BotAI::processConquest([
+    'uid' => $botUid,
+    'wref' => $botWid,
+    'tribe' => 2,
+]);
+assertFalse(empty($loopResult), "processConquest must return action log");
+assertTrue(strpos($loopResult, 'Dispatched next conquest wave') !== false, "Bot must automatically launch next wave for locked target");
+
+// Simulate village officially conquered by setting owner to bot UID
+$database->query("UPDATE " . TB_PREFIX . "vdata SET owner = $botUid WHERE wref = $secWid");
+$database->query("DELETE FROM " . TB_PREFIX . "movement WHERE `from` = $botWid");
+
+$conqDone = BotAI::processConquest([
+    'uid' => $botUid,
+    'wref' => $botWid,
+    'tribe' => 2,
+]);
+$finalOrd = BotAI::getConquestOrder($botWid);
+assertEqual(null, $finalOrd, "Conquest order must be cleared once village is conquered");
+
+// Re-enable night sleep default
+BotAI::saveConfig(['BOT_AI_NIGHT_SLEEP_ENABLED' => true]);
+echo "PASSED" . PHP_EOL;
+
+// ------------------------------------------------------------------------------
 // CLEANUP
 // ------------------------------------------------------------------------------
 echo "Cleaning up test records... ";

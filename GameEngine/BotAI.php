@@ -2032,16 +2032,84 @@ class BotAI {
         $wid = (int)$bot['wref'];
         $tribe = (int)$bot['tribe'];
 
+        $chiefUnit = self::getChiefUnit($tribe);
+        if ($chiefUnit <= 0) {
+            return null; // Nature or Natars cannot conquer
+        }
+
+        // 0. CHECK PERSISTENT CONQUEST ORDER (TARGET LOCK DARI ADMIN)
+        $activeOrder = self::getConquestOrder($wid);
+        if (!empty($activeOrder)) {
+            $tWid = (int)$activeOrder['target_wid'];
+            $tCheck = $database->query_return("
+                SELECT v.wref, v.owner, v.name as vname, v.loyalty, v.capital, u.username
+                FROM " . TB_PREFIX . "vdata v
+                JOIN " . TB_PREFIX . "users u ON v.owner = u.id
+                WHERE v.wref = $tWid
+                LIMIT 1
+            ");
+            if (empty($tCheck[0]) || (int)$tCheck[0]['owner'] === $uid) {
+                // Target has been successfully conquered by this bot!
+                self::clearConquestOrder($wid);
+                $activeOrder = null;
+            } else {
+                if (self::isNightTime()) {
+                    return "Night sleep window active (20:00 - 08:00 WIB); persistent conquest to #{$tWid} paused until dawn";
+                }
+
+                // Check if an expedition is currently moving towards this target
+                $inFlight = $database->query_return("
+                    SELECT COUNT(*) as cnt FROM " . TB_PREFIX . "movement m
+                    JOIN " . TB_PREFIX . "attacks a ON m.ref = a.id
+                    WHERE m.from = $wid AND m.to = $tWid AND m.proc = 0 AND a.t9 > 0
+                ");
+                if (!empty($inFlight[0]['cnt']) && (int)$inFlight[0]['cnt'] > 0) {
+                    return "Chief expedition to #{$tWid} ({$tCheck[0]['vname']}) currently en route";
+                }
+
+                // Check if troops/Chief are returning home (sort_type = 4)
+                $returning = $database->query_return("
+                    SELECT COUNT(*) as cnt FROM " . TB_PREFIX . "movement
+                    WHERE `to` = $wid AND sort_type = 4 AND proc = 0
+                ");
+                $unitRow = $database->query_return("SELECT u{$chiefUnit} as c FROM " . TB_PREFIX . "units WHERE vref = $wid");
+                $homeChiefs = (int)($unitRow[0]['c'] ?? 0);
+
+                if ($homeChiefs < 1) {
+                    if (!empty($returning[0]['cnt']) && (int)$returning[0]['cnt'] > 0) {
+                        return "Chief returning home from previous wave; will relaunch automatically upon arrival";
+                    }
+                    if (!empty($activeOrder['auto_prepare'])) {
+                        $database->query("UPDATE " . TB_PREFIX . "units SET u{$chiefUnit} = 1 WHERE vref = $wid");
+                        $homeChiefs = 1;
+                    } else {
+                        return "Chief awaiting respawn/training";
+                    }
+                }
+
+                // Chief is home! Automatically launch next wave to keep reducing loyalty!
+                $nextWave = self::orderConquest($uid, $tWid, [
+                    'escort_count' => (int)($activeOrder['escort_count'] ?? 500),
+                    'catapult_count' => (int)($activeOrder['catapult_count'] ?? 25),
+                    'send_hero' => !empty($activeOrder['send_hero']),
+                    'auto_prepare' => !empty($activeOrder['auto_prepare']),
+                    'allow_capital_conquest' => !empty($activeOrder['allow_capital_conquest']),
+                ]);
+                $curLoyalty = round((float)($tCheck[0]['loyalty'] ?? 100));
+                return "Dispatched next conquest wave to locked target '{$tCheck[0]['vname']}' (Loyalty: {$curLoyalty}%)";
+            }
+        }
+
+        $maxVillages = (int)self::getConfig('BOT_AI_MAX_VILLAGES', 2);
+        if ($maxVillages <= 1) {
+            return null;
+        }
+
         // 1. Check total villages owned by this bot
         $userVillages = $database->getProfileVillages($uid);
         $villageCount = is_array($userVillages) ? count($userVillages) : 1;
         if ($villageCount >= $maxVillages) {
             return null; // Already reached max villages configured by admin
-        }
-
-        $chiefUnit = self::getChiefUnit($tribe);
-        if ($chiefUnit <= 0) {
-            return null; // Nature or Natars cannot conquer
         }
 
         // 2. Check Residence, Palace, or Command Center level
@@ -5712,6 +5780,25 @@ class BotAI {
         $endTime = $startTime + $duration;
         $database->addMovement(3, $bWid, $targetWid, $attackId, $startTime, $endTime);
 
+        $targetUserStr = $targetVillage['username'] ?? 'Enemy';
+
+        // Register persistent conquest order (Target Lock) so bot AI continues attacking until conquered
+        self::setConquestOrder($bWid, [
+            'bot_wid' => $bWid,
+            'bot_uid' => $bUid,
+            'bot_username' => $bot['username'],
+            'target_wid' => $targetWid,
+            'target_village' => $targetVillage['vname'],
+            'target_owner' => $targetOwner,
+            'target_username' => $targetUserStr,
+            'escort_count' => $escortCount,
+            'catapult_count' => $catapultCount,
+            'send_hero' => $sendHero,
+            'auto_prepare' => $autoPrepare,
+            'allow_capital_conquest' => $allowCapital,
+            'started_at' => time(),
+        ]);
+
         // Build report
         $troopsList = ["1 {$chiefName}"];
         if ($assignedEscort > 0) {
@@ -5733,7 +5820,8 @@ class BotAI {
             . "• <b>Tipe Serangan:</b> Normal Attack (Tipe 3 - Wajib Penaklukan)<br>"
             . "• <b>Jarak Koordinat:</b> " . round($dist, 1) . " kotak peta<br>"
             . "• <b>Waktu Tempuh:</b> " . round($duration / 60, 1) . " menit (Tiba pk <b>{$arrivalTimeStr}</b>)<br>"
-            . "• <b>Status Titik Temu:</b> Target menerima indikator pedang merah secara real-time!";
+            . "• <b>Status Titik Temu:</b> Target menerima indikator pedang merah secara real-time!<br>"
+            . "• <b>Misi Terkunci (Target Lock):</b> Bot akan otomatis bolak-balik meluncurkan Chief gelombang berikutnya setiap kali pasukan kembali pulang sampai loyalitas habis (0%) dan desa resmi direbut!";
 
         return [
             'status' => 'success',
@@ -5750,6 +5838,42 @@ class BotAI {
                 'troops' => $dispatched,
             ]
         ];
+    }
+
+    /**
+     * Retrieve all active persistent conquest orders (Target Locks).
+     */
+    public static function getConquestOrders(): array {
+        $orders = self::getConfig('BOT_AI_ACTIVE_CONQUEST_ORDERS', []);
+        return is_array($orders) ? $orders : [];
+    }
+
+    /**
+     * Get active persistent conquest order for a specific bot village.
+     */
+    public static function getConquestOrder(int $botWid): ?array {
+        $orders = self::getConquestOrders();
+        return $orders[$botWid] ?? null;
+    }
+
+    /**
+     * Set/register a persistent conquest order for a bot village.
+     */
+    public static function setConquestOrder(int $botWid, array $order): void {
+        $orders = self::getConquestOrders();
+        $orders[$botWid] = $order;
+        self::saveConfig(['BOT_AI_ACTIVE_CONQUEST_ORDERS' => $orders]);
+    }
+
+    /**
+     * Clear/remove active conquest order for a bot village upon completion or cancellation.
+     */
+    public static function clearConquestOrder(int $botWid): void {
+        $orders = self::getConquestOrders();
+        if (isset($orders[$botWid])) {
+            unset($orders[$botWid]);
+            self::saveConfig(['BOT_AI_ACTIVE_CONQUEST_ORDERS' => $orders]);
+        }
     }
 
     /**

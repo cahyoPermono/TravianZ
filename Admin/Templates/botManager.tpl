@@ -347,6 +347,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
             $flashError = "❌ <b>Gagal meluncurkan ekspedisi Chief:</b> " . $res['message'];
         }
     }
+    // 5c. CANCEL CONQUEST ORDER
+    elseif ($action === 'cancel_conquest_order') {
+        $cancelWid = (int)($_POST['cancel_bot_wid'] ?? 0);
+        BotAI::clearConquestOrder($cancelWid);
+        $flashSuccess = "Misi penaklukan bot untuk desa #$cancelWid berhasil dibatalkan.";
+    }
     // 6. ASSIGN BOTS TO ALLIANCE
     elseif ($action === 'join_alliance') {
         $aid = (int)($_POST['aid'] ?? 0);
@@ -1734,7 +1740,42 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
     <!-- Panel 3b: Order Chief Village Conquest -->
     <div class="botm-panel" style="border-color:#d97706; background:linear-gradient(135deg, #1c1305 0%, #0b1220 100%); margin-bottom:20px;">
         <h3 style="color:#fbbf24;">🚩 Perintahkan Bot Khusus Menaklukkan (Chief) Desa Tertentu</h3>
-        <p class="desc">Perintahkan bot dengan nama / akun tertentu untuk mengirim ekspedisi penaklukan (Chief / Senator / Tetua) langsung ke desa target yang Anda pilih. Dilengkapi fitur <b>Auto-Prepare</b> untuk melengkapi Chief, Padepokan level 10, Culture Points (CP), dan pengawal tempur secara otomatis tanpa repot!</p>
+        <p class="desc">Perintahkan bot dengan nama / akun tertentu untuk mengirim ekspedisi penaklukan (Chief / Senator / Tetua) langsung ke desa target yang Anda pilih. Dilengkapi fitur <b>Auto-Prepare</b> untuk melengkapi Chief, Padepokan level 10, Culture Points (CP), dan pengawal tempur secara otomatis tanpa repot! Bot yang diperintahkan akan <b>mengunci target (Target Lock) dan otomatis bolak-balik menyerang sampai loyalitas habis (0%)</b>.</p>
+
+        <?php 
+            $activeOrders = BotAI::getConquestOrders();
+        ?>
+        <?php if (!empty($activeOrders)): ?>
+            <div style="background:#0f172a; border:1px solid #d97706; border-radius:8px; padding:14px; margin-bottom:16px;">
+                <h4 style="margin:0 0 10px 0; color:#fbbf24; font-size:13px; display:flex; align-items:center; gap:6px;">
+                    🎯 Misi Penaklukan Aktif (Target Lock Saat Ini):
+                </h4>
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                    <?php foreach ($activeOrders as $bWref => $ord): ?>
+                        <?php 
+                            $tLoyRow = $database->query_return("SELECT loyalty, owner FROM " . TB_PREFIX . "vdata WHERE wref = " . (int)$ord['target_wid']);
+                            $curLoy = !empty($tLoyRow[0]) ? round((float)$tLoyRow[0]['loyalty']) : 0;
+                            $isDone = !empty($tLoyRow[0]) && (int)$tLoyRow[0]['owner'] === (int)$ord['bot_uid'];
+                        ?>
+                        <div style="display:flex; justify-content:space-between; align-items:center; background:#1e293b; padding:8px 12px; border-radius:6px; flex-wrap:wrap; gap:8px;">
+                            <div>
+                                Bot <b><?php echo htmlspecialchars($ord['bot_username']); ?></b> ➔ Target: <b><?php echo htmlspecialchars($ord['target_village']); ?></b> (Milik: <?php echo htmlspecialchars($ord['target_username']); ?>)<br>
+                                <span style="font-size:11px; color:#cbd5e1;">
+                                    Sisa Loyalitas: <b style="color:<?php echo $curLoy <= 30 ? '#ef4444' : '#f59e0b'; ?>;"><?php echo $curLoy; ?>%</b>
+                                    • Status: <b style="color:#38bdf8;"><?php echo $isDone ? '🎉 Tertaklukkan!' : '🔁 Bot otomatis bolak-balik menyerang sampai 0%'; ?></b>
+                                </span>
+                            </div>
+                            <form method="post" action="admin.php?p=botManager" style="margin:0;">
+                                <?php echo csrf_field(); ?>
+                                <input type="hidden" name="bot_action" value="cancel_conquest_order">
+                                <input type="hidden" name="cancel_bot_wid" value="<?php echo $bWref; ?>">
+                                <button type="submit" class="btn-danger" style="padding:4px 10px; font-size:11px;">Hentikan / Batal</button>
+                            </form>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        <?php endif; ?>
 
         <form method="post" action="admin.php?p=botManager">
             <?php echo csrf_field(); ?>
