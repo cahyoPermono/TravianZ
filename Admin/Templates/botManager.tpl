@@ -313,6 +313,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
             $flashError = "❌ Gagal meluncurkan serangan bot: " . $res['message'] . $reportHtml;
         }
     }
+    // 5b. ORDER CHIEF CONQUEST
+    elseif ($action === 'order_conquest') {
+        $selectedBot = trim((string)($_POST['target_bot'] ?? '0'));
+        $manualBot = trim((string)($_POST['manual_bot_name'] ?? ''));
+        if (!empty($manualBot)) {
+            $selectedBot = $manualBot;
+        }
+
+        $targetInput = trim((string)($_POST['target_input'] ?? ''));
+        $quickTarget = trim((string)($_POST['quick_target'] ?? ''));
+        if (empty($targetInput) && !empty($quickTarget)) {
+            $targetInput = $quickTarget;
+        }
+
+        $escortCount = max(20, (int)($_POST['escort_count'] ?? 500));
+        $catapultCount = max(0, min(500, (int)($_POST['catapult_count'] ?? 25)));
+        $sendHero = !empty($_POST['send_hero']);
+        $autoPrepare = !empty($_POST['auto_prepare']);
+        $allowCapital = !empty($_POST['allow_capital_conquest']);
+
+        $res = BotAI::orderConquest($selectedBot, $targetInput, [
+            'escort_count' => $escortCount,
+            'catapult_count' => $catapultCount,
+            'send_hero' => $sendHero,
+            'auto_prepare' => $autoPrepare,
+            'allow_capital_conquest' => $allowCapital,
+        ]);
+
+        if ($res['status'] === 'success') {
+            $flashSuccess = "🚩 <b>Ekspedisi Penaklukan (Chief) Bot Diluncurkan!</b><br><br>" . $res['message'];
+        } else {
+            $flashError = "❌ <b>Gagal meluncurkan ekspedisi Chief:</b> " . $res['message'];
+        }
+    }
     // 6. ASSIGN BOTS TO ALLIANCE
     elseif ($action === 'join_alliance') {
         $aid = (int)($_POST['aid'] ?? 0);
@@ -682,6 +716,18 @@ $botsQuery = "
 ";
 $botsList = $database->query_return($botsQuery);
 $existingAlliances = $database->query_return("SELECT id, name, tag FROM " . TB_PREFIX . "alidata ORDER BY name ASC");
+$humanVillagesList = $database->query_return("
+    SELECT v.wref, v.name as vname, v.capital, v.pop, w.x, w.y, u.username,
+           (SELECT COUNT(*) FROM " . TB_PREFIX . "vdata WHERE owner = v.owner) as owner_villages
+    FROM " . TB_PREFIX . "vdata v
+    JOIN " . TB_PREFIX . "users u ON v.owner = u.id
+    JOIN " . TB_PREFIX . "wdata w ON v.wref = w.id
+    WHERE u.access = 2
+      AND (u.is_bot = 0 AND u.email NOT LIKE '%@bot.travianz' AND u.desc1 NOT LIKE '%[#BOT]%' AND u.desc2 NOT LIKE '%[#BOT]%' AND u.username NOT LIKE 'Bot_%')
+    ORDER BY v.capital ASC, u.username ASC, v.pop DESC
+    LIMIT 100
+");
+$botChiefMap = [];
 
 $totalBots = 0;
 $totalVillages = 0;
@@ -716,6 +762,7 @@ if (!empty($botsList)) {
         if (!empty($unitsRows)) {
             foreach ($unitsRows as $ur) {
                 $vref = (int)$ur['vref'];
+                $botChiefMap[$vref] = ((int)($ur['u9'] ?? 0)) + ((int)($ur['u19'] ?? 0)) + ((int)($ur['u29'] ?? 0));
                 $total = 0;
                 $details = [];
                 for ($i = 1; $i <= 100; $i++) {
@@ -1680,6 +1727,122 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
 
             <button type="submit" class="btn-primary" style="background:#dc2626; border-color:#ef4444; width:auto; padding:10px 22px; font-weight:bold; cursor:pointer;">
                 🚀 Luncurkan Serangan Bot Sekarang
+            </button>
+        </form>
+    </div>
+
+    <!-- Panel 3b: Order Chief Village Conquest -->
+    <div class="botm-panel" style="border-color:#d97706; background:linear-gradient(135deg, #1c1305 0%, #0b1220 100%); margin-bottom:20px;">
+        <h3 style="color:#fbbf24;">🚩 Perintahkan Bot Khusus Menaklukkan (Chief) Desa Tertentu</h3>
+        <p class="desc">Perintahkan bot dengan nama / akun tertentu untuk mengirim ekspedisi penaklukan (Chief / Senator / Tetua) langsung ke desa target yang Anda pilih. Dilengkapi fitur <b>Auto-Prepare</b> untuk melengkapi Chief, Padepokan level 10, Culture Points (CP), dan pengawal tempur secara otomatis tanpa repot!</p>
+
+        <form method="post" action="admin.php?p=botManager">
+            <?php echo csrf_field(); ?>
+            <input type="hidden" name="bot_action" value="order_conquest">
+
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:14px; margin-bottom:14px;">
+                <div class="botm-form-group">
+                    <label>Pilih Bot Penakluk:</label>
+                    <select name="target_bot" class="botm-form-control">
+                        <option value="0">⚡ Otomatis: Bot Terdekat dari Target</option>
+                        <?php if (!empty($botsList)): ?>
+                            <optgroup label="👤 Pilih Akun Bot:">
+                                <?php foreach ($botsList as $b): ?>
+                                    <?php 
+                                        $hasChief = (int)($botChiefMap[$b['wref']] ?? 0);
+                                        $chiefBadge = $hasChief > 0 ? " 🚩 ({$hasChief} Chief Siap)" : "";
+                                    ?>
+                                    <option value="<?php echo $b['id']; ?>">
+                                        <?php echo (!empty($b['ali_tag']) ? "[{$b['ali_tag']}] " : "") . htmlspecialchars($b['username']); ?> [<?php echo htmlspecialchars($b['vname']); ?> (<?php echo $b['x']; ?>|<?php echo $b['y']; ?>)]<?php echo $chiefBadge; ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </optgroup>
+                        <?php endif; ?>
+                    </select>
+                    <span style="font-size:10px; color:#64748b;">Pilih dari daftar di atas atau ketik nama bot manual di samping.</span>
+                </div>
+
+                <div class="botm-form-group">
+                    <label>Atau Ketik Nama / UID Bot Manual:</label>
+                    <input type="text" name="manual_bot_name" class="botm-form-control" placeholder="Contoh: Alaric atau Bot_1">
+                    <span style="font-size:10px; color:#fbbf24;">Prioritas: Jika kolom ini diisi, nama bot ini yang akan diperintahkan.</span>
+                </div>
+
+                <div class="botm-form-group">
+                    <label>Target Desa Sasaran (Input Bebas):</label>
+                    <input type="text" name="target_input" class="botm-form-control" placeholder="Nama desa, Username, Koordinat X|Y, atau Wref">
+                    <span style="font-size:10px; color:#64748b;">Contoh: <code>Desa Kedua</code>, <code>Pemain1</code>, <code>15|-24</code>, atau <code>1234</code></span>
+                </div>
+
+                <div class="botm-form-group">
+                    <label>🎯 Atau Pilih Cepat dari Desa Pemain:</label>
+                    <select name="quick_target" class="botm-form-control">
+                        <option value="">-- Pilih Cepat Desa Sasaran --</option>
+                        <?php if (!empty($humanVillagesList)): ?>
+                            <?php 
+                                $nonCaps = [];
+                                $caps = [];
+                                foreach ($humanVillagesList as $hv) {
+                                    if ((int)$hv['capital'] === 0 && (int)$hv['owner_villages'] > 1) {
+                                        $nonCaps[] = $hv;
+                                    } else {
+                                        $caps[] = $hv;
+                                    }
+                                }
+                            ?>
+                            <?php if (!empty($nonCaps)): ?>
+                                <optgroup label="✅ Desa Non-Capital Pemain (Siap Ditaklukkan):">
+                                    <?php foreach ($nonCaps as $hv): ?>
+                                        <option value="<?php echo $hv['wref']; ?>">
+                                            <?php echo htmlspecialchars($hv['username']); ?> - <?php echo htmlspecialchars($hv['vname']); ?> (<?php echo $hv['x']; ?>|<?php echo $hv['y']; ?>) [Pop: <?php echo $hv['pop']; ?>]
+                                        </option>
+                                    <?php endforeach; ?>
+                                </optgroup>
+                            <?php endif; ?>
+                            <?php if (!empty($caps)): ?>
+                                <optgroup label="👑 Ibu Kota / Desa Tunggal Pemain (Perlu Centang Override):">
+                                    <?php foreach ($caps as $hv): ?>
+                                        <option value="<?php echo $hv['wref']; ?>">
+                                            <?php echo htmlspecialchars($hv['username']); ?> - <?php echo htmlspecialchars($hv['vname']); ?> (<?php echo $hv['x']; ?>|<?php echo $hv['y']; ?>) (Capital)
+                                        </option>
+                                    <?php endforeach; ?>
+                                </optgroup>
+                            <?php endif; ?>
+                        <?php endif; ?>
+                    </select>
+                    <span style="font-size:10px; color:#64748b;">Daftar desa pemain manusia (otomatis terbagi non-capital vs capital).</span>
+                </div>
+
+                <div class="botm-form-group">
+                    <label>Jumlah Pasukan Pengawal Chief:</label>
+                    <input type="number" name="escort_count" class="botm-form-control" value="500" min="20" max="10000">
+                    <span style="font-size:10px; color:#64748b;">Minimal 20 pengawal untuk menjamin keselamatan Chief di perjalanan.</span>
+                </div>
+
+                <div class="botm-form-group">
+                    <label>Jumlah Ketapel Pengepungan:</label>
+                    <input type="number" name="catapult_count" class="botm-form-control" value="25" min="0" max="500">
+                    <span style="font-size:10px; color:#64748b;">Otomatis menargetkan Padepokan & Istana musuh agar loyalitas bisa diturunkan.</span>
+                </div>
+            </div>
+
+            <div style="background:#0f172a; padding:12px; border-radius:6px; border:1px solid #1e293b; margin-bottom:14px; display:flex; flex-direction:column; gap:8px;">
+                <label class="botm-checkbox" style="margin:0; cursor:pointer;">
+                    <input type="checkbox" name="auto_prepare" value="1" checked>
+                    <span>⚡ <b>Siapkan Otomatis (Auto-Prepare) jika Bot Belum Siap</b> (Pastikan 1 Chief di rumah, Padepokan Lvl 10, CP Cukup, dan Pasukan Pengawal Lengkap)</span>
+                </label>
+                <label class="botm-checkbox" style="margin:0; cursor:pointer;">
+                    <input type="checkbox" name="send_hero" value="1" checked>
+                    <span>👑 Sertakan Hero Bot dalam Ekspedisi Penaklukan (Jika Hero bot hidup)</span>
+                </label>
+                <label class="botm-checkbox" style="margin:0; cursor:pointer;">
+                    <input type="checkbox" name="allow_capital_conquest" value="1">
+                    <span style="color:#fca5a5;">👑 <b>Izinkan Menaklukkan Ibu Kota / Desa Tunggal</b> (Akan mencabut status Capital target agar dapat ditaklukkan bot)</span>
+                </label>
+            </div>
+
+            <button type="submit" class="btn-amber" style="background:#d97706; border-color:#f59e0b; width:auto; padding:10px 22px; font-weight:bold; cursor:pointer;">
+                🚩 Luncurkan Ekspedisi Penaklukan (Chief) Bot Sekarang
             </button>
         </form>
     </div>

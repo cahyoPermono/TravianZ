@@ -5350,6 +5350,409 @@ class BotAI {
     }
 
     /**
+     * Admin Command: Order a specific Bot (by name or UID, or nearest ready bot)
+     * to launch a Chief Conquest Expedition against a specific target village.
+     *
+     * @param string|int $botUidOrName Bot UID, username, or '0'/'auto' for nearest ready bot.
+     * @param string|int $targetInput Target coordinate 'X|Y', village name, village wref, or owner username.
+     * @param array $options Configuration options:
+     *        - escort_count: int (default 500)
+     *        - catapult_count: int (default 25)
+     *        - send_hero: bool (default true)
+     *        - auto_prepare: bool (default true)
+     *        - allow_capital_conquest: bool (default false)
+     * @return array Status array with 'status', 'message', 'details'
+     */
+    public static function orderConquest($botUidOrName, $targetInput, array $options = []): array {
+        global $database;
+        if (!isset($database) || $database === null) {
+            require_once __DIR__ . '/Database.php';
+        }
+
+        $targetInput = trim((string)$targetInput);
+        if (empty($targetInput)) {
+            return ['status' => 'error', 'message' => 'Target sasaran tidak boleh kosong. Masukkan nama desa, username pemilik, atau koordinat X|Y.'];
+        }
+
+        $escortCount = max(20, (int)($options['escort_count'] ?? 500));
+        $catapultCount = max(0, min(500, (int)($options['catapult_count'] ?? 25)));
+        $sendHero = !empty($options['send_hero']);
+        $autoPrepare = isset($options['auto_prepare']) ? (bool)$options['auto_prepare'] : true;
+        $allowCapital = !empty($options['allow_capital_conquest']);
+
+        // 1. Resolve Target Village
+        $targetVillage = null;
+        if (preg_match('/^(-?\d+)\s*\|\s*(-?\d+)$/', $targetInput, $matches)) {
+            $tx = (int)$matches[1];
+            $ty = (int)$matches[2];
+            $wRow = $database->query_return("
+                SELECT v.wref, v.owner, v.name as vname, v.pop, v.capital, v.loyalty,
+                       w.x, w.y, u.username, u.tribe as dtribe, u.alliance as dally, u.access,
+                       (SELECT COUNT(*) FROM " . TB_PREFIX . "vdata WHERE owner = v.owner) as owner_villages
+                FROM " . TB_PREFIX . "wdata w
+                JOIN " . TB_PREFIX . "vdata v ON w.id = v.wref
+                JOIN " . TB_PREFIX . "users u ON v.owner = u.id
+                WHERE w.x = $tx AND w.y = $ty
+                LIMIT 1
+            ");
+            if (!empty($wRow[0])) {
+                $targetVillage = $wRow[0];
+            }
+        } elseif (is_numeric($targetInput)) {
+            $tWref = (int)$targetInput;
+            $wRow = $database->query_return("
+                SELECT v.wref, v.name as vname, v.owner, v.pop, v.capital, v.loyalty,
+                       w.x, w.y, u.username, u.tribe as dtribe, u.alliance as dally, u.access,
+                       (SELECT COUNT(*) FROM " . TB_PREFIX . "vdata WHERE owner = v.owner) as owner_villages
+                FROM " . TB_PREFIX . "vdata v
+                JOIN " . TB_PREFIX . "wdata w ON v.wref = w.id
+                JOIN " . TB_PREFIX . "users u ON v.owner = u.id
+                WHERE v.wref = $tWref
+                LIMIT 1
+            ");
+            if (!empty($wRow[0])) {
+                $targetVillage = $wRow[0];
+            }
+        }
+
+        // Search by village name or username
+        if (empty($targetVillage)) {
+            $escTarget = $database->escape($targetInput);
+            $vByName = $database->query_return("
+                SELECT v.wref, v.name as vname, v.owner, v.pop, v.capital, v.loyalty,
+                       w.x, w.y, u.username, u.tribe as dtribe, u.alliance as dally, u.access,
+                       (SELECT COUNT(*) FROM " . TB_PREFIX . "vdata WHERE owner = v.owner) as owner_villages
+                FROM " . TB_PREFIX . "vdata v
+                JOIN " . TB_PREFIX . "wdata w ON v.wref = w.id
+                JOIN " . TB_PREFIX . "users u ON v.owner = u.id
+                WHERE v.name = '$escTarget'
+                ORDER BY v.capital ASC, v.pop DESC
+                LIMIT 1
+            ");
+            if (!empty($vByName[0])) {
+                $targetVillage = $vByName[0];
+            } else {
+                $vByUser = $database->query_return("
+                    SELECT v.wref, v.name as vname, v.owner, v.pop, v.capital, v.loyalty,
+                           w.x, w.y, u.username, u.tribe as dtribe, u.alliance as dally, u.access,
+                           (SELECT COUNT(*) FROM " . TB_PREFIX . "vdata WHERE owner = v.owner) as owner_villages
+                    FROM " . TB_PREFIX . "users u
+                    JOIN " . TB_PREFIX . "vdata v ON u.id = v.owner
+                    JOIN " . TB_PREFIX . "wdata w ON v.wref = w.id
+                    WHERE u.username = '$escTarget'
+                    ORDER BY v.capital ASC, v.wref DESC
+                    LIMIT 1
+                ");
+                if (!empty($vByUser[0])) {
+                    $targetVillage = $vByUser[0];
+                }
+            }
+        }
+
+        if (empty($targetVillage) || empty($targetVillage['wref'])) {
+            return ['status' => 'error', 'message' => "Desa target '{$targetInput}' tidak ditemukan atau bukan desa yang dihuni."];
+        }
+
+        $targetWid = (int)$targetVillage['wref'];
+        $targetOwner = (int)$targetVillage['owner'];
+        $targetX = (int)$targetVillage['x'];
+        $targetY = (int)$targetVillage['y'];
+        $targetIsCapital = (int)$targetVillage['capital'] === 1;
+        $targetOwnerVillages = (int)$targetVillage['owner_villages'];
+
+        // Validate Capital and Single-village protection
+        if ($targetIsCapital || $targetOwnerVillages <= 1) {
+            if ($allowCapital) {
+                if ($targetIsCapital) {
+                    $database->query("UPDATE " . TB_PREFIX . "vdata SET capital = 0 WHERE wref = $targetWid");
+                    $targetVillage['capital'] = 0;
+                }
+            } else {
+                $reason = $targetIsCapital
+                    ? "Desa '{$targetVillage['vname']}' merupakan Ibu Kota (Capital) milik {$targetVillage['username']}."
+                    : "Pemain {$targetVillage['username']} hanya memiliki 1 desa.";
+                return [
+                    'status' => 'error',
+                    'message' => "{$reason} Sesuai aturan baku Travian, Ibu Kota atau satu-satunya desa tidak dapat ditaklukkan dengan Chief.<br><br>💡 <b>Tip Admin:</b> Aktifkan centang <i>'👑 Izinkan Menaklukkan Ibu Kota / Desa Tunggal'</i> jika Anda ingin memaksakan penaklukan desa ini."
+                ];
+            }
+        }
+
+        // 2. Resolve Attacking Bot
+        $bot = null;
+        $botUidOrName = trim((string)$botUidOrName);
+
+        $sqlBase = "
+            SELECT u.id as uid, u.username, u.tribe, u.alliance, v.wref, v.name as vname, v.pop, w.x, w.y,
+                   a.tag as ali_tag, a.name as ali_name
+            FROM " . TB_PREFIX . "users u
+            JOIN " . TB_PREFIX . "vdata v ON u.id = v.owner
+            JOIN " . TB_PREFIX . "wdata w ON v.wref = w.id
+            LEFT JOIN " . TB_PREFIX . "alidata a ON u.alliance = a.id
+            WHERE u.access = 2
+              AND (u.is_bot = 1 OR u.email LIKE '%@bot.travianz' OR u.desc1 LIKE '%[#BOT]%' OR u.desc2 LIKE '%[#BOT]%' OR u.username LIKE 'Bot_%')
+              AND v.wref != $targetWid
+              AND u.id != $targetOwner
+        ";
+
+        if ($botUidOrName === '0' || $botUidOrName === 'auto' || empty($botUidOrName)) {
+            $allBots = $database->query_return($sqlBase);
+            if (empty($allBots)) {
+                return ['status' => 'error', 'message' => 'Tidak ada bot aktif yang tersedia di peta.'];
+            }
+            foreach ($allBots as &$b) {
+                $b['dist'] = self::getDistance((int)$b['x'], (int)$b['y'], $targetX, $targetY);
+            }
+            unset($b);
+            usort($allBots, function($a, $b) { return $a['dist'] <=> $b['dist']; });
+            $bot = $allBots[0];
+        } elseif (is_numeric($botUidOrName)) {
+            $bId = (int)$botUidOrName;
+            $botRes = $database->query_return($sqlBase . " AND u.id = $bId LIMIT 1");
+            if (!empty($botRes[0])) {
+                $bot = $botRes[0];
+            }
+        } else {
+            $escBot = $database->escape($botUidOrName);
+            $botRes = $database->query_return($sqlBase . " AND u.username = '$escBot' LIMIT 1");
+            if (!empty($botRes[0])) {
+                $bot = $botRes[0];
+            }
+        }
+
+        if (empty($bot)) {
+            return ['status' => 'error', 'message' => "Bot penyerang '{$botUidOrName}' tidak ditemukan atau merupakan pemilik dari desa target."];
+        }
+
+        $bWid = (int)$bot['wref'];
+        $bUid = (int)$bot['uid'];
+        $bTribe = (int)$bot['tribe'];
+        $chiefUnit = self::getChiefUnit($bTribe);
+        $chiefName = self::getUnitName($chiefUnit);
+        $tribeUnits = self::getTribeUnits($bTribe);
+        $basicUnit = self::getTribeBasicUnit($bTribe);
+        $catUnit = $tribeUnits['catapult'] ?? ($basicUnit + 7);
+
+        // 3. Auto-Prepare Bot Readiness
+        if ($autoPrepare) {
+            // A. Pastikan Padepokan / Istana level >= 10 ada di desa bot
+            $rsLevel = self::getBuildingLevel($bWid, 25);
+            $palaceLevel = self::getBuildingLevel($bWid, 26);
+            $ccLevel = self::getBuildingLevel($bWid, 44);
+            if ($rsLevel < 10 && $palaceLevel < 10 && $ccLevel < 10) {
+                $fdata = $database->getResourceLevel($bWid);
+                $targetSlot = 0;
+                for ($s = 19; $s <= 38; $s++) {
+                    if ((int)($fdata['f' . $s . 't'] ?? 0) === 25) {
+                        $targetSlot = $s;
+                        break;
+                    }
+                    if ($targetSlot === 0 && (int)($fdata['f' . $s . 't'] ?? 0) === 0 && (int)($fdata['f' . $s] ?? 0) === 0) {
+                        $targetSlot = $s;
+                    }
+                }
+                if ($targetSlot === 0) $targetSlot = 28;
+                $database->query("UPDATE " . TB_PREFIX . "fdata SET f{$targetSlot} = 10, f{$targetSlot}t = 25 WHERE vref = $bWid");
+            }
+
+            // B. Pastikan Culture Points (CP) bot mencukupi
+            $mode = defined('CP') ? (int)CP : 1;
+            global ${'cp' . $mode};
+            if (!isset(${'cp' . $mode})) {
+                @include_once __DIR__ . '/Data/cp.php';
+            }
+            $cpTable = ${'cp' . $mode} ?? $GLOBALS['cp1'] ?? [];
+            $vCount = count($database->getProfileVillages($bUid));
+            $neededCp = (int)($cpTable[$vCount + 1] ?? 2000);
+            $database->query("UPDATE " . TB_PREFIX . "users SET cp = GREATEST(cp, " . ($neededCp + 500) . ") WHERE id = $bUid");
+
+            // C. Pastikan Chief diteliti di Akademi & ada minimal 1 Chief di rumah
+            $database->query("UPDATE " . TB_PREFIX . "tdata SET t{$chiefUnit} = 1 WHERE vref = $bWid");
+            $curChiefs = (int)($database->query_return("SELECT u{$chiefUnit} as c FROM " . TB_PREFIX . "units WHERE vref = $bWid")[0]['c'] ?? 0);
+            if ($curChiefs < 1) {
+                $database->query("UPDATE " . TB_PREFIX . "units SET u{$chiefUnit} = 1 WHERE vref = $bWid");
+            }
+
+            // D. Lengkapi Pasukan Pengawal jika kurang
+            $unitsRow = $database->query_return("SELECT * FROM " . TB_PREFIX . "units WHERE vref = $bWid LIMIT 1");
+            $uRow = !empty($unitsRow[0]) ? $unitsRow[0] : [];
+            $curBasic = (int)($uRow['u' . $basicUnit] ?? 0);
+            if ($curBasic < $escortCount) {
+                $addTroops = $escortCount - $curBasic + 50;
+                $database->query("UPDATE " . TB_PREFIX . "units SET u{$basicUnit} = u{$basicUnit} + $addTroops WHERE vref = $bWid");
+            }
+
+            // E. Lengkapi Ketapel jika diminta dan kurang
+            if ($catapultCount > 0) {
+                $curCat = (int)($uRow['u' . $catUnit] ?? 0);
+                if ($curCat < $catapultCount) {
+                    $addCat = $catapultCount - $curCat + 5;
+                    $database->query("UPDATE " . TB_PREFIX . "units SET u{$catUnit} = u{$catUnit} + $addCat WHERE vref = $bWid");
+                }
+            }
+
+            // F. Cek Hero jika diminta
+            if ($sendHero) {
+                $hRow = $database->query_return("SELECT heroid, dead FROM " . TB_PREFIX . "hero WHERE uid = $bUid LIMIT 1");
+                if (!empty($hRow[0])) {
+                    $database->query("UPDATE " . TB_PREFIX . "hero SET dead = 0, health = 100 WHERE uid = $bUid");
+                    $database->query("UPDATE " . TB_PREFIX . "units SET hero = 1 WHERE vref = $bWid");
+                }
+            }
+        }
+
+        // 4. Assemble Troop Dispatch
+        $unitsRow = $database->query_return("SELECT * FROM " . TB_PREFIX . "units WHERE vref = $bWid LIMIT 1");
+        if (empty($unitsRow[0])) {
+            return ['status' => 'error', 'message' => "Data unit desa bot #{$bWid} tidak ditemukan."];
+        }
+        $uRow = $unitsRow[0];
+
+        $homeChiefs = (int)($uRow['u' . $chiefUnit] ?? 0);
+        if ($homeChiefs < 1) {
+            return ['status' => 'error', 'message' => "Bot '{$bot['username']}' tidak memiliki {$chiefName} di rumah. Aktifkan '⚡ Siapkan Instan' agar Chief otomatis dilengkapi."];
+        }
+
+        $dispatched = [];
+        $dispatchedSpeeds = [];
+
+        // Add 1 Chief
+        $dispatched[$chiefUnit] = 1;
+        $dispatchedSpeeds[] = self::getUnitSpeed($chiefUnit);
+
+        // Add Escort Troops (use basic unit and other offensive infantry/cavalry)
+        $offensiveUnits = self::getOffensiveUnits($bTribe, false);
+        $settlerUnit = $bTribe * 10;
+        $assignedEscort = 0;
+
+        foreach ($offensiveUnits as $uNum) {
+            if ($uNum === $chiefUnit || $uNum === $settlerUnit) continue;
+            $cnt = (int)($uRow['u' . $uNum] ?? 0);
+            if ($cnt > 0) {
+                $needed = $escortCount - $assignedEscort;
+                if ($needed <= 0) break;
+                $take = min($cnt, $needed);
+                $dispatched[$uNum] = $take;
+                $dispatchedSpeeds[] = self::getUnitSpeed($uNum);
+                $assignedEscort += $take;
+            }
+        }
+
+        // Add Catapults if requested
+        $assignedCat = 0;
+        if ($catapultCount > 0) {
+            $curCat = (int)($uRow['u' . $catUnit] ?? 0);
+            if ($curCat > 0) {
+                $takeCat = min($curCat, $catapultCount);
+                $dispatched[$catUnit] = $takeCat;
+                $dispatchedSpeeds[] = self::getUnitSpeed($catUnit);
+                $assignedCat = $takeCat;
+            }
+        }
+
+        // Hero
+        $actualHero = 0;
+        if ($sendHero && !empty($uRow['hero']) && (int)$uRow['hero'] > 0) {
+            $actualHero = 1;
+        }
+
+        // Deduct from units
+        $unitNums = array_keys($dispatched);
+        $amounts = array_values($dispatched);
+        $modes = array_fill(0, count($amounts), 0);
+        $database->modifyUnit($bWid, $unitNums, $amounts, $modes);
+        if ($actualHero) {
+            $database->query("UPDATE " . TB_PREFIX . "units SET hero = hero - 1 WHERE vref = $bWid AND hero > 0");
+        }
+
+        // Map to t1..t10
+        $t = array_fill(1, 10, 0);
+        $baseUnit = ($bTribe - 1) * 10;
+        foreach ($dispatched as $uNum => $cnt) {
+            $slot = $uNum - $baseUnit;
+            if ($slot >= 1 && $slot <= 10) {
+                $t[$slot] = $cnt;
+            }
+        }
+
+        // Catapult target: Residence (25) and Palace (26)
+        $ctar1 = 0;
+        $ctar2 = 0;
+        if ($assignedCat > 0) {
+            $ctar1 = 25;
+            $ctar2 = 26;
+        }
+
+        // Travel time calculation
+        $dist = self::getDistance((int)$bot['x'], (int)$bot['y'], $targetX, $targetY);
+        $marchSpeed = !empty($dispatchedSpeeds) ? min($dispatchedSpeeds) : 4;
+        $speedMultiplier = defined('INCREASE_SPEED') ? max(1, (float)INCREASE_SPEED) : (defined('SPEED') ? max(1, (float)SPEED) : 1.0);
+        $duration = max(30, (int)round(($dist / $marchSpeed) * 3600 / $speedMultiplier));
+
+        // Add attack (Normal Attack type = 3)
+        $attackId = $database->addAttack(
+            $bWid,
+            $t[1], $t[2], $t[3], $t[4], $t[5], $t[6], $t[7], $t[8], $t[9], $t[10],
+            $actualHero,
+            3, // Normal Attack (Wajib tipe 3 untuk penaklukan Chief)
+            $ctar1, $ctar2, 0
+        );
+
+        if (!$attackId) {
+            // Rollback on failure
+            $database->modifyUnit($bWid, $unitNums, $amounts, array_fill(0, count($amounts), 1));
+            if ($actualHero) {
+                $database->query("UPDATE " . TB_PREFIX . "units SET hero = hero + 1 WHERE vref = $bWid");
+            }
+            return ['status' => 'error', 'message' => 'Gagal membuat rekaman serangan di database.'];
+        }
+
+        // Add movement (sort_type = 3)
+        $startTime = time();
+        $endTime = $startTime + $duration;
+        $database->addMovement(3, $bWid, $targetWid, $attackId, $startTime, $endTime);
+
+        // Build report
+        $troopsList = ["1 {$chiefName}"];
+        if ($assignedEscort > 0) {
+            $troopsList[] = number_format($assignedEscort) . " Pengawal Tempur";
+        }
+        if ($assignedCat > 0) {
+            $troopsList[] = "{$assignedCat} Ketapel (Target: Padepokan/Istana)";
+        }
+        if ($actualHero) {
+            $troopsList[] = "1 Hero";
+        }
+
+        $aliBotStr = !empty($bot['ali_tag']) ? "[{$bot['ali_tag']}] " : "";
+        $targetUserStr = $targetVillage['username'];
+        $arrivalTimeStr = date('H:i:s', $endTime) . ' WIB';
+
+        $reportMsg = "Bot <b>{$aliBotStr}{$bot['username']}</b> dari desa <b>{$bot['vname']}</b> ({$bot['x']}|{$bot['y']}) berhasil diperintahkan menaklukkan desa <b>{$targetVillage['vname']}</b> ({$targetX}|{$targetY}) milik <b>{$targetUserStr}</b>!<br><br>"
+            . "• <b>Komposisi Ekspedisi:</b> " . implode(' + ', $troopsList) . "<br>"
+            . "• <b>Tipe Serangan:</b> Normal Attack (Tipe 3 - Wajib Penaklukan)<br>"
+            . "• <b>Jarak Koordinat:</b> " . round($dist, 1) . " kotak peta<br>"
+            . "• <b>Waktu Tempuh:</b> " . round($duration / 60, 1) . " menit (Tiba pk <b>{$arrivalTimeStr}</b>)<br>"
+            . "• <b>Status Titik Temu:</b> Target menerima indikator pedang merah secara real-time!";
+
+        return [
+            'status' => 'success',
+            'message' => $reportMsg,
+            'details' => [
+                'bot_uid' => $bUid,
+                'bot_username' => $bot['username'],
+                'bot_village' => $bot['vname'],
+                'target_wid' => $targetWid,
+                'target_village' => $targetVillage['vname'],
+                'target_user' => $targetUserStr,
+                'duration' => $duration,
+                'distance' => $dist,
+                'troops' => $dispatched,
+            ]
+        ];
+    }
+
+    /**
      * Map wrap-around distance calculation.
      */
     public static function getDistance($x1, $y1, $x2, $y2) {
