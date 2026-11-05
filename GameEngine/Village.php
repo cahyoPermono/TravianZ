@@ -52,8 +52,8 @@ class Village {
 	public $enforcetoyou = [];
 	public $enforceoasis = [];
 
-	/** cache per sat pentru productia adusa de erou (null = neincarcat) */
-	private $heroProd = null;
+	/** @var array<string, float>|null cache per sat pentru productia adusa de erou (null = neincarcat) */
+	private ?array $heroProd = null;
 	public $currentcel = 0;
 	public $currentfestival = 0;
 	public $allcrop = 0;
@@ -106,7 +106,7 @@ class Village {
 		];
 
 		// If user has Game Over, bounce directly to gameover.php
-		if ($this->sess->uid > 0 && !empty($this->sess->userarray['is_gameover'])) {
+		if ($this->sess->uid > 0 && ($this->sess->hasGameOver() || !empty($this->sess->userarray['is_gameover']))) {
 			header("Location: gameover.php");
 			exit;
 		}
@@ -371,7 +371,7 @@ class Village {
 	 */
 	private function getHeroProdFor(string $type): float {
 
-		if ($this->heroProd === null) {
+		if (!is_array($this->heroProd)) {
 			$this->heroProd = $this->loadHeroProd();
 		}
 

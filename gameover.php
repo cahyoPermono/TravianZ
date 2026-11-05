@@ -21,7 +21,7 @@ if (!$session->logged_in) {
 }
 
 // If player is not Game Over, send back to village
-if (empty($session->userarray['is_gameover'])) {
+if (!$session->hasGameOver()) {
     header("Location: dorf1.php");
     exit;
 }

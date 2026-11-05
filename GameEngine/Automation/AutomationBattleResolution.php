@@ -1504,7 +1504,7 @@ trait AutomationBattleResolution {
             // orphaned player reinforcement. Keep the row intact if its source
             // disappeared since preflight, and record it for investigation.
             $tribe = $this->resolveReinforcementBattleTribe($enforce);
-            if ($tribe === null) {
+            if (!$this->isValidBattleTribe($tribe)) {
                 $this->logInvalidBattleContext($data, 'invalid reinforcement source id=' . (int)($enforce['id'] ?? 0));
                 continue;
             }

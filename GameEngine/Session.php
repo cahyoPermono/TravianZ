@@ -102,7 +102,7 @@ class Session {
     var $checker, $mchecker;
 
     public $userinfo = [];
-    private $userarray = [];
+    public $userarray = [];
 
     var $villages = [];
 	var $sit;
@@ -407,6 +407,13 @@ function __construct() {
             header('Location: maintenance.php');
             exit;
         }
+    }
+
+    /**
+     * Check if the current user has been eliminated / Game Over.
+     */
+    public function hasGameOver(): bool {
+        return !empty($this->userarray['is_gameover']);
     }
 
     /**

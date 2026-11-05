@@ -408,11 +408,11 @@ include("Templates/res.tpl");
 <div id="stime">
 <div id="ltime">
 <div id="ltimeWrap">
-<?php echo CALCULATED_IN;?> <b><?php
+<?php echo defined('CALCULATED_IN') ? CALCULATED_IN : 'Calculated in';?> <b><?php
 echo round(($generator->pageLoadTimeEnd()-$start_timer)*1000);
 ?></b> ms
 
-<br /><?php echo SERVER_TIME;?> <span id="tp1" class="b"><?php echo date('H:i:s'); ?></span>
+<br /><?php echo defined('SERVER_TIME') ? SERVER_TIME : 'Server time:';?> <span id="tp1" class="b"><?php echo date('H:i:s'); ?></span>
 </div>
 	</div>
 </div>
