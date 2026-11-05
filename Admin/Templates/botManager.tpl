@@ -1790,21 +1790,25 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
         <?php 
             $inFlightBotMovements = $database->query_return("
                 SELECT m.moveid, m.from, m.to, m.starttime, m.endtime, m.sort_type,
-                       v1.name as from_name, w1.x as from_x, w1.y as from_y, u1.username as from_user,
-                       v2.name as to_name, w2.x as to_x, w2.y as to_y, u2.username as to_user,
+                       COALESCE(v1.name, 'Desa Bot') as from_name,
+                       COALESCE(w1.x, 0) as from_x, COALESCE(w1.y, 0) as from_y,
+                       COALESCE(u1.username, 'Bot') as from_user,
+                       COALESCE(v2.name, 'Desa Target') as to_name,
+                       COALESCE(w2.x, 0) as to_x, COALESCE(w2.y, 0) as to_y,
+                       COALESCE(u2.username, 'Pemain') as to_user,
                        a.attack_type, a.t9
                 FROM " . TB_PREFIX . "movement m
-                JOIN " . TB_PREFIX . "vdata v1 ON m.from = v1.wref
-                JOIN " . TB_PREFIX . "wdata w1 ON v1.wref = w1.id
-                JOIN " . TB_PREFIX . "users u1 ON v1.owner = u1.id
-                JOIN " . TB_PREFIX . "vdata v2 ON m.to = v2.wref
-                JOIN " . TB_PREFIX . "wdata w2 ON v2.wref = w2.id
-                JOIN " . TB_PREFIX . "users u2 ON v2.owner = u2.id
-                LEFT JOIN " . TB_PREFIX . "attacks a ON m.ref = a.id
-                WHERE m.proc = 0 AND m.sort_type = 3
-                  AND (u1.is_bot = 1 OR u1.email LIKE '%@bot.travianz' OR u1.desc1 LIKE '%[#BOT]%' OR u1.desc2 LIKE '%[#BOT]%' OR u1.username LIKE 'Bot_%')
+                JOIN " . TB_PREFIX . "attacks a ON m.ref = a.id
+                LEFT JOIN " . TB_PREFIX . "vdata v1 ON m.from = v1.wref
+                LEFT JOIN " . TB_PREFIX . "wdata w1 ON v1.wref = w1.id
+                LEFT JOIN " . TB_PREFIX . "users u1 ON v1.owner = u1.id
+                LEFT JOIN " . TB_PREFIX . "vdata v2 ON m.to = v2.wref
+                LEFT JOIN " . TB_PREFIX . "wdata w2 ON v2.wref = w2.id
+                LEFT JOIN " . TB_PREFIX . "users u2 ON v2.owner = u2.id
+                WHERE m.proc = 0
+                  AND (a.t9 > 0 OR u1.is_bot = 1 OR u1.email LIKE '%@bot.travianz' OR u1.desc1 LIKE '%[#BOT]%' OR u1.desc2 LIKE '%[#BOT]%' OR u1.username LIKE 'Bot_%')
                 ORDER BY m.endtime ASC
-                LIMIT 15
+                LIMIT 25
             ");
         ?>
         <?php if (!empty($inFlightBotMovements)): ?>
@@ -2203,8 +2207,18 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
                                         $conqStatus = BotAI::getConquestStatus((int)$b['id'], (int)($b['wref'] ?? 0), $tNum);
                                         if (!empty($conqStatus['status_text']) && $conqStatus['status_text'] !== ($expStatus['status_text'] ?? '')):
                                     ?>
-                                        <div style="font-size:10px; color:#f8fafc; line-height:1.4; margin-top:3px; padding-top:2px; border-top:1px dashed #334155;">
-                                            <?php echo htmlspecialchars($conqStatus['status_text']); ?>
+                                        <div style="font-size:10px; color:#f8fafc; line-height:1.4; margin-top:3px; padding-top:2px; border-top:1px dashed #334155; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px;">
+                                            <span><?php echo htmlspecialchars($conqStatus['status_text']); ?></span>
+                                            <?php if (!empty($conqStatus['marching_moveid'])): ?>
+                                                <form method="post" action="admin.php?p=botManager" style="margin:0; display:inline;" onsubmit="return confirm('Batalkan serangan Chief dari desa ini sekarang?');">
+                                                    <?php echo csrf_field(); ?>
+                                                    <input type="hidden" name="bot_action" value="abort_movement">
+                                                    <input type="hidden" name="abort_moveid" value="<?php echo (int)$conqStatus['marching_moveid']; ?>">
+                                                    <button type="submit" class="btn-danger" style="padding:1px 6px; font-size:9px; background:#dc2626; border-radius:3px; cursor:pointer; font-weight:bold;">
+                                                        Batalkan
+                                                    </button>
+                                                </form>
+                                            <?php endif; ?>
                                         </div>
                                     <?php endif; ?>
                                     <div style="font-size:9px; color:#64748b; margin-top:2px;">

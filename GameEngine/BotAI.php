@@ -2741,6 +2741,8 @@ class BotAI {
             'chiefs_home' => $homeChiefs,
             'chiefs_queued' => $queuedChiefs,
             'in_progress' => $inProgress,
+            'marching_moveid' => $inProgress ? (int)$marchingRow[0]['moveid'] : 0,
+            'target_name' => $inProgress ? ($marchingRow[0]['target_name'] ?? 'Sasaran') : '',
             'status_text' => $statusText,
         ];
     }
@@ -5951,11 +5953,14 @@ class BotAI {
         }
 
         $mRow = $database->query_return("
-            SELECT m.*, v1.name as from_name, v2.name as to_name, u1.tribe
+            SELECT m.*, 
+                   COALESCE(v1.name, 'Desa Bot') as from_name, 
+                   COALESCE(v2.name, 'Desa Target') as to_name, 
+                   COALESCE(u1.tribe, 1) as tribe
             FROM " . TB_PREFIX . "movement m
-            JOIN " . TB_PREFIX . "vdata v1 ON m.from = v1.wref
-            JOIN " . TB_PREFIX . "vdata v2 ON m.to = v2.wref
-            JOIN " . TB_PREFIX . "users u1 ON v1.owner = u1.id
+            LEFT JOIN " . TB_PREFIX . "vdata v1 ON m.from = v1.wref
+            LEFT JOIN " . TB_PREFIX . "vdata v2 ON m.to = v2.wref
+            LEFT JOIN " . TB_PREFIX . "users u1 ON v1.owner = u1.id
             WHERE m.moveid = $moveid AND m.proc = 0
             LIMIT 1
         ");
