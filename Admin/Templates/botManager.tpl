@@ -1793,7 +1793,7 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
                                         $hasChief = (int)($botChiefMap[$b['wref']] ?? 0);
                                         $chiefBadge = $hasChief > 0 ? " 🚩 ({$hasChief} Chief Siap)" : "";
                                     ?>
-                                    <option value="<?php echo $b['id']; ?>">
+                                    <option value="village:<?php echo $b['wref']; ?>">
                                         <?php echo (!empty($b['ali_tag']) ? "[{$b['ali_tag']}] " : "") . htmlspecialchars($b['username']); ?> [<?php echo htmlspecialchars($b['vname']); ?> (<?php echo $b['x']; ?>|<?php echo $b['y']; ?>)]<?php echo $chiefBadge; ?>
                                     </option>
                                 <?php endforeach; ?>

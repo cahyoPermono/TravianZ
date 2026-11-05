@@ -5563,28 +5563,87 @@ class BotAI {
               AND u.id != $targetOwner
         ";
 
-        if ($botUidOrName === '0' || $botUidOrName === 'auto' || empty($botUidOrName)) {
-            $allBots = $database->query_return($sqlBase);
-            if (empty($allBots)) {
-                return ['status' => 'error', 'message' => 'Tidak ada bot aktif yang tersedia di peta.'];
-            }
-            foreach ($allBots as &$b) {
-                $b['dist'] = self::getDistance((int)$b['x'], (int)$b['y'], $targetX, $targetY);
-            }
-            unset($b);
-            usort($allBots, function($a, $b) { return $a['dist'] <=> $b['dist']; });
-            $bot = $allBots[0];
-        } elseif (is_numeric($botUidOrName)) {
-            $bId = (int)$botUidOrName;
-            $botRes = $database->query_return($sqlBase . " AND u.id = $bId LIMIT 1");
+        // A. Explicit Village format (e.g. "village:123" or "v:123" or "wref:123")
+        if (preg_match('/^(?:village:|v:|wref:)(\d+)$/i', $botUidOrName, $vm)) {
+            $specWref = (int)$vm[1];
+            $botRes = $database->query_return($sqlBase . " AND v.wref = $specWref LIMIT 1");
             if (!empty($botRes[0])) {
                 $bot = $botRes[0];
             }
-        } else {
-            $escBot = $database->escape($botUidOrName);
-            $botRes = $database->query_return($sqlBase . " AND u.username = '$escBot' LIMIT 1");
-            if (!empty($botRes[0])) {
-                $bot = $botRes[0];
+        }
+
+        // B. Search by Bot Username, User ID, Village ID, or Village Name
+        if (empty($bot)) {
+            $candidateQuery = "";
+            if ($botUidOrName === '0' || $botUidOrName === 'auto' || empty($botUidOrName)) {
+                $candidateQuery = $sqlBase;
+            } elseif (is_numeric($botUidOrName)) {
+                $numVal = (int)$botUidOrName;
+                // Could be explicit village wref
+                $wCheck = $database->query_return($sqlBase . " AND v.wref = $numVal LIMIT 1");
+                if (!empty($wCheck[0])) {
+                    $bot = $wCheck[0];
+                } else {
+                    $candidateQuery = $sqlBase . " AND u.id = $numVal";
+                }
+            } else {
+                $escBot = $database->escape($botUidOrName);
+                // First check if matching exact village name
+                $vNameCheck = $database->query_return($sqlBase . " AND v.name = '$escBot' LIMIT 1");
+                if (!empty($vNameCheck[0])) {
+                    $bot = $vNameCheck[0];
+                } else {
+                    $candidateQuery = $sqlBase . " AND u.username = '$escBot'";
+                }
+            }
+
+            if (empty($bot) && !empty($candidateQuery)) {
+                $candidates = $database->query_return($candidateQuery);
+                if (!empty($candidates)) {
+                    // Score each village candidate to prioritize the village that ACTUALLY HAS A CHIEF!
+                    foreach ($candidates as &$c) {
+                        $cWid = (int)$c['wref'];
+                        $cTribe = (int)$c['tribe'];
+                        $cChiefUnit = self::getChiefUnit($cTribe);
+                        $uRow = $database->query_return("SELECT * FROM " . TB_PREFIX . "units WHERE vref = $cWid LIMIT 1");
+                        $cChiefs = !empty($uRow[0]['u' . $cChiefUnit]) ? (int)$uRow[0]['u' . $cChiefUnit] : 0;
+                        
+                        $cTroops = 0;
+                        if (!empty($uRow[0])) {
+                            $basicUnit = self::getTribeBasicUnit($cTribe);
+                            $cTroops = (int)($uRow[0]['u' . $basicUnit] ?? 0);
+                        }
+
+                        $rsLvl = self::getBuildingLevel($cWid, 25);
+                        $palLvl = self::getBuildingLevel($cWid, 26);
+                        $ccLvl = self::getBuildingLevel($cWid, 44);
+                        $hasAdminBldg = ($rsLvl >= 10 || $palLvl >= 10 || $ccLvl >= 10);
+
+                        $dist = self::getDistance((int)$c['x'], (int)$c['y'], $targetX, $targetY);
+                        $c['dist'] = $dist;
+
+                        // Scoring: Chief present (+1M), Residence 10+ (+50k), Troops (+10x), Pop (+1x), Dist (-2x)
+                        $score = 0;
+                        if ($cChiefs > 0) {
+                            $score += 1000000 * $cChiefs;
+                        }
+                        if ($hasAdminBldg) {
+                            $score += 50000;
+                        }
+                        $score += ($cTroops * 10);
+                        $score += (int)$c['pop'];
+                        $score -= (int)round($dist * 2);
+
+                        $c['score'] = $score;
+                        $c['has_chief'] = $cChiefs;
+                    }
+                    unset($c);
+
+                    usort($candidates, function($a, $b) {
+                        return $b['score'] <=> $a['score'];
+                    });
+                    $bot = $candidates[0];
+                }
             }
         }
 
@@ -5830,6 +5889,7 @@ class BotAI {
                 'bot_uid' => $bUid,
                 'bot_username' => $bot['username'],
                 'bot_village' => $bot['vname'],
+                'bot_village_wref' => $bWid,
                 'target_wid' => $targetWid,
                 'target_village' => $targetVillage['vname'],
                 'target_user' => $targetUserStr,

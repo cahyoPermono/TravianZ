@@ -294,6 +294,61 @@ BotAI::saveConfig(['BOT_AI_NIGHT_SLEEP_ENABLED' => true]);
 echo "PASSED" . PHP_EOL;
 
 // ------------------------------------------------------------------------------
+// TEST 8: Multi-Village Bot - Exact Village Selection & Chief Village Priority
+// ------------------------------------------------------------------------------
+echo "Test 8: Multi-Village Bot Selection & Chief Priority... ";
+// Create Village 3 for bot with pop = 39 and 0 Chiefs
+$v3Coords = [82, 80];
+$v3WRow = $database->query_return("SELECT id FROM " . TB_PREFIX . "wdata WHERE x = {$v3Coords[0]} AND y = {$v3Coords[1]} LIMIT 1");
+if (empty($v3WRow[0])) {
+    $database->query("INSERT INTO " . TB_PREFIX . "wdata (fieldtype, oasistype, x, y, occupied, image) VALUES (3, 0, {$v3Coords[0]}, {$v3Coords[1]}, 1, 'f3')");
+    $botV3Wid = (int)mysqli_insert_id($database->dblink);
+} else {
+    $botV3Wid = (int)$v3WRow[0]['id'];
+    $database->query("UPDATE " . TB_PREFIX . "wdata SET occupied = 1 WHERE id = $botV3Wid");
+}
+$database->query("
+    INSERT INTO " . TB_PREFIX . "vdata (wref, owner, name, capital, pop, cp)
+    VALUES ($botV3Wid, $botUid, 'Bot Newborn Village 3', 0, 39, 100)
+    ON DUPLICATE KEY UPDATE owner = $botUid, name = 'Bot Newborn Village 3', capital = 0, pop = 39
+");
+$database->query("
+    INSERT INTO " . TB_PREFIX . "units (vref, u11, u19)
+    VALUES ($botV3Wid, 0, 0)
+    ON DUPLICATE KEY UPDATE u11 = 0, u19 = 0
+");
+
+// Reset target Human Colony back to human ownership
+$database->query("UPDATE " . TB_PREFIX . "vdata SET owner = $humanUid, capital = 0 WHERE wref = $secWid");
+
+// Village 1 (botWid) has 1 Chief & 200 troops
+$database->query("UPDATE " . TB_PREFIX . "units SET u19 = 1, u11 = 300 WHERE vref = $botWid");
+
+// Case A: Explicit Village selection via dropdown value "village:WREF"
+$resCaseA = BotAI::orderConquest("village:{$botWid}", (string)$secWid, ['auto_prepare' => false]);
+assertEqual('success', $resCaseA['status'], "Case A: Explicit village selection must succeed");
+assertEqual($botWid, (int)$resCaseA['details']['bot_village_wref'] ?? (int)$database->query_return("SELECT wref FROM " . TB_PREFIX . "vdata WHERE name = '{$resCaseA['details']['bot_village']}'")[0]['wref'], "Case A: Must attack from Village 1/2, NOT Village 3");
+
+// Case B: General Bot selection by Username (e.g. 'CrimsonGhost' / botName)
+// Must automatically choose the village that HAS the Chief (botWid) over Village 3 (pop 39)!
+$database->query("DELETE FROM " . TB_PREFIX . "movement WHERE `from` IN ($botWid, $botV3Wid)");
+$database->query("UPDATE " . TB_PREFIX . "units SET u19 = 1, u11 = 300 WHERE vref = $botWid");
+
+$resCaseB = BotAI::orderConquest($botName, (string)$secWid, ['auto_prepare' => false]);
+assertEqual('success', $resCaseB['status'], "Case B: General bot selection must succeed");
+$usedWidB = (int)$database->query_return("SELECT wref FROM " . TB_PREFIX . "vdata WHERE name = '{$resCaseB['details']['bot_village']}'")[0]['wref'];
+assertEqual($botWid, $usedWidB, "Case B: Scoring engine must prioritize village WITH Chief over newborn Village 3 (pop 39)");
+
+// Cleanup V3
+$database->query("DELETE FROM " . TB_PREFIX . "movement WHERE `from` IN ($botWid, $botV3Wid)");
+$database->query("DELETE FROM " . TB_PREFIX . "attacks WHERE vref IN ($botWid, $botV3Wid)");
+$database->query("DELETE FROM " . TB_PREFIX . "units WHERE vref = $botV3Wid");
+$database->query("DELETE FROM " . TB_PREFIX . "vdata WHERE wref = $botV3Wid");
+$database->query("UPDATE " . TB_PREFIX . "wdata SET occupied = 0 WHERE id = $botV3Wid");
+
+echo "PASSED" . PHP_EOL;
+
+// ------------------------------------------------------------------------------
 // CLEANUP
 // ------------------------------------------------------------------------------
 echo "Cleaning up test records... ";
