@@ -108,7 +108,10 @@ if ($displayarray['access'] == ADMIN)
 if ($displayarray['access'] == MULTIHUNTER)
     echo "<tr><th colspan='2'><font color='Blue'><center><b>".PROFILE_FLAG_MULTIHUNTER."</b></center></font></th></tr>";
 
-if ($displayarray['access'] == BANNED)
+if (!empty($displayarray['is_gameover']))
+    echo "<tr><th colspan='2'><font color='Red'><center><b>[⚔️ GAME OVER - PERADABAN TELAH MUSNAH ⚔️]</b></center></font></th></tr>";
+
+if ($displayarray['access'] == BANNED && empty($displayarray['is_gameover']))
     echo "<tr><th colspan='2'><font color='Green'><center><b>".PROFILE_FLAG_BANNED."</b></center></font></th></tr>";
 
 if ($displayarray['vac_mode'] == 1)

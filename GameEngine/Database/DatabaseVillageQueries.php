@@ -2549,6 +2549,8 @@ trait DatabaseVillageQueries {
     	}
 
     	$q = "UPDATE ".TB_PREFIX."vdata SET capital = ".$mode." WHERE wref = $wref";
-    	return mysqli_query($this->dblink, $q);
+    	$res = mysqli_query($this->dblink, $q);
+    	unset(self::$villageFieldsCache[((int)$wref).'0'], self::$villageFieldsCache[((int)$wref).'3']);
+    	return $res;
     }
 }

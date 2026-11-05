@@ -105,6 +105,12 @@ class Village {
 			45 => $bid45, // Waterworks (Egyptians) - used by getOasisBonusFactor()
 		];
 
+		// If user has Game Over, bounce directly to gameover.php
+		if ($this->sess->uid > 0 && !empty($this->sess->userarray['is_gameover'])) {
+			header("Location: gameover.php");
+			exit;
+		}
+
 		// set village id safely
 		if (isset($_SESSION['wid']) && (int)$_SESSION['wid'] > 0) {
 			$this->wid = (int)$_SESSION['wid'];

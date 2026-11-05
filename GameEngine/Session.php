@@ -279,6 +279,10 @@ function __construct() {
         // relying on isWinner() to bounce the very next page load - same end
         // result either way (isWinner() still covers every other entry point),
         // just without the extra redirect hop for the single most common one.
+        if (!empty($this->userarray['is_gameover'])) {
+            header("Location: gameover.php");
+            exit;
+        }
         if ($database->isThereAWinner()) {
             header("Location: winner.php");
             exit;
@@ -362,6 +366,7 @@ function __construct() {
             if (!$this->logged_in) {
 			$this->PopulateVar();
 			}
+            $this->isGameOver();
             $this->isBanned();
 
             $database->updateActiveUser($user, $this->time);
@@ -372,7 +377,21 @@ function __construct() {
         return false;
     }
 
+    function isGameOver() {
+        if (!empty($this->userarray['is_gameover']) && (int)($this->uid ?? 0) > 5) {
+            $allowed = ['gameover.php', 'logout.php'];
+            $curr = basename($_SERVER['PHP_SELF']);
+            if (!in_array($curr, $allowed)) {
+                header('Location: gameover.php');
+                exit;
+            }
+        }
+    }
+
     function isBanned() {
+        if (!empty($this->userarray['is_gameover'])) {
+            return;
+        }
         if ($this->access == BANNED &&
             !in_array(basename($_SERVER['PHP_SELF']), ['banned.php', 'nachrichten.php', 'rules.php'])) {
 
@@ -416,7 +435,7 @@ function __construct() {
     function isWinner() {
         global $database;
 
-        if ($this->inAdmin) {
+        if ($this->inAdmin || php_sapi_name() === 'cli') {
             return;
         }
 
@@ -444,6 +463,10 @@ function __construct() {
         global $database;
 
         if (!count($this->villages)) {
+            if (!empty($this->userarray['is_gameover'])) {
+                header('Location: gameover.php');
+                exit;
+            }
             $this->Logout();
             header('Location: login.php');
             exit;
@@ -782,7 +805,7 @@ function __construct() {
         // them to a relative "login.php" that resolved under
         // GameEngine/Admin/Mods/ instead of the site root -> 404, regardless
         // of whether the admin session was actually valid.
-        if ($this->inAdmin) {
+        if ($this->inAdmin || php_sapi_name() === 'cli') {
             return;
         }
 
@@ -801,7 +824,12 @@ function __construct() {
                 exit;
             }
         } else {
-            if (in_array($page, $pagearray)) {
+            if (!empty($this->userarray['is_gameover']) && (int)($this->uid ?? 0) > 5) {
+                if ($page !== "gameover.php" && $page !== "logout.php") {
+                    header("Location: gameover.php");
+                    exit;
+                }
+            } elseif (in_array($page, $pagearray)) {
 
                 if (($this->uid ?? 0) == 1) {
                     header("Location: nachrichten.php");

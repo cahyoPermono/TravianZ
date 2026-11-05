@@ -6095,6 +6095,10 @@ class BotAI {
         return false;
     }
 
+    public static function isBot(int $userId): bool {
+        return self::isBotUser($userId);
+    }
+
     /**
      * Get basic infantry unit number for a given tribe.
      */

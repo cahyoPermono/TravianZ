@@ -208,8 +208,12 @@ trait AutomationBattleResolution {
                     			
                     			// village has been destroyed
                     			if ($pop <= 0) {
-                    				if ($can_destroy == 1) $info_cat = "".$catp_pic.", ".rc_tok('RC_VILLAGE_ALREADY_DESTROYED');
-                    				else $info_cat = "".$catp_pic.", ".rc_tok('RC_VILLAGE_CANT_DESTROY');
+                    				if ($can_destroy == 1) {
+                    					$village_destroyed = 1;
+                    					$info_cat = "".$catp_pic.", ".rc_tok('RC_VILLAGE_ALREADY_DESTROYED');
+                    				} else {
+                    					$info_cat = "".$catp_pic.", ".rc_tok('RC_VILLAGE_CANT_DESTROY');
+                    				}
                     			}
                     			else
                     			{
@@ -1150,7 +1154,11 @@ trait AutomationBattleResolution {
                 if (strpos($info_cat, rc_tok('RC_VILLAGE_DESTROYED')) === false) {
                     $info_cat .= "<tbody class=\"goods\"><tr><th>".(defined('INFORMATION') ? INFORMATION : 'Information')."</th><td colspan=\"11\">"
                                 . "<img class=\"unit u".$catp_pic."\" src=\"img/x.gif\" alt=\"".rc_tok('RC_CATAPULT')."\" title=\"".rc_tok('RC_CATAPULT')."\" />"
-                                . " ".rc_tok('RC_VILLAGE_DESTROYED')."</td></tr></tbody>";
+                                . " ".rc_tok('RC_VILLAGE_DESTROYED');
+                    if (isset($varray) && count($varray) <= 1) {
+                        $info_cat .= "<br><b style=\"color:#c00;\">⚔️ Seluruh desa pemain telah hancur rata dengan tanah! (GAME OVER) ⚔️</b>";
+                    }
+                    $info_cat .= "</td></tr></tbody>";
                 }
             }
             $data2 = ''.$from['owner'].','.$from['wref'].','.$owntribe.','.$unitssend_att.','.$unitsdead_att
@@ -2913,19 +2921,20 @@ trait AutomationBattleResolution {
     }
 
     /**
-     * Destroy the target village when the battle flagged it for destruction:
-     * reassign the capital to the player's most populated remaining village if
-     * needed, delete the village and reassign its hero.
-     * Pure behaviour-preserving extraction (refactor for issue #155).
+     * Delete the target village if it was destroyed (catapults). If the
+     * destroyed village was the capital, and the player has other villages,
+     * reassign the capital to the player's most populated remaining village.
+     * If the player has no remaining villages, trigger complete Game Over / elimination.
      *
-     * @param int   $village_destroyed Village-destroyed flag.
-     * @param int   $can_destroy       Village-destruction allowed flag.
-     * @param array $data              Current attack row (uses 'to').
-     * @param array $to                Defender village info (uses 'capital').
-     * @param array $varray            The defender owner's villages.
+     * @param int        $village_destroyed Village-destroyed flag.
+     * @param int        $can_destroy       Village-destruction allowed flag.
+     * @param array      $data              Current attack row (uses 'to').
+     * @param array      $to                Defender village info (uses 'capital', 'owner').
+     * @param array      $varray            The defender owner's villages.
+     * @param array|null $from              Attacker village info.
      * @return void
      */
-    private function handleVillageDestruction($village_destroyed, $can_destroy, $data, $to, $varray) {
+    private function handleVillageDestruction($village_destroyed, $can_destroy, $data, $to, $varray, $from = null) {
         global $database;
 
         if (!($village_destroyed == 1 && $can_destroy == 1)) {
@@ -2940,8 +2949,10 @@ trait AutomationBattleResolution {
                     $mostPopulatedVillage = $village;
                 }
             }
-            //Set the new capital
-            $database->changeCapital($mostPopulatedVillage['wref']);
+            //Set the new capital if another village exists
+            if (!empty($mostPopulatedVillage['wref'])) {
+                $database->changeCapital($mostPopulatedVillage['wref']);
+            }
         }
 
         //Delete the village
@@ -2949,6 +2960,129 @@ trait AutomationBattleResolution {
 
         //Reassign the hero, if dead and assigned to the deleted village
         $database->reassignHero($data['to']);
+
+        // Check if defender has no remaining villages (all villages destroyed -> Game Over)
+        $defenderUid = (int)($to['owner'] ?? 0);
+        if ($defenderUid > 0) {
+            $remVils = $database->getVillagesID($defenderUid);
+            if (empty($remVils)) {
+                $attackerUid = (int)($from['owner'] ?? ($data['owner'] ?? 0));
+                $this->triggerPlayerGameOver($defenderUid, $attackerUid, (int)$data['to']);
+            }
+        }
+    }
+
+    /**
+     * Trigger complete Game Over elimination when all villages of a player or bot are destroyed.
+     *
+     * @param int $uid Defender user ID.
+     * @param int $attackerUid Attacker user ID.
+     * @param int $lastWref The last village that was razed.
+     * @return void
+     */
+    public function triggerPlayerGameOver(int $uid, int $attackerUid = 0, int $lastWref = 0): void {
+        global $database;
+        $uid = (int)$uid;
+        if ($uid <= 0) return;
+
+        // Ensure is_gameover column exists in users table
+        static $colChecked = false;
+        if (!$colChecked) {
+            @$database->query("ALTER TABLE " . TB_PREFIX . "users ADD COLUMN IF NOT EXISTS is_gameover TINYINT(1) DEFAULT 0");
+            $colChecked = true;
+        }
+
+        $user = $database->getUserArray($uid, 1);
+        if (!$user) return;
+
+        $username = $user['username'];
+        $now = time();
+
+        // 1. Remove from alliance and handle leadership transfer if owner
+        $alliance = (int)($user['alliance'] ?? 0);
+        if ($alliance > 0) {
+            if ($database->isAllianceOwner($uid)) {
+                $newowner = $database->getAllMember2($alliance);
+                if (!empty($newowner['id']) && (int)$newowner['id'] !== $uid) {
+                    $newleader = (int)$newowner['id'];
+                    $database->query("UPDATE " . TB_PREFIX . "alidata SET leader = $newleader WHERE id = $alliance");
+                    $database->updateAlliPermissions($newleader, $alliance, "Leader", 1, 1, 1, 1, 1, 1, 1);
+                } else {
+                    $database->deleteAlliance($alliance);
+                }
+            }
+            $database->query("DELETE FROM " . TB_PREFIX . "ali_permission WHERE uid = $uid");
+            $database->query("DELETE FROM " . TB_PREFIX . "ali_invite WHERE uid = $uid");
+            $database->updateUserField($uid, 'alliance', 0, 1);
+        }
+
+        // 2. Clear Hero, online, farmlists
+        $database->query("DELETE FROM " . TB_PREFIX . "hero WHERE uid = $uid");
+        $database->query("DELETE FROM " . TB_PREFIX . "online WHERE uid = $uid");
+        $database->query("DELETE FROM " . TB_PREFIX . "farmlist WHERE wref NOT IN (SELECT wref FROM " . TB_PREFIX . "vdata)");
+
+        // 3. Clear friends
+        for ($i = 0; $i < 20; $i++) {
+            $database->query("UPDATE " . TB_PREFIX . "users SET friend{$i} = 0 WHERE friend{$i} = $uid");
+            $database->query("UPDATE " . TB_PREFIX . "users SET friend{$i}wait = 0 WHERE friend{$i}wait = $uid");
+        }
+
+        // 4. Check if Bot or Human Player
+        $isBot = false;
+        if (class_exists('BotAI')) {
+            $isBot = \BotAI::isBot($uid);
+        } else {
+            $isBot = (!empty($user['is_bot']) ||
+                      (strpos((string)($user['email'] ?? ''), '@bot.travianz') !== false) ||
+                      (strpos((string)($user['desc1'] ?? ''), '[#BOT]') !== false) ||
+                      (strpos((string)($user['desc2'] ?? ''), '[#BOT]') !== false) ||
+                      (strpos((string)($user['username'] ?? ''), 'Bot_') === 0));
+        }
+
+        if ($isBot) {
+            // === BOT ELIMINATION ===
+            if (class_exists('BotAI')) {
+                \BotAI::clearConquestOrder($uid);
+            }
+            $database->query("DELETE FROM " . TB_PREFIX . "bot_config WHERE bot_id = $uid OR user_id = $uid");
+            $database->query("DELETE FROM " . TB_PREFIX . "mdata WHERE target = $uid OR owner = $uid");
+            $database->query("DELETE FROM " . TB_PREFIX . "ndata WHERE uid = $uid");
+            $database->query("DELETE FROM " . TB_PREFIX . "medal WHERE userid = $uid");
+            $database->query("DELETE FROM " . TB_PREFIX . "gold_fin_log WHERE uid = $uid");
+            $database->query("DELETE FROM " . TB_PREFIX . "links WHERE userid = $uid");
+            $database->query("DELETE FROM " . TB_PREFIX . "chat WHERE id_user = $uid");
+            $database->query("DELETE FROM " . TB_PREFIX . "login_log WHERE uid = $uid");
+            $database->query("DELETE FROM " . TB_PREFIX . "banlist WHERE uid = $uid");
+            $database->query("DELETE FROM " . TB_PREFIX . "deleting WHERE uid = $uid");
+            $database->query("DELETE FROM " . TB_PREFIX . "password WHERE uid = $uid");
+
+            // Delete the bot completely from users table
+            $database->query("DELETE FROM " . TB_PREFIX . "users WHERE id = $uid");
+
+            $logText = "Bot ID $uid ($username) telah dieliminasi total dari permainan (Game Over - seluruh desanya hancur dicata).";
+            $logEsc = $database->escape($logText);
+            $database->query("INSERT INTO " . TB_PREFIX . "admin_log (`id`, `user`, `log`, `time`) VALUES (0, '0', '$logEsc', $now)");
+        } else {
+            // === HUMAN PLAYER GAME OVER ===
+            $attUser = $attackerUid > 0 ? $database->getUserArray($attackerUid, 1) : null;
+            $attName = $attUser ? $attUser['username'] : 'Musuh';
+            $gameoverTag = "[#GAMEOVER#]|Atk:" . $attackerUid . "|By:" . $database->escape($attName) . "|Time:" . $now;
+            $newDesc2 = trim(($user['desc2'] ?? '') . "\n" . $gameoverTag);
+
+            $database->updateUserField($uid, ['is_gameover', 'access', 'desc2'], [1, 0, $newDesc2], 1);
+
+            // Send game over in-game message
+            $topic = "⚔️ GAME OVER: Peradaban Anda Telah Musnah! ⚔️";
+            $message = "Seluruh desa kekaisaran Anda telah dihancurkan oleh serangan musuh ($attName) hingga mencapai populasi 0.<br><br>Peradaban Anda telah runtuh dan Anda telah gugur dari peta dunia. Anda dapat memilih untuk memulai peradaban baru (Restart) atau menghapus akun.";
+            $database->sendMessage($uid, 0, $topic, $message, 0, 0, 0, 0, 0);
+            if (method_exists($database, 'sendPendingMessages')) {
+                $database->sendPendingMessages();
+            }
+
+            $logText = "Pemain ID $uid ($username) mengalami GAME OVER (seluruh desanya habis dihancurkan ketapel oleh $attName).";
+            $logEsc = $database->escape($logText);
+            $database->query("INSERT INTO " . TB_PREFIX . "admin_log (`id`, `user`, `log`, `time`) VALUES (0, '0', '$logEsc', $now)");
+        }
     }
 
     private function sendunitsComplete() {
@@ -3312,8 +3446,8 @@ trait AutomationBattleResolution {
                     //catapults look :D
                     $info_cat = $info_chief = $info_ram = $info_hero = ",";
                     
-                    //check to see if can destroy village
-                    if (count($varray) > 1 && !$database->villageHasArtefact($DefenderWref) && empty($to['natar'])) {
+                    //check to see if can destroy village (allowed even for last village/capital so player/bot can get Game Over when all villages reach 0 pop)
+                    if (!$database->villageHasArtefact($DefenderWref) && empty($to['natar'])) {
                     	$can_destroy = 1;
                     }
                     else $can_destroy = 0;
@@ -3646,7 +3780,7 @@ trait AutomationBattleResolution {
                     if (!isset($village_destroyed)) $village_destroyed = 0;
 
                     // delete the target village if it was destroyed — extracted to handleVillageDestruction() [#155]
-                    $this->handleVillageDestruction($village_destroyed, $can_destroy, $data, $to, $varray);
+                    $this->handleVillageDestruction($village_destroyed, $can_destroy, $data, $to, $varray, $from);
 
                     // Check if defender village was a Bandit Camp and award rewards if cleared
                     if (file_exists(dirname(__DIR__) . '/BanditCamp.php')) {
