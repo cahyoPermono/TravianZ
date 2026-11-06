@@ -259,25 +259,26 @@ $hasRally = $village->resarray['f39'] > 0;
 
     <!-- PRISONERS (my troops captured in another village) -->
     <?php $p3 = $database->getPrisoners3($village->wid); if($p3): ?>
-        <h4><?= PRISONERS ?></h4>
+        <h4>🔒 <?= defined('MY_TRAPPED_TROOPS_TITLE') ? MY_TRAPPED_TROOPS_TITLE : (PRISONERS . ' (Pasukan Sendiri Tertawan)') ?></h4>
         <?php foreach($p3 as $p):
             $colspan=10+(!empty($p['t11'])?1:0);
             $owner = $database->getVillageField($p['from'],'owner');
             $tribe = max(1, (int)$database->getUserField($owner,'tribe',0));
             $start = ($tribe-1)*10+1;
+            $wrefName = $database->getVillageField($p['wref'],'name');
         ?>
         <table class="troop_details" cellpadding="1" cellspacing="1">
             <thead><tr>
-                <td class="role"><a href="karte.php?d=<?= $p['wref'] ?>&c=<?= $generator->getMapCheck($p['wref']) ?>"><?= $database->getVillageField($p['wref'],'name') ?></a></td>
-                <td colspan="<?= $colspan ?>"><a href="karte.php?d=<?= $p['wref'] ?>"><?= PRISONERSIN ?> <?= $database->getVillageField($p['wref'],'name') ?></a></td>
+                <td class="role"><a href="karte.php?d=<?= $p['wref'] ?>&c=<?= $generator->getMapCheck($p['wref']) ?>"><?= $wrefName ?></a></td>
+                <td colspan="<?= $colspan ?>"><a href="karte.php?d=<?= $p['wref'] ?>">🔒 <?= defined('MY_TROOPS_TRAPPED_IN') ? MY_TROOPS_TRAPPED_IN : 'Pasukan Anda tertawan di' ?> <?= $wrefName ?></a></td>
             </tr></thead>
             <tbody class="units">
                 <tr><th>&nbsp;</th><?php for($i=$start;$i<$start+10;$i++): ?><td><img src="img/x.gif" class="unit u<?= $i ?>" title="<?= $technology->getUnitName($i) ?>"></td><?php endfor; ?><?php if(!empty($p['t11'])): ?><td><img src="img/x.gif" class="unit uhero" title="<?= $technology->getUnitName('hero') ?>"></td><?php endif; ?></tr>
                 <tr><th><?= TROOPS ?></th><?php for($i=1;$i<=10;$i++): ?><td class="<?= empty($p['t'.$i])?'none':'' ?>"><?= (int)($p['t'.$i] ?? 0) ?></td><?php endfor; ?><?php if(!empty($p['t11'])): ?><td><?= (int)$p['t11'] ?></td><?php endif; ?></tr>
             </tbody>
             <tbody class="infos"><tr><th><?= UPKEEP ?></th><td colspan="<?= $colspan ?>">
-                <div class="sup"><?= $technology->getUpkeep($p,$tribe,0,1) ?><img class="r4" src="img/x.gif"> <?= PER_HR ?></div>
-                <div class="sback"><a href="a2b.php?delprisoners=<?= (int)$p['id'] ?>"><?= KILL ?></a></div>
+                <div class="sup"><?= $technology->getUpkeep($p,$tribe,0,1) ?><img class="r4" src="img/x.gif"> <?= PER_HR ?> <span style="font-size:10px; color:#b91c1c; font-weight:normal;">(<?= defined('UPKEEP_PAID_BY_YOU') ? UPKEEP_PAID_BY_YOU : 'konsumsi gandum ditanggung desa Anda' ?>)</span></div>
+                <div class="sback"><a href="a2b.php?delprisoners=<?= (int)$p['id'] ?>" style="color:#dc2626; font-weight:bold;" onclick="return confirm('<?= defined('CONFIRM_DISBAND_PRISONERS') ? addslashes(CONFIRM_DISBAND_PRISONERS) : 'Apakah Anda yakin ingin membiarkan pasukan Anda mati di penangkaran?\\n\\nPasukan akan gugur dan konsumsi gandum dari desa ini akan berhenti.' ?>');">⚰️ <?= defined('DISBAND_PRISONERS') ? DISBAND_PRISONERS : 'Biarkan Mati (Hentikan Gandum)' ?></a></div>
             </td></tr></tbody>
         </table>
         <?php endforeach; ?>
@@ -285,25 +286,26 @@ $hasRally = $village->resarray['f39'] > 0;
 
     <!-- PRISONERS (enemy troops trapped in my village) -->
     <?php $p = $database->getPrisoners($village->wid); if($p): ?>
-        <?php if(!$p3): ?><h4><?= PRISONERS ?></h4><?php endif; ?>
+        <h4>🪤 <?= defined('ENEMY_TRAPPED_TROOPS_TITLE') ? ENEMY_TRAPPED_TROOPS_TITLE : (PRISONERS . ' (Tawanan Musuh di Desa Ini)') ?></h4>
         <?php foreach($p as $pr):
             $colspan=10+(!empty($pr['t11'])?1:0);
             $owner = $database->getVillageField($pr['from'],'owner');
             $tribe = max(1, (int)$database->getUserField($owner,'tribe',0));
             $start = ($tribe-1)*10+1;
+            $fromName = $database->getVillageField($pr['from'],'name');
         ?>
         <table class="troop_details" cellpadding="1" cellspacing="1">
             <thead><tr>
-                <td class="role"><a href="karte.php?d=<?= $pr['from'] ?>&c=<?= $generator->getMapCheck($pr['from']) ?>"><?= $database->getVillageField($pr['from'],'name') ?></a></td>
-                <td colspan="<?= $colspan ?>"><a href="karte.php?d=<?= $pr['from'] ?>"><?= PRISONERSFROM ?> <?= $database->getVillageField($pr['from'],'name') ?></a></td>
+                <td class="role"><a href="karte.php?d=<?= $pr['from'] ?>&c=<?= $generator->getMapCheck($pr['from']) ?>"><?= $fromName ?></a></td>
+                <td colspan="<?= $colspan ?>"><a href="karte.php?d=<?= $pr['from'] ?>">🪤 <?= defined('ENEMY_TROOPS_TRAPPED_FROM') ? ENEMY_TROOPS_TRAPPED_FROM : 'Tawanan musuh dari' ?> <?= $fromName ?></a></td>
             </tr></thead>
             <tbody class="units">
                 <tr><th>&nbsp;</th><?php for($i=$start;$i<$start+10;$i++): ?><td><img src="img/x.gif" class="unit u<?= $i ?>" title="<?= $technology->getUnitName($i) ?>"></td><?php endfor; ?><?php if(!empty($pr['t11'])): ?><td><img src="img/x.gif" class="unit uhero" title="<?= $technology->getUnitName('hero') ?>"></td><?php endif; ?></tr>
                 <tr><th><?= TROOPS ?></th><?php for($i=1;$i<=10;$i++): ?><td class="<?= empty($pr['t'.$i])?'none':'' ?>"><?= (int)($pr['t'.$i] ?? 0) ?></td><?php endfor; ?><?php if(!empty($pr['t11'])): ?><td><?= (int)$pr['t11'] ?></td><?php endif; ?></tr>
             </tbody>
             <tbody class="infos"><tr><td colspan="<?= $colspan+1 ?>">
-                <div class="sup"><img class="r6" src="img/x.gif"></div>
-                <div class="sback"><a href="a2b.php?delprisoners=<?= (int)$pr['id'] ?>"><?= SEND_BACK ?></a></div>
+                <div class="sup"><img class="r6" src="img/x.gif"> <span style="font-size:10px; color:#16a34a; font-weight:normal;">(<?= defined('RELEASE_FREE_TRAP_NOTE') ? RELEASE_FREE_TRAP_NOTE : 'sebagian perangkap Anda diperbaiki otomatis gratis' ?>)</span></div>
+                <div class="sback"><a href="a2b.php?delprisoners=<?= (int)$pr['id'] ?>" style="color:#16a34a; font-weight:bold;" onclick="return confirm('<?= defined('CONFIRM_RELEASE_PRISONERS') ? addslashes(CONFIRM_RELEASE_PRISONERS) : 'Lepaskan pasukan tawanan agar berjalan kembali dengan selamat ke desanya?\\n\\nSebagian perangkap Anda akan otomatis diperbaiki secara gratis.' ?>');">🕊️ <?= defined('RELEASE_PRISONERS') ? RELEASE_PRISONERS : 'Lepaskan Tawanan' ?></a></div>
             </td></tr></tbody>
         </table>
         <?php endforeach; ?>
