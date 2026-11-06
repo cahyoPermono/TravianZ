@@ -34,6 +34,28 @@ if($bid > 0){
     $rep = $database->getNotice2($bid);
     if(!$rep) die("Report ID $bid doesn't exist!");
     $isAdmin = true;
+
+    // UNMASK FOR ADMIN: If this report has masked '?' defender troops (e.g. wiped attacker report),
+    // find the counterpart unmasked report from the same battle in ndata.
+    $wasUnmaskedForAdmin = false;
+    if (strpos($rep['data'], '?,?') !== false) {
+        $toWref = (int)$rep['toWref'];
+        $tMin = (int)$rep['time'] - 10;
+        $tMax = (int)$rep['time'] + 10;
+        $unmaskedRes = $database->query("
+            SELECT * FROM " . TB_PREFIX . "ndata 
+            WHERE toWref = $toWref 
+              AND `time` BETWEEN $tMin AND $tMax 
+              AND id != " . (int)$rep['id'] . " 
+              AND `data` NOT LIKE '%?,?%' 
+            ORDER BY id ASC LIMIT 1
+        ");
+        if ($unmaskedRes instanceof \mysqli_result && ($uRow = mysqli_fetch_assoc($unmaskedRes))) {
+            $rep = $uRow;
+            $wasUnmaskedForAdmin = true;
+        }
+    }
+
     $message = new Message();
     $message->readingNotice = $rep;
    ?>
@@ -54,7 +76,14 @@ if($bid > 0){
     #content.reports td { font-weight:600 !important; }
     </style>
     <div style="max-width:900px;margin:20px auto">
-      <a href="?p=report" style="font-size:12px"><?php echo ADM_BACK_TO_REPORTS; ?></a>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <a href="?p=report" style="font-size:12px"><?php echo ADM_BACK_TO_REPORTS; ?></a>
+        <?php if (!empty($wasUnmaskedForAdmin)): ?>
+          <span style="background:#1e3a8a;border:1px solid #3b82f6;color:#93c5fd;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:bold;">
+            🛡️ Mode Admin: Pasukan Pertahanan Dibuka Penuh (Unmasked)
+          </span>
+        <?php endif; ?>
+      </div>
       <div id="content" class="reports" style="margin-top:10px">
         <h1><?php echo ADM_REPORT; ?></h1>
         <?php include("../Templates/Notice/".$message->getReportType($rep['ntype']).".tpl");?>
@@ -65,19 +94,47 @@ if($bid > 0){
 }
 
 // ---- LISTA RAPOARTE CU FILTRE ----
-$where = "1";
-if($search) $where.= " AND (n1 LIKE '%$search%' OR n2 LIKE '%$search%')";
+$where = "1=1";
+$search = trim($_GET['q'] ?? '');
+if($search !== '') {
+    $searchEsc = $database->escape($search);
+    $searchParts = [
+        "topic LIKE '%" . $searchEsc . "%'",
+        "`data` LIKE '%" . $searchEsc . "%'"
+    ];
+    if (ctype_digit($search)) {
+        $searchParts[] = "id = " . (int)$search;
+        $searchParts[] = "uid = " . (int)$search;
+    }
+    // Search matching player usernames
+    $userRes = $database->query("SELECT id FROM " . TB_PREFIX . "users WHERE username LIKE '%" . $searchEsc . "%' LIMIT 20");
+    if ($userRes instanceof \mysqli_result) {
+        $uids = [];
+        while ($uRow = mysqli_fetch_assoc($userRes)) {
+            $uids[] = (int)$uRow['id'];
+        }
+        if (!empty($uids)) {
+            $searchParts[] = "uid IN (" . implode(',', $uids) . ")";
+        }
+    }
+    $where .= " AND (" . implode(" OR ", $searchParts) . ")";
+}
 
 $filterMap = [
-    'attacks' => "ntype IN (2,9)", // attack + artefact attack
-    'defences' => "ntype IN (3)",
-    'scouts' => "ntype IN (4,14)",
+    'attacks' => "ntype IN (1,2,3,9,18,19,20,21,22,23)",
+    'defences' => "ntype IN (3,15,16,17,23)",
+    'scouts' => "ntype IN (4,14,18,19,20,21)",
     'trades' => "ntype IN (5)"
 ];
 if(isset($filterMap[$filter])) $where.= " AND ".$filterMap[$filter];
 
-$total = $database->query("SELECT COUNT(*) c FROM ".TB_PREFIX."ndata WHERE $where")->fetch_assoc()['c'];
-$reps = $database->query("SELECT * FROM ".TB_PREFIX."ndata WHERE $where ORDER BY time DESC LIMIT $offset,$limit")->fetch_all(MYSQLI_ASSOC);
+$countRes = $database->query("SELECT COUNT(*) c FROM ".TB_PREFIX."ndata WHERE $where");
+$total = ($countRes instanceof \mysqli_result && ($cRow = mysqli_fetch_assoc($countRes))) ? (int)$cRow['c'] : 0;
+$totalPages = max(1, (int)ceil($total / $limit));
+if ($page > $totalPages) { $page = $totalPages; $offset = ($page - 1) * $limit; }
+
+$listRes = $database->query("SELECT * FROM ".TB_PREFIX."ndata WHERE $where ORDER BY time DESC LIMIT $offset,$limit");
+$reps = ($listRes instanceof \mysqli_result) ? mysqli_fetch_all($listRes, MYSQLI_ASSOC) : [];
 
 $typeNames = [1=>'reinforcement',2=>'attack',3=>'defence',4=>'scout',5=>'trade',6=>'wonder',7=>'settlement',8=>'oasis',9=>'artefact',10=>'adventure',14=>'spy'];
 ?>
@@ -113,10 +170,14 @@ $typeNames = [1=>'reinforcement',2=>'attack',3=>'defence',4=>'scout',5=>'trade',
         <a href="?p=report&f=<?php echo $k;?>&q=<?php echo urlencode($search);?>" class="<?php echo $filter==$k?'active':'';?>"><?php echo $v;?></a>
       <?php }?>
     </div>
-    <form class="search-box" method="get">
+    <form class="search-box" method="get" style="display:flex;gap:6px;align-items:center;">
       <input type="hidden" name="p" value="report">
       <input type="hidden" name="f" value="<?php echo htmlspecialchars($filter);?>">
-      <input type="text" name="q" placeholder="<?php echo ADM_SEARCH_PH; ?>" value="<?php echo htmlspecialchars($search);?>">
+      <input type="text" name="q" placeholder="<?php echo ADM_SEARCH_PH; ?> (Player / Desa / ID)" value="<?php echo htmlspecialchars($search);?>">
+      <button type="submit" style="padding:5px 10px;font-size:11px;background:#3b82f6;border:none;border-radius:4px;color:#fff;cursor:pointer;font-weight:bold;">🔍 Cari</button>
+      <?php if($search !== ''): ?>
+        <a href="?p=report&f=<?php echo urlencode($filter);?>" style="font-size:11px;color:#f87171;text-decoration:none;font-weight:bold;">✕ Reset</a>
+      <?php endif; ?>
     </form>
   </div>
 
@@ -125,7 +186,7 @@ $typeNames = [1=>'reinforcement',2=>'attack',3=>'defence',4=>'scout',5=>'trade',
         $type = $typeNames[$r['ntype']]?? 'report';
         $user = $database->getUserField($r['uid'],'username',0);
         $time = date('d.m H:i',$r['time']);
-        $preview = strip_tags($r['topic']?? $r['n1'].' '.$r['n2']);
+        $preview = strip_tags($r['topic'] ?? '');
         $preview = mb_substr($preview,0,80);
   ?>
     <a href="?p=report&bid=<?php echo $r['id'];?>" style="text-decoration:none;color:inherit">

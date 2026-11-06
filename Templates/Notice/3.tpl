@@ -28,7 +28,7 @@ $colspan2 = 10;
 // ======================== URL SETUP ========================
 
 // detectare admin REAL (nu variabilă nesigură)
-$isAdmin = (isset($session) && isset($session->access) && $session->access >= 8);
+$isAdmin = (isset($isAdmin) && $isAdmin) || (isset($session) && isset($session->access) && $session->access >= 8) || (isset($_SESSION['access']) && $_SESSION['access'] >= 8);
 
 if ($isAdmin) {
     $mapUrl = "Admin/admin.php?p=village&did=";
@@ -283,6 +283,26 @@ $troopsStart = ($target * 21) + 35;
 <td>&nbsp;</td>
 
 <?php
+$unmaskedDef = null;
+if ($isAdmin) {
+    $toWref = (int)($message->readingNotice['toWref'] ?? $dataarray[29] ?? 0);
+    $repTime = (int)($message->readingNotice['time'] ?? 0);
+    $repId = (int)($message->readingNotice['id'] ?? 0);
+    if ($toWref > 0 && $repTime > 0) {
+        $uRes = $database->query("
+            SELECT `data` FROM " . TB_PREFIX . "ndata 
+            WHERE toWref = $toWref 
+              AND `time` BETWEEN " . ($repTime - 10) . " AND " . ($repTime + 10) . " 
+              AND id != $repId 
+              AND `data` NOT LIKE '%?,?%' 
+            ORDER BY id ASC LIMIT 1
+        ");
+        if ($uRes instanceof \mysqli_result && ($uRow = mysqli_fetch_assoc($uRes))) {
+            $unmaskedDef = array_map('tz_expand_report', explode(",", $uRow['data']));
+        }
+    }
+}
+
 for ($i = $start; $i <= ($start + 9); $i++) {
     $unitName = $technology->getUnitName($i);
     echo "<td><img src=\"img/x.gif\" class=\"unit u$i\" title=\"$unitName\" alt=\"$unitName\" /></td>";
@@ -290,14 +310,28 @@ for ($i = $start; $i <= ($start + 9); $i++) {
 
 echo "</tr><tr><th>".TROOPS."</th>";
 
-for ($i = $troopsStart; $i <= $troopsStart + 9; $i++) {
-    echo "<td class=\"none\">?</td>";
+for ($i = 0; $i < 10; $i++) {
+    if ($unmaskedDef !== null && isset($unmaskedDef[35 + $i])) {
+        $val = $unmaskedDef[35 + $i];
+        echo ($val === '0' || $val === 0)
+            ? "<td class=\"none\">0</td>"
+            : "<td style=\"font-weight:bold;color:#1e40af;\">".$val."</td>";
+    } else {
+        echo "<td class=\"none\">?</td>";
+    }
 }
 
 echo "<tr><th>".CASUALTIES."</th>";
 
-for ($i = $troopsStart + 10; $i <= $troopsStart + 19; $i++) {
-    echo "<td class=\"none\">?</td>";
+for ($i = 0; $i < 10; $i++) {
+    if ($unmaskedDef !== null && isset($unmaskedDef[45 + $i])) {
+        $val = $unmaskedDef[45 + $i];
+        echo ($val === '0' || $val === 0)
+            ? "<td class=\"none\">0</td>"
+            : "<td style=\"font-weight:bold;color:#b91c1c;\">".$val."</td>";
+    } else {
+        echo "<td class=\"none\">?</td>";
+    }
 }
 ?>
 

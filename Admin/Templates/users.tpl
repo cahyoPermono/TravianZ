@@ -20,6 +20,7 @@
 if($_SESSION['access'] < MULTIHUNTER) die("Access Denied!");
 
 $filter = $_GET['filter']??'all';
+$search = trim($_GET['q']??'');
 $page = max(1, (int)($_GET['upage']??1));
 $perPage = 20;
 $offset = ($page - 1) * $perPage;
@@ -30,10 +31,22 @@ elseif($filter=='normal') $where = "access = 2";
 elseif($filter=='banned') $where = "access = 0";
 elseif($filter=='online') $where = "timestamp > ".(time()-900);
 
+if($search !== '') {
+    $searchEsc = mysqli_real_escape_string($GLOBALS['link'], $search);
+    $searchCond = "(username LIKE '%$searchEsc%' OR email LIKE '%$searchEsc%'";
+    if(ctype_digit($search)) {
+        $searchCond .= " OR id = " . (int)$search;
+    }
+    $searchCond .= ")";
+    $where .= " AND " . $searchCond;
+}
+
 $totalRes = mysqli_query($GLOBALS['link'], "SELECT COUNT(*) AS cnt FROM ".TB_PREFIX."users WHERE $where");
 $totalUsers = (int)(mysqli_fetch_assoc($totalRes)['cnt']??0);
 $totalPages = max(1, (int)ceil($totalUsers / $perPage));
 if($page>$totalPages){$page=$totalPages;$offset=($page-1)*$perPage;}
+
+$qParam = ($search !== '') ? '&q=' . urlencode($search) : '';
 
 $result = mysqli_query($GLOBALS['link'], "
     SELECT id, username, email, access, tribe, gold, timestamp
@@ -119,14 +132,22 @@ function shortEmail($e){if(!$e)return '-';if(strlen($e)>22)return substr($e,0,19
   </div>
 
 <div class="users-filters">
-  <a href="?p=users&filter=all" class="<?php echo $filter=='all'?'active':'';?>"><?php echo ADM_ALL; ?></a>
-  <a href="?p=users&filter=admins" class="<?php echo $filter=='admins'?'active':'';?>"><?php echo ADM_ADMINS; ?></a>
-  <a href="?p=users&filter=normal" class="<?php echo $filter=='normal'?'active':'';?>"><?php echo ADM_NORMAL; ?></a>
-  <a href="?p=users&filter=banned" class="<?php echo $filter=='banned'?'active':'';?>"><?php echo ADM_BANNED; ?></a>
-  <a href="?p=users&filter=online" class="<?php echo $filter=='online'?'active':'';?>"><?php echo ADM_ONLINE; ?></a>
+  <a href="?p=users&filter=all<?php echo $qParam;?>" class="<?php echo $filter=='all'?'active':'';?>"><?php echo ADM_ALL; ?></a>
+  <a href="?p=users&filter=admins<?php echo $qParam;?>" class="<?php echo $filter=='admins'?'active':'';?>"><?php echo ADM_ADMINS; ?></a>
+  <a href="?p=users&filter=normal<?php echo $qParam;?>" class="<?php echo $filter=='normal'?'active':'';?>"><?php echo ADM_NORMAL; ?></a>
+  <a href="?p=users&filter=banned<?php echo $qParam;?>" class="<?php echo $filter=='banned'?'active':'';?>"><?php echo ADM_BANNED; ?></a>
+  <a href="?p=users&filter=online<?php echo $qParam;?>" class="<?php echo $filter=='online'?'active':'';?>"><?php echo ADM_ONLINE; ?></a>
 </div>
 
-  <div class="search-box"><input type="text" id="userSearch" placeholder="<?php echo ADM_SEARCH_PH; ?>" onkeyup="filterUsers()"></div>
+  <form class="search-box" method="get" action="admin.php" style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">
+    <input type="hidden" name="p" value="users">
+    <input type="hidden" name="filter" value="<?php echo htmlspecialchars($filter);?>">
+    <input type="text" name="q" id="userSearch" placeholder="<?php echo ADM_SEARCH_PH; ?> (Enter untuk cari semua halaman)" value="<?php echo htmlspecialchars($search);?>" onkeyup="filterUsers()" style="width:250px;padding:5px 8px;border:1px solid #334155;border-radius:5px;font-size:11px;background:#0b1220;color:#e2e8f0;">
+    <button type="submit" style="padding:5px 12px;font-size:11px;background:#3b82f6;border:none;border-radius:5px;color:#fff;cursor:pointer;font-weight:bold;">🔍 Cari</button>
+    <?php if($search !== ''): ?>
+      <a href="?p=users&filter=<?php echo urlencode($filter);?>" style="padding:4px 8px;font-size:11px;background:#ef4444;border-radius:5px;color:#fff;text-decoration:none;font-weight:bold;">✕ Reset</a>
+    <?php endif; ?>
+  </form>
 
   <div class="table-wrap">
     <table class="users-table" id="usersTable">
@@ -168,9 +189,9 @@ function shortEmail($e){if(!$e)return '-';if(strlen($e)>22)return substr($e,0,19
   </div>
 
   <div class="pagination">
-    <?php if($page>1){?><a href="?p=users&filter=<?php echo $filter;?>&upage=<?php echo $page-1;?>"><?php echo ADM_PREV; ?></a><?php }?>
+    <?php if($page>1){?><a href="?p=users&filter=<?php echo urlencode($filter);?><?php echo $qParam;?>&upage=<?php echo $page-1;?>"><?php echo ADM_PREV; ?></a><?php }?>
     <span class="current"><?php echo $page;?> / <?php echo $totalPages;?></span>
-    <?php if($page<$totalPages){?><a href="?p=users&filter=<?php echo $filter;?>&upage=<?php echo $page+1;?>"><?php echo ADM_NEXT; ?></a><?php }?>
+    <?php if($page<$totalPages){?><a href="?p=users&filter=<?php echo urlencode($filter);?><?php echo $qParam;?>&upage=<?php echo $page+1;?>"><?php echo ADM_NEXT; ?></a><?php }?>
   </div>
 </div>
 
