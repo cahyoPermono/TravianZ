@@ -605,7 +605,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
         $conquestPrioritizePlayers = !empty($_POST['bot_conquest_prioritize_players']);
 
         // Player Targeting & Raid Priority
-        $targetPlayerPercent = max(50, min(100, (int)($_POST['bot_target_player_percent'] ?? 90)));
+        $targetPlayerPercent = max(10, min(100, (int)($_POST['bot_target_player_percent'] ?? 70)));
         $maxPlayerDist = max(50.0, min(500.0, (float)($_POST['bot_max_player_distance'] ?? 200.0)));
         $revengePrioritizePlayers = !empty($_POST['bot_revenge_prioritize_players']);
         $nightSleepEnabled = !empty($_POST['bot_night_sleep_enabled']);
@@ -1274,6 +1274,8 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
                             <div>
                                 <label style="font-size:11px; color:#94a3b8; display:block; margin-bottom:3px;">Persentase Prioritas Serang Pemain Manusia:</label>
                                 <select name="bot_target_player_percent" class="botm-form-control" style="padding:4px 8px; font-size:12px;">
+                                    <option value="25" <?php echo $currentTargetPlayerPercent === 25 ? 'selected' : ''; ?>>25% Pemain (Sangat Santai / 75% Serang Bot)</option>
+                                    <option value="50" <?php echo $currentTargetPlayerPercent === 50 ? 'selected' : ''; ?>>50% Pemain (Seimbang 50:50)</option>
                                     <option value="70" <?php echo $currentTargetPlayerPercent === 70 ? 'selected' : ''; ?>>70% Pemain (Standar)</option>
                                     <option value="85" <?php echo $currentTargetPlayerPercent === 85 ? 'selected' : ''; ?>>85% Pemain (Agresif)</option>
                                     <option value="90" <?php echo $currentTargetPlayerPercent === 90 ? 'selected' : ''; ?>>90% Pemain (Sangat Agresif - Rekomendasi)</option>
