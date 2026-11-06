@@ -2440,6 +2440,15 @@ class BotAI {
                       strpos((string)($cand['desc2'] ?? ''), '[#BOT]') !== false ||
                       strpos((string)($cand['username'] ?? ''), 'Bot_') === 0);
 
+            // Anti-Dogpiling untuk ekspedisi Chief ke desa pemain manusia:
+            // Cegah banyak bot mengirim serangan Chief ke desa yang sama secara serentak
+            if (!$isBot) {
+                $maxGangAttacks = (int)self::getConfig('BOT_AI_GANG_ATTACK_MAX', 1);
+                if (self::getActiveIncomingBotAttacks($toWid) >= $maxGangAttacks) {
+                    continue;
+                }
+            }
+
             $loyalty = (float)($cand['loyalty'] ?? 100);
             $cand['dist'] = $dist;
             $cand['is_bot_target'] = $isBot;
@@ -4079,6 +4088,20 @@ class BotAI {
         $increaseSpeed = defined('INCREASE_SPEED') ? max(1, (float)INCREASE_SPEED) : 1.0;
         $duration = max(30, (int)round(($target['dist'] / $marchSpeed) * 3600 / $increaseSpeed));
 
+        // Anti-Dogpiling Check untuk Pengintaian ke Desa Pemain Manusia:
+        // Karena misi scout tercatat sebagai serangan (sort_type = 3) di antarmuka pemain,
+        // jangan kirim scout jika desa pemain sudah sedang diserang atau diintai oleh bot lain
+        if (empty($target['is_oasis'])) {
+            $targetOwner = (int)($database->getVillageField((int)$target['wref'], 'owner') ?? 0);
+            $targetIsBot = self::isBotUser($targetOwner);
+            if (!$targetIsBot) {
+                $maxGangAttacks = (int)self::getConfig('BOT_AI_GANG_ATTACK_MAX', 1);
+                if (self::getActiveIncomingBotAttacks((int)$target['wref']) >= $maxGangAttacks) {
+                    return null;
+                }
+            }
+        }
+
         // Deduct scouts from village
         $database->modifyUnit($wid, [$scoutUnit], [$sendCount], [0]);
 
@@ -4423,8 +4446,22 @@ class BotAI {
                             continue; // Masih dalam masa jeda / pendinginan perang
                         }
 
-                        // 3. Batasi kroyokan bot sealiansi: maksimal 2 serangan bot sealiansi bersamaan ke 1 target
-                        if ($botAlliance > 0) {
+                        // 3. Anti-Dogpiling & Anti-Bullying pada Balas Dendam (Revenge):
+                        // Pastikan balas dendam tetap mematuhi batas maksimal serangan serentak ke desa pemain manusia!
+                        $isTargetBot = (!empty($tgt['is_bot']) ||
+                                        strpos((string)($tgt['email'] ?? ''), '@bot.travianz') !== false ||
+                                        strpos((string)($tgt['desc1'] ?? ''), '[#BOT]') !== false ||
+                                        strpos((string)($tgt['desc2'] ?? ''), '[#BOT]') !== false ||
+                                        strpos((string)($tgt['username'] ?? ''), 'Bot_') === 0);
+                        $tgt['is_bot'] = $isTargetBot;
+
+                        if (!$isTargetBot) {
+                            $maxGangAttacks = (int)self::getConfig('BOT_AI_GANG_ATTACK_MAX', 1);
+                            if (self::getActiveIncomingBotAttacks($w) >= $maxGangAttacks) {
+                                continue; // Desa pemain sudah sedang diserang oleh bot lain, jangan dikerubungi!
+                            }
+                        } elseif ($botAlliance > 0) {
+                            // Antar-bot: batasi maksimal 2 serangan per aliansi
                             $allianceSwarm = $database->query_return("
                                 SELECT COUNT(m.moveid) as ally_atks
                                 FROM " . TB_PREFIX . "movement m
@@ -4838,6 +4875,17 @@ class BotAI {
 
         if ($totalDispatched <= 0 || self::isBanditTarget((int)$target['wref'])) {
             return null;
+        }
+
+        // Last-mile Anti-Dogpiling Check:
+        // Verifikasi instan sebelum pasukan dipotong, mencegah race-condition jika ada bot lain
+        // yang baru saja meluncurkan serangan ke desa pemain manusia ini di siklus/detik yang sama
+        $targetIsBot = !empty($target['is_bot']);
+        if (!$targetIsBot) {
+            $maxGangAttacks = (int)self::getConfig('BOT_AI_GANG_ATTACK_MAX', 1);
+            if (self::getActiveIncomingBotAttacks((int)$target['wref']) >= $maxGangAttacks) {
+                return null;
+            }
         }
 
         // 1. Deduct troops from bot village
@@ -6136,6 +6184,26 @@ class BotAI {
 
     public static function isBot(int $userId): bool {
         return self::isBotUser($userId);
+    }
+
+    /**
+     * Menghitung total serangan / pengintaian bot yang sedang aktif berjalan ke suatu desa target (sort_type = 3, proc = 0).
+     */
+    public static function getActiveIncomingBotAttacks(int $targetWref): int {
+        global $database;
+        $targetWref = (int)$targetWref;
+        if ($targetWref <= 0) return 0;
+        $res = $database->query_return("
+            SELECT COUNT(m.moveid) as cnt
+            FROM " . TB_PREFIX . "movement m
+            JOIN " . TB_PREFIX . "vdata v ON m.`from` = v.wref
+            JOIN " . TB_PREFIX . "users u ON v.owner = u.id
+            WHERE m.`to` = $targetWref
+              AND m.sort_type = 3
+              AND m.proc = 0
+              AND (u.is_bot = 1 OR u.email LIKE '%@bot.travianz%' OR u.desc1 LIKE '%[#BOT]%' OR u.desc2 LIKE '%[#BOT]%' OR u.username LIKE 'Bot_%')
+        ");
+        return (int)($res[0]['cnt'] ?? 0);
     }
 
     /**
