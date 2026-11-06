@@ -155,3 +155,4 @@ assertTrue(strpos($rep['data'], '?,?') === false, "Unmasked data contains true n
 $database->query("DELETE FROM " . TB_PREFIX . "ndata WHERE id IN ($attackerNoticeId, $defenderNoticeId)");
 
 echo "=== All AdminUserSearchAndReportTest checks passed successfully! ===\n";
+
