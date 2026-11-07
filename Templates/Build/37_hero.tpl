@@ -336,6 +336,26 @@ $renderAddLink = function ($action) use ($hero_info, $id, $heroStatColumns, $her
     </table>
 </div>
 
+<?php
+    $hWid = (int)($hero_info['wref'] ?? $village->wid ?? 0);
+    $mLevel = ($hWid > 0 && isset($database)) ? (int)$database->getFieldLevelInVillage($hWid, 37) : 0;
+    if ($mLevel > 0) {
+        $mExpPct = min(20, round($mLevel * 1.0, 1));
+        $mCropPct = min(10, round($mLevel * 0.5, 1));
+        $mRegen = $mLevel * (defined('HERO_MANSION_REGEN_PER_LEVEL') ? HERO_MANSION_REGEN_PER_LEVEL : 3);
+?>
+<div class="t4h-panel" style="background:#f8fafc;border-left:4px solid #3b82f6;padding:10px 14px;margin-top:10px;font-size:12px;color:#1e293b;border-radius:4px;box-shadow:0 1px 2px rgba(0,0,0,0.05);">
+    <div style="font-weight:bold;margin-bottom:6px;color:#1d4ed8;display:flex;align-items:center;gap:6px;">
+        <span>🏰</span> <span>Bonus Pasif Padepokan Pahlawan (Level <?php echo $mLevel; ?>):</span>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:14px;line-height:1.4;">
+        <span>⭐ <b>+<?php echo $mExpPct; ?>%</b> Perolehan EXP</span>
+        <span>🌾 <b>-<?php echo $mCropPct; ?>%</b> Upah Gandum Pasukan</span>
+        <span>❤️ <b>+<?php echo $mRegen; ?></b> HP / Hari</span>
+    </div>
+</div>
+<?php } ?>
+
 </div>
 
 <?php if ((int) $hero_info['points'] > 0) { ?>

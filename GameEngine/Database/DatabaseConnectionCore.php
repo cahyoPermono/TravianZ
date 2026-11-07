@@ -345,6 +345,7 @@ trait DatabaseConnectionCore {
     public static function clearVillageCache() {
         self::$villageFieldsCache          = [];
         self::$villageFieldsCacheByWorldID = [];
+        self::clearResourseLevelsCache();
     }
 
     /**

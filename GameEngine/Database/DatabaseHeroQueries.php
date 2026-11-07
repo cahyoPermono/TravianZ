@@ -141,6 +141,22 @@ trait DatabaseHeroQueries {
 	function modifyHeroXp($column,$value,$heroid) {
 	    list($column,$value,$heroid) = $this->escape_input($column,(int) $value,(int) $heroid);
 
+        // Hero's Mansion Passive Bonus: +1% Hero EXP per level (up to +20% at level 20)
+        if ($column === 'experience' && $value > 0) {
+            $hRes = mysqli_query($this->dblink, "SELECT wref FROM " . TB_PREFIX . "hero WHERE heroid = $heroid LIMIT 1");
+            if ($hRes && ($hRow = mysqli_fetch_assoc($hRes))) {
+                $hWid = (int)($hRow['wref'] ?? 0);
+                if ($hWid > 0) {
+                    $mansionLvl = (int)$this->getFieldLevelInVillage($hWid, 37);
+                    if ($mansionLvl > 0) {
+                        $rate = defined('HERO_MANSION_EXP_PER_LEVEL') ? (float)HERO_MANSION_EXP_PER_LEVEL : 0.01;
+                        $bonusPct = min(0.20, $mansionLvl * $rate);
+                        $value = (int)round($value * (1.0 + $bonusPct));
+                    }
+                }
+            }
+        }
+
 		$q = "UPDATE ".TB_PREFIX."hero SET $column = $column + $value WHERE heroid=$heroid";
 		return mysqli_query($this->dblink,$q);
 	}

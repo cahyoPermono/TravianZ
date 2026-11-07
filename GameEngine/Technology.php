@@ -597,12 +597,22 @@ class Technology {
             $upkeep += Mercenary::getVillageUpkeep($vid);
         }
 
+        // Hero's Mansion Passive Bonus: Crop Upkeep Discount (-0.5% per level, up to -10% at level 20)
+        if ($prisoners == 0 && $vid > 0 && $upkeep > 0) {
+            $mansionLevel = (int) $database->getFieldLevelInVillage($vid, 37);
+            if ($mansionLevel > 0) {
+                $discountRate = defined('HERO_MANSION_CROP_DISCOUNT_PER_LEVEL') ? (float)HERO_MANSION_CROP_DISCOUNT_PER_LEVEL : 0.005;
+                $cropDiscount = min(0.10, $mansionLevel * $discountRate);
+                $upkeep = $upkeep * (1.0 - $cropDiscount);
+            }
+        }
+
         $who = $database->getVillageField($vid, "owner");
         
         //If it's a WW village, halve the crop consumption
         if($database->getVillageField($vid, "natar") == 1) $upkeep /= 2;
         
-        return ceil($database->getArtifactsValueInfluence($who, $vid, 4, $upkeep, false));
+        return (int) ceil($database->getArtifactsValueInfluence($who, $vid, 4, $upkeep, false));
 	}
 
     private function trainUnit($unit, $amt, $great = false) {

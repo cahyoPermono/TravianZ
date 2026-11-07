@@ -93,9 +93,16 @@
         $curMansionLvl = (int) $village->resarray['f' . $id];
         $curMansionRegen = $curMansionLvl * (defined('HERO_MANSION_REGEN_PER_LEVEL') ? HERO_MANSION_REGEN_PER_LEVEL : 3);
         $curMansionDiscount = min(50, round($curMansionLvl * 2.5, 1));
+        $expRate = defined('HERO_MANSION_EXP_PER_LEVEL') ? (float)HERO_MANSION_EXP_PER_LEVEL : 0.01;
+        $curMansionExp = min(20, round($curMansionLvl * ($expRate * 100), 1));
+        $cropRate = defined('HERO_MANSION_CROP_DISCOUNT_PER_LEVEL') ? (float)HERO_MANSION_CROP_DISCOUNT_PER_LEVEL : 0.005;
+        $curMansionCrop = min(10, round($curMansionLvl * ($cropRate * 100), 1));
+
         $nextMansionLvl = $curMansionLvl + 1;
         $nextMansionRegen = $nextMansionLvl * (defined('HERO_MANSION_REGEN_PER_LEVEL') ? HERO_MANSION_REGEN_PER_LEVEL : 3);
         $nextMansionDiscount = min(50, round($nextMansionLvl * 2.5, 1));
+        $nextMansionExp = min(20, round($nextMansionLvl * ($expRate * 100), 1));
+        $nextMansionCrop = min(10, round($nextMansionLvl * ($cropRate * 100), 1));
         ?>
         <table id="distribution" class="mansion_buffs" cellpadding="1" cellspacing="1" style="margin-bottom:12px;">
             <thead>
@@ -123,6 +130,20 @@
                     <td><b>-<?php echo $curMansionDiscount; ?>%</b> training time</td>
                     <?php if ($curMansionLvl < 20): ?>
                     <td style="color:#008800;">-<?php echo $nextMansionDiscount; ?>% training time</td>
+                    <?php endif; ?>
+                </tr>
+                <tr>
+                    <td>Hero Experience Bonus</td>
+                    <td><b>+<?php echo $curMansionExp; ?>%</b> EXP gained</td>
+                    <?php if ($curMansionLvl < 20): ?>
+                    <td style="color:#008800;">+<?php echo $nextMansionExp; ?>% EXP gained</td>
+                    <?php endif; ?>
+                </tr>
+                <tr>
+                    <td>Troop Crop Upkeep Discount</td>
+                    <td><b>-<?php echo $curMansionCrop; ?>%</b> crop consumption</td>
+                    <?php if ($curMansionLvl < 20): ?>
+                    <td style="color:#008800;">-<?php echo $nextMansionCrop; ?>% crop consumption</td>
                     <?php endif; ?>
                 </tr>
                 <tr>
