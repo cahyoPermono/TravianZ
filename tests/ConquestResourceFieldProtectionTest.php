@@ -115,3 +115,4 @@ assertEqual(3, $corruptedVillage['f4t'], "Corrupted field 4 must be restored to 
 assertEqual([4 => 3], $healed, "Healed array must report field 4 restored to 3");
 
 echo "=== All ConquestResourceFieldProtectionTest checks passed successfully! ===\n";
+
