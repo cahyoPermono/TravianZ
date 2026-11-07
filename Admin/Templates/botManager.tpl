@@ -1945,7 +1945,7 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
             <div style="background:#0f172a; padding:12px; border-radius:6px; border:1px solid #1e293b; margin-bottom:14px; display:flex; flex-direction:column; gap:8px;">
                 <label class="botm-checkbox" style="margin:0; cursor:pointer;">
                     <input type="checkbox" name="auto_prepare" value="1" checked>
-                    <span>⚡ <b>Siapkan Otomatis (Auto-Prepare) jika Bot Belum Siap</b> (Pastikan 1 Chief di rumah, Padepokan Lvl 10, CP Cukup, dan Pasukan Pengawal Lengkap)</span>
+                    <span>⚡ <b>Siapkan Prasyarat Otomatis (Auto-Prepare Prasyarat)</b> (Lengkapi Padepokan Lvl 10 & CP Cukup; Jika Chief gugur di pertempuran, Chief dilatih kembali secara alami di Padepokan dengan prioritas sumber daya penuh tanpa cheat spawn)</span>
                 </label>
                 <label class="botm-checkbox" style="margin:0; cursor:pointer;">
                     <input type="checkbox" name="send_hero" value="1" checked>

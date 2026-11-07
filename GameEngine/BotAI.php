@@ -229,25 +229,27 @@ class BotAI {
             // 1. Maintain resources & storage
             self::replenishResources($bot);
 
-            // 2. Automated Village Upkeep / Building progression
-            $buildResult = self::processBuild($bot);
-            if ($buildResult) {
-                $botLogs[] = "Build: " . $buildResult;
-            }
-
-            // 3. Automated Natural Village Expansion (Prioritas ekspansi pemukim saat syarat terpenuhi)
-            $expansionResult = self::processExpansion($bot);
-            if ($expansionResult) {
-                $botLogs[] = "Expansion: " . $expansionResult;
-            }
-
-            // 3b. Automated Natural Chief Village Conquest (Penaklukan Desa Non-Capital dengan Chief & Pengawal)
+            // 2. Automated Natural Chief Village Conquest (Penaklukan Desa Non-Capital dengan Chief & Pengawal)
+            // Diproses sebelum konstruksi agar desa bot dengan Target Lock aktif langsung mengalokasikan
+            // sumber daya untuk melatih Chief dan pengawal secara alami sebelum dipakai upgrade gedung umum
             $conquestResult = self::processConquest($bot);
             if ($conquestResult) {
                 $botLogs[] = "Conquest: " . $conquestResult;
             }
 
-            // 4. Automated Troop Training
+            // 3. Automated Village Upkeep / Building progression (Mematuhi prioritas sumber daya penaklukan)
+            $buildResult = self::processBuild($bot);
+            if ($buildResult) {
+                $botLogs[] = "Build: " . $buildResult;
+            }
+
+            // 4. Automated Natural Village Expansion (Prioritas ekspansi pemukim saat syarat terpenuhi)
+            $expansionResult = self::processExpansion($bot);
+            if ($expansionResult) {
+                $botLogs[] = "Expansion: " . $expansionResult;
+            }
+
+            // 5. Automated Troop Training (Prioritas pasukan pengawal & ketapel untuk misi penaklukan)
             $trainResult = self::processTrain($bot);
             if ($trainResult) {
                 $botLogs[] = "Train: " . $trainResult;
@@ -564,6 +566,55 @@ class BotAI {
         $curCrop = (float)($vRes['crop'] ?? $bot['crop'] ?? 0);
         if ($curWood < 30 || $curClay < 30 || $curIron < 30 || $curCrop < 20) {
             return null; // Sumber daya habis dijarah pemain, tunggu produksi pulih
+        }
+
+        // 5b. Prioritas Sumber Daya Penaklukan (Active Conquest Order Priority):
+        // Jika ada target lock penaklukan dari admin, utamakan sumber daya untuk membuat Chief dan pasukan pengawal!
+        $activeConquest = self::getConquestOrder($wid);
+        if (!empty($activeConquest)) {
+            $chiefUnit = self::getChiefUnit($tribe);
+            if ($chiefUnit > 0) {
+                $unitRow = $database->query_return("SELECT u{$chiefUnit} as c FROM " . TB_PREFIX . "units WHERE vref = $wid");
+                $homeChiefs = (int)($unitRow[0]['c'] ?? 0);
+                $trainRow = $database->query_return("SELECT SUM(amt) as queued FROM " . TB_PREFIX . "training WHERE vref = $wid AND unit = $chiefUnit");
+                $queuedChiefs = (int)($trainRow[0]['queued'] ?? 0);
+
+                // 1. Jika Chief belum ada di rumah dan belum dalam antrean pelatihan:
+                if ($homeChiefs < 1 && $queuedChiefs < 1) {
+                    $chiefName = self::getUnitName($chiefUnit);
+                    return "Pembangunan ditunda sementara: Desa bot memprioritaskan seluruh sumber daya untuk melatih {$chiefName} (Misi Penaklukan Aktif)";
+                }
+
+                // 2. Jika Chief sudah ada/antre, tapi pasukan pengawal atau ketapel belum mencukupi target:
+                $targetEscort = (int)($activeConquest['escort_count'] ?? 500);
+                $targetCatapult = (int)($activeConquest['catapult_count'] ?? 25);
+                $offensiveUnits = self::getOffensiveUnits($tribe, false);
+                $settlerUnit = $tribe * 10;
+                $unitsRow = $database->query_return("SELECT * FROM " . TB_PREFIX . "units WHERE vref = $wid LIMIT 1");
+                $uRow = !empty($unitsRow[0]) ? $unitsRow[0] : [];
+                $homeEscort = 0;
+                foreach ($offensiveUnits as $uNum) {
+                    if ($uNum === $chiefUnit || $uNum === $settlerUnit) continue;
+                    $homeEscort += (int)($uRow['u' . $uNum] ?? 0);
+                }
+                $qEscort = (int)($database->query_return("
+                    SELECT SUM(amt) as queued FROM " . TB_PREFIX . "training
+                    WHERE vref = $wid AND unit IN (" . implode(',', $offensiveUnits) . ")
+                ")[0]['queued'] ?? 0);
+                $totalEscort = $homeEscort + $qEscort;
+
+                $catUnit = self::getTribeUnits($tribe)['catapult'] ?? 0;
+                $homeCat = $catUnit > 0 ? (int)($uRow['u' . $catUnit] ?? 0) : 0;
+                $qCat = $catUnit > 0 ? (int)($database->query_return("SELECT SUM(amt) as queued FROM " . TB_PREFIX . "training WHERE vref = $wid AND unit = $catUnit")[0]['queued'] ?? 0) : 0;
+                $totalCat = $homeCat + $qCat;
+
+                if ($totalEscort < $targetEscort || ($targetCatapult > 0 && $totalCat < $targetCatapult)) {
+                    // Jika sumber daya belum berlebih, tunda upgrade gedung non-militer agar dialirkan ke barak/bengkel
+                    if ($curWood < 3000 || $curClay < 3000 || $curIron < 3000 || $curCrop < 2000) {
+                        return "Pembangunan ditunda: Mengutamakan sumber daya untuk melatih pasukan rombongan penaklukan ({$totalEscort}/{$targetEscort} pengawal, {$totalCat}/{$targetCatapult} ketapel)";
+                    }
+                }
+            }
         }
 
         // Infrastructure levels
@@ -977,6 +1028,17 @@ class BotAI {
             $maxTroops = max($maxTroops, min($adminMaxArmy, $bastionArmyCap));
         }
 
+        // Mode Mobilisasi Penaklukan Desa (Admin Conquest Mobilization):
+        // Jika ada target lock penaklukan aktif, tingkatkan batas pasukan desa agar bot leluasa
+        // melatih seluruh pasukan pengawal (escort_count) dan ketapel (catapult_count) yang diperintahkan.
+        $activeConquest = self::getConquestOrder($wid);
+        if (!empty($activeConquest)) {
+            $conquestEscortTarget = (int)($activeConquest['escort_count'] ?? 500);
+            $conquestCatTarget = (int)($activeConquest['catapult_count'] ?? 25);
+            $conquestArmyCap = $conquestEscortTarget + $conquestCatTarget + $homeReserve + 20;
+            $maxTroops = max($maxTroops, min($adminMaxArmy, $conquestArmyCap));
+        }
+
         $tribeUnits = self::getTribeUnits($tribe);
 
         // Sum standing army across all 10 unit columns for this tribe
@@ -1109,6 +1171,24 @@ class BotAI {
                 if (!empty($tribeUnits['ram'])) $trainCandidates[$tribeUnits['ram']] = 15;
                 if (!empty($tribeUnits['catapult'])) $trainCandidates[$tribeUnits['catapult']] = 15;
             }
+        } elseif (!empty($activeConquest)) {
+            // Mode Mobilisasi Penaklukan Desa: Prioritaskan pasukan pengawal ofensif & ketapel
+            $catUnit = $tribeUnits['catapult'] ?? 0;
+            $curCat = $catUnit > 0 ? (int)($res[0]['u' . $catUnit] ?? 0) : 0;
+            $targetCat = (int)($activeConquest['catapult_count'] ?? 25);
+
+            if ($targetCat > 0 && $curCat < $targetCat && $wsLevel >= 1) {
+                $trainCandidates[$catUnit] = 85;
+            }
+
+            $trainCandidates[$tribeUnits['basic']] = 50;
+            if (!empty($tribeUnits['inf_adv']) && ($acLevel >= 1 || $brLevel >= 2 || $pop >= 40)) {
+                $trainCandidates[$tribeUnits['inf_adv']] = 75;
+            }
+            if ($enableCavalry && $stLevel >= 1) {
+                if (!empty($tribeUnits['cav_heavy'])) $trainCandidates[$tribeUnits['cav_heavy']] = 40;
+                elseif (!empty($tribeUnits['cav_light'])) $trainCandidates[$tribeUnits['cav_light']] = 30;
+            }
         } else {
             // Mode Normal: Seimbang & Agresif (Proporsi Serang 60% - 75% saat pertahanan rumah sudah aman)
             $defenseSecure = ($standingDef >= $homeReserve);
@@ -1240,6 +1320,35 @@ class BotAI {
             $canAffordCrop = ($crCost > 0) ? (int)floor(max(0, $curCrop - 750) / $crCost) : 999;
         }
 
+        // Jika ada active conquest order dan Chief belum siap di rumah atau antrean,
+        // cadangkan sumber daya agar TIDAK dihabiskan melatih prajurit biasa
+        if (!empty($activeConquest)) {
+            $chiefUnit = self::getChiefUnit($tribe);
+            if ($chiefUnit > 0) {
+                $unitRow = $database->query_return("SELECT u{$chiefUnit} as c FROM " . TB_PREFIX . "units WHERE vref = $wid");
+                $homeChiefs = (int)($unitRow[0]['c'] ?? 0);
+                $trainRow = $database->query_return("SELECT SUM(amt) as queued FROM " . TB_PREFIX . "training WHERE vref = $wid AND unit = $chiefUnit");
+                $queuedChiefs = (int)($trainRow[0]['queued'] ?? 0);
+
+                if ($homeChiefs < 1 && $queuedChiefs < 1) {
+                    global ${'u' . $chiefUnit};
+                    if (!isset(${'u' . $chiefUnit})) {
+                        @include_once __DIR__ . '/Data/unitdata.php';
+                    }
+                    $uChief = ${'u' . $chiefUnit} ?? [];
+                    $wChief = (int)($uChief['wood'] ?? 30000);
+                    $cChief = (int)($uChief['clay'] ?? 30000);
+                    $iChief = (int)($uChief['iron'] ?? 30000);
+                    $crChief = (int)($uChief['crop'] ?? 30000);
+
+                    $canAffordWood = ($wCost > 0) ? (int)floor(max(0, $curWood - $wChief) / $wCost) : 999;
+                    $canAffordClay = ($cCost > 0) ? (int)floor(max(0, $curClay - $cChief) / $cCost) : 999;
+                    $canAffordIron = ($iCost > 0) ? (int)floor(max(0, $curIron - $iChief) / $iCost) : 999;
+                    $canAffordCrop = ($crCost > 0) ? (int)floor(max(0, $curCrop - $crChief) / $crCost) : 999;
+                }
+            }
+        }
+
         $maxAffordable = min($canAffordWood, $canAffordClay, $canAffordIron, $canAffordCrop);
 
         if ($maxAffordable < 1) {
@@ -1251,6 +1360,8 @@ class BotAI {
             $batchSize = ($pop >= 400) ? rand(3, 8) : rand(1, 3);
         } elseif ($isEmergencyRecovery) {
             $batchSize = ($pop >= 400) ? rand(15, 30) : rand(6, 15);
+        } elseif (!empty($activeConquest)) {
+            $batchSize = ($pop >= 400) ? rand(20, 35) : (($pop >= 200) ? rand(10, 20) : rand(5, 12));
         } else {
             if ($pop >= 500 && $brLevel >= 12) {
                 $batchSize = rand(15, 35);
@@ -2003,6 +2114,121 @@ class BotAI {
     }
 
     /**
+     * Train Chief unit naturally in Residence / Palace / Command Center.
+     * Consumes genuine resources, enqueues into standard training table,
+     * and calculates natural duration based on building level and server speed.
+     *
+     * @param array $bot Bot village data
+     * @param int $chiefUnit Chief unit ID (e.g. 9, 19, 29, 39, 49, 59, 69, 79, 89, 99)
+     * @param array $options Configuration options (e.g. auto_prepare)
+     * @return string Status message describing action taken
+     */
+    public static function trainChiefNaturally(array $bot, int $chiefUnit, array $options = []): string {
+        global $database;
+        $wid = (int)$bot['wref'];
+        $tribe = (int)$bot['tribe'];
+        $chiefName = self::getUnitName($chiefUnit);
+        $autoPrepare = !empty($options['auto_prepare']);
+
+        // 1. Residence (GID 25), Palace (GID 26), or Command Center (GID 44) level check
+        $rsLevel = self::getBuildingLevel($wid, 25);
+        $palaceLevel = self::getBuildingLevel($wid, 26);
+        $ccLevel = self::getBuildingLevel($wid, 44);
+        $effectiveLvl = max($rsLevel, max($palaceLevel, $ccLevel));
+
+        if ($effectiveLvl < 10) {
+            if ($autoPrepare) {
+                $fdata = $database->getResourceLevel($wid);
+                $targetSlot = 0;
+                for ($s = 19; $s <= 38; $s++) {
+                    if ((int)($fdata['f' . $s . 't'] ?? 0) === 25) {
+                        $targetSlot = $s;
+                        break;
+                    }
+                    if ($targetSlot === 0 && (int)($fdata['f' . $s . 't'] ?? 0) === 0 && (int)($fdata['f' . $s] ?? 0) === 0) {
+                        $targetSlot = $s;
+                    }
+                }
+                if ($targetSlot === 0) $targetSlot = 28;
+                $database->query("UPDATE " . TB_PREFIX . "fdata SET f{$targetSlot} = 10, f{$targetSlot}t = 25 WHERE vref = $wid");
+                $effectiveLvl = 10;
+            } else {
+                return "Padepokan/Istana belum level 10 (saat ini level {$effectiveLvl}); belum memenuhi syarat melatih {$chiefName}";
+            }
+        }
+
+        // 2. Check Academy research (tdata.t{$chiefUnit})
+        $tdataRow = $database->query_return("SELECT t{$chiefUnit} FROM " . TB_PREFIX . "tdata WHERE vref = $wid LIMIT 1");
+        $isResearched = !empty($tdataRow[0]['t' . $chiefUnit]);
+        if (!$isResearched) {
+            if ($autoPrepare) {
+                $database->query("UPDATE " . TB_PREFIX . "tdata SET t{$chiefUnit} = 1 WHERE vref = $wid");
+            } else {
+                return "Teknologi {$chiefName} belum diteliti di Akademi";
+            }
+        }
+
+        // 3. Load Chief unit data
+        global ${'u' . $chiefUnit};
+        if (!isset(${'u' . $chiefUnit})) {
+            @include_once __DIR__ . '/Data/unitdata.php';
+        }
+        $uData = ${'u' . $chiefUnit} ?? null;
+        if (!is_array($uData)) {
+            return "Data unit {$chiefName} (u{$chiefUnit}) tidak ditemukan";
+        }
+
+        $wCost = (int)($uData['wood'] ?? 30000);
+        $cCost = (int)($uData['clay'] ?? 30000);
+        $iCost = (int)($uData['iron'] ?? 30000);
+        $crCost = (int)($uData['crop'] ?? 30000);
+        $unitPop = (int)($uData['pop'] ?? 1);
+        $baseTime = (int)($uData['time'] ?? 90700);
+
+        // 4. Ensure storage capacity is at least sufficient to store Chief training costs
+        $neededStore = max($wCost, max($cCost, $iCost)) + 1000;
+        $neededCrop = $crCost + 1000;
+        $database->query("UPDATE " . TB_PREFIX . "vdata SET maxstore = GREATEST(maxstore, $neededStore), maxcrop = GREATEST(maxcrop, $neededCrop) WHERE wref = $wid");
+
+        // 5. Check village resources
+        $vRes = method_exists($database, 'getVillageFields') ? $database->getVillageFields($wid, 'wood, clay, iron, crop', false) : null;
+        $curWood = (float)($vRes['wood'] ?? 0);
+        $curClay = (float)($vRes['clay'] ?? 0);
+        $curIron = (float)($vRes['iron'] ?? 0);
+        $curCrop = (float)($vRes['crop'] ?? 0);
+
+        if ($curWood >= $wCost && $curClay >= $cCost && $curIron >= $iCost && $curCrop >= $crCost) {
+            // Deduct genuine resources
+            if (method_exists($database, 'modifyResource')) {
+                $database->modifyResource($wid, $wCost, $cCost, $iCost, $crCost, 0);
+            }
+
+            $speed = defined('SPEED') ? max(1, (float)SPEED) : 1.0;
+            $resBonus = pow(0.95, max(0, $effectiveLvl - 1));
+            $duration = max(60, (int)round(($baseTime * $resBonus) / $speed));
+
+            $now = time();
+            $settlerUnit = $tribe * 10;
+            $lastQueue = $database->query_return("
+                SELECT timestamp FROM " . TB_PREFIX . "training
+                WHERE vref = $wid AND unit IN ($chiefUnit, $settlerUnit)
+                ORDER BY timestamp DESC LIMIT 1
+            ");
+            $startTime = !empty($lastQueue) ? max($now, (int)$lastQueue[0]['timestamp']) : $now;
+            $endTime = $startTime + $duration;
+
+            $database->query("
+                INSERT INTO " . TB_PREFIX . "training (vref, unit, amt, pop, timestamp, eachtime, timestamp2)
+                VALUES ($wid, $chiefUnit, 1, $unitPop, $endTime, $duration, $startTime + $duration)
+            ");
+
+            return "Memulai pelatihan alami {$chiefName} di Padepokan/Istana (durasi: " . round($duration / 60) . " menit, biaya: {$wCost}w, {$cCost}c, {$iCost}i, {$crCost}cr); gelombang berikutnya meluncur setelah selesai";
+        }
+
+        return "Menabung sumber daya untuk melatih {$chiefName} secara alami (Butuh: {$wCost}w, {$cCost}c, {$iCost}i, {$crCost}cr | Saat ini: " . round($curWood) . "w, " . round($curClay) . "c, " . round($curIron) . "i, " . round($curCrop) . "cr)";
+    }
+
+    /**
      * Automated Natural Chief Village Conquest (Penaklukan Desa Non-Capital dengan Chief & Pasukan Pengawal).
      * 100% Natural mechanics:
      * - Requires genuine Academy (GID 22) lvl 20 and Rally Point (GID 16) lvl 10 (lvl 5 for Teutons).
@@ -2079,24 +2305,67 @@ class BotAI {
                     if (!empty($returning[0]['cnt']) && (int)$returning[0]['cnt'] > 0) {
                         return "Chief returning home from previous wave; will relaunch automatically upon arrival";
                     }
-                    if (!empty($activeOrder['auto_prepare'])) {
-                        $database->query("UPDATE " . TB_PREFIX . "units SET u{$chiefUnit} = 1 WHERE vref = $wid");
-                        $homeChiefs = 1;
-                    } else {
-                        return "Chief awaiting respawn/training";
+
+                    // Check if Chief is in training queue
+                    $trainRow = $database->query_return("
+                        SELECT SUM(amt) as queued, MIN(timestamp) as next_finish
+                        FROM " . TB_PREFIX . "training
+                        WHERE vref = $wid AND unit = $chiefUnit
+                    ");
+                    $queuedChiefs = (int)($trainRow[0]['queued'] ?? 0);
+
+                    if ($queuedChiefs > 0) {
+                        $remMins = max(1, (int)round(max(0, (int)$trainRow[0]['next_finish'] - time()) / 60));
+                        $chiefName = self::getUnitName($chiefUnit);
+                        return "Chief ({$chiefName}) saat ini sedang dilatih secara alami di Padepokan/Istana (siap dalam ~{$remMins}m); menunggu pelatihan selesai sebelum meluncurkan gelombang ke #{$tWid}";
+                    }
+
+                    // Chief gugur/belum ada dan belum dalam antrean pelatihan. Latih secara alami tanpa spawn instant:
+                    return self::trainChiefNaturally($bot, $chiefUnit, $activeOrder);
+                }
+
+                // Chief is home! Check escort troops & catapults before launching
+                $unitsRow = $database->query_return("SELECT * FROM " . TB_PREFIX . "units WHERE vref = $wid LIMIT 1");
+                $uRow = !empty($unitsRow[0]) ? $unitsRow[0] : [];
+                $offensiveUnits = self::getOffensiveUnits($tribe, false);
+                $settlerUnit = $tribe * 10;
+                $homeEscort = 0;
+                foreach ($offensiveUnits as $uNum) {
+                    if ($uNum === $chiefUnit || $uNum === $settlerUnit) continue;
+                    $homeEscort += (int)($uRow['u' . $uNum] ?? 0);
+                }
+
+                $targetEscort = (int)($activeOrder['escort_count'] ?? 500);
+                $minSafeEscort = min(20, $targetEscort);
+                if ($homeEscort < $minSafeEscort) {
+                    $chiefName = self::getUnitName($chiefUnit);
+                    return "Chief ({$chiefName}) siap di rumah; menunggu pelatihan alami pasukan pengawal ({$homeEscort}/{$targetEscort} siap) sebelum meluncurkan gelombang ke #{$tWid}";
+                }
+
+                $targetCat = (int)($activeOrder['catapult_count'] ?? 25);
+                if ($targetCat > 0) {
+                    $catUnit = self::getTribeUnits($tribe)['catapult'] ?? 0;
+                    $homeCat = $catUnit > 0 ? (int)($uRow['u' . $catUnit] ?? 0) : 0;
+                    $qCat = $catUnit > 0 ? (int)($database->query_return("SELECT SUM(amt) as queued FROM " . TB_PREFIX . "training WHERE vref = $wid AND unit = $catUnit")[0]['queued'] ?? 0) : 0;
+                    if ($homeCat < 1 && $qCat > 0) {
+                        $chiefName = self::getUnitName($chiefUnit);
+                        return "Chief ({$chiefName}) siap di rumah; menunggu ketapel pengepungan ({$qCat} antre di bengkel) sebelum meluncurkan gelombang ke #{$tWid}";
                     }
                 }
 
-                // Chief is home! Automatically launch next wave to keep reducing loyalty!
-                $nextWave = self::orderConquest($uid, $tWid, [
-                    'escort_count' => (int)($activeOrder['escort_count'] ?? 500),
-                    'catapult_count' => (int)($activeOrder['catapult_count'] ?? 25),
+                // Chief is home & escort ready! Automatically launch next wave (100% natural, NO auto_prepare cheats)
+                $nextWave = self::orderConquest("village:{$wid}", $tWid, [
+                    'escort_count' => $targetEscort,
+                    'catapult_count' => $targetCat,
                     'send_hero' => !empty($activeOrder['send_hero']),
-                    'auto_prepare' => !empty($activeOrder['auto_prepare']),
+                    'auto_prepare' => false, // 100% Alami, dilarang spawn instant unit
                     'allow_capital_conquest' => !empty($activeOrder['allow_capital_conquest']),
                 ]);
-                $curLoyalty = round((float)($tCheck[0]['loyalty'] ?? 100));
-                return "Dispatched next conquest wave to locked target '{$tCheck[0]['vname']}' (Loyalty: {$curLoyalty}%)";
+                if (!empty($nextWave['status']) && $nextWave['status'] === 'success') {
+                    $curLoyalty = round((float)($tCheck[0]['loyalty'] ?? 100));
+                    return "Dispatched next conquest wave to locked target '{$tCheck[0]['vname']}' (Loyalty: {$curLoyalty}%)";
+                }
+                return "Gagal meluncurkan gelombang penaklukan: " . ($nextWave['message'] ?? 'Unknown error');
             }
         }
 
@@ -5824,9 +6093,60 @@ class BotAI {
         }
         $uRow = $unitsRow[0];
 
+        $targetUserStr = $targetVillage['username'] ?? 'Enemy';
+
         $homeChiefs = (int)($uRow['u' . $chiefUnit] ?? 0);
         if ($homeChiefs < 1) {
-            return ['status' => 'error', 'message' => "Bot '{$bot['username']}' tidak memiliki {$chiefName} di rumah. Aktifkan '⚡ Siapkan Instan' agar Chief otomatis dilengkapi."];
+            // Daftarkan Target Lock penaklukan agar bot fokus mempersiapkan penaklukan secara alami
+            self::setConquestOrder($bWid, [
+                'bot_wid' => $bWid,
+                'bot_uid' => $bUid,
+                'bot_username' => $bot['username'],
+                'target_wid' => $targetWid,
+                'target_village' => $targetVillage['vname'],
+                'target_owner' => $targetOwner,
+                'target_username' => $targetUserStr,
+                'escort_count' => $escortCount,
+                'catapult_count' => $catapultCount,
+                'send_hero' => $sendHero,
+                'auto_prepare' => false,
+                'allow_capital_conquest' => $allowCapital,
+                'started_at' => time(),
+            ]);
+
+            // Cek antrean pelatihan
+            $trainRow = $database->query_return("
+                SELECT SUM(amt) as queued, MIN(timestamp) as next_finish
+                FROM " . TB_PREFIX . "training
+                WHERE vref = $bWid AND unit = $chiefUnit
+            ");
+            $queuedChiefs = (int)($trainRow[0]['queued'] ?? 0);
+
+            if ($queuedChiefs > 0) {
+                $remMins = max(1, (int)round(max(0, (int)$trainRow[0]['next_finish'] - time()) / 60));
+                $chiefStatus = "Chief ({$chiefName}) saat ini sedang dalam proses pelatihan alami di Padepokan/Istana (siap dalam ~{$remMins} menit).";
+            } else {
+                $chiefStatus = self::trainChiefNaturally($bot, $chiefUnit, ['auto_prepare' => $autoPrepare]);
+            }
+
+            return [
+                'status' => 'success',
+                'message' => "🎯 <b>Misi Penaklukan (Target Lock) Diaktifkan!</b><br><br>"
+                    . "Bot <b>{$bot['username']}</b> dari desa <b>{$bot['vname']}</b> telah mengunci sasaran desa <b>{$targetVillage['vname']}</b> milik <b>{$targetUserStr}</b>.<br><br>"
+                    . "• <b>Status Chief:</b> {$chiefStatus}<br>"
+                    . "• <b>Prioritas Sumber Daya Aktif:</b> Bot memprioritaskan 100% alokasi sumber daya untuk menyelesaikan pelatihan Chief dan {$escortCount} pasukan pengawal ({$catapultCount} ketapel). Pembangunan gedung non-militer ditunda.<br>"
+                    . "• <b>Pemberangkatan Otomatis:</b> Gelombang penaklukan pertama akan otomatis diluncurkan segera setelah Chief dan pengawal selesai dilatih dan siap di rumah!",
+                'details' => [
+                    'bot_uid' => $bUid,
+                    'bot_username' => $bot['username'],
+                    'bot_village' => $bot['vname'],
+                    'bot_village_wref' => $bWid,
+                    'target_wid' => $targetWid,
+                    'target_village' => $targetVillage['vname'],
+                    'target_user' => $targetUserStr,
+                    'status' => 'preparing_naturally',
+                ]
+            ];
         }
 
         $dispatched = [];
@@ -5852,6 +6172,44 @@ class BotAI {
                 $dispatchedSpeeds[] = self::getUnitSpeed($uNum);
                 $assignedEscort += $take;
             }
+        }
+
+        // Jika pasukan pengawal kurang dari batas minimal aman (20 unit), tunda keberangkatan agar Chief tidak mati sia-sia
+        if ($assignedEscort < min(20, $escortCount)) {
+            self::setConquestOrder($bWid, [
+                'bot_wid' => $bWid,
+                'bot_uid' => $bUid,
+                'bot_username' => $bot['username'],
+                'target_wid' => $targetWid,
+                'target_village' => $targetVillage['vname'],
+                'target_owner' => $targetOwner,
+                'target_username' => $targetUserStr,
+                'escort_count' => $escortCount,
+                'catapult_count' => $catapultCount,
+                'send_hero' => $sendHero,
+                'auto_prepare' => false,
+                'allow_capital_conquest' => $allowCapital,
+                'started_at' => time(),
+            ]);
+
+            return [
+                'status' => 'success',
+                'message' => "🎯 <b>Misi Penaklukan (Target Lock) Diaktifkan!</b><br><br>"
+                    . "Bot <b>{$bot['username']}</b> telah memiliki {$chiefName} di rumah, namun pasukan pengawal masih dalam persiapan ({$assignedEscort}/{$escortCount} pengawal siap).<br><br>"
+                    . "• <b>Keamanan Chief:</b> Ekspedisi ditunda sementara agar Chief tidak terbunuh sia-sia tanpa pengawalan (minimal butuh 20 pengawal).<br>"
+                    . "• <b>Prioritas Sumber Daya Aktif:</b> Bot mengutamakan sumber daya untuk menyelesaikan pelatihan pengawal di Barak.<br>"
+                    . "• <b>Pemberangkatan Otomatis:</b> Gelombang penaklukan pertama akan otomatis diluncurkan segera setelah pengawal minimal siap di rumah!",
+                'details' => [
+                    'bot_uid' => $bUid,
+                    'bot_username' => $bot['username'],
+                    'bot_village' => $bot['vname'],
+                    'bot_village_wref' => $bWid,
+                    'target_wid' => $targetWid,
+                    'target_village' => $targetVillage['vname'],
+                    'target_user' => $targetUserStr,
+                    'status' => 'waiting_for_escort',
+                ]
+            ];
         }
 
         // Add Catapults if requested
@@ -5942,7 +6300,7 @@ class BotAI {
             'escort_count' => $escortCount,
             'catapult_count' => $catapultCount,
             'send_hero' => $sendHero,
-            'auto_prepare' => $autoPrepare,
+            'auto_prepare' => false, // Set false for persistent recurrent waves so dead units are never cheat-spawned
             'allow_capital_conquest' => $allowCapital,
             'started_at' => time(),
         ]);
