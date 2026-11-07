@@ -213,16 +213,23 @@ $renderAddLink = function ($action) use ($hero_info, $id, $heroStatColumns, $her
         if ($t4HeroRes) {
             $t4ResPoints = (int) ($hero_info['resources'] ?? 0);
             $t4ResType   = (int) ($hero_info['res_type'] ?? 0);
-            $t4PerAll    = defined('HERO_RES_PER_POINT_ALL') ? (int) HERO_RES_PER_POINT_ALL : 3;
-            $t4PerOne    = defined('HERO_RES_PER_POINT_ONE') ? (int) HERO_RES_PER_POINT_ONE : 10;
+            // Keunggulan Suku Mesir (Egyptians, Tribe 7): Bonus produksi sumber daya Hero +25%
+            $t4ResMult   = ($t4HeroTribe === 7) ? 1.25 : 1.0;
+            $t4PerAll    = (defined('HERO_RES_PER_POINT_ALL') ? (float) HERO_RES_PER_POINT_ALL : 3.0) * $t4ResMult;
+            $t4PerOne    = (defined('HERO_RES_PER_POINT_ONE') ? (float) HERO_RES_PER_POINT_ONE : 10.0) * $t4ResMult;
 
             // valoarea afisata: cat produce efectiv, dupa setarea curenta
             $t4ResShown = ($t4ResType >= 1 && $t4ResType <= 4)
                 ? (int) round($t4ResPoints * $t4PerOne * SPEED)
                 : (int) round($t4ResPoints * $t4PerAll * SPEED);
 
+            $t4ResLabel = defined('HERO_RES_PRODUCTION') ? HERO_RES_PRODUCTION : 'Resources';
+            if ($t4HeroTribe === 7) {
+                $t4ResLabel .= ' <span style="color:#d97706;font-size:10px;font-weight:bold;">(+25% Mesir)</span>';
+            }
+
             $t4Rows[] = array(
-                defined('HERO_RES_PRODUCTION') ? HERO_RES_PRODUCTION : 'Resources',
+                $t4ResLabel,
                 $t4ResShown,
                 $t4ResPoints,
                 'res'
@@ -275,7 +282,12 @@ $renderAddLink = function ($action) use ($hero_info, $id, $heroStatColumns, $her
         </label>
         <?php } ?>
         <noscript><input type="submit" value="OK"></noscript>
-        <div class="t4h-note"><?php echo defined('HERO_RES_TYPE_HINT') ? HERO_RES_TYPE_HINT : 'Can be changed at any time, free of charge.'; ?></div>
+        <div class="t4h-note">
+            <?php echo defined('HERO_RES_TYPE_HINT') ? HERO_RES_TYPE_HINT : 'Can be changed at any time, free of charge.'; ?>
+            <?php if ($t4HeroTribe === 7) { ?>
+                <br><span style="color:#b45309;font-weight:bold;font-size:11px;">✨ Keunggulan Suku Mesir: Bonus produksi sumber daya Hero aktif (+25%).</span>
+            <?php } ?>
+        </div>
     </form>
 </div>
 <?php } ?>

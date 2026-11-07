@@ -134,8 +134,10 @@ if ($hero !== false) {
 	<?php if (defined('NEW_FUNCTIONS_HERO_T4') && NEW_FUNCTIONS_HERO_T4) {
 		$hResPoints = (int) ($h['resources'] ?? 0);
 		$hResType   = (int) ($h['res_type'] ?? 0);
-		$hPerAll    = defined('HERO_RES_PER_POINT_ALL') ? (int) HERO_RES_PER_POINT_ALL : 3;
-		$hPerOne    = defined('HERO_RES_PER_POINT_ONE') ? (int) HERO_RES_PER_POINT_ONE : 10;
+		$hHeroTribe = isset($id) ? (int)$database->getUserField($id, 'tribe', 0) : 0;
+		$hMult      = ($hHeroTribe === 7) ? 1.25 : 1.0;
+		$hPerAll    = (defined('HERO_RES_PER_POINT_ALL') ? (float) HERO_RES_PER_POINT_ALL : 3.0) * $hMult;
+		$hPerOne    = (defined('HERO_RES_PER_POINT_ONE') ? (float) HERO_RES_PER_POINT_ONE : 10.0) * $hMult;
 		$hResNames  = [0 => 'all', 1 => 'lumber', 2 => 'clay', 3 => 'iron', 4 => 'crop'];
 		$hResAmount = ($hResType >= 1 && $hResType <= 4)
 			? (int) round($hResPoints * $hPerOne * SPEED)

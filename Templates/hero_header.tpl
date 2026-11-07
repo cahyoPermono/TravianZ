@@ -282,8 +282,19 @@ if ($tzHeroT4 && class_exists('HeroItems')) {
 $tzResPoints = $tzHeroExists ? (int) ($tzHeroRow['resources'] ?? 0) : 0;
 $tzResType   = $tzHeroExists ? (int) ($tzHeroRow['res_type'] ?? 0) : 0;
 
-$tzResPerAll = defined('HERO_RES_PER_POINT_ALL') ? (int) HERO_RES_PER_POINT_ALL : 3;
-$tzResPerOne = defined('HERO_RES_PER_POINT_ONE') ? (int) HERO_RES_PER_POINT_ONE : 10;
+$tzHeroTribe = 0;
+if (isset($session->tribe) && (int) $session->tribe > 0) {
+    $tzHeroTribe = (int) $session->tribe;
+} elseif (isset($session->userinfo['tribe']) && (int) $session->userinfo['tribe'] > 0) {
+    $tzHeroTribe = (int) $session->userinfo['tribe'];
+} elseif (isset($session->userarray['tribe']) && (int) $session->userarray['tribe'] > 0) {
+    $tzHeroTribe = (int) $session->userarray['tribe'];
+}
+
+// Keunggulan Suku Mesir (Egyptians, Tribe 7): Bonus produksi sumber daya Hero +25%
+$tzResMult   = ($tzHeroTribe === 7) ? 1.25 : 1.0;
+$tzResPerAll = (defined('HERO_RES_PER_POINT_ALL') ? (float) HERO_RES_PER_POINT_ALL : 3.0) * $tzResMult;
+$tzResPerOne = (defined('HERO_RES_PER_POINT_ONE') ? (float) HERO_RES_PER_POINT_ONE : 10.0) * $tzResMult;
 $tzResSpeed  = defined('SPEED') ? SPEED : 1;
 
 $tzResSingle = ($tzResType >= 1 && $tzResType <= 4);

@@ -210,8 +210,10 @@ function go_url(url){ location=url; return false; }
             <?php if (defined('NEW_FUNCTIONS_HERO_T4') && NEW_FUNCTIONS_HERO_T4) {
                 $eResPts  = (int)($hero['resources'] ?? 0);
                 $eResType = (int)($hero['res_type'] ?? 0);
-                $ePerAll  = defined('HERO_RES_PER_POINT_ALL') ? (int) HERO_RES_PER_POINT_ALL : 3;
-                $ePerOne  = defined('HERO_RES_PER_POINT_ONE') ? (int) HERO_RES_PER_POINT_ONE : 10;
+                $eHeroTribe = (int)($user['tribe'] ?? 0);
+                $eMult    = ($eHeroTribe === 7) ? 1.25 : 1.0;
+                $ePerAll  = (defined('HERO_RES_PER_POINT_ALL') ? (float) HERO_RES_PER_POINT_ALL : 3.0) * $eMult;
+                $ePerOne  = (defined('HERO_RES_PER_POINT_ONE') ? (float) HERO_RES_PER_POINT_ONE : 10.0) * $eMult;
                 $eNames   = [0=>'all resources',1=>'lumber',2=>'clay',3=>'iron',4=>'crop'];
                 $eAmount  = ($eResType>=1 && $eResType<=4)
                     ? (int) round($eResPts * $ePerOne * SPEED)

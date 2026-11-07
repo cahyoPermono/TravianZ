@@ -37,11 +37,12 @@ trait DatabaseHeroQueries {
 	        return self::$heroVillageCache[$wid];
 	    }
 
-		$q = "SELECT heroid, uid, wref, resources, res_type
-		        FROM " . TB_PREFIX . "hero
-		       WHERE wref = " . $wid . "
-		         AND dead = 0
-		         AND COALESCE(intraining, 0) = 0
+		$q = "SELECT h.heroid, h.uid, h.wref, h.resources, h.res_type, u.tribe
+		        FROM " . TB_PREFIX . "hero h
+		        LEFT JOIN " . TB_PREFIX . "users u ON u.id = h.uid
+		       WHERE h.wref = " . $wid . "
+		         AND h.dead = 0
+		         AND COALESCE(h.intraining, 0) = 0
 		       LIMIT 1";
 
 		$result = mysqli_query($this->dblink, $q);
@@ -51,9 +52,10 @@ trait DatabaseHeroQueries {
 			// Self-healing fallback: Jika hero pemilik desa ini wref-nya tersangkut di Benteng Kuno (20201),
 			// pulihkan wref ke desa ini ($wid) agar produksi bonus sumber daya T4 tidak hilang!
 			$bWref = defined('Bastion::BASTION_WREF') ? (int)constant('Bastion::BASTION_WREF') : 20201;
-			$qHeal = "SELECT h.heroid, h.uid, h.wref, h.resources, h.res_type
+			$qHeal = "SELECT h.heroid, h.uid, h.wref, h.resources, h.res_type, u.tribe
 			            FROM " . TB_PREFIX . "hero h
 			            JOIN " . TB_PREFIX . "vdata v ON v.owner = h.uid AND v.wref = " . $wid . "
+			            LEFT JOIN " . TB_PREFIX . "users u ON u.id = h.uid
 			           WHERE h.wref = " . $bWref . "
 			             AND h.dead = 0
 			             AND COALESCE(h.intraining, 0) = 0

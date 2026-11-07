@@ -402,13 +402,19 @@ class Village {
 		$resType = (int) $row['res_type'];
 		$map     = [1 => 'wood', 2 => 'clay', 3 => 'iron', 4 => 'crop'];
 
+		// Keunggulan Suku Mesir (Egyptians, Tribe 7): Bonus produksi sumber daya Hero +25%
+		$heroTribe = isset($row['tribe']) ? (int)$row['tribe'] : (int)($this->tribe ?? 0);
+		$heroMult  = ($heroTribe === 7) ? 1.25 : 1.0;
+
 		// 0 = raspandit egal: 3 din fiecare. Altfel: 10 dintr-un singur tip.
 		if ($resType === 0 || !isset($map[$resType])) {
-			$each = $points * (defined('HERO_RES_PER_POINT_ALL') ? (int) HERO_RES_PER_POINT_ALL : 3);
+			$baseAll = defined('HERO_RES_PER_POINT_ALL') ? (float) HERO_RES_PER_POINT_ALL : 3.0;
+			$each = $points * $baseAll * $heroMult;
 			return ['wood' => $each, 'clay' => $each, 'iron' => $each, 'crop' => $each];
 		}
 
-		$single = $points * (defined('HERO_RES_PER_POINT_ONE') ? (int) HERO_RES_PER_POINT_ONE : 10);
+		$baseOne = defined('HERO_RES_PER_POINT_ONE') ? (float) HERO_RES_PER_POINT_ONE : 10.0;
+		$single  = $points * $baseOne * $heroMult;
 
 		$out = $empty;
 		$out[$map[$resType]] = $single;
