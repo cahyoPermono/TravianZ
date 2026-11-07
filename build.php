@@ -464,7 +464,13 @@ if(isset($_GET['id']) || isset($_GET['gid']) || $route == 1 || isset($_POST['rou
 			$buildTabFile = "Templates/Build/".$village->resarray['f'.$_GET['id'].'t']."_".$_GET['s'].".tpl";
 			if (file_exists($buildTabFile)) include($buildTabFile);
 		}
-		else include("Templates/Build/".$village->resarray['f'.$_GET['id'].'t'].".tpl");
+		else {
+			$buildType = (int)($village->resarray['f'.$_GET['id'].'t'] ?? 0);
+			$buildTplFile = "Templates/Build/" . $buildType . ".tpl";
+			if (file_exists($buildTplFile)) {
+				include($buildTplFile);
+			}
+		}
 		
 		if((isset($_GET['buildingFinish'])) && $_GET['buildingFinish'] == 1) {
         	if($session->gold >= 2) {

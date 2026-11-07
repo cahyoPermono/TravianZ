@@ -802,7 +802,9 @@ trait AutomationBattleResolution {
                     if ($leveldown < $minLevel) $leveldown = $minLevel;
                     $newLevels_fieldNames[]  = 'f' . $i;
                     $newLevels_fieldValues[] = $leveldown;
-                    if ($leveldown <= 0) {
+                    // Hanya bangunan dalam desa (slot >= 19) yang tipenya di-reset ke 0 jika levelnya 0.
+                    // Ladang sumber daya luar (slot 1..18) HARUS tetap mempertahankan tipenya (1..4) meski level 0!
+                    if ($leveldown <= 0 && $i >= 19) {
                         $newLevels_fieldNames[]  = 'f' . $i . 't';
                         $newLevels_fieldValues[] = 0;
                     }

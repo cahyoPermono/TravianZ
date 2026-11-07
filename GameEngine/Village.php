@@ -194,6 +194,8 @@ class Village {
 		$this->resarray = $this->db->getResourceLevel($this->wid);
 		$this->coor = $this->db->getCoor($this->wid);
 		$this->type = $this->db->getVillageType($this->wid);
+		// Self-healing: Pulihkan tipe ladang sumber daya (f1t..f18t) jika ada yang bertipe 0
+		$this->healResourceFieldTypes();
 		$this->oasisowned = $this->db->getOasis($this->wid);
 		$this->ocounter = $this->sortOasis();
 		$this->oasisFactor = $this->getOasisBonusFactor();
@@ -485,6 +487,57 @@ class Village {
 			}
 		}
 		return [$wood, $clay, $iron, $crop];
+	}
+
+	/**
+	 * Self-healing: Memastikan tipe ladang sumber daya (f1t..f18t) tidak boleh 0.
+	 * Jika ada ladang sumber daya yang bertipe 0 (misal akibat chiefing atau korupsi data sebelumnya),
+	 * pulihkan tipe sumber daya sesuai fieldtype desa (1..12) secara otomatis dan simpan ke database.
+	 */
+	private function healResourceFieldTypes(): void {
+		if (empty($this->resarray) || !is_array($this->resarray)) {
+			return;
+		}
+
+		$corrupted = [];
+		for ($i = 1; $i <= 18; $i++) {
+			if (!isset($this->resarray['f'.$i.'t']) || (int)$this->resarray['f'.$i.'t'] === 0) {
+				$corrupted[] = $i;
+			}
+		}
+
+		if (empty($corrupted)) {
+			return;
+		}
+
+		static $fieldMaps = [
+			1  => [4,4,1,4,4,2,3,4,4,3,3,4,4,1,4,2,1,2], // 3-3-3-9 (9 Cropper)
+			2  => [3,4,1,3,2,2,3,4,4,3,3,4,4,1,4,2,1,2], // 3-4-5-6
+			3  => [1,4,1,3,2,2,3,4,4,3,3,4,4,1,4,2,1,2], // 4-4-4-6 (Standard)
+			4  => [1,4,1,2,2,2,3,4,4,3,3,4,4,1,4,2,1,2], // 4-5-3-6
+			5  => [1,4,1,3,1,2,3,4,4,3,3,4,4,1,4,2,1,2], // 5-3-4-6
+			6  => [4,4,1,3,4,4,4,4,4,4,4,4,4,4,4,2,4,4], // 1-1-1-15 (15 Cropper)
+			7  => [1,4,4,1,2,2,3,4,4,3,3,4,4,1,4,2,1,2], // 4-4-3-7
+			8  => [3,4,4,1,2,2,3,4,4,3,3,4,4,1,4,2,1,2], // 3-4-4-7
+			9  => [3,4,4,1,1,2,3,4,4,3,3,4,4,1,4,2,1,2], // 4-3-4-7
+			10 => [3,4,1,2,2,2,3,4,4,3,3,4,4,1,4,2,1,2], // 3-5-4-6
+			11 => [3,1,1,3,1,4,4,3,3,2,2,3,1,4,4,2,4,4], // 4-3-5-6
+			12 => [1,4,1,1,2,2,3,4,4,3,3,4,4,1,4,2,1,2], // 5-4-3-6
+		];
+
+		$vType = (int)($this->type ?: 3);
+		$map = $fieldMaps[$vType] ?? $fieldMaps[3];
+
+		$setParts = [];
+		foreach ($corrupted as $idx) {
+			$correctType = (int)($map[$idx - 1] ?? 1);
+			$this->resarray['f'.$idx.'t'] = $correctType;
+			$setParts[] = "`f{$idx}t` = $correctType";
+		}
+
+		if (!empty($setParts) && !empty($this->wid)) {
+			$this->db->query("UPDATE " . TB_PREFIX . "fdata SET " . implode(', ', $setParts) . " WHERE vref = " . (int)$this->wid);
+		}
 	}
 
 	/**
