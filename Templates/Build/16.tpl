@@ -90,7 +90,9 @@ $hasRally = $village->resarray['f39'] > 0;
     <?php foreach ($village->enforcetome as $e):
         $isTaskmaster = $e['from'] == 0;
         $colspan = 10 + $e['hero'];
-        $tribe = $isTaskmaster ? 4 : $database->getUserField($database->getVillageField($e['from'],'owner'),'tribe',0);
+        $fromTribe = (int)$database->getVillageField($e['from'], 'tribe');
+        $tribe = $isTaskmaster ? 4 : (($fromTribe > 0) ? $fromTribe : (int)$database->getUserField($database->getVillageField($e['from'],'owner'),'tribe',0));
+        if ($tribe <= 0) $tribe = 1;
         $start = ($tribe-1)*10+1;
     ?>
     <table class="troop_details" cellpadding="1" cellspacing="1">
@@ -213,7 +215,11 @@ $hasRally = $village->resarray['f39'] > 0;
     <?php if ($enforcevill): ?>
         <h4><?= TROOPS_IN_OTHER_VILLAGE ?></h4>
         <?php foreach ($enforcevill as $e):
-            $colspan=10+$e['hero']; $tribe=$database->getUserField($database->getVillageField($e['from'],'owner'),'tribe',0); $start=($tribe-1)*10+1;
+            $colspan=10+$e['hero'];
+            $fromTribe = (int)$database->getVillageField($e['from'], 'tribe');
+            $tribe = ($fromTribe > 0) ? $fromTribe : (int)$database->getUserField($database->getVillageField($e['from'],'owner'),'tribe',0);
+            if ($tribe <= 0) $tribe = 1;
+            $start=($tribe-1)*10+1;
         ?>
         <table class="troop_details" cellpadding="1" cellspacing="1">
             <thead><tr>
@@ -236,7 +242,12 @@ $hasRally = $village->resarray['f39'] > 0;
     <?php if ($enforceoasis): ?>
         <h4><?= TROOPS_IN_OASIS ?></h4>
         <?php foreach ($enforceoasis as $e):
-            $colspan=10+$e['hero']; $owner=$database->getVillageField($e['from'],'owner'); $tribe=$database->getUserField($owner,'tribe',0); $start=($tribe-1)*10+1;
+            $colspan=10+$e['hero'];
+            $owner = $database->getVillageField($e['from'],'owner');
+            $fromTribe = (int)$database->getVillageField($e['from'], 'tribe');
+            $tribe = ($fromTribe > 0) ? $fromTribe : (int)$database->getUserField($owner,'tribe',0);
+            if ($tribe <= 0) $tribe = 1;
+            $start=($tribe-1)*10+1;
         ?>
         <table class="troop_details" cellpadding="1" cellspacing="1">
             <thead><tr>
@@ -263,7 +274,8 @@ $hasRally = $village->resarray['f39'] > 0;
         <?php foreach($p3 as $p):
             $colspan=10+(!empty($p['t11'])?1:0);
             $owner = $database->getVillageField($p['from'],'owner');
-            $tribe = max(1, (int)$database->getUserField($owner,'tribe',0));
+            $fromTribe = (int)$database->getVillageField($p['from'], 'tribe');
+            $tribe = ($fromTribe > 0) ? $fromTribe : max(1, (int)$database->getUserField($owner,'tribe',0));
             $start = ($tribe-1)*10+1;
             $wrefName = $database->getVillageField($p['wref'],'name');
         ?>
@@ -290,7 +302,8 @@ $hasRally = $village->resarray['f39'] > 0;
         <?php foreach($p as $pr):
             $colspan=10+(!empty($pr['t11'])?1:0);
             $owner = $database->getVillageField($pr['from'],'owner');
-            $tribe = max(1, (int)$database->getUserField($owner,'tribe',0));
+            $fromTribe = (int)$database->getVillageField($pr['from'], 'tribe');
+            $tribe = ($fromTribe > 0) ? $fromTribe : max(1, (int)$database->getUserField($owner,'tribe',0));
             $start = ($tribe-1)*10+1;
             $fromName = $database->getVillageField($pr['from'],'name');
         ?>

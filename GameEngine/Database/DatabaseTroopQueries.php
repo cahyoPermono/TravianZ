@@ -862,7 +862,9 @@ trait DatabaseTroopQueries {
         $q = "INSERT into " . TB_PREFIX . "enforcement (vref,`from`) values (" . (int) $data['to'] . "," . (int) $data['from'] . ")";
 		mysqli_query($this->dblink,$q);
 		$id = mysqli_insert_id($this->dblink);
-		$owntribe = $this->getUserField($this->getVillageField($data['from'], "owner"), "tribe", 0);
+		$fromTribe = (int)$this->getVillageField($data['from'], "tribe");
+		$owntribe = ($fromTribe > 0) ? $fromTribe : (int)$this->getUserField($this->getVillageField($data['from'], "owner"), "tribe", 0);
+		if ($owntribe <= 0) $owntribe = 1;
 		$start = ($owntribe - 1) * 10 + 1;
 		$end = ($owntribe * 10);
 		//add unit
@@ -892,7 +894,9 @@ trait DatabaseTroopQueries {
         $q = "INSERT into " . TB_PREFIX . "enforcement (vref,`from`) values (" . (int) $data['to'] . "," . (int) $data['from'] . ")";
 		mysqli_query($this->dblink,$q);
 		$id = mysqli_insert_id($this->dblink);
-		$owntribe = $this->getUserField($this->getVillageField($data['from'], "owner"), "tribe", 0);
+		$fromTribe = (int)$this->getVillageField($data['from'], "tribe");
+		$owntribe = ($fromTribe > 0) ? $fromTribe : (int)$this->getUserField($this->getVillageField($data['from'], "owner"), "tribe", 0);
+		if ($owntribe <= 0) $owntribe = 1;
 		$start = ($owntribe - 1) * 10 + 1;
 		$end = ($owntribe * 10);
 		$start2 = ($tribe - 1) * 10 + 1;

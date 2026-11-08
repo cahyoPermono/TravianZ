@@ -129,7 +129,9 @@ trait AutomationTroopMovements {
         $from = $database->getMInfo($data['from']);
         $fromF = $database->getVillage($data['from']);
         $AttackerID = $from['owner'];
-        $owntribe = $database->getUserField($AttackerID,"tribe",0);
+        $fromTribe = (int)$database->getVillageField($data['from'], 'tribe');
+        $owntribe = ($fromTribe > 0) ? $fromTribe : (int)$database->getUserField($AttackerID, "tribe", 0);
+        if ($owntribe <= 0) $owntribe = 1;
 
         // Check if target is Benteng Kuno (0|0)
         require_once dirname(__DIR__) . '/Bastion.php';
@@ -270,7 +272,9 @@ trait AutomationTroopMovements {
 			continue;
 			}
 
-            	$tribe = $database->getUserField($database->getVillageField($data['to'], "owner"), "tribe", 0);
+            	$toTribe = (int)$database->getVillageField($data['to'], 'tribe');
+            	$tribe = ($toTribe > 0) ? $toTribe : (int)$database->getUserField($database->getVillageField($data['to'], "owner"), "tribe", 0);
+            	if ($tribe <= 0) $tribe = 1;
             	$u = $tribe == 1 ? "" : $tribe - 1;
             	$database->modifyUnit(
             			$data['to'],

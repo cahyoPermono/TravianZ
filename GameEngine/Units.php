@@ -605,11 +605,14 @@ class Units {
             return false;
         }
 
-        $tribe = (int)$database->getUserField(
-            $to['owner'],
-            'tribe',
-            0
-        );
+        $tribe = (int)$database->getVillageTribe($fromWref);
+        if ($tribe <= 0 && !empty($to['owner'])) {
+            $tribe = (int)$database->getUserField(
+                $to['owner'],
+                'tribe',
+                0
+            );
+        }
 
         if ($tribe <= 0) {
             return false;
@@ -1005,7 +1008,11 @@ class Units {
             $enforceoasis = $database->getOasisEnforceArray( $post['ckey'], 0 );
             if ( ( $enforce['from'] == $village->wid ) || ( $enforce['vref'] == $village->wid ) || ( $enforceoasis['conqured'] == $village->wid ) ) {
                 $to     = $database->getVillage( $enforce['from'] );
-                $ownerTribe = (int)$database->getUserField( $to['owner'], 'tribe', 0);
+                $ownerTribe = (int)$database->getVillageTribe($enforce['from']);
+                if ($ownerTribe <= 0) {
+                    $ownerUid = (is_array($to) && isset($to['owner'])) ? (int)$to['owner'] : (int)$database->getVillageField($enforce['from'], 'owner');
+                    $ownerTribe = ($ownerUid > 0) ? (int)$database->getUserField($ownerUid, 'tribe', 0) : 1;
+                }
                 if ($ownerTribe <= 0) $ownerTribe = 1;
 
 				for ($i = 1; $i <= 10; $i++) {
@@ -1079,7 +1086,12 @@ class Units {
                     }
 
                     //change units
-                    $tribe = $database->getUserField($to['owner'], 'tribe', 0);
+                    $tribe = (int)$database->getVillageTribe($enforce['from']);
+                    if ($tribe <= 0) {
+                        $ownerUid = (is_array($to) && isset($to['owner'])) ? (int)$to['owner'] : (int)$database->getVillageField($enforce['from'], 'owner');
+                        $tribe = ($ownerUid > 0) ? (int)$database->getUserField($ownerUid, 'tribe', 0) : 1;
+                    }
+                    if ($tribe <= 0) $tribe = 1;
                     $start = ($tribe - 1 ) * 10 + 1;
                     $end = $tribe * 10 ;
 
@@ -1320,7 +1332,9 @@ class Units {
         $troops = 0;
         if($prisoner['wref'] == $village->wid){
             $p_owner = $database->getVillageField($prisoner['from'], "owner");
-            $p_tribe = $database->getUserField($p_owner, "tribe", 0);
+            $fromTribe = (int)$database->getVillageTribe($prisoner['from']);
+            $p_tribe = ($fromTribe > 0) ? $fromTribe : (int)$database->getUserField($p_owner, "tribe", 0);
+            if ($p_tribe <= 0) $p_tribe = 1;
             
             $troopsTime = $this->getWalkingTroopsTime($prisoner['from'], $prisoner['wref'], $p_owner, $p_tribe, $prisoner, 1, 't');
             $p_time = $database->getArtifactsValueInfluence($p_owner, $prisoner['from'], 2, $troopsTime);

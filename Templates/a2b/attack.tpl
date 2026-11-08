@@ -30,7 +30,8 @@ for ($i = 1; $i <= 11; $i++) {
 // --- 2. Detectare scout / hero ---
 // Slotul cercetasului per trib: Gali = 3, Huni/Vikingi = 2, restul = 4
 $scoutSlots = [1 => 4, 2 => 4, 3 => 3, 4 => 4, 5 => 4, 6 => 2, 7 => 4, 8 => 4, 9 => 2, 10 => 4];
-$scoutSlot = isset($scoutSlots[$session->tribe]) ? $scoutSlots[$session->tribe] : 4;
+$villageTribe = (!empty($village->tribe) && $village->tribe > 0) ? (int)$village->tribe : ((!empty($session->tribe) && $session->tribe > 0) ? (int)$session->tribe : 1);
+$scoutSlot = isset($scoutSlots[$villageTribe]) ? $scoutSlots[$villageTribe] : 4;
 $scout = 0;
 if (!empty($t[$scoutSlot])) { $scout = 1; }
 
@@ -61,7 +62,7 @@ $actionTypes = [1 => 'Scout', 2 => 'Reinforcement', 3 => 'Normal attack', 4 => '
 $actionType = $actionTypes[(int)$process['c']] ?? 'Normal attack';
 
 $uid = $session->uid;
-$tribe = $session->tribe;
+$tribe = (!empty($village->tribe) && $village->tribe > 0) ? (int)$village->tribe : ((!empty($session->tribe) && $session->tribe > 0) ? (int)$session->tribe : 1);
 $start = ($tribe - 1) * 10 + 1;
 $end = $tribe * 10;
 
@@ -241,7 +242,7 @@ $kata = !empty($process['t8']);
             <tr>
                 <th><?php echo TZ_ARRIVED; ?></th>
                 <?php
-                $troopsTime = $units->getWalkingTroopsTime($village->wid, $process[0], $session->uid, $session->tribe, $process, 1, 't');
+                $troopsTime = $units->getWalkingTroopsTime($village->wid, $process[0], $session->uid, $tribe, $process, 1, 't');
                 $time = $database->getArtifactsValueInfluence($session->uid, $village->wid, 2, $troopsTime);
                 ?>
                 <td colspan="<?php echo $colspan; ?>">

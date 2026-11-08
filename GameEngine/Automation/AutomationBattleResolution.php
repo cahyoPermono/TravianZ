@@ -1319,6 +1319,10 @@ trait AutomationBattleResolution {
 
         if (!isset($enforce['from'])) return 4;
         if ($enforce['from'] === 0 || $enforce['from'] === '0') return 4;
+        $fromTribe = (int)$database->getVillageField($enforce['from'], 'tribe');
+        if ($this->isValidBattleTribe($fromTribe)) {
+            return (int)$fromTribe;
+        }
         $owner = $database->getVillageField($enforce['from'], "owner");
         if (!$owner) {
             for ($t = 1; $t <= 10; $t++) {
@@ -2073,6 +2077,9 @@ trait AutomationBattleResolution {
         global $database;
 
         $owner = $this->getCachedUser($database->getVillageField($data['from'], "owner"), 1);
+        $fromTribe = (int)$database->getVillageField($data['from'], 'tribe');
+        $resolvedAttTribe = ($fromTribe > 0) ? $fromTribe : (int)($owner['tribe'] ?? 1);
+        if ($resolvedAttTribe <= 0) $resolvedAttTribe = 1;
 
         return [
             'isoasis'           => $data['oasistype'],
@@ -2081,7 +2088,7 @@ trait AutomationBattleResolution {
             'DefenderWref'      => $data['to'],
             'NatarCapital'      => false,
             'AttackerID'        => $owner['id'],
-            'owntribe'          => $owner['tribe'],
+            'owntribe'          => $resolvedAttTribe,
             'ownally'           => $owner['alliance'],
             'from'              => $database->getMInfo($data['from']),
             'fromF'             => $database->getVillage($data['from']),

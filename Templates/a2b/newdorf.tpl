@@ -20,7 +20,8 @@
 
 //-- Prevent founding if not enough settlers or invalid/occupied tile
 //-- fix by AL-Kateb - Simplified by iopietro
-$settlers = (int)($village->unitarray['u' . $session->tribe . '0'] ?? 0);
+$vTribe = (!empty($village->tribe) && $village->tribe > 0) ? (int)$village->tribe : ((!empty($session->tribe) && $session->tribe > 0) ? (int)$session->tribe : 1);
+$settlers = (int)($village->unitarray['u' . $vTribe . '0'] ?? 0);
 
 if ($settlers < 3 || !isset($_GET['id']) || !is_numeric($_GET['id'])) {
     header("location: dorf1.php");
@@ -45,8 +46,8 @@ $crop = round($village->acrop);
 $troopsTime = $units->getWalkingTroopsTime($village->wid, $newvillage['id'], 0, 0, [300], 0);
 $time = $database->getArtifactsValueInfluence($session->uid, $village->wid, 2, $troopsTime);
 
-$startUnit = ($session->tribe - 1) * 10 + 1;
-$endUnit = $session->tribe * 10;
+$startUnit = ($vTribe - 1) * 10 + 1;
+$endUnit = $vTribe * 10;
 $hasResources = ($wood >= 750 && $clay >= 750 && $iron >= 750 && $crop >= 750);
 ?>
 <h1><?php echo FNEWVILLAGE; ?></h1>

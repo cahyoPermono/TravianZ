@@ -19,7 +19,7 @@
 ## --------------------------------------------------------------------------- ##
 #################################################################################
 
-$tribe = $session->tribe;
+$tribe = (!empty($village->tribe) && $village->tribe > 0) ? (int)$village->tribe : ((!empty($session->tribe) && $session->tribe > 0) ? (int)$session->tribe : 1);
 $start = ($tribe - 1) * 10 + 1;
 $end = $tribe * 10;
 $hasHero = $village->unitarray['hero'] != 0;

@@ -130,6 +130,42 @@ class Bastion {
             SET h.wref = v.wref
             WHERE h.wref = " . self::BASTION_WREF);
 
+        // Self-Healing: Perbaiki bala bantuan yang tersimpan di kolom suku pemilik akun (users.tribe)
+        // alih-alih kolom suku asli desa pengirim (vdata.tribe), misal pemain Teuton kirim Temple Guardian (Mesir).
+        $qMismatched = @mysqli_query($db, "SELECT e.id, e.from, v.tribe as v_tribe, u.tribe as u_tribe 
+            FROM `" . TB_PREFIX . "enforcement` e 
+            JOIN `" . TB_PREFIX . "vdata` v ON e.from = v.wref 
+            JOIN `" . TB_PREFIX . "users` u ON v.owner = u.id 
+            WHERE v.tribe > 0 AND u.tribe > 0 AND v.tribe != u.tribe");
+        if ($qMismatched) {
+            while ($mRow = mysqli_fetch_assoc($qMismatched)) {
+                $eId = (int)$mRow['id'];
+                $vT = (int)$mRow['v_tribe'];
+                $uT = (int)$mRow['u_tribe'];
+                $uStart = ($uT - 1) * 10 + 1;
+                $vStart = ($vT - 1) * 10 + 1;
+                
+                $eDetailQ = @mysqli_query($db, "SELECT * FROM `" . TB_PREFIX . "enforcement` WHERE id = $eId LIMIT 1");
+                if ($eDetailQ && ($eDetail = mysqli_fetch_assoc($eDetailQ))) {
+                    $hasWrong = false;
+                    $hasTarget = false;
+                    for ($k = 0; $k < 10; $k++) {
+                        if ((int)($eDetail['u' . ($uStart + $k)] ?? 0) > 0) $hasWrong = true;
+                        if ((int)($eDetail['u' . ($vStart + $k)] ?? 0) > 0) $hasTarget = true;
+                    }
+                    if ($hasWrong && !$hasTarget) {
+                        $setClauses = [];
+                        for ($k = 0; $k < 10; $k++) {
+                            $cnt = (int)($eDetail['u' . ($uStart + $k)] ?? 0);
+                            $setClauses[] = "`u" . ($vStart + $k) . "` = " . $cnt;
+                            $setClauses[] = "`u" . ($uStart + $k) . "` = 0";
+                        }
+                        @mysqli_query($db, "UPDATE `" . TB_PREFIX . "enforcement` SET " . implode(', ', $setClauses) . " WHERE id = $eId");
+                    }
+                }
+            }
+        }
+
         // 2. Pulihkan ke desa asal pengirim jika hero saat ini sedang menjadi bantuan di Benteng Kuno
         @mysqli_query($db, "UPDATE `" . TB_PREFIX . "hero` h
             INNER JOIN `" . TB_PREFIX . "enforcement` e ON e.vref = " . self::BASTION_WREF . " AND e.hero > 0
@@ -792,7 +828,8 @@ class Bastion {
             return;
         }
 
-        $owntribe = (int)$database->getUserField($senderUid, 'tribe', 0);
+        $fromTribe = (int)$database->getVillageField($fromWref, 'tribe');
+        $owntribe = ($fromTribe > 0) ? $fromTribe : (int)$database->getUserField($senderUid, 'tribe', 0);
         if ($owntribe <= 0) $owntribe = 1;
 
         $survivors = [];
@@ -904,6 +941,10 @@ class Bastion {
         $toWref = self::BASTION_WREF;
         $fromWref = (int)($from['wref'] ?? ($data['from'] ?? 0));
         $senderUid = (int)($from['owner'] ?? 0);
+        $fromTribe = (int)$database->getVillageField($fromWref, 'tribe');
+        if ($fromTribe > 0) {
+            $owntribe = $fromTribe;
+        }
 
         // 1. Masukkan atau gabungkan pasukan ke tabel enforcement
         $check = $database->getEnforce($toWref, $fromWref);
@@ -976,7 +1017,8 @@ class Bastion {
             }
 
             $ownerUid = (int)$fromVillage['owner'];
-            $owntribe = $database ? (int)$database->getUserField($ownerUid, 'tribe', 0) : 1;
+            $fromTribe = $database ? (int)$database->getVillageField($fromWref, 'tribe') : 0;
+            $owntribe = ($fromTribe > 0) ? $fromTribe : ($database ? (int)$database->getUserField($ownerUid, 'tribe', 0) : 1);
             if ($owntribe <= 0) $owntribe = 1;
 
             $t = array_fill(1, 10, 0);
@@ -1717,7 +1759,8 @@ class Bastion {
                         }
                     }
 
-                    $userTribe = $database ? (int)$database->getUserField($ownerUid, 'tribe', 0) : 0;
+                    $fromTribe = $database ? (int)$database->getVillageField($fromWref, 'tribe') : 0;
+                    $userTribe = ($fromTribe > 0) ? $fromTribe : ($database ? (int)$database->getUserField($ownerUid, 'tribe', 0) : 0);
                     if ($userTribe <= 0) {
                         foreach ($uList as $uid => $cnt) {
                             $userTribe = (int)ceil($uid / 10);

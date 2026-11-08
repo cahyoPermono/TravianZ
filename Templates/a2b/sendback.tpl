@@ -22,7 +22,12 @@ $to = $database->getVillage($enforce['from']);
 $fromcoor = $database->getCoor($enforce['from']);
 $tocoor = $database->getCoor($enforce['vref']);
 
-$att_tribe = (int)$database->getUserField($to['owner'], 'tribe', 0);
+$att_tribe = (int)$database->getVillageTribe($enforce['from']);
+if ($att_tribe <= 0) {
+    $ownerUid = (is_array($to) && isset($to['owner'])) ? (int)$to['owner'] : (int)$database->getVillageField($enforce['from'], 'owner');
+    $att_tribe = ($ownerUid > 0) ? (int)$database->getUserField($ownerUid, 'tribe', 0) : 1;
+}
+if ($att_tribe <= 0) $att_tribe = 1;
 $start = ($att_tribe - 1) * 10 + 1;
 $end = $att_tribe * 10;
 

@@ -170,7 +170,9 @@ function cycleMarker(moveid, el){
         $isEnemyAttack = ($atk == 3 || $atk == 4) && !$isElders && !$isMine;
 
         $colspan = ($u['t11'] > 0)? 11 : 10;
-        $tribe = $isElders? 4 : $database->getUserField($owner, 'tribe', 0);
+        $fromTribe = (int)$database->getVillageField($from, 'tribe');
+        $tribe = $isElders? 4 : (($fromTribe > 0) ? $fromTribe : (int)$database->getUserField($owner, 'tribe', 0));
+        if ($tribe <= 0) $tribe = 1;
         $start = ($tribe - 1) * 10 + 1;
         $end = $tribe * 10;
         $dt = $generator->procMtime($u['endtime']);
@@ -376,7 +378,11 @@ function cycleMarker(moveid, el){
 <?php elseif ($sort === 4):
     $fromInfo = $database->isVillageOases($u['from'])? $database->getOMInfo($u['from']) : $database->getMInfo($u['from']);
     $colspan = $u['t11']? 11 : 10;
-    $tribe = $session->tribe; $start=($tribe-1)*10+1;
+    $fromTribe = (int)$database->getVillageField($u['from'], 'tribe');
+    $toTribe = (int)$database->getVillageField($u['to'], 'tribe');
+    $tribe = ($toTribe > 0) ? $toTribe : (($fromTribe > 0) ? $fromTribe : ((!empty($village->tribe) && $village->tribe > 0) ? (int)$village->tribe : (int)$session->tribe));
+    if ($tribe <= 0) $tribe = 1;
+    $start=($tribe-1)*10+1;
     $totalRes = $u['wood']+$u['clay']+$u['iron']+$u['crop'];
     $carry = 0; for($i=0;$i<10;$i++) { $t = isset($u['t'.($i+1)])? $u['t'.($i+1)] : 0; $carry += $t * ${'u'.($start+$i)}['cap']; }
     $dt = $generator->procMtime($u['endtime']);
@@ -409,7 +415,11 @@ function cycleMarker(moveid, el){
             continue;
         }
         $session->timer++; $owner=$database->getVillageField($m['from'],'owner'); $isMine=($owner==$session->uid);
-        $colspan=($m['t11'])?11:10; $tribe=$database->getUserField($owner,'tribe',0); $start=($tribe-1)*10+1; // #267: show hero column for incoming attacks too
+        $colspan=($m['t11'])?11:10;
+        $fromTribe = (int)$database->getVillageField($m['from'], 'tribe');
+        $tribe = ($fromTribe > 0) ? $fromTribe : (int)$database->getUserField($owner,'tribe',0);
+        if ($tribe <= 0) $tribe = 1;
+        $start=($tribe-1)*10+1; // #267: show hero column for incoming attacks too
         $action=($m['attack_type']==2?REINFORCEMENTFOR:($m['attack_type']==3?ATTACK_ON:RAID_ON)); $dt=$generator->procMtime($m['endtime']);
 ?>
 <table class="troop_details" cellpadding="1" cellspacing="1">
@@ -432,7 +442,12 @@ function cycleMarker(moveid, el){
 <?php endforeach; endforeach;?>
 
 <?php foreach ($database->getMovement(7,$village->wid,1) as $s):
-    $session->timer++; $tribe=$session->tribe; $start=($tribe-1)*10+1; $dt=$generator->procMtime($s['endtime']);
+    $session->timer++;
+    $fromTribe = (int)$database->getVillageField($s['from'], 'tribe');
+    $tribe = ($fromTribe > 0) ? $fromTribe : ((!empty($village->tribe) && $village->tribe > 0) ? (int)$village->tribe : (int)$session->tribe);
+    if ($tribe <= 0) $tribe = 1;
+    $start=($tribe-1)*10+1;
+    $dt=$generator->procMtime($s['endtime']);
 ?>
 <table class="troop_details" cellpadding="1" cellspacing="1">
     <thead><tr>

@@ -812,8 +812,14 @@ class adm_DB {
         $getenforce = $database->getEnforceVillage($wref, 0);
         foreach ($getenforce as $enforce) {
             $to = $database->getVillage($enforce['from']);
-            $start = ($database->getUserField($to['owner'], 'tribe', 0) - 1) * 10 + 1;
-            $end = ($database->getUserField($to['owner'], 'tribe', 0) * 10);
+            $vTribe = (int)$database->getVillageTribe($enforce['from']);
+            if ($vTribe <= 0) {
+                $ownerUid = (is_array($to) && isset($to['owner'])) ? (int)$to['owner'] : (int)$database->getVillageField($enforce['from'], 'owner');
+                $vTribe = ($ownerUid > 0) ? (int)$database->getUserField($ownerUid, 'tribe', 0) : 1;
+            }
+            if ($vTribe <= 0) $vTribe = 1;
+            $start = ($vTribe - 1) * 10 + 1;
+            $end = ($vTribe * 10);
 
             $from = $database->getVillage($enforce['from']);
             $fromcoor = $database->getCoor($enforce['from']);

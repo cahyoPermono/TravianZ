@@ -21,6 +21,11 @@
 
 use App\Utils\Math;
 
+/**
+ * Trait DatabaseVillageQueries
+ * @method mixed getVillageField($ref, $field, $use_cache = true)
+ * @method mixed getUserField($ref, $field, $mode, $use_cache = true)
+ */
 trait DatabaseVillageQueries {
 
 	
@@ -443,7 +448,35 @@ trait DatabaseVillageQueries {
 
     function isVillageOases($wref, $use_cache = true) {
         // retirieve form cache
-        return $this->getVillageByWorldID($wref, $use_cache)['oasistype'];
+        $v = $this->getVillageByWorldID($wref, $use_cache);
+        return isset($v['oasistype']) ? $v['oasistype'] : 0;
+    }
+
+    /**
+     * Get the effective tribe of a village (supports multi-tribe accounts).
+     * Falls back to village owner tribe if village tribe is not set.
+     *
+     * @param int $wref World reference / village ID
+     * @return int Tribe ID (1..10)
+     */
+    public function getVillageTribe($wref) {
+        $wref = (int)$wref;
+        if ($wref <= 0) return 0;
+        if ($this->isVillageOases($wref)) {
+            return 4; // Nature
+        }
+        $tribe = (int)$this->getVillageField($wref, 'tribe');
+        if ($tribe > 0) {
+            return $tribe;
+        }
+        $owner = (int)$this->getVillageField($wref, 'owner');
+        if ($owner > 0) {
+            $userTribe = (int)$this->getUserField($owner, 'tribe', 0);
+            if ($userTribe > 0) {
+                return $userTribe;
+            }
+        }
+        return 1;
     }
 
 	public function VillageOasisCount($vref, $use_cache = true) {

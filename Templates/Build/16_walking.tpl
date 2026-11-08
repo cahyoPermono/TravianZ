@@ -68,7 +68,9 @@ if (defined('NEW_FUNCTIONS_HERO_T4') && NEW_FUNCTIONS_HERO_T4) {
 
     $to = $database->isVillageOases($m['to'])? $database->getOMInfo($m['to']) : $database->getMInfo($m['to']);
     $colspan = $m['t11']? 11 : 10;
-    $tribe = $session->tribe;
+    $fromTribe = (int)$database->getVillageField($m['from'], 'tribe');
+    $tribe = ($fromTribe > 0) ? $fromTribe : ((!empty($village->tribe) && $village->tribe > 0) ? (int)$village->tribe : (int)$session->tribe);
+    if ($tribe <= 0) $tribe = 1;
     $start = ($tribe-1)*10+1;
     $dt = $generator->procMtime($m['endtime']);
 ?>
@@ -110,7 +112,12 @@ if (defined('NEW_FUNCTIONS_HERO_T4') && NEW_FUNCTIONS_HERO_T4) {
 
 <?php $settlers = $database->getMovement(5, $village->wid, 0);
 foreach ($settlers as $s):
-    $session->timer++; $tribe=$session->tribe; $start=($tribe-1)*10+1; $dt=$generator->procMtime($s['endtime']);
+    $session->timer++;
+    $fromTribe = (int)$database->getVillageField($s['from'], 'tribe');
+    $tribe = ($fromTribe > 0) ? $fromTribe : ((!empty($village->tribe) && $village->tribe > 0) ? (int)$village->tribe : (int)$session->tribe);
+    if ($tribe <= 0) $tribe = 1;
+    $start = ($tribe-1)*10+1;
+    $dt = $generator->procMtime($s['endtime']);
 ?>
 <table class="troop_details" cellpadding="1" cellspacing="1">
     <thead><tr>
