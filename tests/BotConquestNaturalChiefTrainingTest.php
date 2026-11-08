@@ -38,6 +38,11 @@ global $database;
 // ------------------------------------------------------------------------------
 // SETUP FIXTURES
 // ------------------------------------------------------------------------------
+$origEventRes = $database->query_return("SELECT status FROM " . TB_PREFIX . "bastion_event WHERE id = 1 LIMIT 1");
+$origBastionStatus = !empty($origEventRes[0]) ? (int)$origEventRes[0]['status'] : 0;
+// Deactivate Bastion event during natural chief village conquest test
+$database->query("UPDATE " . TB_PREFIX . "bastion_event SET status = 0 WHERE id = 1");
+
 $testSuffix = substr(md5((string)microtime(true)), 0, 6);
 $botName = 'BotNatChief_' . $testSuffix;
 $botEmail = 'bot_' . $testSuffix . '@bot.travianz';
@@ -285,6 +290,7 @@ $database->query("DELETE FROM " . TB_PREFIX . "fdata WHERE vref IN ($botWid, $ta
 $database->query("DELETE FROM " . TB_PREFIX . "tdata WHERE vref IN ($botWid, $targetWid, $capWid)");
 $database->query("DELETE FROM " . TB_PREFIX . "vdata WHERE wref IN ($botWid, $targetWid, $capWid)");
 $database->query("DELETE FROM " . TB_PREFIX . "users WHERE id IN ($botUid, $humanUid)");
+$database->query("UPDATE " . TB_PREFIX . "bastion_event SET status = $origBastionStatus WHERE id = 1");
 BotAI::clearConquestOrder($botWid);
 BotAI::saveConfig(['BOT_AI_NIGHT_SLEEP_ENABLED' => true]);
 echo "CLEANUP COMPLETE" . PHP_EOL;

@@ -1019,11 +1019,12 @@ class BotAI {
         $maxTroops = max($homeReserve + 20, min($adminMaxArmy, $maxTroops));
 
         // Mode Mobilisasi Perang Benteng Kuno (Bastion War Mobilization):
-        // Jika aliansi bot sedang bersiap merebut Benteng Kuno, tingkatkan batas pasukan desa
+        // Jika bot sedang bersiap merebut atau mempertahankan Benteng Kuno, tingkatkan batas pasukan desa
         // agar bot tidak mentok di batas populasi kecil (misal pop 100 mentok di 125 tentara).
         $isBastionContender = self::isBastionContestingBot($bot);
-        $bastionTarget = $isBastionContender ? self::getBastionTargetStrikeForce() : 0;
-        if ($isBastionContender && self::getConfig('BOT_AI_BASTION_WAR_MOBILIZATION', true)) {
+        $isBastionDefender = (class_exists('Bastion') && Bastion::isEventActive() && Bastion::isFriendlyWithHolder((int)($bot['uid'] ?? $bot['id'] ?? 0), (int)($bot['alliance'] ?? 0)));
+        $bastionTarget = ($isBastionContender || $isBastionDefender) ? self::getBastionTargetStrikeForce() : 0;
+        if (($isBastionContender || $isBastionDefender) && self::getConfig('BOT_AI_BASTION_WAR_MOBILIZATION', true)) {
             $bastionArmyCap = max($bastionTarget + $homeReserve + 30, (int)round($pop * 2.5));
             $maxTroops = max($maxTroops, min($adminMaxArmy, $bastionArmyCap));
         }
@@ -1082,9 +1083,9 @@ class BotAI {
             return null; // Batas pasukan wajar tercapai
         }
 
-        // Mode Pemulihan Darurat atau Mode Himpun Pasukan Benteng Kuno
+        // Mode Pemulihan Darurat atau Mode Himpun Pasukan Benteng Kuno (Ofensif / Defensif)
         $isEmergencyRecovery = ($totalArmy < $homeReserve);
-        $isAmassingBastion = ($isBastionContender && $atHomeTotal < ($bastionTarget + $homeReserve) && self::getConfig('BOT_AI_BASTION_WAR_MOBILIZATION', true));
+        $isAmassingBastion = (($isBastionContender || $isBastionDefender) && $atHomeTotal < ($bastionTarget + $homeReserve) && self::getConfig('BOT_AI_BASTION_WAR_MOBILIZATION', true));
 
         // Batas antrean pelatihan di barak/stable:
         // Semakin maju desanya, semakin banyak antrean yang diizinkan agar barak/stable aktif berproduksi secara natural
@@ -2249,6 +2250,15 @@ class BotAI {
             return null;
         }
 
+        // Ketika Event Benteng Kuno (Ancient Bastion) sedang aktif:
+        // Seluruh misi penaklukan desa pemain biasa ditunda agar bot fokus penuh pada perebutan Benteng Kuno di (0|0).
+        if (!class_exists('Bastion')) {
+            @include_once __DIR__ . '/Bastion.php';
+        }
+        if (class_exists('Bastion') && Bastion::isEventActive()) {
+            return "Benteng Kuno sedang aktif: misi penaklukan desa pemain ditunda demi fokus perebutan Benteng Kuno.";
+        }
+
         $maxVillages = (int)self::getConfig('BOT_AI_MAX_VILLAGES', 2);
         if ($maxVillages <= 1) {
             return null;
@@ -2336,10 +2346,10 @@ class BotAI {
                 }
 
                 $targetEscort = (int)($activeOrder['escort_count'] ?? 500);
-                $minSafeEscort = min(20, $targetEscort);
+                $minSafeEscort = max(40, min((int)round($targetEscort * 0.5), $targetEscort));
                 if ($homeEscort < $minSafeEscort) {
                     $chiefName = self::getUnitName($chiefUnit);
-                    return "Chief ({$chiefName}) siap di rumah; menunggu pelatihan alami pasukan pengawal ({$homeEscort}/{$targetEscort} siap) sebelum meluncurkan gelombang ke #{$tWid}";
+                    return "Chief ({$chiefName}) siap di rumah; menunggu pelatihan alami pasukan pengawal ({$homeEscort}/{$targetEscort} siap, min {$minSafeEscort} prajurit) sebelum meluncurkan gelombang ke #{$tWid}";
                 }
 
                 $targetCat = (int)($activeOrder['catapult_count'] ?? 25);
@@ -2627,7 +2637,9 @@ class BotAI {
         if (empty($unitsRow[0])) return null;
         $uRow = $unitsRow[0];
 
-        $offensiveUnits = self::getOffensiveUnits($tribe, true); // includes rams & catapults
+        // Pasukan pengawal WAJIB prajurit tempur aktif (infantri/kavaleri).
+        // Senjata pengepungan (ketapel/ram) BUKAN pengawal dan tidak dihitung dalam kuota proteksi Chief!
+        $offensiveUnits = self::getOffensiveUnits($tribe, false);
         $basicUnit = self::getTribeBasicUnit($tribe);
         $homeBasic = (int)($uRow['u' . $basicUnit] ?? 0);
         $availBasic = max(0, $homeBasic - $homeReserve);
@@ -2758,6 +2770,17 @@ class BotAI {
         // Add 1 Chief
         $dispatched[$chiefUnit] = 1;
         $dispatchedSpeeds[] = self::getUnitSpeed($chiefUnit);
+
+        // Tambahkan senjata pengepungan (Rams / Ketapel) yang tersedia di desa untuk bantuan meruntuhkan Istana/Residensi
+        $siegeUnits = self::getSiegeUnits($tribe);
+        foreach ($siegeUnits as $sUnit) {
+            $sCnt = (int)($uRow['u' . $sUnit] ?? 0);
+            if ($sCnt > 0) {
+                $takeSiege = min($sCnt, 50);
+                $dispatched[$sUnit] = $takeSiege;
+                $dispatchedSpeeds[] = self::getUnitSpeed($sUnit);
+            }
+        }
 
         // Hero participation: if bot hero is alive and stationed at home
         $sendHero = 0;
@@ -3760,7 +3783,8 @@ class BotAI {
      * @return string|null Log summary if action dispatched, or null
      */
     /**
-     * Check if the bot village belongs to an alliance that is actively competing for Benteng Kuno.
+     * Check if the bot village is actively competing to capture Benteng Kuno (not friendly with current holder).
+     * Works for both alliance bots and solo bots.
      */
     public static function isBastionContestingBot(array $bot): bool {
         if (!class_exists('Bastion')) {
@@ -3769,13 +3793,9 @@ class BotAI {
         if (!Bastion::isEventActive()) {
             return false;
         }
+        $uid = (int)($bot['uid'] ?? $bot['id'] ?? 0);
         $botAlliance = (int)($bot['alliance'] ?? 0);
-        if ($botAlliance <= 0) {
-            return false;
-        }
-        $event = Bastion::getEvent();
-        $holderAlly = (int)($event['holder_alliance'] ?? 0);
-        return ($holderAlly !== $botAlliance);
+        return !Bastion::isFriendlyWithHolder($uid, $botAlliance);
     }
 
     /**
@@ -3801,17 +3821,15 @@ class BotAI {
             }
         }
 
-        // Ambang batas dasar minimal serang (default: 250, atau sesuai config admin)
-        $baseMin = (int)self::getConfig('BOT_AI_BASTION_MIN_ATTACK_TROOPS', 250);
-        $intelRatio = (float)self::getConfig('BOT_AI_BASTION_GARRISON_FACTOR', 0.35);
+        // Ambang batas dasar minimal serang (default: 60 prajurit, atau sesuai config admin)
+        $baseMin = (int)self::getConfig('BOT_AI_BASTION_MIN_ATTACK_TROOPS', 60);
+        $intelRatio = (float)self::getConfig('BOT_AI_BASTION_GARRISON_FACTOR', 0.40);
 
-        // Jika benteng memiliki penjaga kuat (misal 500 - 1.000 pasukan), bot cerdas memperhitungkan kekuatan minimal:
-        // Bot menargetkan minimal 35% dari total garnisun benteng atau minimal $baseMin (dibatasi wajar maks 1500)
-        // Jika benteng kosong / 0 defender (misal saat baru spawn/reset), batas minimal diatur ke min($baseMin, 100)
+        // Jika benteng memiliki penjaga (misal pemain atau penjaga kuno), targetkan proporsi yang wajar:
         if ($defenderCount > 0) {
             $scaled = max($baseMin, (int)round($defenderCount * $intelRatio));
         } else {
-            $scaled = min($baseMin, 100);
+            $scaled = min($baseMin, 40);
         }
         return min(2500, $scaled);
     }
@@ -3839,12 +3857,8 @@ class BotAI {
         }
 
         $botAlliance = (int)($bot['alliance'] ?? 0);
-        if ($botAlliance <= 0) {
-            return null; // Benteng Kuno is an alliance warfare event; solo bots don't participate
-        }
-
         $wid = (int)$bot['wref'];
-        $uid = (int)$bot['uid'];
+        $uid = (int)($bot['uid'] ?? $bot['id'] ?? 0);
         $tribe = (int)$bot['tribe'];
         $pop = max(10, (int)($bot['pop'] ?? 10));
 
@@ -3901,12 +3915,14 @@ class BotAI {
 
         $event = Bastion::getEvent();
         $holderAlly = (int)($event['holder_alliance'] ?? 0);
+        $holderUid = (int)($event['holder_uid'] ?? 0);
         $previousHolderAlly = (int)($event['previous_holder_alliance'] ?? 0);
+        $isFriendlyWithHolder = Bastion::isFriendlyWithHolder($uid, $botAlliance);
 
         // =========================================================================
-        // SCENARIO 1: BOT ALLIANCE CURRENTLY OCCUPIES BENTENG KUNO -> DEFEND / REINFORCE
+        // SCENARIO 1: BOT (OR ITS ALLIANCE) CURRENTLY OCCUPIES BENTENG KUNO -> DEFEND / REINFORCE
         // =========================================================================
-        if ($botAlliance === $holderAlly) {
+        if ($isFriendlyWithHolder) {
             // Priority roles for defense
             $defensiveRoles = ($tribe === 3)
                 ? ['basic', 'inf_def', 'cav_def']
@@ -3934,17 +3950,29 @@ class BotAI {
                 return null; // Garnisun pertahanan desa wajib aman
             }
 
-            // Cap alliance reinforcement helpers: allow up to 4 simultaneous alliance reinforcement marches
-            $marchingHelpers = $database->query_return("
-                SELECT COUNT(*) as marching_cnt
-                FROM " . TB_PREFIX . "movement m
-                JOIN " . TB_PREFIX . "vdata v ON m.`from` = v.wref
-                JOIN " . TB_PREFIX . "users u ON v.owner = u.id
-                WHERE u.alliance = $botAlliance AND m.`to` = $bastionWref 
-                  AND m.sort_type = 3 AND m.proc = 0
-            ");
-            if ((int)($marchingHelpers[0]['marching_cnt'] ?? 0) >= 4) {
-                return null;
+            // Cap reinforcement helpers: allow up to 4 simultaneous alliance reinforcement marches (or 2 for solo bot)
+            if ($botAlliance > 0) {
+                $marchingHelpers = $database->query_return("
+                    SELECT COUNT(*) as marching_cnt
+                    FROM " . TB_PREFIX . "movement m
+                    JOIN " . TB_PREFIX . "vdata v ON m.`from` = v.wref
+                    JOIN " . TB_PREFIX . "users u ON v.owner = u.id
+                    WHERE u.alliance = $botAlliance AND m.`to` = $bastionWref 
+                      AND m.sort_type = 3 AND m.proc = 0
+                ");
+                if ((int)($marchingHelpers[0]['marching_cnt'] ?? 0) >= 4) {
+                    return null;
+                }
+            } else {
+                $marchingHelpers = $database->query_return("
+                    SELECT COUNT(*) as marching_cnt
+                    FROM " . TB_PREFIX . "movement m
+                    WHERE m.`from` = $wid AND m.`to` = $bastionWref 
+                      AND m.sort_type = 3 AND m.proc = 0
+                ");
+                if ((int)($marchingHelpers[0]['marching_cnt'] ?? 0) >= 2) {
+                    return null;
+                }
             }
 
             // Send substantial reinforcement party: 70% of deployable troops, capped at max 1500 units
@@ -4003,29 +4031,42 @@ class BotAI {
         }
 
         // =========================================================================
-        // SCENARIOS 2 & 3: BOT ALLIANCE DOES NOT HOLD BENTENG KUNO -> MUST ATTACK!
-        // (Sesuai aturan user: bala bantuan dilarang, harus menyerang dengan Normal Attack)
+        // SCENARIOS 2 & 3: BOT DOES NOT HOLD BENTENG KUNO -> MUST ATTACK / CAPTURE!
+        // (Sesuai aturan: bala bantuan dilarang, harus menyerang dengan Normal Attack)
         // =========================================================================
 
-        // Check if this is a COUNTER-ATTACK (Aliansi bot baru saja dikalahkan/kehilangan benteng)
-        $isCounterAttack = ($previousHolderAlly > 0 && $previousHolderAlly === $botAlliance && $holderAlly !== $botAlliance);
+        // Check if this is a COUNTER-ATTACK (Aliansi/bot baru saja dikalahkan/kehilangan benteng)
+        $isCounterAttack = ($botAlliance > 0 && $previousHolderAlly > 0 && $previousHolderAlly === $botAlliance && $holderAlly !== $botAlliance);
 
-        // 2. Alliance Pacing Cooldown: Space out attacks from same alliance to allow fierce coordinated waves
+        // 2. Pacing Cooldown: Space out attacks to allow fierce coordinated waves
         // 5 minutes between attacks for regular conquest, 2 minutes for counter-attack
         $defaultAllyCd = $isCounterAttack ? 120 : 300;
         $allyCooldown = (int)self::getConfig('BOT_AI_BASTION_ALLY_COOLDOWN', $defaultAllyCd);
         if ($allyCooldown > 0) {
-            $recentAllyAction = $database->query_return("
-                SELECT m.moveid
-                FROM " . TB_PREFIX . "movement m
-                JOIN " . TB_PREFIX . "vdata v ON m.`from` = v.wref
-                JOIN " . TB_PREFIX . "users u ON v.owner = u.id
-                WHERE u.alliance = $botAlliance AND m.`to` = $bastionWref AND m.sort_type = 3
-                  AND m.starttime >= " . (time() - $allyCooldown) . "
-                LIMIT 1
-            ");
-            if (!empty($recentAllyAction)) {
-                return null; // Aliansi bot sedang menjaga jeda serangan
+            if ($botAlliance > 0) {
+                $recentAllyAction = $database->query_return("
+                    SELECT m.moveid
+                    FROM " . TB_PREFIX . "movement m
+                    JOIN " . TB_PREFIX . "vdata v ON m.`from` = v.wref
+                    JOIN " . TB_PREFIX . "users u ON v.owner = u.id
+                    WHERE u.alliance = $botAlliance AND m.`to` = $bastionWref AND m.sort_type = 3
+                      AND m.starttime >= " . (time() - $allyCooldown) . "
+                    LIMIT 1
+                ");
+                if (!empty($recentAllyAction)) {
+                    return null; // Aliansi bot sedang menjaga jeda serangan
+                }
+            } else {
+                $recentSoloAction = $database->query_return("
+                    SELECT m.moveid
+                    FROM " . TB_PREFIX . "movement m
+                    WHERE m.`from` = $wid AND m.`to` = $bastionWref AND m.sort_type = 3
+                      AND m.starttime >= " . (time() - $allyCooldown) . "
+                    LIMIT 1
+                ");
+                if (!empty($recentSoloAction)) {
+                    return null;
+                }
             }
         }
 
@@ -4059,8 +4100,8 @@ class BotAI {
 
         // 2. Ambang batas target ekspedisi serang (Kumpulin Pasukan Dulu, cegah serangan geli-geli)
         $targetMinArmy = self::getBastionTargetStrikeForce($bastionWref);
-        $minPop = (int)self::getConfig('BOT_AI_BASTION_MIN_POP', 80);
-        $minTotalArmy = $isCounterAttack ? max(100, (int)round($targetMinArmy * 0.80)) : $targetMinArmy;
+        $minPop = (int)self::getConfig('BOT_AI_BASTION_MIN_POP', 40);
+        $minTotalArmy = $isCounterAttack ? max(50, (int)round($targetMinArmy * 0.80)) : $targetMinArmy;
         $minDeployable = (int)round($minTotalArmy * 0.80);
 
         if ($pop < $minPop || $totalCombatAvailable < $minTotalArmy || $deployableCombat < $minDeployable) {
@@ -4068,17 +4109,19 @@ class BotAI {
         }
 
         // Coordination limiter: allow up to 3 simultaneous attacks en route per alliance (up to 4 if counter-attack)
-        $activeAllyAttacks = $database->query_return("
-            SELECT COUNT(m.moveid) as ally_atks
-            FROM " . TB_PREFIX . "movement m
-            JOIN " . TB_PREFIX . "vdata v ON m.`from` = v.wref
-            JOIN " . TB_PREFIX . "users u ON v.owner = u.id
-            WHERE u.alliance = $botAlliance AND m.`to` = $bastionWref 
-              AND m.sort_type = 3 AND m.proc = 0
-        ");
-        $maxConcurrent = $isCounterAttack ? 4 : 3;
-        if ((int)($activeAllyAttacks[0]['ally_atks'] ?? 0) >= $maxConcurrent) {
-            return null;
+        if ($botAlliance > 0) {
+            $activeAllyAttacks = $database->query_return("
+                SELECT COUNT(m.moveid) as ally_atks
+                FROM " . TB_PREFIX . "movement m
+                JOIN " . TB_PREFIX . "vdata v ON m.`from` = v.wref
+                JOIN " . TB_PREFIX . "users u ON v.owner = u.id
+                WHERE u.alliance = $botAlliance AND m.`to` = $bastionWref 
+                  AND m.sort_type = 3 AND m.proc = 0
+            ");
+            $maxConcurrent = $isCounterAttack ? 4 : 3;
+            if ((int)($activeAllyAttacks[0]['ally_atks'] ?? 0) >= $maxConcurrent) {
+                return null;
+            }
         }
 
         // Tactical pacing roll: default 75% (aggressive focus on Benteng Kuno)
@@ -4199,6 +4242,15 @@ class BotAI {
     public static function processScout(array $bot): ?string {
         if (self::isNightTime()) {
             return null; // No night scouting
+        }
+
+        // Ketika Event Benteng Kuno (Ancient Bastion) sedang aktif:
+        // Misi pengintaian ke desa pemain ditangguhkan agar tidak mendistraksi pertahanan bot.
+        if (!class_exists('Bastion')) {
+            @include_once __DIR__ . '/Bastion.php';
+        }
+        if (class_exists('Bastion') && Bastion::isEventActive()) {
+            return "Benteng Kuno sedang aktif: pengintaian desa pemain ditunda.";
         }
 
         if (self::getConfig('BOT_AI_SCOUT_ENABLED', true) === false) {
@@ -4426,6 +4478,16 @@ class BotAI {
         // between 20:00 (8:00 PM) and 08:00 (8:00 AM) server time so troops can safely regenerate.
         if (self::isNightTime()) {
             return null;
+        }
+
+        // Ketika Event Benteng Kuno (Ancient Bastion) sedang aktif:
+        // Seluruh serangan rutin dan balas dendam ke pemain DITANGGUHKAN 100%!
+        // Seluruh kekuatan militer bot dipusatkan penuh untuk merebut dan mempertahankan Benteng Kuno di (0|0).
+        if (!class_exists('Bastion')) {
+            @include_once __DIR__ . '/Bastion.php';
+        }
+        if (class_exists('Bastion') && Bastion::isEventActive()) {
+            return "Benteng Kuno sedang aktif: serangan ke pemain ditangguhkan, seluruh fokus militer dipusatkan untuk perang di (0|0).";
         }
 
         global $database;
@@ -6174,8 +6236,9 @@ class BotAI {
             }
         }
 
-        // Jika pasukan pengawal kurang dari batas minimal aman (20 unit), tunda keberangkatan agar Chief tidak mati sia-sia
-        if ($assignedEscort < min(20, $escortCount)) {
+        // Jika pasukan pengawal kurang dari batas minimal aman, tunda keberangkatan agar Chief tidak mati sia-sia
+        $minSafeEscort = max(40, min((int)round($escortCount * 0.5), $escortCount));
+        if ($assignedEscort < $minSafeEscort) {
             self::setConquestOrder($bWid, [
                 'bot_wid' => $bWid,
                 'bot_uid' => $bUid,
@@ -6195,8 +6258,8 @@ class BotAI {
             return [
                 'status' => 'success',
                 'message' => "🎯 <b>Misi Penaklukan (Target Lock) Diaktifkan!</b><br><br>"
-                    . "Bot <b>{$bot['username']}</b> telah memiliki {$chiefName} di rumah, namun pasukan pengawal masih dalam persiapan ({$assignedEscort}/{$escortCount} pengawal siap).<br><br>"
-                    . "• <b>Keamanan Chief:</b> Ekspedisi ditunda sementara agar Chief tidak terbunuh sia-sia tanpa pengawalan (minimal butuh 20 pengawal).<br>"
+                    . "Bot <b>{$bot['username']}</b> telah memiliki {$chiefName} di rumah, namun pasukan pengawal masih dalam persiapan ({$assignedEscort}/{$escortCount} pengawal siap, butuh min {$minSafeEscort}).<br><br>"
+                    . "• <b>Keamanan Chief:</b> Ekspedisi ditunda sementara agar Chief tidak terbunuh sia-sia tanpa pengawalan memadai.<br>"
                     . "• <b>Prioritas Sumber Daya Aktif:</b> Bot mengutamakan sumber daya untuk menyelesaikan pelatihan pengawal di Barak.<br>"
                     . "• <b>Pemberangkatan Otomatis:</b> Gelombang penaklukan pertama akan otomatis diluncurkan segera setelah pengawal minimal siap di rumah!",
                 'details' => [
