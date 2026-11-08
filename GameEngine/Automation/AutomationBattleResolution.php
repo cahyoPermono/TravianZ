@@ -741,6 +741,9 @@ trait AutomationBattleResolution {
         // 2. Conquering a player village: keeps its original village tribe and tribe-specific buildings.
         $isNatarConquest = ($targettribe == 5 || (int)($to['owner'] ?? 0) == 3);
         $conqueredVillageTribe = $isNatarConquest ? $chiefOriginTribe : ($targetVillageTribe > 0 ? $targetVillageTribe : $targettribe);
+        if ($conqueredVillageTribe <= 0) {
+            $conqueredVillageTribe = ($chiefOriginTribe > 0) ? $chiefOriginTribe : 1;
+        }
 
         $database->setVillageFields($data['to'], ['loyalty', 'owner', 'tribe'], [0, $database->getVillageField($data['from'], 'owner'), $conqueredVillageTribe]);
 		
@@ -769,6 +772,12 @@ trait AutomationBattleResolution {
 
         $database->query("DELETE FROM " . TB_PREFIX . "enforcement WHERE `from` = " . (int)$data['to']);
         $database->query("DELETE FROM " . TB_PREFIX . "route where wid = " . (int)$data['to'] . " OR `from` = " . (int)$data['to']);
+
+        // Bersihkan antrian lama dari pemilik sebelumnya agar desa dapat berfungsi normal bagi pemilik baru
+        $database->query("DELETE FROM " . TB_PREFIX . "training WHERE vref = " . (int)$data['to']);
+        $database->query("DELETE FROM " . TB_PREFIX . "bdata WHERE wid = " . (int)$data['to']);
+        $database->query("DELETE FROM " . TB_PREFIX . "research WHERE vref = " . (int)$data['to']);
+        $database->query("DELETE FROM " . TB_PREFIX . "demolition WHERE vref = " . (int)$data['to']);
 
         $units2reset = [];
         for ($u = 1; $u <= 100; $u++) $units2reset[] = 'u' . $u . ' = 0';

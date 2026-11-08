@@ -23,7 +23,7 @@ global $session, $technology, $village, $generator, $database, $building, $bid49
 
 $success = 0;
 global $unitsbytype;
-$tribe = (int)($village->tribe ?? $session->tribe ?? 1);
+$tribe = (!empty($village->tribe) && $village->tribe > 0) ? (int)$village->tribe : ((!empty($session->tribe) && $session->tribe > 0) ? (int)$session->tribe : 1);
 $start = ($tribe - 1) * 10 + 7;
 $end = $start + 1; // ram + catapult
 

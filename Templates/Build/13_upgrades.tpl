@@ -25,7 +25,7 @@ $totalUps = count($ABups);
 $armouryLevel = $building->getTypeLevel(13);
 $arAttri = $bid13[$armouryLevel]['attri'] / 100;
 
-$effectiveTribe = (int)($village->tribe ?? $session->tribe ?? 1);
+$effectiveTribe = (!empty($village->tribe) && $village->tribe > 0) ? (int)$village->tribe : ((!empty($session->tribe) && $session->tribe > 0) ? (int)$session->tribe : 1);
 $start = $effectiveTribe * 10 - 9;
 $end = $effectiveTribe * 10 - 2;
 ?>

@@ -267,9 +267,14 @@ class Technology {
 		$unitStr = "u" . $unit;
 		global $village, $$unitStr, $database, $session, $building, $u99_trap, $u99_nusantara;
 		
-		$effectiveTribe = (int)($village->tribe ?? $session->tribe ?? 0);
+		$effectiveTribe = (!empty($village->tribe) && $village->tribe > 0) ? (int)$village->tribe : ((!empty($session->tribe) && $session->tribe > 0) ? (int)$session->tribe : 1);
 		$isTrap = ($unit == 99 || $unitStr == "u99") && ($effectiveTribe == 3 || (isset($building) && $building->getTypeLevel(36) > 0));
-		$unitarray = ($unit == 99 || $unitStr == "u99") ? ($isTrap ? ($u99_trap ?? $$unitStr) : ($u99_nusantara ?? $$unitStr)) : $$unitStr;
+		if (!isset($GLOBALS[$unitStr]) || !is_array($GLOBALS[$unitStr])) {
+			@include_once __DIR__ . '/Data/unitdata.php';
+		}
+		$rawUnit = $GLOBALS[$unitStr] ?? ($$unitStr ?? null);
+		$unitarray = ($unit == 99 || $unitStr == "u99") ? ($isTrap ? ($u99_trap ?? $rawUnit) : ($u99_nusantara ?? $rawUnit)) : $rawUnit;
+		if (!is_array($unitarray)) return 0;
 		$res = $database->getVillage($village->wid, 0, false);
 		if($res['wood'] > $res['maxstore']) $res['wood'] = $res['maxstore'];
 		if($res['clay'] > $res['maxstore']) $res['clay'] = $res['maxstore'];
@@ -293,9 +298,14 @@ class Technology {
 		$unitStr = "u" . $unit;	
 		global $village, $$unitStr, $database, $session, $building, $u99_trap, $u99_nusantara;
 		
-		$effectiveTribe = (int)($village->tribe ?? $session->tribe ?? 0);
+		$effectiveTribe = (!empty($village->tribe) && $village->tribe > 0) ? (int)$village->tribe : ((!empty($session->tribe) && $session->tribe > 0) ? (int)$session->tribe : 1);
 		$isTrap = ($unit == 99 || $unitStr == "u99") && ($effectiveTribe == 3 || (isset($building) && $building->getTypeLevel(36) > 0));
-		$unitarray = ($unit == 99 || $unitStr == "u99") ? ($isTrap ? ($u99_trap ?? $$unitStr) : ($u99_nusantara ?? $$unitStr)) : $$unitStr;
+		if (!isset($GLOBALS[$unitStr]) || !is_array($GLOBALS[$unitStr])) {
+			@include_once __DIR__ . '/Data/unitdata.php';
+		}
+		$rawUnit = $GLOBALS[$unitStr] ?? ($$unitStr ?? null);
+		$unitarray = ($unit == 99 || $unitStr == "u99") ? ($isTrap ? ($u99_trap ?? $rawUnit) : ($u99_nusantara ?? $rawUnit)) : $rawUnit;
+		if (!is_array($unitarray)) return 0;
 		$res = $database->getVillage($village->wid);
 		$totalres = $res['wood'] + $res['clay'] + $res['iron'] + $res['crop'];
 		$totalresunit = ($unitarray['wood'] * ($great ? 3 : 1)) + ($unitarray['clay'] * ($great ? 3 : 1)) + ($unitarray['iron'] * ($great ? 3 : 1)) + ($unitarray['crop'] * ($great ? 3 : 1));
@@ -502,12 +512,22 @@ class Technology {
 	}
 
 	public function getTech($tech) {
-		global $village;
-		return (isset($village->techarray['t'.$tech]) && $village->techarray['t'.$tech] == 1);
+		global $village, $database;
+		if (isset($village->techarray['t'.$tech])) {
+			return ($village->techarray['t'.$tech] == 1);
+		}
+		if (!empty($village->wid) && isset($database) && method_exists($database, 'getTech')) {
+			$tRow = $database->getTech($village->wid);
+			if (is_array($tRow)) {
+				$village->techarray = $tRow;
+				return !empty($tRow['t'.$tech]);
+			}
+		}
+		return false;
 	}
 
 	private function procTrain($post, $great = false) {
-		global $session;
+		global $session, $village, $building, $database;
 			
 		// first of all, check if we're not trying to train chieftain
 		// and settlers together - which we cannot, since that can result
@@ -527,7 +547,7 @@ class Technology {
 		        (!empty($post['t99']) && !empty($post['t100']))
 		        )
 		    ) {
-		        $trainTribe = (int)($village->tribe ?? $session->tribe ?? 1);
+		        $trainTribe = (!empty($village->tribe) && $village->tribe > 0) ? (int)$village->tribe : ((!empty($session->tribe) && $session->tribe > 0) ? (int)$session->tribe : 1);
 		        $start = ($trainTribe - 1) * 10 + 1;
 		        $end   = ($trainTribe * 10);
 		        for ($i = $start; $i <= $end; $i ++ ) {
@@ -535,6 +555,19 @@ class Technology {
 		                $amt = intval($post['t'.$i]);
 		                if ($amt < 0) $amt = 1;
 		                $this->trainUnit($i, $amt, $great);
+		            }
+		        }
+
+		        // Defensively inspect any other posted tX keys (e.g. cross-tribe or special inputs)
+		        foreach ($post as $key => $val) {
+		            if (preg_match('/^t(\d+)$/', $key, $matches)) {
+		                $u = (int)$matches[1];
+		                if ($u >= 1 && $u <= 100 && ($u < $start || $u > $end) && $u != 99) {
+		                    $amt = intval($val);
+		                    if ($amt > 0) {
+		                        $this->trainUnit($u, $amt, $great);
+		                    }
+		                }
 		            }
 		        }
 		        
@@ -547,8 +580,10 @@ class Technology {
 		            }
 		        }
 		        
-		        header( "Location: build.php?id=" . $post['id'] );
-		        exit;
+		        if (!defined('TESTING_MODE')) {
+		            header( "Location: build.php?id=" . $post['id'] );
+		            exit;
+		        }
 		    }
 	}
 
@@ -620,15 +655,31 @@ class Technology {
 		
 		if (!$database->getTrainingLock($village->wid)) return;
 		try {
-		$effectiveTribe = (int)($village->tribe ?? $session->tribe ?? 1);
+		$effectiveTribe = (!empty($village->tribe) && $village->tribe > 0) ? (int)$village->tribe : ((!empty($session->tribe) && $session->tribe > 0) ? (int)$session->tribe : 1);
+		$unitTribe = (int) ceil($unit / 10);
 		$isTrap = ($unit == 99 && ($effectiveTribe == 3 || (isset($building) && $building->getTypeLevel(36) > 0)));
-		if($this->getTech($unit) || $unit % 10 <= 1 || $isTrap) {
+
+		// Defensively verify unit belongs to this village's tribe (unless it is a trap)
+		if (!$isTrap && $unitTribe !== $effectiveTribe) {
+			return;
+		}
+
+		$isBaseUnit = ($unit % 10 <= 1);
+		if($this->getTech($unit) || $isBaseUnit || $isTrap) {
 			if(!$this->checkTrainingBuilding($unit)) return;
 			
 			$each = $this->getTrainingTime($unit, $great);
 			$amt = $this->getMaxTrainable($unit, $amt, $great);
+			if ($amt <= 0) return;
 			
-			$unitData = ($unit == 99) ? ($isTrap ? ($u99_trap ?? ${'u'.$unit}) : ($u99_nusantara ?? ${'u'.$unit})) : ${'u'.$unit};
+			$unitStr = 'u' . $unit;
+			if (!isset($GLOBALS[$unitStr]) || !is_array($GLOBALS[$unitStr])) {
+				@include_once __DIR__ . '/Data/unitdata.php';
+			}
+			$rawUnit = $GLOBALS[$unitStr] ?? (${'u'.$unit} ?? null);
+			$unitData = ($unit == 99) ? ($isTrap ? ($u99_trap ?? $rawUnit) : ($u99_nusantara ?? $rawUnit)) : $rawUnit;
+			if (!is_array($unitData)) return;
+
 			$wood = $unitData['wood'] * $amt * ($great ? 3 : 1);
 			$clay = $unitData['clay'] * $amt * ($great ? 3 : 1);
 			$iron = $unitData['iron'] * $amt * ($great ? 3 : 1);

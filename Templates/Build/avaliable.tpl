@@ -67,7 +67,7 @@ $makeshiftwall = $building->getTypeLevel(43);
 $commandcenter = $building->getTypeLevel(44);
 // FIX (confirmat): Hunii au Command Center in loc de Palace - echivalentul
 // folosit de cerinta Stonemason (Palace >= 3, respectiv CC >= 3 la tribul 6)
-$vTribe = (int)($village->tribe ?? $session->tribe ?? 1);
+$vTribe = (!empty($village->tribe) && $village->tribe > 0) ? (int)$village->tribe : ((!empty($session->tribe) && $session->tribe > 0) ? (int)$session->tribe : 1);
 $palaceEquiv = ($vTribe == 6 ? $commandcenter : $palace);
 $waterworks = $building->getTypeLevel(45);
 $hospital = $building->getTypeLevel(46);

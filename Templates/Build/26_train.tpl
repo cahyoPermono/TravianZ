@@ -39,7 +39,7 @@ if ($totalSlots > 0): ?>
         </thead>
         <tbody>
         <?php
-        $trainTribe = (int)($village->tribe ?? $session->tribe ?? 1);
+        $trainTribe = (!empty($village->tribe) && $village->tribe > 0) ? (int)$village->tribe : ((!empty($session->tribe) && $session->tribe > 0) ? (int)$session->tribe : 1);
         $start = ($trainTribe - 1) * 10 + 9;
         $end = $trainTribe * 10;
         

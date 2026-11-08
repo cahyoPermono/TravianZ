@@ -45,7 +45,7 @@ $trainlist = $technology->getTrainingList(3);
                 <tbody>
                 <?php
                 $success = 0;
-                $tribe = (int)($village->tribe ?? $session->tribe ?? 1);
+                $tribe = (!empty($village->tribe) && $village->tribe > 0) ? (int)$village->tribe : ((!empty($session->tribe) && $session->tribe > 0) ? (int)$session->tribe : 1);
                 if ($tribe!== 4) {
                     global $unitsbytype;
                     // unitatile de asediu ale tribului (generic: acopera si triburile 6-9)
