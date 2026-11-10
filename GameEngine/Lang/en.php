@@ -1413,6 +1413,7 @@ tz_def('BIGHOSPITAL', 'Big Hospital');
 tz_def('BIGHOSPITAL_DESC', 'The Big Hospital is a larger version of the Hospital, allowing even more of your wounded troops to be healed after battle. Higher levels reduce the healing time.<br>Tribe-specific: Spartans and Vikings only');
 tz_def('BARRICADE', 'Barricade');
 tz_def('PARANORMAL_SANCTUARY', 'Sanggar Paranormal');
+tz_def('HOSPITAL_CAPACITY', 'Hospital capacity');
 tz_def('HEALING_TIME_NOW', 'Healing time now');
 tz_def('WOUNDED_TROOPS', 'Wounded troops');
 tz_def('NO_WOUNDED', 'There are no wounded troops in the hospital.');

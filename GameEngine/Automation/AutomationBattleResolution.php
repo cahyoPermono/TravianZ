@@ -1600,6 +1600,20 @@ trait AutomationBattleResolution {
 
             $wrong = $hasSurvivors;
 
+            // Spital intariri: mortii din intariri devin raniti in satul de origine (daca are spital)
+            $enforceFrom = (int)($enforce['from'] ?? 0);
+            if ($tribe >= 1 && $tribe <= 10 && $enforceFrom > 0 && !empty($dead)) {
+                $woundedReinf = [];
+                for ($wi = $start; $wi <= $start + 7; $wi++) {
+                    if (!empty($dead[$wi])) {
+                        $woundedReinf[$wi] = $dead[$wi];
+                    }
+                }
+                if (!empty($woundedReinf)) {
+                    $this->applyHospitalWounded($enforceFrom, $woundedReinf);
+                }
+            }
+
             // modify enforce in DB
             foreach ($enforceModificationsById as $enforceId => $enforceArray) {
                 $database->modifyEnforce($enforceId, $enforceArray['units'], $enforceArray['amounts'], $enforceArray['modes']);
@@ -2750,7 +2764,8 @@ trait AutomationBattleResolution {
             for($wj = 1; $wj <= 8; $wj++) {
                 if(!empty($dead[$wj])) $woundedAtt[($owntribe - 1) * 10 + $wj] = $dead[$wj];
             }
-            if(!empty($woundedAtt)) $this->applyHospitalWounded($from['wref'], $woundedAtt);
+            $homeVid = !empty($from['wref']) ? (int)$from['wref'] : (int)($data['from'] ?? 0);
+            if(!empty($woundedAtt) && $homeVid > 0) $this->applyHospitalWounded($homeVid, $woundedAtt);
         }
 
                     // If the dead units not equal the ammount sent they will return and report

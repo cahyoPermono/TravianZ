@@ -30,6 +30,9 @@ trait AutomationTraining {
     private function applyHospitalWounded($vref, array $deadByUnit) {
         global $database;
 
+        $vref = (int)$vref;
+        if($vref <= 0) return;
+
         $hospital = $database->getFieldLevelInVillage($vref, '46');
         $bighospital = $database->getFieldLevelInVillage($vref, '48');
         if($hospital <= 0 && $bighospital <= 0) return;
@@ -47,11 +50,12 @@ trait AutomationTraining {
 
         $units = []; $amounts = [];
         foreach($deadByUnit as $i => $deadAmt) {
-            if(empty($deadAmt)) continue;
-            $wounded = (int)floor($deadAmt * $share);
+            $deadAmt = (int)$deadAmt;
+            if($deadAmt <= 0) continue;
+            $wounded = (int)round($deadAmt * $share);
             if($wounded <= 0) continue;
             if($wounded > $free) $wounded = $free;
-            $units[] = $i;
+            $units[] = (int)$i;
             $amounts[] = $wounded;
             $free -= $wounded;
             if($free <= 0) break;

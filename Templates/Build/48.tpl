@@ -25,6 +25,21 @@ include("next.tpl");
 
 $level = (int)$village->resarray['f'.$id];
 $current = $level > 0 ? (int)round($bid48[$level]['attri'] * 100) : 100;
+$capacity = $level * 60;
+
+// ==================== RANITI + VINDECARE ====================
+$woundedRows = $database->getWounded($village->wid);
+$healingRows = $database->getHealing($village->wid);
+$hasWounded = false;
+$storedWounded = 0;
+if (!empty($woundedRows)) {
+    for ($wi = 1; $wi <= 100; $wi++) {
+        if (!empty($woundedRows['u'.$wi])) {
+            $hasWounded = true;
+            $storedWounded += (int)$woundedRows['u'.$wi];
+        }
+    }
+}
 ?>
 <div id="build" class="gid48">
     <a href="#" onClick="return Popup(48,4);" class="build_logo">
@@ -34,6 +49,10 @@ $current = $level > 0 ? (int)round($bid48[$level]['attri'] * 100) : 100;
     <p class="build_desc"><?php echo BIGHOSPITAL_DESC;?></p>
 
     <table cellpadding="1" cellspacing="1" id="build_value">
+        <tr>
+            <th><?php echo defined('HOSPITAL_CAPACITY') ? HOSPITAL_CAPACITY : 'Hospital capacity';?>:</th>
+            <td><b><?php echo $storedWounded;?></b> / <?php echo $capacity;?></td>
+        </tr>
         <tr>
             <th><?php echo HEALING_TIME_NOW;?></th>
             <td><b><?php echo $current;?></b> <?php echo PERCENT;?></td>
@@ -50,18 +69,6 @@ $current = $level > 0 ? (int)round($bid48[$level]['attri'] * 100) : 100;
         <?php endif;?>
     </table>
 
-
-    <?php
-    // ==================== RANITI + VINDECARE ====================
-    $woundedRows = $database->getWounded($village->wid);
-    $healingRows = $database->getHealing($village->wid);
-    $hasWounded = false;
-    if (!empty($woundedRows)) {
-        for ($wi = 1; $wi <= 100; $wi++) {
-            if (!empty($woundedRows['u'.$wi])) { $hasWounded = true; break; }
-        }
-    }
-    ?>
     <h4 class="hosp"><?php echo WOUNDED_TROOPS; ?></h4>
     <?php if ($hasWounded && $level > 0): ?>
     <form method="post" action="build.php?id=<?php echo (int)$id; ?>">
