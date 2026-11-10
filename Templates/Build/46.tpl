@@ -57,7 +57,7 @@ $current = $level > 0 ? (int)round($bid46[$level]['attri'] * 100) : 100;
     $healingRows = $database->getHealing($village->wid);
     $hasWounded = false;
     if (!empty($woundedRows)) {
-        for ($wi = 1; $wi <= 90; $wi++) {
+        for ($wi = 1; $wi <= 100; $wi++) {
             if (!empty($woundedRows['u'.$wi])) { $hasWounded = true; break; }
         }
     }
@@ -66,7 +66,7 @@ $current = $level > 0 ? (int)round($bid46[$level]['attri'] * 100) : 100;
     <?php if ($hasWounded && $level > 0): ?>
     <form method="post" action="build.php?id=<?php echo (int)$id; ?>">
     <table cellpadding="1" cellspacing="1" id="hospital_wounded">
-        <?php for ($wi = 1; $wi <= 90; $wi++): if (empty($woundedRows['u'.$wi])) continue; ?>
+        <?php for ($wi = 1; $wi <= 100; $wi++): if (empty($woundedRows['u'.$wi])) continue; ?>
         <tr>
             <td class="ico"><img class="unit u<?php echo $wi; ?>" src="img/x.gif" alt="" /></td>
             <td class="desc"><?php echo $technology->getUnitName($wi); ?></td>

@@ -113,7 +113,7 @@ class Technology {
 
 		$unit = isset($post['hunit']) ? (int)$post['hunit'] : 0;
 		$amt = isset($post['hamt'][$unit]) ? (int)$post['hamt'][$unit] : 0;
-		if($unit < 1 || $unit > 90 || $amt <= 0) return;
+		if($unit < 1 || $unit > 100 || $amt <= 0) return;
 
 		$hospital = $building->getTypeLevel(46);
 		$bighospital = $building->getTypeLevel(48);
@@ -125,6 +125,9 @@ class Technology {
 		if($available <= 0) return;
 		if($amt > $available) $amt = $available;
 
+		if(!isset($GLOBALS['u'.$unit])) {
+			@include_once __DIR__ . '/Data/unitdata.php';
+		}
 		if(!isset($GLOBALS['u'.$unit])) return;
 		$unitdata = $GLOBALS['u'.$unit];
 

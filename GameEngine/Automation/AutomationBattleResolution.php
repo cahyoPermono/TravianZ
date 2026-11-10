@@ -2745,7 +2745,7 @@ trait AutomationBattleResolution {
 
         // Spital: o parte din trupele proprii moarte IN ATAC devin ranite acasa.
         // $dead e indexat 1..11 pe sloturile tribului; doar unitatile de lupta (1-8).
-        if($owntribe >= 1 && $owntribe <= 9) {
+        if($owntribe >= 1 && $owntribe <= 10) {
             $woundedAtt = [];
             for($wj = 1; $wj <= 8; $wj++) {
                 if(!empty($dead[$wj])) $woundedAtt[($owntribe - 1) * 10 + $wj] = $dead[$wj];
