@@ -49,6 +49,10 @@ if (isset($_POST['forge_action']) && $_POST['forge_action'] === 'craft') {
 $recipes      = HeroForge::getRecipes();
 $essenceCount = HeroForge::getEssenceCount($session->uid);
 
+$heroItemsObj = new HeroItems();
+$silverCount  = $heroItemsObj->getSilver($session->uid);
+$silverOk     = ($silverCount >= HeroForge::COST_SILVER);
+
 $woodOk = ($village->awood >= HeroForge::COST_WOOD);
 $clayOk = ($village->aclay >= HeroForge::COST_CLAY);
 $ironOk = ($village->airon >= HeroForge::COST_IRON);
@@ -71,6 +75,7 @@ for ($s = 1; $s <= 6; $s++) {
 }
 ?>
 
+<link rel="stylesheet" href="css/hero_items.css?v=20261110_t4v2" type="text/css">
 <style type="text/css">
 .forge-container {
     margin-top: 8px;
@@ -268,6 +273,7 @@ for ($s = 1; $s <= 6; $s++) {
             • <b>1x Item Tier 3</b> (slot yang sama, unequipped)<br>
             • <b>2x Item Tier 2</b> (slot yang sama, unequipped)<br>
             • <b>30x World Essence</b> (diperoleh dari Bandit Camp Tier 2/3 &amp; World Boss)<br>
+            • <b>2.000 Silver</b> (saldo akun pahlawan)<br>
             • <b>100.000 Kayu, 100.000 Tanah Liat, 100.000 Besi, 80.000 Gandum</b> (dari desa saat ini)
         </div>
 
@@ -284,6 +290,10 @@ for ($s = 1; $s <= 6; $s++) {
             <div class="forge-req-card <?php echo $essenceOk ? 'ok' : 'missing'; ?>">
                 <b>💎 World Essence</b>
                 <span><?php echo number_format($essenceCount); ?> / <?php echo HeroForge::REQUIRED_ESSENCE; ?></span>
+            </div>
+            <div class="forge-req-card <?php echo $silverOk ? 'ok' : 'missing'; ?>">
+                <b>🪙 2.000 Silver</b>
+                <span><?php echo number_format($silverCount); ?> / <?php echo number_format(HeroForge::COST_SILVER); ?></span>
             </div>
             <div class="forge-req-card <?php echo $woodOk ? 'ok' : 'missing'; ?>">
                 <b>🪵 Kayu</b>
@@ -330,7 +340,7 @@ for ($s = 1; $s <= 6; $s++) {
             $t2List = $slotEligible[$slot]['tier2'];
 
             $hasEnoughSacrifices = (count($t3List) >= 1 && count($t2List) >= 2);
-            $canCraftThis = ($hasEnoughSacrifices && $essenceOk && $allResOk);
+            $canCraftThis = ($hasEnoughSacrifices && $essenceOk && $allResOk && $silverOk);
             ?>
 
             <div class="forge-item-card">
@@ -407,6 +417,9 @@ for ($s = 1; $s <= 6; $s++) {
                         }
                         if (!$essenceOk) {
                             $reasons[] = 'World Essence kurang (' . $essenceCount . '/' . HeroForge::REQUIRED_ESSENCE . ')';
+                        }
+                        if (!$silverOk) {
+                            $reasons[] = 'Silver kurang (' . number_format($silverCount) . '/' . number_format(HeroForge::COST_SILVER) . ')';
                         }
                         if (!$allResOk) {
                             $reasons[] = 'Sumber daya desa belum mencukupi (100k/100k/100k/80k)';

@@ -25,7 +25,7 @@ if (!isset($heroItemCatalog) && file_exists(__DIR__ . '/../../GameEngine/Data/he
 $recipes = class_exists('HeroForge') ? HeroForge::getRecipes() : [];
 ?>
 
-<link rel="stylesheet" href="css/hero_items.css" type="text/css">
+<link rel="stylesheet" href="css/hero_items.css?v=20261110_t4v2" type="text/css">
 <style type="text/css">
 .manual-forge-box {
     font-family: Verdana, Arial, Helvetica, sans-serif;
@@ -283,6 +283,7 @@ $recipes = class_exists('HeroForge') ? HeroForge::getRecipes() : [];
                 <li><b>1x Item Tier 3 (Bahan Utama):</b> Harus dari slot yang sama dengan item yang ingin dibuat (misal: ingin menempa Helm Legendaris, Anda harus menumbalkan 1 Helm Tier 3). Item tidak boleh sedang terpasang di Hero (*unequipped*).</li>
                 <li><b>2x Item Tier 2 (Katalis Penyeimbang):</b> Dua buah item Tier 2 dari slot yang sama (tidak boleh sedang terpasang di Hero).</li>
                 <li><b>30x World Essence:</b> Tersimpan di dalam tas kantong inventori Hero Anda.</li>
+                <li><b>2.000 Silver:</b> Saldo silver pahlawan Anda (akan dipotong langsung dari dompet perak pahlawan saat penempaan berhasil).</li>
                 <li><b>Sumber Daya Desa:</b>
                     <span style="font-weight: bold; color: #1e293b;">
                         🪵 100.000 Kayu &bull; 🧱 100.000 Tanah Liat &bull; ⛓️ 100.000 Besi &bull; 🌾 80.000 Gandum

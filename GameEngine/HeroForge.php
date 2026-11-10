@@ -18,10 +18,11 @@ class HeroForge
     const ESSENCE_ITEM_ID  = 210;
     const REQUIRED_ESSENCE = 30;
 
-    const COST_WOOD = 100000;
-    const COST_CLAY = 100000;
-    const COST_IRON = 100000;
-    const COST_CROP = 80000;
+    const COST_WOOD   = 100000;
+    const COST_CLAY   = 100000;
+    const COST_IRON   = 100000;
+    const COST_CROP   = 80000;
+    const COST_SILVER = 2000;
 
     /**
      * Get all craftable Tier 4 Legendary recipes from catalog.
@@ -126,6 +127,13 @@ class HeroForge
         $hasT2 = count($sacrifices['tier2']) >= 2;
         $hasEssence = $essence >= self::REQUIRED_ESSENCE;
 
+        if (!class_exists('HeroItems')) {
+            require_once __DIR__ . '/HeroItems.php';
+        }
+        $heroItems = new HeroItems();
+        $silver = $heroItems->getSilver($uid);
+        $hasSilver = ($silver >= self::COST_SILVER);
+
         $vRes = $database->getVillage($villageWid);
         $hasWood = ($vRes['wood'] ?? 0) >= self::COST_WOOD;
         $hasClay = ($vRes['clay'] ?? 0) >= self::COST_CLAY;
@@ -133,7 +141,7 @@ class HeroForge
         $hasCrop = ($vRes['crop'] ?? 0) >= self::COST_CROP;
         $hasResources = ($hasWood && $hasClay && $hasIron && $hasCrop);
 
-        $canCraft = ($hasT3 && $hasT2 && $hasEssence && $hasResources);
+        $canCraft = ($hasT3 && $hasT2 && $hasEssence && $hasResources && $hasSilver);
 
         return [
             'can_craft'     => $canCraft,
@@ -142,9 +150,18 @@ class HeroForge
             'has_t2'        => $hasT2,
             'has_essence'   => $hasEssence,
             'has_resources' => $hasResources,
+            'has_silver'    => $hasSilver,
+            'silver_count'  => $silver,
             'essence_count' => $essence,
             'tier3_count'   => count($sacrifices['tier3']),
             'tier2_count'   => count($sacrifices['tier2']),
+            'cost'          => [
+                'wood'   => self::COST_WOOD,
+                'clay'   => self::COST_CLAY,
+                'iron'   => self::COST_IRON,
+                'crop'   => self::COST_CROP,
+                'silver' => self::COST_SILVER,
+            ],
             'village_resources' => [
                 'wood' => (int)($vRes['wood'] ?? 0),
                 'clay' => (int)($vRes['clay'] ?? 0),
@@ -215,7 +232,17 @@ class HeroForge
             return ['success' => false, 'message' => 'World Essence tidak mencukupi. Butuh ' . self::REQUIRED_ESSENCE . ' Essence (Anda memiliki ' . $essenceCount . ').'];
         }
 
-        // 4. Validate Village Resources
+        // 4. Validate Silver Balance
+        if (!class_exists('HeroItems')) {
+            require_once __DIR__ . '/HeroItems.php';
+        }
+        $heroItems = new HeroItems();
+        $currentSilver = $heroItems->getSilver($uid);
+        if ($currentSilver < self::COST_SILVER) {
+            return ['success' => false, 'message' => 'Silver tidak mencukupi untuk penempaan. Butuh ' . number_format(self::COST_SILVER) . ' Silver (Anda memiliki ' . number_format($currentSilver) . ' Silver).'];
+        }
+
+        // 5. Validate Village Resources
         $vRes = $database->getVillage($villageWid);
         if (
             ($vRes['wood'] ?? 0) < self::COST_WOOD ||
@@ -226,17 +253,25 @@ class HeroForge
             return ['success' => false, 'message' => 'Sumber daya desa tidak mencukupi untuk penempaan legendaris.'];
         }
 
-        // 5. Deduct Resources from Village
+        // 6. Deduct Resources from Village
         $okRes = $database->modifyResource($villageWid, self::COST_WOOD, self::COST_CLAY, self::COST_IRON, self::COST_CROP, 0, true);
         if (!$okRes) {
             return ['success' => false, 'message' => 'Gagal memotong sumber daya desa.'];
         }
 
-        // 6. Consume Sacrificed Items
+        // 7. Deduct Silver
+        $okSilver = $heroItems->spendSilver($uid, self::COST_SILVER);
+        if (!$okSilver) {
+            // Rollback village resources
+            $database->modifyResource($villageWid, -self::COST_WOOD, -self::COST_CLAY, -self::COST_IRON, -self::COST_CROP, 0, true);
+            return ['success' => false, 'message' => 'Gagal memotong saldo Silver. Pastikan Anda memiliki minimal ' . number_format(self::COST_SILVER) . ' Silver.'];
+        }
+
+        // 8. Consume Sacrificed Items
         $database->query("DELETE FROM " . TB_PREFIX . "hero_items WHERE id = $t3RowId AND uid = $uid LIMIT 1");
         $database->query("DELETE FROM " . TB_PREFIX . "hero_items WHERE id IN ($t2Id1, $t2Id2) AND uid = $uid");
 
-        // 7. Deduct World Essence
+        // 9. Deduct World Essence
         $essRows = $database->query_return("
             SELECT id, quantity FROM " . TB_PREFIX . "hero_items 
             WHERE uid = $uid AND itemid = " . self::ESSENCE_ITEM_ID . " AND equipped = 0 
@@ -257,21 +292,17 @@ class HeroForge
             if ($needed <= 0) break;
         }
 
-        // 8. Award Tier 4 Item
-        if (!class_exists('HeroItems')) {
-            require_once __DIR__ . '/HeroItems.php';
-        }
-        $heroItems = new HeroItems();
+        // 10. Award Tier 4 Item
         $newRowId = $heroItems->addItem($uid, $targetItemId, 1);
         $heroItems->invalidateCaches($uid);
 
         $itemName = function_exists('heroItemName') ? heroItemName($targetItemId) : $heroItemCatalog[$targetItemId]['name'];
 
-        // 9. Send In-Game Victory Report / Notice
+        // 11. Send In-Game Victory Report / Notice
         $time = time();
         $noticeTopic = "🔥 [ALTAR TEMPA] Mahakarya Legendaris Berhasil Diciptakan: {$itemName}!";
         $noticeMsg = "Keajaiban di Altar Penempaan Kuno!\n\n" .
-                     "Dengan melebur 1 Item Tier 3, 2 Item Tier 2, dan 30 World Essence, pahlawanmu berhasil menciptakan perlengkapan legendaris berkekuatan dewa:\n\n" .
+                     "Dengan melebur 1 Item Tier 3, 2 Item Tier 2, 30 World Essence, dan 2.000 Silver, pahlawanmu berhasil menciptakan perlengkapan legendaris berkekuatan dewa:\n\n" .
                      "✨ {$itemName} (Tier 4 Legendary)\n\n" .
                      "Perlengkapan ini kini telah tersimpan di dalam Inventori Pahlawanmu dan siap untuk dipakai dalam pertempuran!";
         $database->addNotice($uid, $villageWid, 0, 28, $noticeTopic, $noticeMsg, $time);

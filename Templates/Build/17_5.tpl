@@ -48,7 +48,7 @@ if (!empty($_SESSION['bm_flash'])) {
     unset($_SESSION['bm_flash']);
 }
 ?>
-<link rel="stylesheet" href="css/hero_items.css" type="text/css">
+<link rel="stylesheet" href="css/hero_items.css?v=20261110_t4v2" type="text/css">
 
 <div id="build" class="gid17">
     <a href="#" onClick="return Popup(17,4);" class="build_logo">

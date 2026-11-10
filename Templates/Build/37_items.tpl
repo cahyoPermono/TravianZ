@@ -224,6 +224,7 @@ table.t4items .t4qtynum {
 
 table.t4items .t4none { color: #a5a19a; }
 </style>
+<link rel="stylesheet" href="css/hero_items.css?v=20261110_t4v2" type="text/css">
 <table id="distribution" class="t4items" cellpadding="1" cellspacing="1">
     <thead>
         <tr><th colspan="5"><?php echo HERO_ITEMS_EQUIPPED; ?></th></tr>

@@ -118,7 +118,7 @@ if (!empty($movement20_0) || !empty($movement21_1)) {
     // Dedicated icon classes (adv_out/adv_back) - see css/hero_items.css.
     // Swapping the icon: replace img/hero/adv_out.gif / adv_back.gif, no
     // template or CSS edits needed.
-    echo '<link rel="stylesheet" href="css/hero_items.css" type="text/css">';
+    echo '<link rel="stylesheet" href="css/hero_items.css?v=20261110_t4v2" type="text/css">';
 }
 
 /**

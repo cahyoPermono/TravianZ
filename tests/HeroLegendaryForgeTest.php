@@ -137,11 +137,26 @@ $t2RowId2 = $heroItems->addItem($testUid, 105, 1);
 // Also give an irrelevant Tier 3 helmet (3: Helmet of Wisdom) to test slot mismatch
 $t3HelmetRowId = $heroItems->addItem($testUid, 3, 1);
 
-// Test checking requirements for 406 (Sovereign's Warblade - Slot 3)
+// Test checking requirements when player has 0 silver (should fail silver check)
+$chkNoSilver = HeroForge::checkRequirements($testUid, $testVref, 406);
+assertTest($chkNoSilver['has_silver'] === false, "checkRequirements detects insufficient silver when balance is 0");
+assertTest($chkNoSilver['can_craft'] === false, "checkRequirements returns can_craft=false when silver is insufficient");
+
+// Test failed craft due to insufficient silver
+$failSilver = HeroForge::craft($testUid, $testVref, 406, $t3RowId, [$t2RowId1, $t2RowId2]);
+assertTest($failSilver['success'] === false, "Crafting fails when player does not have 2,000 Silver");
+assertTest(strpos($failSilver['message'], 'Silver tidak mencukupi') !== false, "Error message explicitly indicates insufficient silver");
+
+// Give player 5,000 Silver
+$heroItems->addSilver($testUid, 5000);
+$currentSilver = $heroItems->getSilver($testUid);
+assertTest($currentSilver === 5000, "Player has 5,000 Silver in wallet");
+
+// Test checking requirements for 406 (Sovereign's Warblade - Slot 3) now that silver is added
 $chk = HeroForge::checkRequirements($testUid, $testVref, 406);
-assertTest($chk['can_craft'] === true, "checkRequirements returns true when all ingredients are present");
+assertTest($chk['can_craft'] === true, "checkRequirements returns true when all ingredients and silver are present");
 assertTest($chk['has_t3'] === true && $chk['has_t2'] === true, "checkRequirements detects eligible T3 and T2 weapons");
-assertTest($chk['has_essence'] === true && $chk['has_resources'] === true, "checkRequirements detects enough essence and resources");
+assertTest($chk['has_essence'] === true && $chk['has_resources'] === true && $chk['has_silver'] === true, "checkRequirements detects enough essence, resources, and silver");
 
 // Test failed craft: Wrong slot item (Helmet used for Weapon forge)
 $failSlot = HeroForge::craft($testUid, $testVref, 406, $t3HelmetRowId, [$t2RowId1, $t2RowId2]);
@@ -154,6 +169,10 @@ assertTest($failDup['success'] === false, "Crafting fails when duplicate T2 item
 // Test successful craft of Sovereign's Warblade (406)
 $craftSuccess = HeroForge::craft($testUid, $testVref, 406, $t3RowId, [$t2RowId1, $t2RowId2]);
 assertTest($craftSuccess['success'] === true, "Crafting Sovereign's Warblade succeeded: " . ($craftSuccess['message'] ?? ''));
+
+// Verify silver deducted by exactly 2000: 5000 - 2000 = 3000
+$silverAfter = $heroItems->getSilver($testUid);
+assertTest($silverAfter === 3000, "Player silver was deducted by 2,000 (now $silverAfter)");
 
 // Verify consumed items:
 $checkT3 = mysqli_fetch_assoc(mysqli_query($db, "SELECT id FROM `" . TB_PREFIX . "hero_items` WHERE id = $t3RowId"));

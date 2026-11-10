@@ -53,7 +53,7 @@ $t4Tabs['land'] = [
     'url'   => $isHeroPage ? 'hero.php?t4tab=land' : 'build.php?id=' . $id . '&land'
 ];
 ?>
-<link rel="stylesheet" href="css/hero_items.css" type="text/css">
+<link rel="stylesheet" href="css/hero_items.css?v=20261110_t4v2" type="text/css">
 <div class="heroT4Nav" style="margin:6px 0 10px 0;">
     <?php foreach ($t4Tabs as $key => $tab) { ?>
         <?php if ($key === $t4tab) { ?>

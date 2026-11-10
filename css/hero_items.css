@@ -199,25 +199,25 @@ img.adv_back{background-image:url('../img/hero/adv_back.gif');height:16px;width:
 
 /* Tier 4 Legendary Items & Material - Dedicated High-Res Sprites */
 .heroT4Item.item210 {
-    background-image: url('../img/hero/legendary/item210.png') !important;
+    background-image: url('../img/hero/legendary/item210.png?v=20261110_t4v2') !important;
     background-position: center !important;
     background-size: contain !important;
     background-repeat: no-repeat !important;
 }
-.heroT4Item.item401 { background-image: url('../img/hero/legendary/item401.png') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
-.heroT4Item.item402 { background-image: url('../img/hero/legendary/item402.png') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
-.heroT4Item.item403 { background-image: url('../img/hero/legendary/item403.png') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
-.heroT4Item.item404 { background-image: url('../img/hero/legendary/item404.png') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
-.heroT4Item.item405 { background-image: url('../img/hero/legendary/item405.png') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
-.heroT4Item.item406 { background-image: url('../img/hero/legendary/item406.png') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
-.heroT4Item.item407 { background-image: url('../img/hero/legendary/item407.png') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
-.heroT4Item.item408 { background-image: url('../img/hero/legendary/item408.png') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
-.heroT4Item.item409 { background-image: url('../img/hero/legendary/item409.png') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
-.heroT4Item.item410 { background-image: url('../img/hero/legendary/item410.png') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
-.heroT4Item.item411 { background-image: url('../img/hero/legendary/item411.png') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
-.heroT4Item.item412 { background-image: url('../img/hero/legendary/item412.png') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
-.heroT4Item.item413 { background-image: url('../img/hero/legendary/item413.png') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
-.heroT4Item.item414 { background-image: url('../img/hero/legendary/item414.png') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
+.heroT4Item.item401 { background-image: url('../img/hero/legendary/item401.png?v=20261110_t4v2') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
+.heroT4Item.item402 { background-image: url('../img/hero/legendary/item402.png?v=20261110_t4v2') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
+.heroT4Item.item403 { background-image: url('../img/hero/legendary/item403.png?v=20261110_t4v2') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
+.heroT4Item.item404 { background-image: url('../img/hero/legendary/item404.png?v=20261110_t4v2') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
+.heroT4Item.item405 { background-image: url('../img/hero/legendary/item405.png?v=20261110_t4v2') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
+.heroT4Item.item406 { background-image: url('../img/hero/legendary/item406.png?v=20261110_t4v2') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
+.heroT4Item.item407 { background-image: url('../img/hero/legendary/item407.png?v=20261110_t4v2') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
+.heroT4Item.item408 { background-image: url('../img/hero/legendary/item408.png?v=20261110_t4v2') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
+.heroT4Item.item409 { background-image: url('../img/hero/legendary/item409.png?v=20261110_t4v2') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
+.heroT4Item.item410 { background-image: url('../img/hero/legendary/item410.png?v=20261110_t4v2') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
+.heroT4Item.item411 { background-image: url('../img/hero/legendary/item411.png?v=20261110_t4v2') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
+.heroT4Item.item412 { background-image: url('../img/hero/legendary/item412.png?v=20261110_t4v2') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
+.heroT4Item.item413 { background-image: url('../img/hero/legendary/item413.png?v=20261110_t4v2') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
+.heroT4Item.item414 { background-image: url('../img/hero/legendary/item414.png?v=20261110_t4v2') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
 
 /* Dramatic Aura & Flame Pulse Animation using Contour Drop-Shadows */
 @keyframes legendaryFlameAura {
