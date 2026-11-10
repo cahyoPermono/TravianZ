@@ -76,6 +76,9 @@ if (!defined('HB_RESET'))          define('HB_RESET',          'reset_points'); 
 if (!defined('HB_ARTWORK'))        define('HB_ARTWORK',        'artwork_cp');       // CP = daily production (cap: 5000 normal / 2500 speed)
 if (!defined('HB_HEAL_TROOP'))     define('HB_HEAL_TROOP',     'heal_troops');      // heals % of the hero's army (bandages)
 if (!defined('HB_CAGE'))           define('HB_CAGE',           'cage');             // traps 1 oasis animal per cage
+/* legendary / crafting */
+if (!defined('HB_ALL_UNITS'))      define('HB_ALL_UNITS',      'all_units_bonus');  // +N off & +N def for ALL units accompanying the hero
+if (!defined('HB_ESSENCE'))        define('HB_ESSENCE',        'world_essence');    // World Essence crafting material
 
 /* ============================================================================
  *  ITEM CATALOG
@@ -333,6 +336,38 @@ $heroItemCatalog = array(
     373 => array('name' => "Bhayangkara's Light Gada Rujakpala", 'slot' => HSLOT_RIGHT, 'tier' => 1, 'unit' => 96, 'bonus' => array(HB_FIGHT => 500,  HB_UNIT_BONUS => array('unit' => 96, 'per_unit' => 9))),
     374 => array('name' => "Bhayangkara's Gada Rujakpala",       'slot' => HSLOT_RIGHT, 'tier' => 2, 'unit' => 96, 'bonus' => array(HB_FIGHT => 1000, HB_UNIT_BONUS => array('unit' => 96, 'per_unit' => 12))),
     375 => array('name' => "Bhayangkara's Great Gada Rujakpala", 'slot' => HSLOT_RIGHT, 'tier' => 3, 'unit' => 96, 'bonus' => array(HB_FIGHT => 1500, HB_UNIT_BONUS => array('unit' => 96, 'per_unit' => 15))),
+
+    /* ---------------- TIER 4: WORLD ESSENCE & LEGENDARY ITEMS ----------------
+     * Dropped from World Boss / Bandit Camps & forged via Altar Tempa (HeroForge).
+     * No tribe restriction ('unit' key omitted), completely universal for all heroes.
+     * ----------------------------------------------------------------------- */
+    210 => array('name' => 'World Essence', 'slot' => HSLOT_BAG, 'tier' => 4, 'bonus' => array(HB_ESSENCE => 1)),
+
+    // Helmets (Slot 1)
+    401 => array('name' => 'Crown of the Eternal Pantheon', 'slot' => HSLOT_HELMET, 'tier' => 4, 'bonus' => array(HB_XP => 35, HB_CP => 2500), 'x2_on_speed' => false),
+    402 => array('name' => 'War-Crown of Supreme Command', 'slot' => HSLOT_HELMET, 'tier' => 4, 'bonus' => array(HB_TRAIN_INF => 20, HB_TRAIN_CAV => 20)),
+    403 => array('name' => 'Visage of the Undying Phoenix', 'slot' => HSLOT_HELMET, 'tier' => 4, 'bonus' => array(HB_REGEN_HP => 80, HB_XP => 25)),
+
+    // Body Armor (Slot 2)
+    404 => array('name' => 'Aegis Plate of the World-Eater', 'slot' => HSLOT_BODY,   'tier' => 4, 'bonus' => array(HB_DMG_REDUCE => 12, HB_FIGHT => 1500, HB_REGEN_HP => 60)),
+    405 => array('name' => 'Cuirass of the Colossus',        'slot' => HSLOT_BODY,   'tier' => 4, 'bonus' => array(HB_DMG_REDUCE => 15, HB_FIGHT => 2000)),
+
+    // Universal Weapons (Slot 3)
+    406 => array('name' => "Sovereign's Warblade",           'slot' => HSLOT_RIGHT,  'tier' => 4, 'bonus' => array(HB_FIGHT => 3000, HB_ALL_UNITS => 4)),
+    407 => array('name' => 'Gungnir, The Stormbringer',      'slot' => HSLOT_RIGHT,  'tier' => 4, 'bonus' => array(HB_FIGHT => 2500, HB_RETURN_SPEED => 40, HB_RAID => 30)),
+    408 => array('name' => 'Worldbreaker Warhammer',         'slot' => HSLOT_RIGHT,  'tier' => 4, 'bonus' => array(HB_FIGHT => 3500)),
+
+    // Left Hand (Slot 4)
+    409 => array('name' => 'Horn of Global Dominion',        'slot' => HSLOT_LEFT,   'tier' => 4, 'bonus' => array(HB_VS_NATARS => 50, HB_FIGHT => 1000)),
+    410 => array('name' => 'Astral Chrono-Sextant',          'slot' => HSLOT_LEFT,   'tier' => 4, 'bonus' => array(HB_RETURN_SPEED => 50, HB_SPEED_OWN => 50, HB_SPEED_ALLY => 50)),
+    411 => array('name' => 'Mirror Shield of Reflection',    'slot' => HSLOT_LEFT,   'tier' => 4, 'bonus' => array(HB_FIGHT => 2000, HB_DMG_REDUCE => 8)),
+
+    // Shoes (Slot 5)
+    412 => array('name' => "Hermes' Astral Greaves",         'slot' => HSLOT_SHOES,  'tier' => 4, 'bonus' => array(HB_TROOP_SPEED_20 => 100, HB_REGEN_HP => 30)),
+    413 => array('name' => 'Spurs of the Apocalypse',        'slot' => HSLOT_SHOES,  'tier' => 4, 'bonus' => array(HB_MOUNT_SPEED => 8, HB_REGEN_HP => 20), 'x2_on_speed' => true, 'requires_horse' => true),
+
+    // Mount (Slot 6)
+    414 => array('name' => 'Celestial Pegasus',              'slot' => HSLOT_HORSE,  'tier' => 4, 'bonus' => array(HB_HORSE_SPEED => 26, HB_FIGHT => 1000), 'x2_on_speed' => true),
 );
 
 /* Helmets 7-9 (culture) are HALVED on speed servers per the design sheet
@@ -472,6 +507,8 @@ if (!function_exists('heroItemBonusText')) {
                 case HB_ARTWORK:        $parts[] = $txt('HB_TXT_ARTWORK', 'Culture points equal to your daily production'); break;
                 case HB_HEAL_TROOP:     $parts[] = $txt('HB_TXT_BANDAGE_A', 'Heals') . ' ' . (int) $value . '% ' . $txt('HB_TXT_BANDAGE_B', "of the hero's fallen troops after battle"); break;
                 case HB_CAGE:           $parts[] = $txt('HB_TXT_CAGE', 'Captures 1 oasis animal per cage'); break;
+                case HB_ALL_UNITS:      $parts[] = '+' . (int) $value . ' ' . $txt('HB_TXT_UNIT_OFF', 'attack') . ' / +' . (int) $value . ' ' . $txt('HB_TXT_UNIT_DEF', 'defense') . ' ' . $txt('HB_TXT_ALL_UNITS', 'per all accompanying troops'); break;
+                case HB_ESSENCE:        $parts[] = $txt('HB_TXT_ESSENCE', 'Material mistis penempaan perlengkapan Legendary (Tier 4)'); break;
             }
         }
 

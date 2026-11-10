@@ -533,6 +533,9 @@ class BlackMarket
                     case 202: // Bucket of Life / Ember Kehidupan
                         $unitGross = 12000;
                         break;
+                    case 210: // World Essence
+                        $unitGross = 10000;
+                        break;
                     default:
                         $unitGross = 400;
                         break;
@@ -545,6 +548,8 @@ class BlackMarket
                     $unitGross = 10000; // 2,500 each res
                 } elseif ($tier === 3) {
                     $unitGross = 24000; // 6,000 each res
+                } elseif ($tier === 4) {
+                    $unitGross = 60000; // 15,000 each res (Tier 4 Legendary)
                 } else {
                     $unitGross = 4000;
                 }
@@ -704,6 +709,9 @@ class BlackMarket
                     case 202: // Bucket of Life / Ember Kehidupan
                         $unitSilver = 120;
                         break;
+                    case 210: // World Essence
+                        $unitSilver = 100;
+                        break;
                     default:
                         $unitSilver = 5;
                         break;
@@ -716,6 +724,8 @@ class BlackMarket
                     $unitSilver = 120;
                 } elseif ($tier === 3) {
                     $unitSilver = 250;
+                } elseif ($tier === 4) {
+                    $unitSilver = 1000; // Tier 4 Legendary
                 } else {
                     $unitSilver = 50;
                 }

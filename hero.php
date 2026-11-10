@@ -67,7 +67,7 @@ if (isset($_GET['t4tab']) && $_GET['t4tab'] === 'land' && isset($_GET['del'])) {
 }
 
 // Active tab determination
-$allowedTabs = ['hero', 'items', 'adventures', 'auction', 'land'];
+$allowedTabs = ['hero', 'items', 'forge', 'adventures', 'auction', 'land'];
 $t4tab = isset($_GET['t4tab']) && in_array($_GET['t4tab'], $allowedTabs, true) ? $_GET['t4tab'] : 'hero';
 $id = 0; // Standalone hero page
 
@@ -136,6 +136,8 @@ if ($hero_info) {
         include_once("Templates/Build/37_adventures.tpl");
     } elseif ($t4tab === 'items') {
         include_once("Templates/Build/37_items.tpl");
+    } elseif ($t4tab === 'forge') {
+        include_once("Templates/Build/37_forge.tpl");
     } elseif ($t4tab === 'auction') {
         include_once("Templates/Build/37_auction.tpl");
     } elseif ($t4tab === 'land') {

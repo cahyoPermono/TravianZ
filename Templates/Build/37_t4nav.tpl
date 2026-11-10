@@ -35,6 +35,7 @@ $sep          = $isHeroPage ? '?' : '&';
 
 $heroTabLabel = defined('HERO_T4_TAB_HERO') ? HERO_T4_TAB_HERO : (defined('HERO') ? HERO : 'Hero');
 $itemsTabLabel = defined('HERO_T4_TAB_ITEMS') ? HERO_T4_TAB_ITEMS : 'Items';
+$forgeTabLabel = 'Altar Tempa (Tier 4)';
 $advTabLabel = defined('HERO_T4_TAB_ADVENTURES') ? HERO_T4_TAB_ADVENTURES : 'Adventures';
 $aucTabLabel = defined('HERO_T4_TAB_AUCTION') ? HERO_T4_TAB_AUCTION : 'Auctions';
 $silverLabel = defined('HERO_SILVER') ? HERO_SILVER : 'Silver';
@@ -42,6 +43,7 @@ $silverLabel = defined('HERO_SILVER') ? HERO_SILVER : 'Silver';
 $t4Tabs = [
     'hero'       => ['label' => $heroTabLabel,       'url' => $baseUrl],
     'items'      => ['label' => $itemsTabLabel,      'url' => $baseUrl . $sep . 't4tab=items'],
+    'forge'      => ['label' => $forgeTabLabel,      'url' => $baseUrl . $sep . 't4tab=forge'],
     'adventures' => ['label' => $advTabLabel, 'url' => $baseUrl . $sep . 't4tab=adventures'],
     'auction'    => ['label' => $aucTabLabel,    'url' => $baseUrl . $sep . 't4tab=auction'],
 ];

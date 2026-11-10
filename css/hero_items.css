@@ -196,3 +196,91 @@ img.adv_back{background-image:url('../img/hero/adv_back.gif');height:16px;width:
 .heroT4Item.item373{background-position:-576px -528px;} /* Bhayangkara's Light Gada Rujakpala */
 .heroT4Item.item374{background-position:-624px -528px;} /* Bhayangkara's Gada Rujakpala */
 .heroT4Item.item375{background-position:-672px -528px;} /* Bhayangkara's Great Gada Rujakpala */
+
+/* Tier 4 Legendary Items & Material - Dedicated High-Res Sprites */
+.heroT4Item.item210 {
+    background-image: url('../img/hero/legendary/item210.png') !important;
+    background-position: center !important;
+    background-size: contain !important;
+    background-repeat: no-repeat !important;
+}
+.heroT4Item.item401 { background-image: url('../img/hero/legendary/item401.png') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
+.heroT4Item.item402 { background-image: url('../img/hero/legendary/item402.png') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
+.heroT4Item.item403 { background-image: url('../img/hero/legendary/item403.png') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
+.heroT4Item.item404 { background-image: url('../img/hero/legendary/item404.png') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
+.heroT4Item.item405 { background-image: url('../img/hero/legendary/item405.png') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
+.heroT4Item.item406 { background-image: url('../img/hero/legendary/item406.png') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
+.heroT4Item.item407 { background-image: url('../img/hero/legendary/item407.png') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
+.heroT4Item.item408 { background-image: url('../img/hero/legendary/item408.png') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
+.heroT4Item.item409 { background-image: url('../img/hero/legendary/item409.png') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
+.heroT4Item.item410 { background-image: url('../img/hero/legendary/item410.png') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
+.heroT4Item.item411 { background-image: url('../img/hero/legendary/item411.png') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
+.heroT4Item.item412 { background-image: url('../img/hero/legendary/item412.png') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
+.heroT4Item.item413 { background-image: url('../img/hero/legendary/item413.png') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
+.heroT4Item.item414 { background-image: url('../img/hero/legendary/item414.png') !important; background-position: center !important; background-size: contain !important; background-repeat: no-repeat !important; }
+
+/* Dramatic Aura & Flame Pulse Animation using Contour Drop-Shadows */
+@keyframes legendaryFlameAura {
+    0% {
+        filter: drop-shadow(0 0 4px rgba(245, 185, 45, 0.7)) drop-shadow(0 0 8px rgba(230, 126, 34, 0.4));
+    }
+    50% {
+        filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.95)) drop-shadow(0 0 18px rgba(243, 156, 18, 0.7));
+    }
+    100% {
+        filter: drop-shadow(0 0 4px rgba(245, 185, 45, 0.7)) drop-shadow(0 0 8px rgba(230, 126, 34, 0.4));
+    }
+}
+
+@keyframes essenceCosmicPulse {
+    0% {
+        filter: drop-shadow(0 0 5px rgba(56, 189, 248, 0.75)) drop-shadow(0 0 10px rgba(0, 150, 255, 0.45));
+    }
+    50% {
+        filter: drop-shadow(0 0 12px rgba(125, 211, 252, 0.95)) drop-shadow(0 0 20px rgba(14, 165, 233, 0.75));
+    }
+    100% {
+        filter: drop-shadow(0 0 5px rgba(56, 189, 248, 0.75)) drop-shadow(0 0 10px rgba(0, 150, 255, 0.45));
+    }
+}
+
+/* Legendary Tier 4 Visual Aura & Badges */
+.heroT4LegendaryGlow {
+    display: inline-block;
+    position: relative;
+    border: none !important;
+    background-color: transparent !important;
+    animation: legendaryFlameAura 2.6s infinite ease-in-out;
+    box-sizing: border-box;
+    vertical-align: middle;
+}
+
+/* World Essence Glow */
+.heroT4EssenceGlow,
+.heroT4Item.item210 {
+    border: none !important;
+    background-color: transparent !important;
+    animation: essenceCosmicPulse 2.8s infinite ease-in-out;
+    box-sizing: border-box;
+}
+
+/* Large Display for Forge & Showcase */
+.heroT4ItemLarge {
+    width: 68px !important;
+    height: 74px !important;
+    border-radius: 6px !important;
+}
+
+table.t4items .t4badge.t4badge-legendary,
+.forge-badge-legendary {
+    position: relative;
+    overflow: hidden;
+    color: #fff !important;
+    background: linear-gradient(135deg, #f59e0b, #d97706, #b45309) !important;
+    border: 1px solid #ffd700 !important;
+    box-shadow: 0 0 8px rgba(245, 158, 11, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+    font-weight: 800;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+    letter-spacing: 0.4px;
+}
+

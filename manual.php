@@ -44,6 +44,7 @@ tz_load_language(LANG);
 	<link href="<?php echo GP_LOCATE; ?>travian.css?f4b7d" rel="stylesheet" type="text/css" />
 	<link href="<?php echo GP_LOCATE; ?>lang/en/lang.css" rel="stylesheet" type="text/css" />
 	<link href="css/mobile_engine.css?v=20261009_m2" rel="stylesheet" type="text/css" />
+	<link href="css/hero_items.css" rel="stylesheet" type="text/css" />
 	<style type="text/css">
 		html {
 			overflow-y: auto !important;
@@ -66,15 +67,19 @@ tz_load_language(LANG);
 <?php
 
 $isBastion = (isset($_GET['typ']) && ((string)$_GET['typ'] === '7' || (string)$_GET['typ'] === 'bastion')) || (isset($_GET['s']) && (string)$_GET['s'] === 'bastion');
+$isForge   = (isset($_GET['typ']) && ((string)$_GET['typ'] === '8' || (string)$_GET['typ'] === 'forge')) || (isset($_GET['s']) && (string)$_GET['s'] === 'forge');
 
-if (isset($_GET['s']) && !ctype_digit((string)$_GET['s']) && $_GET['s'] !== 'bastion') {
+if (isset($_GET['s']) && !ctype_digit((string)$_GET['s']) && $_GET['s'] !== 'bastion' && $_GET['s'] !== 'forge') {
 	$_GET['s'] = "0";
 }
-if (isset($_GET['typ']) && !ctype_digit((string)$_GET['typ']) && $_GET['typ'] !== 'bastion') {
+if (isset($_GET['typ']) && !ctype_digit((string)$_GET['typ']) && $_GET['typ'] !== 'bastion' && $_GET['typ'] !== 'forge') {
 	$_GET['typ'] = null;
 }
 if ($isBastion) {
 	include("Templates/Manual/bastion.tpl");
+}
+else if ($isForge) {
+	include("Templates/Manual/forge.tpl");
 }
 else if(!isset($_GET['typ']) && !isset($_GET['s'])) {
 	include("Templates/Manual/00.tpl");

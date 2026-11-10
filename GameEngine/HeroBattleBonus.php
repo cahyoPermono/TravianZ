@@ -86,16 +86,24 @@ class HeroBattleBonus
         return ($b && !empty($b[HB_UNIT_BONUS])) ? $b[HB_UNIT_BONUS] : array();
     }
 
+    /** Universal unit bonus (+N off/def per ALL units) from Tier 4 weapons. */
+    public static function allUnitsBonus($uid)
+    {
+        $b = self::bonuses($uid);
+        return $b ? (int) ($b[HB_ALL_UNITS] ?? 0) : 0;
+    }
+
     /**
      * Extra offense from the weapon's per-unit bonus:
-     * +N attack per accompanying unit of the weapon's type.
+     * +N attack per accompanying unit of the weapon's type, plus any universal all-unit bonus.
      * $isCavalry tells the caller whether to add it to ap or cap.
      * Returns [addedInfantryAp, addedCavalryAp].
      */
     public static function unitOffense($uid, array $attackerUnits, array $cavalryLookup)
     {
         $map = self::unitBonusMap($uid);
-        if (empty($map)) {
+        $allBonus = self::allUnitsBonus($uid);
+        if (empty($map) && $allBonus <= 0) {
             return array(0, 0);
         }
         $ap = 0; $cap = 0;
@@ -110,20 +118,31 @@ class HeroBattleBonus
                 $ap += $perUnit * $count;
             }
         }
+        if ($allBonus > 0) {
+            foreach ($attackerUnits as $k => $count) {
+                $count = (int)$count;
+                if ($count <= 0) continue;
+                $uId = (int) substr($k, 1);
+                if (isset($cavalryLookup[$uId])) {
+                    $cap += $allBonus * $count;
+                } else {
+                    $ap += $allBonus * $count;
+                }
+            }
+        }
         return array($ap, $cap);
     }
 
     /**
      * Extra defense from the weapon's per-unit bonus:
-     * +N defense per accompanying unit of the weapon's type. The design sheet
-     * grants a single "+N def" figure, so it is added to BOTH the infantry
-     * (dp) and cavalry (cdp) defense pools.
+     * +N defense per accompanying unit of the weapon's type, plus any universal all-unit bonus.
      * Returns the flat amount to add to each pool.
      */
     public static function unitDefense($uid, array $defenderUnits)
     {
         $map = self::unitBonusMap($uid);
-        if (empty($map)) {
+        $allBonus = self::allUnitsBonus($uid);
+        if (empty($map) && $allBonus <= 0) {
             return 0;
         }
         $add = 0;
@@ -131,6 +150,14 @@ class HeroBattleBonus
             $count = isset($defenderUnits['u' . $unitId]) ? (int) $defenderUnits['u' . $unitId] : 0;
             if ($count > 0) {
                 $add += $perUnit * $count;
+            }
+        }
+        if ($allBonus > 0) {
+            foreach ($defenderUnits as $k => $count) {
+                $count = (int)$count;
+                if ($count > 0) {
+                    $add += $allBonus * $count;
+                }
             }
         }
         return $add;

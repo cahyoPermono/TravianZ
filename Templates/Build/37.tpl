@@ -177,7 +177,7 @@
 		} else if (defined('NEW_FUNCTIONS_HERO_T4') && NEW_FUNCTIONS_HERO_T4
             && $village->resarray['f' . $id] >= 1
             && isset($_GET['t4tab'])
-            && in_array($_GET['t4tab'], ['items', 'adventures', 'auction'], true)) {
+            && in_array($_GET['t4tab'], ['items', 'forge', 'adventures', 'auction'], true)) {
 
             // T4 hero port (Phase 6): items / adventures / auction tabs.
             // The classic hero flow below stays byte-identical when the

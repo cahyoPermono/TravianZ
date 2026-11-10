@@ -162,6 +162,7 @@ class HeroItems
             HB_RAID => 0, HB_RETURN_SPEED => 0, HB_SPEED_OWN => 0, HB_SPEED_ALLY => 0,
             HB_TROOP_SPEED_20 => 0, HB_HORSE_SPEED => 0, HB_MOUNT_SPEED => 0,
             HB_UNIT_BONUS => array(),
+            HB_ALL_UNITS => 0,
         );
 
         $equipped = $this->getEquipped($uid);
@@ -1160,7 +1161,7 @@ class HeroItems
      *  INTERNALS
      * ===================================================================== */
 
-    private function invalidateCaches($uid)
+    public function invalidateCaches($uid)
     {
         unset(self::$inventoryCache[(int) $uid], self::$bonusCache[(int) $uid]);
     }

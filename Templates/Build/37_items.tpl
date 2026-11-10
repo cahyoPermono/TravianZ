@@ -243,10 +243,10 @@ table.t4items .t4none { color: #a5a19a; }
                 $t4Row   = $t4Equipped[$t4Slot];
                 $t4Bonus = heroItemBonusText((int) $t4Row['itemid']);
             ?>
-            <td class="t4img"><span class="heroT4Item item<?php echo (int) $t4Row['itemid']; ?>"></span></td>
+            <td class="t4img"><span class="heroT4Item item<?php echo (int) $t4Row['itemid']; ?> <?php echo ((int)($t4Row['def']['tier'] ?? 0) === 4) ? 'heroT4LegendaryGlow' : ''; ?>"></span></td>
             <td class="t4name"><?php echo $t4Row['name']; ?></td>
             <td class="t4tier">
-                <span class="t4badge"><?php echo HERO_COL_TIER; ?> <?php echo (int) $t4Row['def']['tier']; ?></span>
+                <span class="t4badge <?php echo ((int)($t4Row['def']['tier'] ?? 0) === 4) ? 't4badge-legendary' : ''; ?>"><?php echo ((int)($t4Row['def']['tier'] ?? 0) === 4) ? '★ Tier 4 (Legendary)' : (HERO_COL_TIER . ' ' . (int) $t4Row['def']['tier']); ?></span>
                 <?php if ($t4Bonus !== '') { ?>
                     <span class="t4bonus"><?php echo htmlspecialchars($t4Bonus, ENT_QUOTES, 'UTF-8'); ?></span>
                 <?php } ?>
@@ -294,14 +294,14 @@ table.t4items .t4none { color: #a5a19a; }
         <?php $t4Bonus = heroItemBonusText((int) $t4Row['itemid']); ?>
         <tr>
             <td class="t4slot"><b><?php echo constant('HERO_SLOT_' . (int) $t4Row['def']['slot']); ?></b></td>
-            <td class="t4img"><span class="heroT4Item item<?php echo (int) $t4Row['itemid']; ?>"></span></td>
+            <td class="t4img"><span class="heroT4Item item<?php echo (int) $t4Row['itemid']; ?> <?php echo ((int)($t4Row['def']['tier'] ?? 0) === 4) ? 'heroT4LegendaryGlow' : ''; ?>"></span></td>
             <td class="t4name"><?php echo $t4Row['name']; ?></td>
             <td class="t4tier">
                 <?php if ($t4IsBag) { ?>
                     <?php // consumabilele n-au tier: afisam cate bucati sunt ?>
                     <span class="t4badge t4qty"><?php echo (int) $t4Row['quantity']; ?>x</span>
                 <?php } else { ?>
-                    <span class="t4badge"><?php echo HERO_COL_TIER; ?> <?php echo (int) $t4Row['def']['tier']; ?></span>
+                    <span class="t4badge <?php echo ((int)($t4Row['def']['tier'] ?? 0) === 4) ? 't4badge-legendary' : ''; ?>"><?php echo ((int)($t4Row['def']['tier'] ?? 0) === 4) ? '★ Tier 4 (Legendary)' : (HERO_COL_TIER . ' ' . (int) $t4Row['def']['tier']); ?></span>
                 <?php } ?>
                 <?php if ($t4Bonus !== '') { ?>
                     <span class="t4bonus"><?php echo htmlspecialchars($t4Bonus, ENT_QUOTES, 'UTF-8'); ?></span>

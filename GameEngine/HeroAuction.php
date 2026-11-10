@@ -584,7 +584,9 @@ class HeroAuction
             return 0;
         }
 
-        $ids = array_keys($heroItemCatalog);
+        $ids = array_values(array_filter(array_keys($heroItemCatalog), function($id) use ($heroItemCatalog) {
+            return (int)($heroItemCatalog[$id]['tier'] ?? 1) <= 3 && (int)$id !== 210;
+        }));
         $created = 0;
         for ($i = 0; $i < $need; $i++) {
             $itemid = (int) $ids[array_rand($ids)];

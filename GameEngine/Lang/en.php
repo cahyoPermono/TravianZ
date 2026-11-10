@@ -3036,6 +3036,8 @@ tz_def('HB_TXT_CAGE',       'Captures 1 oasis animal per cage');
 tz_def('HB_TXT_NEEDS_HORSE','requires an equipped horse');
 tz_def('HB_TXT_ONLY',       'only for a');
 tz_def('HB_TXT_HERO',       'hero');
+tz_def('HB_TXT_ALL_UNITS',  'per all accompanying troops');
+tz_def('HB_TXT_ESSENCE',    'Mystical material for forging Legendary (Tier 4) equipment');
 
 /* T4 hero port - captured animals release action */
 tz_def('HERO_RELEASE_ANIMALS', 'Release');

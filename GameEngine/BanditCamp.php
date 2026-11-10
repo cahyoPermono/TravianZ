@@ -783,6 +783,11 @@ class BanditCamp {
             if (!class_exists('BlackMarket')) {
                 require_once __DIR__ . '/BlackMarket.php';
             }
+            if (!class_exists('HeroItems')) {
+                require_once __DIR__ . '/HeroItems.php';
+            }
+            $t4HeroItems = new HeroItems();
+            $bossEssencePool = defined('BANDIT_BOSS_ESSENCE_POOL') ? (int)BANDIT_BOSS_ESSENCE_POOL : 80;
 
             foreach ($contributors as $c) {
                 $cUid = (int)$c['uid'];
@@ -796,6 +801,13 @@ class BanditCamp {
                 $shareIron = (int)$c['est_iron'];
                 $shareCrop = (int)$c['est_crop'];
                 $shareTotalRes = (int)$c['est_total_res'];
+
+                // Calculate World Essence reward
+                $shareEssence = max(1, (int)round(($pct / 100) * $bossEssencePool));
+                if ($cUid === $conquerorUid) {
+                    $shareEssence += 3; // Bonus pukulan terakhir / last hit!
+                }
+                $t4HeroItems->addItem($cUid, 210, $shareEssence);
 
                 // 1. Add Silver to Hero
                 BlackMarket::addSilver($cUid, $shareSilver);
@@ -837,6 +849,7 @@ class BanditCamp {
                            "• Total Kerusakan / Damage Anda : " . number_format($cDamage) . " unit\n" .
                            "• Persentase Kontribusi          : {$pct}% (dari total " . number_format($totalBossDamage) . " damage)\n\n" .
                            "🎁 Hadiah Bagi Hasil yang Anda Dapatkan:\n" .
+                           "💎 World Essence (Bahan Tempa) : +" . number_format($shareEssence) . " pcs" . ($cUid === $conquerorUid ? " (termasuk +3 bonus Last-Hit!)" : "") . "\n" .
                            "🪙 Koin Silver        : +" . number_format($shareSilver) . "\n" .
                            "🏛️ Culture Points (CP) : +" . number_format($shareCp) . "\n" .
                            "⭐ Hero EXP            : +" . number_format($shareExp) . "\n" .
@@ -848,6 +861,29 @@ class BanditCamp {
         } else {
             // 1. Award rewards to single conqueror
             if ($conquerorUid > 0) {
+                // Drop World Essence based on camp tier
+                $campTier = (int)$camp['tier'];
+                $essenceDropped = 0;
+                if ($campTier === self::TIER_HIDEOUT) { // Tier 2 (Markas Begal)
+                    if (mt_rand(1, 100) <= 30) {
+                        $essenceDropped = 1;
+                    }
+                } elseif ($campTier === self::TIER_FORTRESS) { // Tier 3 (Benteng Gembong)
+                    if (mt_rand(1, 100) <= 75) {
+                        $essenceDropped = mt_rand(1, 2);
+                    }
+                } elseif ($campTier === self::TIER_WORLDBOSS) { // Soloed World Boss
+                    $essenceDropped = defined('BANDIT_BOSS_ESSENCE_POOL') ? (int)BANDIT_BOSS_ESSENCE_POOL : 80;
+                }
+
+                if ($essenceDropped > 0) {
+                    if (!class_exists('HeroItems')) {
+                        require_once __DIR__ . '/HeroItems.php';
+                    }
+                    $t4HeroItems = new HeroItems();
+                    $t4HeroItems->addItem($conquerorUid, 210, $essenceDropped);
+                }
+
                 // Hero EXP & Silver
                 $database->query("
                     UPDATE " . TB_PREFIX . "hero
@@ -882,8 +918,9 @@ class BanditCamp {
                 if ($remWood > 0 || $remClay > 0 || $remIron > 0 || $remCrop > 0) {
                     $bonusSpoils = " Sisa rampasan gudang bandit (+" . number_format($remWood) . " Kayu, +" . number_format($remClay) . " Liat, +" . number_format($remIron) . " Besi, +" . number_format($remCrop) . " Gandum) telah diangkut ke desamu!";
                 }
+                $essenceText = ($essenceDropped > 0) ? ", +{$essenceDropped} World Essence" : "";
                 $noticeData = "Selamat! Pasukanmu berhasil menumpas seluruh penjaga di {$camp['name']} ({$tierLabel}). " .
-                              "Hadiah Kemenangan: +{$expBonus} Hero EXP, +{$cpBonus} CP, +{$silverBonus} Silver." . $bonusSpoils;
+                              "Hadiah Kemenangan: +{$expBonus} Hero EXP, +{$cpBonus} CP, +{$silverBonus} Silver{$essenceText}." . $bonusSpoils;
 
                 $database->addNotice($conquerorUid, $wref, 0, 28, $topic, $noticeData, $time);
             }
