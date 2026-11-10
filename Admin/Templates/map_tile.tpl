@@ -1,5 +1,12 @@
 <h1 class="left"><?php echo ADM_CHECK_EDIT_MAP_TILE; ?></h1>
 
+<div style="background:#ecfdf5;border:1.5px solid #a7f3d0;color:#065f46;padding:12px 18px;border-radius:10px;margin:12px 0 16px;font-size:13px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+  <span>✨ <b>Pembaruan:</b> Gunakan menu baru <b style="color:#047857;">Oasis & Map Tile Manager</b> untuk visual interaktif 12 tipe oasis, custom satwa liar, stok awal, serta radar oasis terdekat.</span>
+  <a href="admin.php?p=oasisManager" style="background:#059669;color:#fff;text-decoration:none;padding:6px 14px;border-radius:6px;font-weight:700;font-size:12px;white-space:nowrap;">
+    🏝️ Buka Oasis Manager &raquo;
+  </a>
+</div>
+
 <?php
 #################################################################################
 ##              -= YOU MAY NOT REMOVE OR CHANGE THIS NOTICE =-                 ##
@@ -44,15 +51,21 @@ function upd_village_to_village($village_id, $new_village_type){
   mysqli_query($GLOBALS['link'], 'UPDATE `'.TB_PREFIX.'wdata` SET `fieldtype` = '.$new_village_type.', `image` = "t'.$new_village_type.'" WHERE `id` = '.$village_id);
 }
 function upd_village_to_oasis($village_id, $new_oasis_type){
+  global $database;
   mysqli_begin_transaction($GLOBALS['link']);
   mysqli_query($GLOBALS['link'], 'INSERT INTO `'.TB_PREFIX.'odata` (`wref`, `type`, `conqured`, `wood`, `iron`, `clay`, `maxstore`, `crop`, `maxcrop`, `loyalty`, `owner`, `name`, `high`) VALUES ('.$village_id.', '.$new_oasis_type.', 0, 800, 800, 800, 800, 800, 800, 100, 2, "Unoccupied Oasis", '.rand(0, 2).')');
   mysqli_query($GLOBALS['link'], 'UPDATE `'.TB_PREFIX.'wdata` SET `fieldtype` = 0, `oasistype` = '.$new_oasis_type.', `image` = "o'.$new_oasis_type.'" WHERE `id` = '.$village_id);
+  mysqli_query($GLOBALS['link'], 'INSERT IGNORE INTO `'.TB_PREFIX.'units` (`vref`) VALUES ('.$village_id.')');
   mysqli_commit($GLOBALS['link']);
+  if ($database && method_exists($database, 'regenerateOasisUnits')) {
+    $database->regenerateOasisUnits($village_id);
+  }
 }
 function upd_oasis_to_village($village_id, $new_village_type){
   mysqli_begin_transaction($GLOBALS['link']);
   mysqli_query($GLOBALS['link'], 'DELETE FROM `'.TB_PREFIX.'odata` WHERE `wref` = '.$village_id);
   mysqli_query($GLOBALS['link'], 'UPDATE `'.TB_PREFIX.'wdata` SET `fieldtype` = '.$new_village_type.', `oasistype` = 0, `image` = "t'.rand(0, 8).'" WHERE `id` = '.$village_id);
+  mysqli_query($GLOBALS['link'], 'DELETE FROM `'.TB_PREFIX.'units` WHERE `vref` = '.$village_id);
   mysqli_commit($GLOBALS['link']);
 }
 

@@ -124,6 +124,7 @@ function admin_validated_page(string $raw): string
         'plagueManager',
         'assassinManager',
         'bastionManager',
+        'oasisManager',
     ];
 
     return in_array($raw, $whitelist, true) ? $raw : '';
@@ -316,6 +317,11 @@ if ($page !== '') {
 
         case 'bastionManager':
             $subpage = 'Benteng Kuno (0|0) Event Manager';
+            break;
+
+        case 'oasisManager':
+            $subpage = 'Oasis & Map Tile Manager';
+            $not_include_mootools_js = true;
             break;
 
         case 'users':
@@ -871,6 +877,7 @@ body.app #menu li.sub ul li a:hover{color:#d97706!important}
                                 <li><a href="?p=msg"><?php echo ADMIN_PLAYERS_MESSAGE; ?></a></li>
                                 <li><a href="?p=map"><?php echo ADMIN_MAP; ?></a></li>
                                 <li><a href="?p=map_tile"><?php echo ADMIN_MAP_TILE; ?></a></li>
+                                <li><a href="?p=oasisManager"><font color="#059669"><b>🏝️ Oasis Manager (Ubah Field)</b></font></a></li>
                                 <li><a href="?p=natars"><?php echo ADMIN_NATARS_MANAGEMENT; ?></a></li>
                             </ul>
                         </li>
@@ -919,6 +926,7 @@ body.app #menu li.sub ul li a:hover{color:#d97706!important}
                                 <li><a href="?p=plagueManager"><font color="#dc2626"><b>☣️ Plague & Outbreak Manager</b></font></a></li>
                                 <li><a href="?p=assassinManager"><font color="#9333ea"><b>🗡️ Assassin & Sanctuary Manager</b></font></a></li>
                                 <li><a href="?p=bastionManager"><font color="#b91c1c"><b>🏰 Benteng Kuno (0|0) Manager</b></font></a></li>
+                                <li><a href="?p=oasisManager"><font color="#059669"><b>🏝️ Oasis & Map Tile Manager</b></font></a></li>
 								<li><a href="?p=multiacc"><font color="Red"><b><?php echo ADMIN_MULTI_ACCOUNT_DETECTION; ?></b></font></a></li>
                                 <li><a href="?p=pushprot"><font color="Red"><b><?php echo ADMIN_PUSH_PROTECTION; ?></b></font></a></li>
                                 <li><a href="?p=blockReg"><font color="Red"><b><?php echo ADMIN_REGISTRATION_BLOCKLIST; ?></b></font></a></li>
@@ -957,6 +965,7 @@ body.app #menu li.sub ul li a:hover{color:#d97706!important}
                         <li><a href="?p=plagueManager"><font color="#dc2626"><b>☣️ Plague & Outbreak Manager</b></font></a></li>
                         <li><a href="?p=assassinManager"><font color="#9333ea"><b>🗡️ Assassin & Sanctuary Manager</b></font></a></li>
                         <li><a href="?p=bastionManager"><font color="#b91c1c"><b>🏰 Benteng Kuno (0|0) Manager</b></font></a></li>
+                        <li><a href="?p=oasisManager"><font color="#059669"><b>🏝️ Oasis & Map Tile Manager</b></font></a></li>
                         <li><a href="?p=pushprot"><?php echo ADMIN_PUSH_PROTECTION; ?></a></li>
                         <li><a href="?p=heatmap"><?php echo ADMIN_WORLD_MAP_HEATMAP; ?></a></li>
                         <li><a href="?action=logout"><?php echo ADMIN_LOGOUT; ?></a></li>

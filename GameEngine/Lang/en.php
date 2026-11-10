@@ -3060,6 +3060,7 @@ tz_def('ADMIN_PLAYERS_REPORT', 'Players Report');
 tz_def('ADMIN_PLAYERS_MESSAGE', 'Players Message');
 tz_def('ADMIN_MAP', 'Map');
 tz_def('ADMIN_MAP_TILE', 'Map Tile');
+tz_def('ADMIN_OASIS_MANAGER', 'Oasis & Map Tile Manager');
 tz_def('ADMIN_NATARS_MANAGEMENT', 'Natars Management');
 tz_def('ADMIN_SEARCH', 'Search');
 tz_def('ADMIN_GENERAL_SEARCH', 'General Search');
