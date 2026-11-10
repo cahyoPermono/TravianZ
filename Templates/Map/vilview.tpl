@@ -576,7 +576,7 @@ echo ' '.$coords;
 <?php } elseif ($isBanditCamp) { ?>
 <tr><td class="none">
     <?php if (!empty($village->resarray['f39'])) { ?>
-        <a href="a2b.php?s=2&z=<?php echo $d; ?>" style="color: #c0392b; font-weight: bold;">&raquo; ⚔️ Serbu / Jarah Sarang Ini (Raid)</a>
+        <a href="a2b.php?s=2&z=<?php echo $d; ?>&c=4" style="color: #c0392b; font-weight: bold;">&raquo; ⚔️ Serbu / Jarah Sarang Ini (Raid)</a>
     <?php } else { ?>
         &raquo; ⚔️ Serbu Sarang Ini (<?php echo BUILDRALLY; ?>)
     <?php } ?>

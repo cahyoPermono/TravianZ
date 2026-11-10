@@ -124,7 +124,20 @@ class Units {
 
         $this->resolveTarget($post, $disabled, $disabledr, $isOasis);
 
-        if(!empty($disabledr) && $post['c'] == 2) return "You can't reinforce this village/oasis";
+        if(!empty($disabledr) && $post['c'] == 2) {
+            if (class_exists('BanditCamp')) {
+                $chkTargetVid = 0;
+                if (!empty($post['x']) && !empty($post['y'])) {
+                    $chkTargetVid = (int)$database->getVilWref($post['x'], $post['y']);
+                } elseif (!empty($post['dname'])) {
+                    $chkTargetVid = (int)$database->resolveVillageInput(stripslashes($post['dname']), (int)($session->uid ?? 0));
+                }
+                if ($chkTargetVid > 0 && BanditCamp::isBanditCamp($chkTargetVid)) {
+                    return "Anda tidak dapat mengirim bala bantuan (reinforcement) ke Sarang Bandit / World Boss! Gunakan Serbu / Jarah (Raid).";
+                }
+            }
+            return "You can't reinforce this village/oasis";
+        }
         if(!empty($disabled) && $post['c'] == 3) return "You can't attack this village/oasis with normal attack";
         if($post['c'] < 2 || $post['c'] > 4) return "Invalid attack type.";
 
@@ -220,6 +233,9 @@ class Units {
 
         if (!empty($vid)) {
             require_once __DIR__ . '/Bastion.php';
+            if (!class_exists('BanditCamp') && file_exists(__DIR__ . '/BanditCamp.php')) {
+                require_once __DIR__ . '/BanditCamp.php';
+            }
             if (Bastion::isBastionVillage($vid)) {
                 if (!Bastion::isEventActive()) {
                     $disabled = "disabled=disabled";
@@ -227,6 +243,10 @@ class Units {
                 } elseif (!Bastion::canReinforce((int)($session->uid ?? 0), (int)($session->alliance ?? 0))) {
                     $disabledr = "disabled=disabled";
                 }
+            } elseif (class_exists('BanditCamp') && BanditCamp::isBanditCamp($vid)) {
+                $disabledr = "disabled=disabled";
+                if (($session->sit ?? 0) == 0) $disabled = "";
+                else $disabled = "disabled=disabled";
             } elseif($isOasis = $database->isVillageOases($vid)){
                 $too = $database->getOasisField($vid, "conqured");
                 if($too == 0) $disabled = $disabledr ="disabled=disabled";
@@ -766,6 +786,20 @@ class Units {
             }
             if ((int)($data['type'] ?? 0) === 2 && !Bastion::canReinforce((int)($session->uid ?? 0), (int)($session->alliance ?? 0))) {
                 $form->addError("error", "Bala bantuan ke Benteng Kuno (0|0) hanya dapat dikirim jika aliansi Anda sedang menduduki benteng tersebut! Anda harus melancarkan serangan (Normal Attack) terlebih dahulu untuk merebut dan menduduki benteng.");
+                $_SESSION['errorarray'] = $form->getErrors();
+                $_SESSION['valuearray'] = $_POST;
+                header("Location: a2b.php");
+                exit;
+            }
+        }
+
+        // Blokir jika target adalah Sarang Bandit / World Boss namun dikirim sebagai bala bantuan (c=2)
+        if (!class_exists('BanditCamp') && file_exists(__DIR__ . '/BanditCamp.php')) {
+            require_once __DIR__ . '/BanditCamp.php';
+        }
+        if (!empty($data['to_vid']) && class_exists('BanditCamp') && BanditCamp::isBanditCamp((int)$data['to_vid'])) {
+            if ((int)($data['type'] ?? 0) === 2) {
+                $form->addError("error", "Anda tidak dapat mengirim bala bantuan (reinforcement) ke Sarang Bandit / World Boss! Gunakan Serbu / Jarah (Raid).");
                 $_SESSION['errorarray'] = $form->getErrors();
                 $_SESSION['valuearray'] = $_POST;
                 header("Location: a2b.php");

@@ -3911,7 +3911,26 @@ trait AutomationBattleResolution {
                 } catch (\Throwable $battleErr) {
                     error_log("AutomationBattleResolution fatal error processing attack moveid=" . (int)($data['moveid'] ?? 0) . ": " . $battleErr->getMessage() . "\n" . $battleErr->getTraceAsString());
                     if (!empty($data['moveid']) && isset($database)) {
-                        $database->setMovementProc($data['moveid']);
+                        if ($database->setMovementProc($data['moveid'])) {
+                            // Emergency fallback: return troops home so they do not disappear
+                            if (!empty($data['from']) && !empty($data['to']) && !empty($data['ref'])) {
+                                $fromWref = (int)$data['from'];
+                                $toWref = (int)$data['to'];
+                                $attUid = (int)($from['owner'] ?? $database->getVillageField($fromWref, 'owner'));
+                                $attTribe = (int)($owntribe ?? 1);
+                                $bTime = isset($units) ? $units->getWalkingTroopsTime($fromWref, $toWref, $attUid, $attTribe, $data, 1, 't') : 300;
+                                $bEnd = time() + max(60, $bTime);
+                                $database->addMovement(4, $toWref, $fromWref, $data['ref'], time(), $bEnd);
+                                if ($attUid > 0) {
+                                    $database->addNotice(
+                                        $attUid, $toWref, 0, 28,
+                                        '⚠️ [SISTEM] Pasukan Pulang: Gangguan Pemrosesan Pertempuran',
+                                        'Pasukan Anda sedang bergerak pulang menuju desa karena terjadi kendala teknis saat resolusi pertempuran di target #' . $toWref . '. Seluruh pasukan dipulangkan dengan selamat.',
+                                        time()
+                                    );
+                                }
+                            }
+                        }
                     }
                     $data_num++;
                 }

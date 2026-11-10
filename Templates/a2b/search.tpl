@@ -39,7 +39,8 @@ if (isset($_GET['z'])) {
     $coor['y'] = $form->getValue('y');
 }
 
-// Check if target coordinates point to Bastion to ensure radio states are accurate even when entering coordinates
+// Check if target coordinates point to Bastion or Bandit Camp to ensure radio states are accurate even when entering coordinates
+$isBanditCampTarget = false;
 if (isset($coor['x']) && isset($coor['y']) && $coor['x'] !== '' && $coor['y'] !== '') {
     $checkWref = $generator->getBaseID($coor['x'], $coor['y']);
     require_once __DIR__ . '/../../GameEngine/Bastion.php';
@@ -51,6 +52,22 @@ if (isset($coor['x']) && isset($coor['y']) && $coor['x'] !== '' && $coor['y'] !=
             $disabledr = "disabled=disabled";
         }
     }
+    if (!class_exists('BanditCamp')) {
+        @include_once __DIR__ . '/../../GameEngine/BanditCamp.php';
+    }
+    if ($checkWref && class_exists('BanditCamp') && BanditCamp::isBanditCamp($checkWref)) {
+        $disabledr = "disabled=disabled";
+        $isBanditCampTarget = true;
+    }
+}
+if (!$isBanditCampTarget && isset($_GET['z'])) {
+    if (!class_exists('BanditCamp')) {
+        @include_once __DIR__ . '/../../GameEngine/BanditCamp.php';
+    }
+    if (class_exists('BanditCamp') && BanditCamp::isBanditCamp((int)$_GET['z'])) {
+        $disabledr = "disabled=disabled";
+        $isBanditCampTarget = true;
+    }
 }
 
 // logica pentru checked
@@ -58,7 +75,11 @@ $reinforcementChecked = (empty($disabledr));
 $raidChecked = (!empty($disabledr) && !empty($disabled));
 $normalChecked = (!empty($disabledr) && empty($disabled));
 
-if ($raidChecked || $normalChecked) {
+if ($isBanditCampTarget || (isset($_GET['c']) && (int)$_GET['c'] === 4)) {
+    $reinforcementChecked = false;
+    $normalChecked = false;
+    $raidChecked = true;
+} elseif ($raidChecked || $normalChecked) {
     $reinforcementChecked = false;
 }
 ?>
@@ -109,6 +130,15 @@ if ($raidChecked || $normalChecked) {
         </tr>
     </tbody>
 </table>
+
+<?php if (!empty($isBanditCampTarget)): ?>
+<div style="margin: 10px 0; padding: 10px 14px; background: #eff6ff; border: 1.5px solid #3b82f6; border-radius: 6px; font-size: 11px; color: #1e3a8a; line-height: 1.5;">
+    <strong>💡 Target: Sarang Penyamun / World Boss</strong><br />
+    • Mode yang direkomendasikan adalah <b>Serbu / Jarah (Raid)</b> agar risiko kerugian pasukan proporsional dan hero aman.<br />
+    • <b>Bala Bantuan (Reinforcement)</b> tidak diizinkan ke sarang bandit.<br />
+    • <b>Peringatan Normal Attack:</b> Serangan normal adalah <i>fight to the death</i> sampai salah satu pihak gugur 100%. Jangan gunakan serangan normal jika kekuatan serang pasukan Anda lebih kecil dari total pertahanan bandit, karena pasukan Anda akan wipeout total dan hero akan gugur!
+</div>
+<?php endif; ?>
 
 <button value="ok" name="s1" id="btn_ok" class="trav_buttons" alt="OK" onclick="this.disabled=true;this.form.submit();"><?php echo TZ_OK_2; ?></button>
 </form>

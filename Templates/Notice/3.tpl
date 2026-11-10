@@ -20,8 +20,27 @@
 
 $dataarray = array_map('tz_expand_report', explode(",", $message->readingNotice['data']));
 
-// ======================== CONFIG ========================
-$hasHero = (isset($dataarray[284]) && $dataarray[284] > 0);
+// ======================== CONFIG & HERO DETECTION ========================
+// In $data_fail (AutomationBattleResolution), attacker hero sent is at index 239, dead at 240.
+// In legacy / alternate layouts, hero may be at index 284/285.
+$heroSentAtt = 0;
+$heroDeadAtt = 0;
+$heroSentIdx = 239;
+$heroDeadIdx = 240;
+
+if (isset($dataarray[239]) && is_numeric($dataarray[239]) && (int)$dataarray[239] > 0) {
+    $heroSentAtt = (int)$dataarray[239];
+    $heroDeadAtt = (isset($dataarray[240]) && is_numeric($dataarray[240])) ? (int)$dataarray[240] : 0;
+    $heroSentIdx = 239;
+    $heroDeadIdx = 240;
+} elseif (isset($dataarray[284]) && is_numeric($dataarray[284]) && (int)$dataarray[284] > 0) {
+    $heroSentAtt = (int)$dataarray[284];
+    $heroDeadAtt = (isset($dataarray[285]) && is_numeric($dataarray[285])) ? (int)$dataarray[285] : 0;
+    $heroSentIdx = 284;
+    $heroDeadIdx = 285;
+}
+
+$hasHero = ($heroSentAtt > 0);
 $colspan  = $hasHero ? 11 : 10;
 $colspan2 = 10;
 
@@ -147,7 +166,7 @@ for ($i = 3; $i <= 12; $i++) {
 }
 
 if ($hasHero) {
-    echo "<td>".$dataarray[284]."</td>";
+    echo "<td>".$heroSentAtt."</td>";
 }
 
 // CASUALTIES
@@ -160,24 +179,29 @@ for ($i = 13; $i <= 22; $i++) {
 }
 
 if ($hasHero) {
-    $tdclass = ($dataarray[285] == 0) ? 'class="none"' : '';
-    echo "<td $tdclass>".$dataarray[285]."</td>";
+    $tdclass = ($heroDeadAtt == 0) ? 'class="none"' : '';
+    echo "<td $tdclass>".$heroDeadAtt."</td>";
 }
 
 // PRISONERS
-if (array_sum(array_slice($dataarray, 286, 11)) > 0) {
+$trappedStart   = ($heroSentIdx === 239) ? 241 : 286;
+$trappedHeroIdx = ($heroSentIdx === 239) ? 251 : 296;
+
+if (array_sum(array_map('intval', array_slice($dataarray, $trappedStart, 11))) > 0) {
 
     echo "</tr><tr><th>".PRISONERS."</th>";
 
-    for ($i = 286; $i <= 295; $i++) {
-        echo ($dataarray[$i] == 0)
+    for ($i = $trappedStart; $i <= ($trappedStart + 9); $i++) {
+        $val = (int)($dataarray[$i] ?? 0);
+        echo ($val == 0)
             ? "<td class=\"none\">0</td>"
-            : "<td>".$dataarray[$i]."</td>";
+            : "<td>".$val."</td>";
     }
 
     if ($hasHero) {
-        $tdclass = ($dataarray[296] == 0) ? 'class="none"' : '';
-        echo "<td $tdclass>".$dataarray[296]."</td>";
+        $hVal = (int)($dataarray[$trappedHeroIdx] ?? 0);
+        $tdclass = ($hVal == 0) ? 'class="none"' : '';
+        echo "<td $tdclass>".$hVal."</td>";
     }
 }
 ?>
@@ -187,9 +211,17 @@ if (array_sum(array_slice($dataarray, 286, 11)) > 0) {
 
 <?php
 // ======================== SPECIAL ACTIONS ========================
+$ramUnitIdx   = ($heroSentIdx === 239) ? 253 : 298;
+$ramInfoIdx   = ($heroSentIdx === 239) ? 254 : 299;
+$catpUnitIdx  = ($heroSentIdx === 239) ? 255 : 300;
+$catpInfoIdx  = ($heroSentIdx === 239) ? 256 : 301;
+$chiefUnitIdx = ($heroSentIdx === 239) ? 257 : 302;
+$chiefInfoIdx = ($heroSentIdx === 239) ? 258 : 303;
+$troopInfoIdx = ($heroSentIdx === 239) ? 259 : 304;
+$heroInfoIdx  = ($heroSentIdx === 239) ? 260 : 306;
 
-if (!empty($dataarray[299])) {
-    $ramUnit = (!empty($dataarray[298]) && is_numeric($dataarray[298])) ? (int)$dataarray[298] : (($tribe - 1) * 10 + 7);
+if (!empty($dataarray[$ramInfoIdx])) {
+    $ramUnit = (!empty($dataarray[$ramUnitIdx]) && is_numeric($dataarray[$ramUnitIdx])) ? (int)$dataarray[$ramUnitIdx] : (($tribe - 1) * 10 + 7);
     $ramName = is_numeric($ramUnit) ? $technology->getUnitName($ramUnit) : (defined('U17') ? U17 : 'Ram');
 ?>
 <tbody class="goods">
@@ -197,14 +229,14 @@ if (!empty($dataarray[299])) {
 <th><?php echo INFORMATION; ?></th>
 <td colspan="<?php echo $colspan; ?>">
 <img class="unit u<?php echo $ramUnit; ?>" src="img/x.gif" alt="<?php echo htmlspecialchars($ramName); ?>" title="<?php echo htmlspecialchars($ramName); ?>" />
-<?php echo $dataarray[299]; ?>
+<?php echo $dataarray[$ramInfoIdx]; ?>
 </td>
 </tr>
 </tbody>
 <?php }
 
-if (!empty($dataarray[301])) {
-    $catpUnit = (!empty($dataarray[300]) && is_numeric($dataarray[300])) ? (int)$dataarray[300] : (($tribe - 1) * 10 + 8);
+if (!empty($dataarray[$catpInfoIdx])) {
+    $catpUnit = (!empty($dataarray[$catpUnitIdx]) && is_numeric($dataarray[$catpUnitIdx])) ? (int)$dataarray[$catpUnitIdx] : (($tribe - 1) * 10 + 8);
     $catpName = is_numeric($catpUnit) ? $technology->getUnitName($catpUnit) : (defined('U18') ? U18 : 'Catapult');
 ?>
 <tbody class="goods">
@@ -212,14 +244,14 @@ if (!empty($dataarray[301])) {
 <th><?php echo INFORMATION; ?></th>
 <td colspan="<?php echo $colspan; ?>">
 <img class="unit u<?php echo $catpUnit; ?>" src="img/x.gif" alt="<?php echo htmlspecialchars($catpName); ?>" title="<?php echo htmlspecialchars($catpName); ?>" />
-<?php echo $dataarray[301]; ?>
+<?php echo $dataarray[$catpInfoIdx]; ?>
 </td>
 </tr>
 </tbody>
 <?php }
 
-if (!empty($dataarray[303])) {
-    $chiefUnit = (!empty($dataarray[302]) && is_numeric($dataarray[302])) ? (int)$dataarray[302] : (($tribe - 1) * 10 + 9);
+if (!empty($dataarray[$chiefInfoIdx])) {
+    $chiefUnit = (!empty($dataarray[$chiefUnitIdx]) && is_numeric($dataarray[$chiefUnitIdx])) ? (int)$dataarray[$chiefUnitIdx] : (($tribe - 1) * 10 + 9);
     $chiefName = is_numeric($chiefUnit) ? $technology->getUnitName($chiefUnit) : (defined('U19') ? U19 : 'Chief');
 ?>
 <tbody class="goods">
@@ -227,32 +259,50 @@ if (!empty($dataarray[303])) {
 <th><?php echo INFORMATION; ?></th>
 <td colspan="<?php echo $colspan; ?>">
 <img class="unit u<?php echo $chiefUnit; ?>" src="img/x.gif" alt="<?php echo htmlspecialchars($chiefName); ?>" title="<?php echo htmlspecialchars($chiefName); ?>" />
-<?php echo $dataarray[303]; ?>
+<?php echo $dataarray[$chiefInfoIdx]; ?>
 </td>
 </tr>
 </tbody>
 <?php }
 
-if (!empty($dataarray[305]) && !empty($dataarray[306])) {
+if (!empty($dataarray[$troopInfoIdx])) {
 ?>
 <tbody class="goods">
 <tr>
 <th><?php echo INFORMATION; ?></th>
 <td colspan="<?php echo $colspan; ?>">
-<img class="unit u<?php echo $dataarray[305]; ?>" src="img/x.gif" alt="<?php echo U0; ?>" title="<?php echo U0; ?>" />
-<?php echo $dataarray[306]; ?>
+<?php echo $dataarray[$troopInfoIdx]; ?>
 </td>
 </tr>
 </tbody>
 <?php }
 
-if (!empty($dataarray[304])) {
+if ($hasHero && $heroDeadAtt > 0) {
 ?>
 <tbody class="goods">
 <tr>
 <th><?php echo INFORMATION; ?></th>
 <td colspan="<?php echo $colspan; ?>">
-<?php echo $dataarray[304]; ?>
+<img class="unit uhero" src="img/x.gif" alt="<?php echo U0; ?>" title="<?php echo U0; ?>" />
+<span style="color:#b91c1c;font-weight:bold;"><?php echo defined('TZ_HERO_DIED_BATTLE') ? TZ_HERO_DIED_BATTLE : 'Pahlawan Anda telah gugur dalam pertempuran!'; ?></span>
+</td>
+</tr>
+</tbody>
+<?php }
+
+// Check if target was a Bandit Camp to show helpful tactical advice
+if (!class_exists('BanditCamp') && file_exists(dirname(__DIR__, 2) . '/GameEngine/BanditCamp.php')) {
+    require_once dirname(__DIR__, 2) . '/GameEngine/BanditCamp.php';
+}
+$toWref = (int)($message->readingNotice['toWref'] ?? $dataarray[29] ?? 0);
+if ($toWref > 0 && class_exists('BanditCamp') && BanditCamp::isBanditCamp($toWref)) {
+?>
+<tbody class="goods">
+<tr>
+<th><?php echo INFORMATION; ?></th>
+<td colspan="<?php echo $colspan; ?>">
+<span style="color:#b91c1c;font-weight:bold;">⚔️ Catatan Pertempuran Sarang Bandit:</span> Pasukan dan pahlawan Anda gugur karena melancarkan <b>Serangan Normal (fight to the death)</b> melawan ratusan penjaga bandit. Pada serangan normal, jika kekuatan serang di bawah pertahanan total bandit, pasukan akan wipeout 100%.<br />
+💡 <b>Tips:</b> Gunakan mode <b>Serbu / Jarah (Raid)</b> di masa mendatang agar kerugian pasukan terbagi secara proporsional dan hero tidak langsung gugur.
 </td>
 </tr>
 </tbody>

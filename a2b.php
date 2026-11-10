@@ -94,6 +94,12 @@ if(isset($_GET['o'])){
 				$disabledr = "disabled=disabled";
 			}
 		}
+		if (!class_exists('BanditCamp')) {
+			@include_once __DIR__ . '/GameEngine/BanditCamp.php';
+		}
+		if (class_exists('BanditCamp') && BanditCamp::isBanditCamp($targetVid)) {
+			$disabledr = "disabled=disabled";
+		}
 	}
 }
 if (!isset($units) || !is_object($units)) {

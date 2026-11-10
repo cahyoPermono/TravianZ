@@ -261,6 +261,20 @@ $kata = !empty($process['t8']);
     <input name="c" value="3" type="hidden">
 
     <?php
+    if (!class_exists('BanditCamp')) {
+        @include_once __DIR__ . '/../../GameEngine/BanditCamp.php';
+    }
+    $isBanditTarget = (!empty($process[0]) && class_exists('BanditCamp') && BanditCamp::isBanditCamp((int)$process[0]));
+    if ($isBanditTarget && (int)$process['c'] === 3):
+    ?>
+    <div style="margin: 12px 0; padding: 10px 14px; background: #fee2e2; border: 1.5px solid #ef4444; border-radius: 6px; font-size: 12px; color: #991b1b; line-height: 1.5;">
+        <strong>⚠️ PERHATIAN: Anda memilih SERANGAN NORMAL (Normal Attack) ke Sarang Bandit!</strong><br />
+        Pertempuran normal adalah <em>fight to the death</em> sampai salah satu pihak gugur 100%. Jika kekuatan serang pasukan Anda di bawah total pertahanan penjaga bandit, seluruh pasukan Anda akan <strong>WIPEOUT (mati 100%)</strong> dan Hero Anda akan gugur!<br />
+        💡 <strong>Sangat Disarankan:</strong> Batalkan dan gunakan mode <strong>Serbu / Jarah (Raid)</strong> untuk pertempuran aman dengan kerugian pasukan minimal.
+    </div>
+    <?php endif; ?>
+
+    <?php
     if ($database->hasBeginnerProtection($village->wid) == 1 && $database->hasBeginnerProtection($process['0']) == 0) {
         echo '<span style="color: #DD0000"><b>Caution:</b> Attacking a player will lose the protection!</span>';
     }

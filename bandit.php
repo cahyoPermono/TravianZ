@@ -760,7 +760,7 @@ if ($tab === 'history') {
 									<a class="btn-pve-sim" href="<?php echo $simUrl; ?>" target="_blank" title="Simulasi pertempuran melawan penjaga sarang ini di Combat Simulator">🧮 Kalkulator</a>
 								<?php } ?>
 								<?php if ($village->resarray['f39'] > 0) { ?>
-									<a class="btn-pve-raid" href="a2b.php?s=2&z=<?php echo $camp['wref']; ?>">⚔️ Serang / Jarah</a>
+									<a class="btn-pve-raid" href="a2b.php?s=2&z=<?php echo $camp['wref']; ?>&c=4">⚔️ Serbu / Jarah</a>
 								<?php } else { ?>
 									<a class="btn-pve-rally" href="build.php?id=39" title="Klik untuk membangun Titik Temu di desa ini">🏛️ Bangun Titik Temu</a>
 								<?php } ?>
