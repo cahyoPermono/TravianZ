@@ -566,6 +566,19 @@ if (!empty($_SESSION['bm_flash'])) {
             </ul>
         </div>
 
+        <!-- PERINGATAN RISIKO MUTASI LELUHUR (BOLD & MERAH) -->
+        <div style="background: #fff5f5; border: 1.5px solid #d9534f; border-radius: 4px; padding: 10px 14px; margin-bottom: 12px; font-size: 11px; line-height: 1.6;">
+            <div style="color: #c9302c; font-weight: bold; font-size: 11.5px; margin-bottom: 4px;">
+                ⚠️ PERINGATAN PENTING &amp; RISIKO PENGGUNAAN (BACA DENGAN TELITI):
+            </div>
+            <ul style="margin: 4px 0 0 18px; padding: 0; color: #c9302c; font-weight: bold;">
+                <li>SEMUA desa milik akun Anda (termasuk desa hasil chiefing/conquest dari suku lain) AKAN OTOMATIS IKUT BERUBAH menjadi suku baru yang Anda pilih!</li>
+                <li>Jika Anda memiliki desa yang sebelumnya bersuku lain (misalnya desa hasil chiefing suku Mesir, Hun, Romawi, dll.), desa tersebut TIDAK AKAN TETAP menjadi suku asalnya, melainkan ikut bermutasi menjadi suku baru Anda.</li>
+                <li>Tembok pertahanan desa, barak, dan fasilitas militer di seluruh desa Anda akan berganti memproduksi unit suku baru.</li>
+                <li>Mutasi leluhur bersifat permanen sampai Anda membeli dan menggunakan Kitab Mutasi Leluhur kembali.</li>
+            </ul>
+        </div>
+
         <!-- FORM PILIH SUKU -->
         <div style="background: #fff; border: 1px solid #d9cbba; border-radius: 4px; padding: 12px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
@@ -629,8 +642,8 @@ if (!empty($_SESSION['bm_flash'])) {
                 </table>
 
                 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; border-top: 1px dashed #d9cbba; padding-top: 10px;">
-                    <div style="font-size: 10px; color: #888;">
-                        <i>⚠️ Perhatian: Mutasi leluhur bersifat permanen untuk sesi tersebut sampai Anda menggunakan Kitab Mutasi Leluhur kembali.</i>
+                    <div style="font-size: 11px; color: #c9302c; font-weight: bold; line-height: 1.4; max-width: 65%;">
+                        ⚠️ <b>PERINGATAN RESIKO:</b> Seluruh desa milik Anda (termasuk desa hasil chiefing dari suku lain) akan otomatis diubah sukunya menjadi suku baru!
                     </div>
                     <div>
                         <?php if ($userGold >= 100): ?>
@@ -704,7 +717,11 @@ function confirmTribeChange() {
         alert('Silakan pilih suku tujuan terlebih dahulu.');
         return false;
     }
-    return confirm('Apakah Anda yakin ingin menggunakan Kitab Mutasi Leluhur seharga 100 Gold untuk berganti suku? Seluruh pasukan, benteng desa, riset akademi, antrean latih, dan Hero Anda akan dimigrasikan ke suku baru secara permanen.');
+    return confirm('⚠️ PERINGATAN PENTING & RISIKO MUTASI LELUHUR:\n\n' +
+        'Apakah Anda yakin ingin menggunakan Kitab Mutasi Leluhur seharga 100 Gold untuk berganti suku?\n\n' +
+        '• SEMUA desa yang Anda miliki (termasuk desa hasil conquest/chiefing dari suku lain) AKAN OTOMATIS IKUT BERUBAH menjadi suku baru ini!\n' +
+        '• Seluruh pasukan, benteng pertahanan desa, riset akademi, antrean latih, dan Hero Anda akan dimigrasikan secara permanen.\n\n' +
+        'Lanjutkan ritual mutasi leluhur?');
 }
 </script>
 
