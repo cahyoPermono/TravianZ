@@ -19,7 +19,7 @@
 ## --------------------------------------------------------------------------- ##
 #################################################################################
 
-global $village, $building, $database, $technology, $bid46, $id, $loopsame, $doublebuild, $master;
+global $village, $building, $database, $technology, $generator, $bid46, $id, $loopsame, $doublebuild, $master;
 
 include("next.tpl");
 
@@ -71,17 +71,57 @@ if (!empty($woundedRows)) {
 
     <h4 class="hosp"><?php echo WOUNDED_TROOPS; ?></h4>
     <?php if ($hasWounded && $level > 0): ?>
-    <form method="post" action="build.php?id=<?php echo (int)$id; ?>">
+    <form method="post" action="build.php?id=<?php echo (int)$id; ?>" name="snd">
     <table cellpadding="1" cellspacing="1" id="hospital_wounded">
-        <?php for ($wi = 1; $wi <= 100; $wi++): if (empty($woundedRows['u'.$wi])) continue; ?>
+        <thead>
+            <tr>
+                <td colspan="2"><?php echo NAME; ?></td>
+                <td><?php echo AVAILABLE; ?></td>
+                <td><?php echo QUANTITY; ?></td>
+                <td><?php echo MAX; ?></td>
+                <td></td>
+            </tr>
+        </thead>
+        <tbody>
+        <?php for ($wi = 1; $wi <= 100; $wi++): if (empty($woundedRows['u'.$wi])) continue;
+            $availWounded = (int)$woundedRows['u'.$wi];
+            $maxHeal = $technology->maxHeal($wi, true, $availWounded);
+            $uName = $technology->getUnitName($wi);
+            $uData = $GLOBALS['u'.$wi] ?? null;
+            if (!$uData) {
+                @include_once __DIR__ . '/../../GameEngine/Data/unitdata.php';
+                $uData = $GLOBALS['u'.$wi] ?? [];
+            }
+            $hWood = (int)ceil(($uData['wood'] ?? 0) / 2);
+            $hClay = (int)ceil(($uData['clay'] ?? 0) / 2);
+            $hIron = (int)ceil(($uData['iron'] ?? 0) / 2);
+            $hCrop = (int)ceil(($uData['crop'] ?? 0) / 2);
+            $attri = $level > 0 && isset($bid46[$level]['attri']) ? $bid46[$level]['attri'] : 1.0;
+            $hTime = (int)round(($uData['time'] ?? 0) * $attri / (defined('SPEED') ? SPEED : 1));
+            if ($hTime < 1) $hTime = 1;
+            $hTimeFmt = isset($generator) ? $generator->getTimeFormat($hTime) : gmdate("H:i:s", $hTime);
+        ?>
         <tr>
-            <td class="ico"><img class="unit u<?php echo $wi; ?>" src="img/x.gif" alt="" /></td>
-            <td class="desc"><?php echo $technology->getUnitName($wi); ?></td>
-            <td class="val"><b><?php echo (int)$woundedRows['u'.$wi]; ?></b></td>
-            <td class="val"><input class="text" type="text" name="hamt[<?php echo $wi; ?>]" value="0" maxlength="6" /></td>
+            <td class="ico"><img class="unit u<?php echo $wi; ?>" src="img/x.gif" alt="<?php echo htmlspecialchars($uName); ?>" title="<?php echo htmlspecialchars($uName); ?>" /></td>
+            <td class="desc">
+                <div class="tit">
+                    <a href="#" onClick="return Popup(<?php echo $wi; ?>,1);"><?php echo htmlspecialchars($uName); ?></a>
+                </div>
+                <div class="details">
+                    <img class="r1" src="img/x.gif" alt="<?php echo defined('TZ_WOOD') ? TZ_WOOD : 'Lumber'; ?>" title="<?php echo defined('LUMBER') ? LUMBER : 'Lumber'; ?>" /><?php echo $hWood; ?>|
+                    <img class="r2" src="img/x.gif" alt="<?php echo defined('CLAY') ? CLAY : 'Clay'; ?>" title="<?php echo defined('CLAY') ? CLAY : 'Clay'; ?>" /><?php echo $hClay; ?>|
+                    <img class="r3" src="img/x.gif" alt="<?php echo defined('IRON') ? IRON : 'Iron'; ?>" title="<?php echo defined('IRON') ? IRON : 'Iron'; ?>" /><?php echo $hIron; ?>|
+                    <img class="r4" src="img/x.gif" alt="<?php echo defined('CROP') ? CROP : 'Crop'; ?>" title="<?php echo defined('CROP') ? CROP : 'Crop'; ?>" /><?php echo $hCrop; ?>|
+                    <img class="clock" src="img/x.gif" alt="<?php echo defined('DURATION') ? DURATION : 'Duration'; ?>" title="<?php echo defined('DURATION') ? DURATION : 'Duration'; ?>" /><?php echo $hTimeFmt; ?>
+                </div>
+            </td>
+            <td class="val"><b><?php echo $availWounded; ?></b></td>
+            <td class="val"><input class="text" type="text" name="hamt[<?php echo $wi; ?>]" id="hamt_<?php echo $wi; ?>" value="0" maxlength="6" /></td>
+            <td class="max"><a href="#" onClick="document.getElementById('hamt_<?php echo $wi; ?>').value=<?php echo $maxHeal; ?>; return false;">(<?php echo $maxHeal; ?>)</a></td>
             <td><button type="submit" name="hunit" value="<?php echo $wi; ?>" class="trav_buttons"><?php echo HEAL_BUTTON; ?></button></td>
         </tr>
         <?php endfor; ?>
+        </tbody>
     </table>
     <input type="hidden" name="ft" value="heal" />
     </form>

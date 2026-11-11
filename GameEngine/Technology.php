@@ -317,6 +317,79 @@ class Technology {
 	}
 
 	/**
+	 * Calculeaza numarul maxim de unitati ranite care pot fi vindecate
+	 * in functie de resursele curente si numarul de raniti disponibili.
+	 * Costul de vindecare: 50% din costul de antrenare (rotunjit prin ceil() per total $amt).
+	 *
+	 * @param int $unit ID-ul unitatii (1..100)
+	 * @param bool $cappedAtWounded Daca rezultatul trebuie limitat la numarul de raniti disponibili
+	 * @param int|null $woundedAmt Numarul de raniti (daca este deja cunoscut, pentru a evita interogari DB repetate)
+	 * @return int
+	 */
+	public function maxHeal($unit, $cappedAtWounded = true, $woundedAmt = null) {
+		$unit = (int)$unit;
+		if ($unit < 1 || $unit > 100) return 0;
+		$unitStr = "u" . $unit;
+		global $village, $database;
+
+		if (!isset($GLOBALS[$unitStr]) || !is_array($GLOBALS[$unitStr])) {
+			@include_once __DIR__ . '/Data/unitdata.php';
+		}
+		$unitarray = $GLOBALS[$unitStr] ?? null;
+		if (!is_array($unitarray)) return 0;
+
+		if (isset($village->awood) && isset($village->aclay) && isset($village->airon) && isset($village->acrop)) {
+			$wood = (int)$village->awood;
+			$clay = (int)$village->aclay;
+			$iron = (int)$village->airon;
+			$crop = (int)$village->acrop;
+		} elseif (isset($database) && isset($village->wid)) {
+			$res = $database->getVillage($village->wid, 0, false);
+			$maxstore = (int)($res['maxstore'] ?? 0);
+			$maxcrop = (int)($res['maxcrop'] ?? 0);
+			$wood = min((int)($res['wood'] ?? 0), $maxstore > 0 ? $maxstore : PHP_INT_MAX);
+			$clay = min((int)($res['clay'] ?? 0), $maxstore > 0 ? $maxstore : PHP_INT_MAX);
+			$iron = min((int)($res['iron'] ?? 0), $maxstore > 0 ? $maxstore : PHP_INT_MAX);
+			$crop = min((int)($res['crop'] ?? 0), $maxcrop > 0 ? $maxcrop : PHP_INT_MAX);
+		} else {
+			$wood = $clay = $iron = $crop = 0;
+		}
+
+		$resHave = [
+			'wood' => max(0, $wood),
+			'clay' => max(0, $clay),
+			'iron' => max(0, $iron),
+			'crop' => max(0, $crop),
+		];
+
+		$possible = [];
+		foreach (['wood', 'clay', 'iron', 'crop'] as $r) {
+			$cost = (int)($unitarray[$r] ?? 0);
+			if ($cost > 0) {
+				$val = $resHave[$r];
+				$possible[] = (int)floor(($val * 2) / $cost);
+			}
+		}
+
+		$maxAfford = !empty($possible) ? min($possible) : 0;
+		if ($maxAfford < 0) $maxAfford = 0;
+
+		if ($cappedAtWounded) {
+			if ($woundedAmt !== null) {
+				$avail = max(0, (int)$woundedAmt);
+			} elseif (isset($database) && isset($village->wid)) {
+				$wounded = $database->getWounded($village->wid);
+				$avail = max(0, (int)($wounded['u'.$unit] ?? 0));
+			} else {
+				$avail = 0;
+			}
+			return min($maxAfford, $avail);
+		}
+
+		return $maxAfford;
+	}
+
+	/**
 	 * Sum the u1..u50 troops (and optionally the hero) of every source row into $ownunit.
 	 */
 	private function addUnits(&$ownunit, $sources, $includeHero = true) {
