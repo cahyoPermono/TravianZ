@@ -21,14 +21,19 @@
 $dataarray = array_map('tz_expand_report', explode(",", $message->readingNotice['data']));
 
 // ======================== CONFIG & HERO DETECTION ========================
-// In $data_fail (AutomationBattleResolution), attacker hero sent is at index 239, dead at 240.
-// In legacy / alternate layouts, hero may be at index 284/285.
+// In $data_fail (AutomationBattleResolution), attacker hero sent is at index 266, dead at 267 (10-tribe layout).
+// In legacy / alternate layouts, hero may be at index 239/240 or 284/285.
 $heroSentAtt = 0;
 $heroDeadAtt = 0;
-$heroSentIdx = 239;
-$heroDeadIdx = 240;
+$heroSentIdx = 266;
+$heroDeadIdx = 267;
 
-if (isset($dataarray[239]) && is_numeric($dataarray[239]) && (int)$dataarray[239] > 0) {
+if (isset($dataarray[266]) && is_numeric($dataarray[266]) && (int)$dataarray[266] > 0) {
+    $heroSentAtt = (int)$dataarray[266];
+    $heroDeadAtt = (isset($dataarray[267]) && is_numeric($dataarray[267])) ? (int)$dataarray[267] : 0;
+    $heroSentIdx = 266;
+    $heroDeadIdx = 267;
+} elseif (isset($dataarray[239]) && is_numeric($dataarray[239]) && (int)$dataarray[239] > 0) {
     $heroSentAtt = (int)$dataarray[239];
     $heroDeadAtt = (isset($dataarray[240]) && is_numeric($dataarray[240])) ? (int)$dataarray[240] : 0;
     $heroSentIdx = 239;
@@ -95,6 +100,8 @@ if ($database->isVillageOases($dataarray[29])) {
     $deffrom_url = "<a href=\"".$mapUrl.$dataarray[29]."&c=".$generator->getMapCheck($dataarray[29])."\">".$dataarray[30]."</a>";
 } elseif ($defVillageName != "[?]") {
     $deffrom_url = "<a href=\"".$mapUrl.$dataarray[29]."&c=".$generator->getMapCheck($dataarray[29])."\">".$defVillageName."</a>";
+} elseif (!empty($dataarray[30]) && $dataarray[30] != "[?]") {
+    $deffrom_url = "<a href=\"".$mapUrl.$dataarray[29]."&c=".$generator->getMapCheck($dataarray[29])."\">".htmlspecialchars($dataarray[30])."</a>";
 } else {
     $deffrom_url = "<font color=\"grey\"><b>[?]</b></font>";
 }
@@ -184,8 +191,16 @@ if ($hasHero) {
 }
 
 // PRISONERS
-$trappedStart   = ($heroSentIdx === 239) ? 241 : 286;
-$trappedHeroIdx = ($heroSentIdx === 239) ? 251 : 296;
+if ($heroSentIdx === 266) {
+    $trappedStart   = 268;
+    $trappedHeroIdx = 278;
+} elseif ($heroSentIdx === 239) {
+    $trappedStart   = 241;
+    $trappedHeroIdx = 251;
+} else {
+    $trappedStart   = 286;
+    $trappedHeroIdx = 296;
+}
 
 if (array_sum(array_map('intval', array_slice($dataarray, $trappedStart, 11))) > 0) {
 
@@ -211,16 +226,36 @@ if (array_sum(array_map('intval', array_slice($dataarray, $trappedStart, 11))) >
 
 <?php
 // ======================== SPECIAL ACTIONS ========================
-$ramUnitIdx   = ($heroSentIdx === 239) ? 253 : 298;
-$ramInfoIdx   = ($heroSentIdx === 239) ? 254 : 299;
-$catpUnitIdx  = ($heroSentIdx === 239) ? 255 : 300;
-$catpInfoIdx  = ($heroSentIdx === 239) ? 256 : 301;
-$chiefUnitIdx = ($heroSentIdx === 239) ? 257 : 302;
-$chiefInfoIdx = ($heroSentIdx === 239) ? 258 : 303;
-$troopInfoIdx = ($heroSentIdx === 239) ? 259 : 304;
-$heroInfoIdx  = ($heroSentIdx === 239) ? 260 : 306;
+if ($heroSentIdx === 266) {
+    $ramUnitIdx   = 0;
+    $ramInfoIdx   = 280;
+    $catpUnitIdx  = 0;
+    $catpInfoIdx  = 281;
+    $chiefUnitIdx = 0;
+    $chiefInfoIdx = 282;
+    $troopInfoIdx = 283;
+    $heroInfoIdx  = 284;
+} elseif ($heroSentIdx === 239) {
+    $ramUnitIdx   = 253;
+    $ramInfoIdx   = 254;
+    $catpUnitIdx  = 255;
+    $catpInfoIdx  = 256;
+    $chiefUnitIdx = 257;
+    $chiefInfoIdx = 258;
+    $troopInfoIdx = 259;
+    $heroInfoIdx  = 260;
+} else {
+    $ramUnitIdx   = 298;
+    $ramInfoIdx   = 299;
+    $catpUnitIdx  = 300;
+    $catpInfoIdx  = 301;
+    $chiefUnitIdx = 302;
+    $chiefInfoIdx = 303;
+    $troopInfoIdx = 304;
+    $heroInfoIdx  = 306;
+}
 
-if (!empty($dataarray[$ramInfoIdx])) {
+if (!empty($dataarray[$ramInfoIdx]) && $dataarray[$ramInfoIdx] !== '?' && $dataarray[$ramInfoIdx] !== '0') {
     $ramUnit = (!empty($dataarray[$ramUnitIdx]) && is_numeric($dataarray[$ramUnitIdx])) ? (int)$dataarray[$ramUnitIdx] : (($tribe - 1) * 10 + 7);
     $ramName = is_numeric($ramUnit) ? $technology->getUnitName($ramUnit) : (defined('U17') ? U17 : 'Ram');
 ?>
@@ -235,7 +270,7 @@ if (!empty($dataarray[$ramInfoIdx])) {
 </tbody>
 <?php }
 
-if (!empty($dataarray[$catpInfoIdx])) {
+if (!empty($dataarray[$catpInfoIdx]) && $dataarray[$catpInfoIdx] !== '?' && $dataarray[$catpInfoIdx] !== '0') {
     $catpUnit = (!empty($dataarray[$catpUnitIdx]) && is_numeric($dataarray[$catpUnitIdx])) ? (int)$dataarray[$catpUnitIdx] : (($tribe - 1) * 10 + 8);
     $catpName = is_numeric($catpUnit) ? $technology->getUnitName($catpUnit) : (defined('U18') ? U18 : 'Catapult');
 ?>
@@ -250,7 +285,7 @@ if (!empty($dataarray[$catpInfoIdx])) {
 </tbody>
 <?php }
 
-if (!empty($dataarray[$chiefInfoIdx])) {
+if (!empty($dataarray[$chiefInfoIdx]) && $dataarray[$chiefInfoIdx] !== '?' && $dataarray[$chiefInfoIdx] !== '0') {
     $chiefUnit = (!empty($dataarray[$chiefUnitIdx]) && is_numeric($dataarray[$chiefUnitIdx])) ? (int)$dataarray[$chiefUnitIdx] : (($tribe - 1) * 10 + 9);
     $chiefName = is_numeric($chiefUnit) ? $technology->getUnitName($chiefUnit) : (defined('U19') ? U19 : 'Chief');
 ?>
@@ -265,7 +300,7 @@ if (!empty($dataarray[$chiefInfoIdx])) {
 </tbody>
 <?php }
 
-if (!empty($dataarray[$troopInfoIdx])) {
+if (!empty($dataarray[$troopInfoIdx]) && $dataarray[$troopInfoIdx] !== '?' && $dataarray[$troopInfoIdx] !== '0') {
 ?>
 <tbody class="goods">
 <tr>

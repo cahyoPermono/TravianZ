@@ -128,6 +128,8 @@ if ($database->isVillageOases($dataarray[29])) {
     $deffrom_url = "<a href=\"".$mapUrl.$dataarray[29]."&c=".$generator->getMapCheck($dataarray[29])."\">".$dataarray[30]."</a>";
 } elseif ($defVillageName != "[?]") {
     $deffrom_url = "<a href=\"".$mapUrl.$dataarray[29]."&c=".$generator->getMapCheck($dataarray[29])."\">".$defVillageName."</a>";
+} elseif (!empty($dataarray[30]) && $dataarray[30] != "[?]") {
+    $deffrom_url = "<a href=\"".$mapUrl.$dataarray[29]."&c=".$generator->getMapCheck($dataarray[29])."\">".htmlspecialchars($dataarray[30])."</a>";
 } else {
     $deffrom_url = "<font color=\"grey\"><b>[?]</b></font>";
 }

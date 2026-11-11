@@ -2516,6 +2516,15 @@ trait DatabaseVillageQueries {
 	    
 	    //Exlude Support, Nature, Natars, TaskMaster and Multihunter
 	    if (($getVillage['owner'] ?? 0) > 5){
+            if (!class_exists('BanditCamp') && file_exists(dirname(__DIR__) . '/BanditCamp.php')) {
+                require_once dirname(__DIR__) . '/BanditCamp.php';
+            }
+            if (class_exists('BanditCamp') && (BanditCamp::isBanditCamp((int)$wref) || BanditCamp::isBanditUser((int)($getVillage['owner'] ?? 0)))) {
+                return;
+            }
+            if (class_exists('Bastion') && Bastion::isBastionVillage($wref)) {
+                return;
+            }
             if (!isset($technology) || !is_object($technology)) {
                 global $autoprefix;
                 include_once((defined('ROOT') ? ROOT : '') . "GameEngine/Technology.php");

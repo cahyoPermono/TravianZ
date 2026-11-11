@@ -3855,8 +3855,13 @@ trait AutomationBattleResolution {
                     $database->addNotice($to['owner'], $to['wref'], $targetally, 23,''.addslashes($from['name']).' attacks '.addslashes($to['name']).'', $data2, $time);
                 }
 
-                //Update starvation data
-                $database->addStarvationData($to['wref']);
+                //Update starvation data (skip for Bandit Camps)
+                if (!class_exists('BanditCamp') && file_exists(dirname(__DIR__) . '/BanditCamp.php')) {
+                    require_once dirname(__DIR__) . '/BanditCamp.php';
+                }
+                if (!class_exists('BanditCamp') || !BanditCamp::isBanditCamp((int)$to['wref'])) {
+                    $database->addStarvationData($to['wref']);
+                }
 
                 // Ancient Bastion (King of the Hill) combat hook
                 if (class_exists('Bastion') && Bastion::isBastionVillage($data['to']) && !$isBastionBlocked) {

@@ -374,11 +374,17 @@ trait AutomationVillageUpkeep {
     	//Get an array with the numbers of the oasis
     	$numberOfOasis = $this->bountysortOasis($oasisArray);
     	
+    	// Bandit Camps and World Bosses do not drain stored bounty crop for NPC upkeep
+    	if (!class_exists('BanditCamp') && file_exists(dirname(__DIR__) . '/BanditCamp.php')) {
+    	    require_once dirname(__DIR__) . '/BanditCamp.php';
+    	}
+    	$isBandit = class_exists('BanditCamp') && (BanditCamp::isBanditCamp((int)$bountywid) || BanditCamp::isBanditUser((int)($villageInfoArray['owner'] ?? 0)));
+
     	//Set the village population (if WW Villages, it's halved)
-    	$villagePopulation = !$villageInfoArray['natar'] ? $villageInfoArray['pop'] : round($villageInfoArray['pop'] / 2);
+    	$villagePopulation = $isBandit ? 0 : (!$villageInfoArray['natar'] ? $villageInfoArray['pop'] : round($villageInfoArray['pop'] / 2));
     	
-    	//Get the upkeep of the village
-    	$upkeep = $technology->getUpkeep($this->getAllUnits($bountywid), 0, $bountywid);   	
+    	//Get the upkeep of the village (0 for Bandit Camps to preserve bounty crop)
+    	$upkeep = $isBandit ? 0 : $technology->getUpkeep($this->getAllUnits($bountywid), 0, $bountywid);   	
  
     	//Calculate the produced resources
     	$timepast = time() - $villageInfoArray['lastupdate'];
@@ -386,6 +392,9 @@ trait AutomationVillageUpkeep {
     	$nclay = ($this->bountyGetResourceProd($resArray, $numberOfOasis, 2) / 3600) * $timepast;
     	$niron = ($this->bountyGetResourceProd($resArray, $numberOfOasis, 3) / 3600) * $timepast;
     	$ncrop = (($this->bountyGetResourceProd($resArray, $numberOfOasis, 4) - $villagePopulation - $upkeep) / 3600) * $timepast;
+    	if ($isBandit && $ncrop < 0) {
+    	    $ncrop = 0;
+    	}
     	$database->modifyResource($bountywid, $nwood, $nclay, $niron, $ncrop, 1);
     	$database->updateVillage($bountywid);
     }

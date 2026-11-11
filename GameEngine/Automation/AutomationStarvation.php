@@ -99,6 +99,16 @@ trait AutomationStarvation {
             return;
         }
 
+        // Bandit Camps and World Bosses have zero crop starvation immunity
+        if (!class_exists('BanditCamp') && file_exists(dirname(__DIR__) . '/BanditCamp.php')) {
+            require_once dirname(__DIR__) . '/BanditCamp.php';
+        }
+        if (class_exists('BanditCamp') && (BanditCamp::isBanditCamp((int)$starv['wref']) || BanditCamp::isBanditUser((int)($starv['owner'] ?? 0)))) {
+            // Clear any lingering starvation tracking
+            $database->setVillageFields($starv['wref'], ['starv', 'starvupdate'], [0, 0]);
+            return;
+        }
+
         $unitarrays = $this->getAllUnits($starv['wref']);
         // Original upkeep formula
         $upkeep = $starv['pop'] + $technology->getUpkeep($unitarrays, 0, $starv['wref']);

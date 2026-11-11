@@ -91,6 +91,19 @@ class BanditCamp {
     }
 
     /**
+     * Check if a user ID is the dedicated Bandit system user.
+     */
+    public static function isBanditUser(int $uid): bool {
+        if ($uid <= 0) return false;
+        static $banditUid = null;
+        if ($banditUid === null) {
+            $user = self::getBanditUser();
+            $banditUid = (int)($user['id'] ?? 0);
+        }
+        return ($uid === $banditUid);
+    }
+
+    /**
      * Ensure database table exists.
      */
     public static function ensureTable() {
@@ -352,6 +365,31 @@ class BanditCamp {
                         WHERE vref = $wref
                     ");
                 }
+            }
+
+            // Guard verification: check if active camp's troops were wiped out by starvation or zeroed out
+            $uFresh = $database->getUnit($wref, false);
+            $totalTroops = 0;
+            if (!empty($uFresh)) {
+                for ($ti = 1; $ti <= 100; $ti++) {
+                    $totalTroops += (int)($uFresh['u' . $ti] ?? 0);
+                }
+            }
+            if ($totalTroops === 0) {
+                // If an active camp is completely empty (e.g. from starvation bug), restore its tier profile troops
+                $profiles = self::getTierProfiles();
+                $prof = $profiles[$t] ?? $profiles[self::TIER_OUTPOST];
+                $setUnits = [];
+                $restoredGuards = 0;
+                foreach ($prof['troops'] as $uNum => $amt) {
+                    $setUnits[] = "u{$uNum} = {$amt}";
+                    $restoredGuards += $amt;
+                }
+                $setSql = implode(', ', $setUnits);
+                $database->query("UPDATE " . TB_PREFIX . "units SET {$setSql} WHERE vref = $wref");
+                $database->query("UPDATE " . TB_PREFIX . "bandit_camps SET cur_hp = $restoredGuards, max_hp = GREATEST(max_hp, $restoredGuards) WHERE id = $campId");
+            } else {
+                $database->query("UPDATE " . TB_PREFIX . "bandit_camps SET cur_hp = $totalTroops WHERE id = $campId AND cur_hp != $totalTroops");
             }
         }
     }
@@ -717,6 +755,9 @@ class BanditCamp {
             }
         }
 
+        // Keep cur_hp in sync with actual remaining units in database
+        $database->query("UPDATE " . TB_PREFIX . "bandit_camps SET cur_hp = $totalRemaining WHERE id = " . (int)$camp['id']);
+
         if ($totalRemaining === 0) {
             $userRes = $database->query_return("SELECT username FROM " . TB_PREFIX . "users WHERE id = $attackerUid LIMIT 1");
             $conquerorName = !empty($userRes[0]['username']) ? $userRes[0]['username'] : 'Prajurit Sekutu';
@@ -757,9 +798,12 @@ class BanditCamp {
 
         $wref = (int)$camp['wref'];
         $campId = (int)$camp['id'];
-        $expBonus = (int)$camp['reward_exp'];
-        $cpBonus = (int)$camp['reward_cp'];
-        $silverBonus = (int)$camp['reward_silver'];
+        $campTier = (int)($camp['tier'] ?? self::TIER_OUTPOST);
+        $profiles = self::getTierProfiles();
+        $prof = $profiles[$campTier] ?? $profiles[self::TIER_OUTPOST];
+        $expBonus = (int)($camp['reward_exp'] ?? $prof['exp']);
+        $cpBonus = (int)($camp['reward_cp'] ?? $prof['cp']);
+        $silverBonus = (int)($camp['reward_silver'] ?? $prof['silver']);
         $time = time();
 
         // 0. Fetch remaining unlooted resources before camp deletion
