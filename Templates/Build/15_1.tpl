@@ -41,8 +41,8 @@ if (!empty($_REQUEST['demolish']) && $_REQUEST['c'] == $session->mchecker) {
         $buildType = $VillageLevels[$field.'t'];
         $currentLvl = $VillageLevels[$field];
 
-        // blocaj ambasada - la fel ca originalul
-        if($buildType == 18 && $session->alliance && $database->isAllianceOwner($session->uid) == $session->alliance && $memberCount > 1){
+        // blocaj ambasada - periksa apakah pemain adalah pemimpin aliansi dan tidak memiliki ambasada lain yang mencukupi
+        if ($buildType == 18 && !$database->canDemolishEmbassy($session->uid, $village->wid, $type, $instant)) {
             header("Location: build.php?gid=15&ty=$type&nodemolish=18");
             exit;
         }

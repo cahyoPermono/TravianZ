@@ -273,6 +273,72 @@ trait DatabaseBuildingQueries {
         return mysqli_query($this->dblink, $q);
 	}
 
+	/**
+	 * Memeriksa apakah Ambasada (Kedutaan / Tipe 18) pada desa tertentu boleh dibongkar.
+	 * Jika pemain adalah pendiri aliansi (Leader) dengan anggota > 1, pembongkaran Ambasada
+	 * diperbolehkan SELAMA pemain masih memiliki minimal satu Ambasada di desa lain yang
+	 * levelnya mencukupi kapasitas anggota aliansi (minimal Level 3).
+	 *
+	 * @param int $uid ID Pemain
+	 * @param int $wid ID Desa yang Ambasada-nya hendak dibongkar
+	 * @param int $field Slot bangunan (19..40)
+	 * @param bool $isInstant Apakah pembongkaran instan (langsung turun ke level 0)
+	 * @return bool True jika boleh dibongkar, False jika dilarang
+	 */
+	public function canDemolishEmbassy($uid, $wid, $field, $isInstant = false) {
+		$uid = (int)$uid;
+		$wid = (int)$wid;
+		$field = (int)$field;
+
+		if ($this->getFieldType($wid, $field) != 18) {
+			return true;
+		}
+
+		global $session;
+		$allianceId = !empty($session->alliance) ? (int)$session->alliance : 0;
+		if ($allianceId <= 0) {
+			$uRes = mysqli_query($this->dblink, "SELECT alliance FROM `" . TB_PREFIX . "users` WHERE id = $uid LIMIT 1");
+			if ($uRes && ($uRow = mysqli_fetch_assoc($uRes))) {
+				$allianceId = (int)$uRow['alliance'];
+			}
+		}
+
+		if ($allianceId <= 0) {
+			return true;
+		}
+
+		$isOwner = ((int)$this->isAllianceOwner($uid, false) === $allianceId);
+		$membersCount = (int)$this->countAllianceMembers($allianceId, false);
+
+		if (!$isOwner || $membersCount <= 1) {
+			return true;
+		}
+
+		$minEmbassyLevel = max(3, (int)$this->getMinEmbassyLevel($membersCount));
+		$currentLvl = (int)$this->getFieldLevel($wid, $field);
+		$targetLvl = $isInstant ? 0 : max(0, $currentLvl - 1);
+
+		// Jika desa saat ini setelah dibongkar masih memenuhi atau melebihi level minimum:
+		if ($targetLvl >= $minEmbassyLevel) {
+			return true;
+		}
+
+		// Cek apakah pemain memiliki Ambasada di DESA LAIN (vref != $wid) dengan level >= $minEmbassyLevel
+		$conditions = [];
+		for ($s = 19; $s <= 40; $s++) {
+			$conditions[] = "(f{$s}t = 18 AND f{$s} >= $minEmbassyLevel)";
+		}
+		$slotSql = implode(' OR ', $conditions);
+		$q = "SELECT COUNT(*) as total FROM `" . TB_PREFIX . "fdata` f 
+		      INNER JOIN `" . TB_PREFIX . "vdata` v ON f.vref = v.wref 
+		      WHERE v.owner = $uid AND v.wref != $wid AND ($slotSql)";
+		$res = mysqli_query($this->dblink, $q);
+		$row = $res ? mysqli_fetch_assoc($res) : null;
+		$hasOther = !empty($row) && (int)$row['total'] > 0;
+
+		return $hasOther;
+	}
+
 	function addDemolition($wid, $field) {
 	    list($wid, $field) = $this->escape_input((int) $wid, (int) $field);
 
@@ -281,35 +347,14 @@ trait DatabaseBuildingQueries {
 		$fLevel = $this->getFieldLevel($wid, $field);
 
 		// check if we're not demolishing an Embassy if the player is in an alliance
-		if ($this->getFieldType($wid,$field) == 18 && $session->alliance) {
-
-		    // get field level, alliance members count and the minimum
-		    // level of Embassy to be able to hold this number of people
-		    $membersCount    = $this->countAllianceMembers($session->alliance);
-		    $minEmbassyLevel = $this->getMinEmbassyLevel($membersCount);
-		    $isOwner         = $this->isAllianceOwner($session->uid) == $session->alliance;
-
-		    // make sure minimum Embassy level is 3 of the player is alliance owner
-            if ($isOwner && $minEmbassyLevel < 3) {
-                $minEmbassyLevel = 3;
-            }
-
-		    // check if this user is the founder of the alliance
-		    // and whether we're not trying to demolish under the lowest level
-		    // which can hold current number of members
-		    if ($fLevel == $minEmbassyLevel && $session->alliance && $isOwner) {
-		        // check if we have any other players in this alliance left
-		        if ($membersCount > 1) {
-		            // check if this player has only 1 last Embassy on a sufficient level
-		            if ($this->getSingleFieldTypeCount($session->uid, 18, '>=', $minEmbassyLevel) == 1) {
-    		            // cannot demolish Embassy further until the player quits the alliance,
-    		            // as they are founder and there are still other players in the alliance,
-    		            // thus destroying Embassy would evict this player from the alliance
-    		            // and leave a new random leader
-    		            return 18;
-		            }
-		        }
-		    }
+		if ($this->getFieldType($wid, $field) == 18) {
+			$uid = (int)($session->uid ?? 0);
+			if ($uid <= 0 && isset($village->owner)) {
+				$uid = (int)$village->owner;
+			}
+			if (!$this->canDemolishEmbassy($uid, $wid, $field, false)) {
+				return 18;
+			}
 		}
 
 		$q = "DELETE FROM ".TB_PREFIX."bdata WHERE field=$field AND wid=$wid";
