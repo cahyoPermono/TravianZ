@@ -130,6 +130,18 @@ class Building {
         51 => array('tribe' => array(10), 'levels' => array(array(15, 3), array(23, 3))), // Sanggar Paranormal (Nusantara)
     );
 
+    /**
+     * Get effective tribe for current village operations.
+     * Conquered villages retain their original village tribe.
+     *
+     * @return int
+     */
+    public function getEffectiveTribe(): int {
+        return (isset($this->vil->tribe) && $this->vil->tribe > 0)
+            ? (int)$this->vil->tribe
+            : (int)($this->sess->tribe ?? 1);
+    }
+
     public function __construct() {
 
         global $database, $session, $village, $logging;
@@ -141,7 +153,7 @@ class Building {
 
         $maxConcurrent = BASIC_MAX;
 
-        if (ALLOW_ALL_TRIBE || $this->sess->tribe == 1) {
+        if (ALLOW_ALL_TRIBE || $this->getEffectiveTribe() == 1) {
             $maxConcurrent += INNER_MAX;
         }
 
@@ -547,7 +559,7 @@ class Building {
 
                 $hasMainBuilding =
                     (
-                        $this->sess->tribe == 1 ||
+                        $this->getEffectiveTribe() == 1 ||
                         ALLOW_ALL_TRIBE
                     )
                         ? $this->inner
@@ -698,7 +710,7 @@ class Building {
         return;
     }
 
-    $romanQueue = ($this->sess->tribe == 1 || ALLOW_ALL_TRIBE);
+    $romanQueue = ($this->getEffectiveTribe() == 1 || ALLOW_ALL_TRIBE);
 
     foreach ($this->buildArray as $build) {
 
@@ -749,7 +761,7 @@ class Building {
         if (
             $this->db->removeBuilding(
                 $d,
-                $this->sess->tribe,
+                $this->getEffectiveTribe(),
                 $this->vil->wid,
                 $this->vil->resarray
             )
@@ -828,7 +840,7 @@ class Building {
                 }
             }
 
-            $romanQueue = ($this->sess->tribe == 1 || ALLOW_ALL_TRIBE);
+            $romanQueue = ($this->getEffectiveTribe() == 1 || ALLOW_ALL_TRIBE);
 
             if ($romanQueue) {
 
@@ -950,7 +962,7 @@ class Building {
 
         if ($loop == 1) {
 
-            $romanQueue = ($this->sess->tribe == 1 || ALLOW_ALL_TRIBE);
+            $romanQueue = ($this->getEffectiveTribe() == 1 || ALLOW_ALL_TRIBE);
 
             foreach ($this->buildArray as $build) {
 
@@ -1063,18 +1075,20 @@ class Building {
 
 	private function meetRequirement($gid) {
 
+    $effectiveTribe = $this->getEffectiveTribe();
+
     switch ($gid) {
 
         // Residence: Hunii au Command Center in loc de Residence
         case 25:
-            if ($this->sess->tribe == 6) return false;
+            if ($effectiveTribe == 6) return false;
             return $this->getTypeLevel(15) >= 5 &&
                    !$this->getTypeField(25) &&
                    !$this->getTypeField(26);
 
         // Palace: Hunii au Command Center in loc de Palace
         case 26:
-            if ($this->sess->tribe == 6) return false;
+            if ($effectiveTribe == 6) return false;
             return $this->getTypeLevel(18) >= 1 &&
                    $this->getTypeLevel(15) >= 5 &&
                    !$this->getTypeField(26) &&
@@ -1086,7 +1100,7 @@ class Building {
             // FIX confirmat (B-D1): Hunii nu au Palace, deci cerinta "Palace >= 3"
             // ii bloca definitiv. Pentru tribul 6, echivalentul e Command Center
             // (gid 44) >= 3.
-            $palaceLevel = ($this->sess->tribe == 6)
+            $palaceLevel = ($effectiveTribe == 6)
                 ? $this->getTypeLevel(44)
                 : $this->getTypeLevel(26);
 
@@ -1128,7 +1142,7 @@ class Building {
 	 */
 	private function evaluateRequirements($gid, array $req) {
 
-    $effectiveTribe = (isset($this->vil->tribe) && $this->vil->tribe > 0) ? (int)$this->vil->tribe : (int)$this->sess->tribe;
+    $effectiveTribe = $this->getEffectiveTribe();
 
     if (isset($req['tribe']) && !in_array($effectiveTribe, $req['tribe'])) {
         return false;

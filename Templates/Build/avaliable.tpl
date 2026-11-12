@@ -84,10 +84,12 @@ for ($i = 1; $i <= 51; $i++) {
 global $typeCounts;
 $typeCounts = $database->getBuildingByType2($village->wid, $typesArray);
 
-function getTypeCount($id) {
-    global $typeCounts;
+if (!function_exists('getTypeCount')) {
+    function getTypeCount($id) {
+        global $typeCounts;
 
-    return (isset($typeCounts[$id]) ? $typeCounts[$id] : 0);
+        return (isset($typeCounts[$id]) ? $typeCounts[$id] : 0);
+    }
 }
 
 $mainbuilding1 = getTypeCount(15);
@@ -188,7 +190,7 @@ if((($greatwarehouse == 0 && $greatwarehouse1 == 0) || $greatwarehouse == 20) &&
 if((($greatgranary == 0 && $greatgranary1 == 0) || $greatgranary == 20) && $mainbuilding >= 10 && ($GreatGranaryWarehouseBuildable  || $village->natar == 1) && ($id != 39 && $id != 40)) {
     include("avaliable/greatgranary.tpl");
 }
-if((($trapper == 0 && $trapper1 == 0) || $trapper == 20) && $rallypoint >= 1 && $session->tribe == 3 && $id != 39 && $id != 40) {
+if((($trapper == 0 && $trapper1 == 0) || $trapper == 20) && $rallypoint >= 1 && $vTribe == 3 && $id != 39 && $id != 40) {
     include("avaliable/trapper.tpl");
 }
 if($rallypoint == 0 && $rallypoint1 == 0 && $id == 39) {
@@ -216,13 +218,13 @@ if($granary >= 1 && $warehouse >= 1 && $mainbuilding >= 3 && $market == 0 && $ma
     include("avaliable/marketplace.tpl");
 }
 if($mainbuilding >= 5 && $residence == 0 && $residence1 == 0 && $id != 39 && $id != 40 && $palace == 0 && $palace1 == 0) {
-    if($session->tribe != 6) include("avaliable/residence.tpl");
+    if($vTribe != 6) include("avaliable/residence.tpl");
 }
 if($academy == 0 && $academy1 == 0 && $mainbuilding >= 3 && $barrack >= 3 && $id != 39 && $id != 40) {
     include("avaliable/academy.tpl");
 }
 if($palace == 0 && $palace1 == 0 && !$building->isCastleBuilt() && $village->natar == 0 && $embassy >= 1 && $mainbuilding >= 5 && $id != 39 && $id != 40 && $residence == 0 && $residence1 == 0) {
-    if($session->tribe != 6) include("avaliable/palace.tpl");
+    if($vTribe != 6) include("avaliable/palace.tpl");
 }
 if($blacksmith == 0 && $blacksmith1 == 0 && $academy >= 3 && $mainbuilding >= 3 && $id != 39 && $id != 40) {
     include("avaliable/blacksmith.tpl");
@@ -260,25 +262,25 @@ if($townhall == 0 && $townhall1 == 0 && $mainbuilding >= 10 && $academy >= 10 &&
 if($tradeoffice == 0 && $tradeoffice1 == 0 && $market == 20 && $stable >= 10 && $id != 39 && $id != 40) {
     include("avaliable/tradeoffice.tpl");
 }
-if($session->tribe == 1 && $horsedrinkingtrough == 0 && $horsedrinkingtrough1 == 0 && $rallypoint >= 10 && $stable == 20 && $id != 39 && $id != 40) {
+if($vTribe == 1 && $horsedrinkingtrough == 0 && $horsedrinkingtrough1 == 0 && $rallypoint >= 10 && $stable == 20 && $id != 39 && $id != 40) {
     include("avaliable/horsedrinking.tpl");
 }
-if($session->tribe == 2 && $village->capital == 1 && $brewery == 0 && $brewery1 == 0 && $rallypoint >= 10 && $granary == 20 && $id != 39 && $id != 40) {
+if($vTribe == 2 && $village->capital == 1 && $brewery == 0 && $brewery1 == 0 && $rallypoint >= 10 && $granary == 20 && $id != 39 && $id != 40) {
     include("avaliable/brewery.tpl");
 }
-if($session->tribe == 6 && $commandcenter == 0 && $commandcenter1 == 0 && $mainbuilding >= 5 && $residence == 0 && $residence1 == 0 && $palace == 0 && $palace1 == 0 && $id != 39 && $id != 40) {
+if($vTribe == 6 && $commandcenter == 0 && $commandcenter1 == 0 && $mainbuilding >= 5 && $residence == 0 && $residence1 == 0 && $palace == 0 && $palace1 == 0 && $id != 39 && $id != 40) {
     include("avaliable/commandcenter.tpl");
 }
-if($session->tribe == 7 && $waterworks == 0 && $waterworks1 == 0 && $herosmansion >= 10 && $id != 39 && $id != 40) {
+if($vTribe == 7 && $waterworks == 0 && $waterworks1 == 0 && $herosmansion >= 10 && $id != 39 && $id != 40) {
     include("avaliable/waterworks.tpl");
 }
-if($session->tribe != 8 && $session->tribe != 9 && $hospital == 0 && $hospital1 == 0 && $mainbuilding >= 10 && $academy >= 15 && $id != 39 && $id != 40) {
+if($vTribe != 8 && $vTribe != 9 && $hospital == 0 && $hospital1 == 0 && $mainbuilding >= 10 && $academy >= 15 && $id != 39 && $id != 40) {
     include("avaliable/hospital.tpl");
 }
-if(($session->tribe == 8 || $session->tribe == 9) && $bighospital == 0 && $bighospital1 == 0 && $mainbuilding >= 10 && $academy >= 15 && $id != 39 && $id != 40) {
+if(($vTribe == 8 || $vTribe == 9) && $bighospital == 0 && $bighospital1 == 0 && $mainbuilding >= 10 && $academy >= 15 && $id != 39 && $id != 40) {
     include("avaliable/bighospital.tpl");
 }
-if($session->tribe == 10 && $paranormal == 0 && $paranormal1 == 0 && $mainbuilding >= 3 && $cranny >= 3 && $id != 39 && $id != 40) {
+if($vTribe == 10 && $paranormal == 0 && $paranormal1 == 0 && $mainbuilding >= 3 && $cranny >= 3 && $id != 39 && $id != 40) {
     include("avaliable/paranormal.tpl");
 }
 if($greatbarracks == 0 && $greatbarracks1 == 0 && $barrack == 20 && $village->capital == 0 && $id != 39 && $id != 40) {
@@ -296,7 +298,7 @@ if($id != 39 && $id != 40) {
 
 <div id="build_list_soon" class="hide">
 <?php
-if($rallypoint == 0 && $session->tribe == 3 && $trapper == 0 ) {
+if($rallypoint == 0 && $vTribe == 3 && $trapper == 0 ) {
 include("soon/trapper.tpl");
 }
 if($mainbuilding < 10 && $warehouse < 10 && $village->capital == 0 && $GreatGranaryWarehouseBuildable) {
@@ -321,13 +323,13 @@ if($market == 0 && ($mainbuilding <= 2 || $granary <= 0 || $warehouse <= 0)) {
     include("soon/marketplace.tpl");
 }
 if($residence == 0 && $mainbuilding <= 4) {
-    if($session->tribe != 6) include("soon/residence.tpl");
+    if($vTribe != 6) include("soon/residence.tpl");
 }
 if($academy == 0 && ($mainbuilding <= 2 || $barrack <= 2)) {
     include("soon/academy.tpl");
 }
 if($embassy == 0 || $mainbuilding >= 2 && $mainbuilding <= 4 && !$building->isCastleBuilt() && $village->natar == 0) {
-    if($session->tribe != 6) include("soon/palace.tpl");
+    if($vTribe != 6) include("soon/palace.tpl");
 }
 if($blacksmith == 0 && ($academy <= 2 || $mainbuilding <= 2)) {
     include("soon/blacksmith.tpl");
@@ -365,25 +367,25 @@ if($townhall == 0 && ($mainbuilding <= 9 && $mainbuilding >= 5) || ($academy >= 
 if($tradeoffice == 0 && $market <= 19 && $market >= 10 || $stable >= 5 && $stable <= 9) {
     include("soon/tradeoffice.tpl");
 }
-if($session->tribe == 1 && $horsedrinkingtrough == 0 && $rallypoint <= 9 && $rallypoint >= 5 || $stable <= 19 && $stable >= 10 && $session->tribe == 1) {
+if($vTribe == 1 && $horsedrinkingtrough == 0 && $rallypoint <= 9 && $rallypoint >= 5 || $stable <= 19 && $stable >= 10 && $vTribe == 1) {
     include("soon/horsedrinking.tpl");
 }
-if($brewery == 0 && $village->capital == 1 && $rallypoint <= 9 && $rallypoint >= 5 || $granary <= 19 && $granary >= 10 && $session->tribe == 2) {
+if($brewery == 0 && $village->capital == 1 && $rallypoint <= 9 && $rallypoint >= 5 || $granary <= 19 && $granary >= 10 && $vTribe == 2) {
     include("soon/brewery.tpl");
 }
-if($session->tribe == 6 && $commandcenter == 0 && $commandcenter1 == 0 && $mainbuilding < 5 && $residence == 0 && $residence1 == 0 && $palace == 0 && $palace1 == 0) {
+if($vTribe == 6 && $commandcenter == 0 && $commandcenter1 == 0 && $mainbuilding < 5 && $residence == 0 && $residence1 == 0 && $palace == 0 && $palace1 == 0) {
     include("soon/commandcenter.tpl");
 }
-if($session->tribe == 7 && $waterworks == 0 && $waterworks1 == 0 && $herosmansion < 10) {
+if($vTribe == 7 && $waterworks == 0 && $waterworks1 == 0 && $herosmansion < 10) {
     include("soon/waterworks.tpl");
 }
-if($session->tribe != 8 && $session->tribe != 9 && $hospital == 0 && $hospital1 == 0 && ($mainbuilding < 10 || $academy < 15) && $academy >= 5) {
+if($vTribe != 8 && $vTribe != 9 && $hospital == 0 && $hospital1 == 0 && ($mainbuilding < 10 || $academy < 15) && $academy >= 5) {
     include("soon/hospital.tpl");
 }
-if(($session->tribe == 8 || $session->tribe == 9) && $bighospital == 0 && $bighospital1 == 0 && ($mainbuilding < 10 || $academy < 15) && $academy >= 5) {
+if(($vTribe == 8 || $vTribe == 9) && $bighospital == 0 && $bighospital1 == 0 && ($mainbuilding < 10 || $academy < 15) && $academy >= 5) {
     include("soon/bighospital.tpl");
 }
-if($session->tribe == 10 && $paranormal == 0 && $paranormal1 == 0 && ($mainbuilding < 3 || $cranny < 3)) {
+if($vTribe == 10 && $paranormal == 0 && $paranormal1 == 0 && ($mainbuilding < 3 || $cranny < 3)) {
     include("soon/paranormal.tpl");
 }
 if($greatbarracks == 0 && $barrack >= 18 && $village->capital == 0) {
@@ -404,7 +406,10 @@ if($academy == 0 && ($mainbuilding == 1 || $barrack == 0)) {
     include_once("soon/academy.tpl");
 }
 if($palace == 0 && ($embassy == 0 || $mainbuilding <= 2) && $village->natar == 0) {
-    include_once("soon/palace.tpl");
+    if($vTribe != 6) include_once("soon/palace.tpl");
+}
+if($vTribe == 6 && $commandcenter == 0 && $commandcenter1 == 0 && $mainbuilding <= 2 && $residence == 0 && $residence1 == 0 && $palace == 0 && $palace1 == 0) {
+    include_once("soon/commandcenter.tpl");
 }
 if($blacksmith == 0 && ($academy == 0 || $mainbuilding == 1)) {
     include_once("soon/blacksmith.tpl");
@@ -442,10 +447,10 @@ if($townhall == 0 && ($mainbuilding <= 5 || $academy <= 5)) {
 if($tradeoffice == 0 && ($market <= 10 || $stable <= 5)) {
     include_once("soon/tradeoffice.tpl");
 }
-if($session->tribe == 1 && $horsedrinkingtrough == 0 && ($rallypoint <= 5 || $stable <= 10)) {
+if($vTribe == 1 && $horsedrinkingtrough == 0 && ($rallypoint <= 5 || $stable <= 10)) {
     include_once("soon/horsedrinking.tpl");
 }
-if($brewery == 0 && ($rallypoint <= 5 || $granary <= 10) && $session->tribe == 2 && $village->capital == 1) {
+if($brewery == 0 && ($rallypoint <= 5 || $granary <= 10) && $vTribe == 2 && $village->capital == 1) {
     include_once("soon/brewery.tpl");
 }
 if($greatbarracks == 0 && $barrack >= 15 && $village->capital == 0) {

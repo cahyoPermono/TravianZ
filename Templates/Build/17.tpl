@@ -63,7 +63,8 @@ if ($checkexist) {
         'owner' => $villageOwner,
         'coor' => $database->getCoor($getwref),
     ];
-    $target['time'] = $generator->procDistanceTime($target['coor'], $village->coor, $session->tribe, 0);
+    $merchantTribe = (!empty($village->tribe) && $village->tribe > 0) ? (int)$village->tribe : ((!empty($session->tribe) && $session->tribe > 0) ? (int)$session->tribe : 1);
+    $target['time'] = $generator->procDistanceTime($target['coor'], $village->coor, $merchantTribe, 0);
 }
 
 $maxTotalCarry = $maxcarry * $merchantAvail;

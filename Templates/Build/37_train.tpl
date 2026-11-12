@@ -191,8 +191,9 @@ if ($count_hero < $maxHeroes) {
             </tr>
         </thead>";
 
-	if (isset($tribeUnits[$session->tribe])) {
-		foreach ($tribeUnits[$session->tribe] as $index => $unitID) {
+	$effectiveTribe = (!empty($village->tribe) && $village->tribe > 0) ? (int)$village->tribe : ((!empty($session->tribe) && $session->tribe > 0) ? (int)$session->tribe : 1);
+	if (isset($tribeUnits[$effectiveTribe])) {
+		foreach ($tribeUnits[$effectiveTribe] as $index => $unitID) {
 			$isBaseUnit = ($index === 0); // u1 / u11 / u21: mereu afisat, fara research check
 			$unitName   = constant('U' . $unitID);
 			$bugOptions = $bugOverrides[$unitID] ?? [];
@@ -205,7 +206,7 @@ if ($count_hero < $maxHeroes) {
 
 	//HERO TRAINING
 	if (isset($_GET['train'])) {
-		$validationArray = $tribeUnits[$session->tribe] ?? [];
+		$validationArray = $tribeUnits[$effectiveTribe] ?? [];
 
 		// check for a valid unit value
 		if (in_array($_GET['train'], $validationArray)) {
