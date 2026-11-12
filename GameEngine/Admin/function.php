@@ -440,6 +440,9 @@ class funct
             case 50:
                 $build = "Barricade";
                 break;
+            case 51:
+                $build = defined('PARANORMAL_SANCTUARY') ? PARANORMAL_SANCTUARY : "Sanggar Paranormal";
+                break;
             default:
                 $build = "Error";
                 break;

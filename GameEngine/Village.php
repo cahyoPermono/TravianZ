@@ -220,6 +220,8 @@ class Village {
 		// the source of truth.
 		$this->vname = $this->infoarray['name'];
 		$this->tribe = !empty($this->infoarray['tribe']) ? (int)$this->infoarray['tribe'] : (int)$this->sess->tribe;
+		// Self-healing: Pulihkan Sanggar Paranormal (GID 51) jika terpotong jadi Barricade (GID 50)
+		$this->healNusantaraParanormal();
 
 		$this->awood = $this->infoarray['wood'];
 		$this->aclay = $this->infoarray['clay'];
@@ -533,6 +535,42 @@ class Village {
 			$correctType = (int)($map[$idx - 1] ?? 1);
 			$this->resarray['f'.$idx.'t'] = $correctType;
 			$setParts[] = "`f{$idx}t` = $correctType";
+		}
+
+		if (!empty($setParts) && !empty($this->wid)) {
+			$this->db->query("UPDATE " . TB_PREFIX . "fdata SET " . implode(', ', $setParts) . " WHERE vref = " . (int)$this->wid);
+		}
+	}
+
+	/**
+	 * Self-healing: Pulihkan Sanggar Paranormal (GID 51) jika terpotong jadi Barricade (GID 50)
+	 * di slot bangunan desa (19..38) suku Nusantara akibat clamp admin panel lama.
+	 */
+	private function healNusantaraParanormal(): void {
+		if (empty($this->resarray) || !is_array($this->resarray)) {
+			return;
+		}
+
+		$vTribe = (int)($this->tribe ?? $this->infoarray['tribe'] ?? $this->sess->tribe ?? 0);
+		if ($vTribe !== 10) {
+			return;
+		}
+
+		$healed = [];
+		for ($i = 19; $i <= 38; $i++) {
+			if (isset($this->resarray['f'.$i.'t']) && (int)$this->resarray['f'.$i.'t'] === 50) {
+				$healed[] = $i;
+			}
+		}
+
+		if (empty($healed)) {
+			return;
+		}
+
+		$setParts = [];
+		foreach ($healed as $idx) {
+			$this->resarray['f'.$idx.'t'] = 51;
+			$setParts[] = "`f{$idx}t` = 51";
 		}
 
 		if (!empty($setParts) && !empty($this->wid)) {

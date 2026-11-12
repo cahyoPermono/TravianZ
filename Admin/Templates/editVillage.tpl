@@ -80,7 +80,7 @@ if(isset($id)) { include("search2.tpl"); ?>
     <div style="margin-top:10px;max-height:180px;overflow:auto;border:1px solid #e5e7eb;border-radius:6px">
       <table class="vtable" style="font-size:11.5px">
         <thead><tr><th style="width:50px"><?php echo ADM_GID; ?></th><th><?php echo ADM_NAME; ?></th></tr></thead>
-        <tbody><?php for($i=1;$i<=50;$i++){ echo '<tr><td>'.$i.'</td><td>'.$funct->procResType($i).'</td></tr>'; } ?></tbody>
+        <tbody><?php for($i=1;$i<=51;$i++){ echo '<tr><td>'.$i.'</td><td>'.$funct->procResType($i).'</td></tr>'; } ?></tbody>
       </table>
     </div>
   </div>
