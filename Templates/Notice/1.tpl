@@ -34,23 +34,30 @@ if (count($dataarray) < 15 && !empty($message->readingNotice['data']) && !is_num
 $spyData = null;
 $spyPic = null;
 $spyIndex = null;
-foreach ($dataarray as $idx => $val) {
-    if (is_string($val) && (
-        strpos($val, '<div class="res">') !== false ||
-        strpos($val, 'class="r1"') !== false ||
-        strpos($val, 'RC_CRANNY_CAPACITY') !== false ||
-        strpos($val, 'RC_WALL_LEVEL') !== false ||
-        strpos($val, 'RC_RESIDENCE_LEVEL') !== false ||
-        strpos($val, 'RC_PALACE_LEVEL') !== false ||
-        strpos($val, 'RC_NO_INFO') !== false ||
-        (defined('RC_CRANNY_CAPACITY') && strpos($val, constant('RC_CRANNY_CAPACITY')) !== false)
-    )) {
-        $spyData = $val;
-        $spyIndex = $idx;
-        if (isset($dataarray[$idx - 1]) && is_numeric($dataarray[$idx - 1])) {
-            $spyPic = (int)$dataarray[$idx - 1];
+$noticeTopic = (string)($message->readingNotice['topic'] ?? '');
+$noticeType = (int)($message->readingNotice['ntype'] ?? 0);
+$isScoutNotice = in_array($noticeType, [18, 19, 20, 21], true)
+    || (stripos($noticeTopic, 'scout') !== false && stripos($noticeTopic, 'attack') === false);
+
+if ($isScoutNotice) {
+    foreach ($dataarray as $idx => $val) {
+        if (is_string($val) && (
+            strpos($val, '<div class="res">') !== false ||
+            strpos($val, 'class="r1"') !== false ||
+            strpos($val, 'RC_CRANNY_CAPACITY') !== false ||
+            strpos($val, 'RC_WALL_LEVEL') !== false ||
+            strpos($val, 'RC_RESIDENCE_LEVEL') !== false ||
+            strpos($val, 'RC_PALACE_LEVEL') !== false ||
+            strpos($val, 'RC_NO_INFO') !== false ||
+            (defined('RC_CRANNY_CAPACITY') && strpos($val, constant('RC_CRANNY_CAPACITY')) !== false)
+        )) {
+            $spyData = $val;
+            $spyIndex = $idx;
+            if (isset($dataarray[$idx - 1]) && is_numeric($dataarray[$idx - 1])) {
+                $spyPic = (int)$dataarray[$idx - 1];
+            }
+            break;
         }
-        break;
     }
 }
 
@@ -77,7 +84,7 @@ $hasHero = ($heroSentAtt > 0);
 $colspan = $hasHero ? 11 : 10;
 
 // Spy detection
-$spy = ($spyData !== null) || (!empty($dataarray[269]) && !empty($dataarray[268]) && empty($dataarray[287]));
+$spy = $isScoutNotice && (($spyData !== null) || (!empty($dataarray[269]) && !empty($dataarray[268]) && empty($dataarray[287])));
 
 // ======================== URL SETUP ========================
 
@@ -827,9 +834,9 @@ if (!empty($defHeroData) && ($defHeroData['reason'] ?? '') !== 'none' && $target
     <?php else: ?>
         <div style="font-size: 11.5px; color: #475569;">
             <?php if ($defHeroData['reason'] === 'dead'): ?>
-                ⚠️ <b>Pahlawan tidak ikut bertahan</b>: Pahlawan <b><?= htmlspecialchars($defHeroData['name']) ?></b> (Level <?= $defHeroData['level'] ?>) sedang <b>gugur (HP 0%)</b> saat serangan tiba dan belum dibangkitkan kembali di Rumah Pahlawan.
+                ⚠️ <b>Pahlawan tidak ikut bertahan</b>: Pahlawan <b><?= htmlspecialchars($defHeroData['name'] ?? '') ?></b> (Level <?= $defHeroData['level'] ?? 0 ?>) sedang <b>gugur (HP 0%)</b> saat serangan tiba dan belum dibangkitkan kembali di Rumah Pahlawan.
             <?php elseif ($defHeroData['reason'] === 'away'): ?>
-                ℹ️ <b>Pahlawan tidak ikut bertahan</b>: Pahlawan <b><?= htmlspecialchars($defHeroData['name']) ?></b> (Level <?= $defHeroData['level'] ?>) sedang berada di luar desa / tidak ditempatkan di desa ini saat serangan terjadi.
+                ℹ️ <b>Pahlawan tidak ikut bertahan</b>: Pahlawan <b><?= htmlspecialchars($defHeroData['name'] ?? '') ?></b> (Level <?= $defHeroData['level'] ?? 0 ?>) sedang berada di luar desa / tidak ditempatkan di desa ini saat serangan terjadi.
             <?php else: ?>
                 ℹ️ <b>Pahlawan tidak ikut bertahan</b>: Pemain belum memiliki pahlawan aktif.
             <?php endif; ?>

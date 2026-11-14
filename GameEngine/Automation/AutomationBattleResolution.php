@@ -1187,7 +1187,7 @@ trait AutomationBattleResolution {
                     .','.$spa.','.$unitssend_def[8].','.$unitsdead_def[8]
                     .','.$vik.','.$unitssend_def[9].','.$unitsdead_def[9]
                     .','.$DefenderHeroesTot.','.$DefenderHeroesDead
-                    .','.$info_ram.','.$info_cat.','.$info_chief.','.(isset($info_spy) ? $info_spy : '')
+                    .','.$info_ram.','.$info_cat.','.$info_chief.','.((!empty($scout) && isset($info_spy)) ? $info_spy : '')
                     .',,'.$data['t11'].','.$dead11.','.$herosend_def.','.$deadhero
                     .','.$unitstraped_att;
 
@@ -3142,6 +3142,8 @@ trait AutomationBattleResolution {
                 //set base things
 				$totaltraped_att = 0;
 				for($i = 1; $i <= 11; $i++) ${'traped'.$i} = 0;
+				$info_spy = '';
+				$village_destroyed = 0;
                 // per-attack context (attacker village/owner) — extracted to resolveAttackContext() [#155]
                 $ctx = $this->resolveAttackContext($data);
                 $isoasis           = $ctx['isoasis'];
@@ -3478,6 +3480,8 @@ trait AutomationBattleResolution {
                     //Data for when troops return.
                     //catapults look :D
                     $info_cat = $info_chief = $info_ram = $info_hero = ",";
+                    $info_spy = "";
+                    $village_destroyed = 0;
                     
                     //check to see if can destroy village (allowed even for last village/capital so player/bot can get Game Over when all villages reach 0 pop)
                     if (!$database->villageHasArtefact($DefenderWref) && empty($to['natar'])) {
@@ -3710,6 +3714,8 @@ trait AutomationBattleResolution {
 
                     if (!empty($scout)) {
                         $info_spy = $this->buildScoutReport($data, $spy_pic, $isoasis, $targettribe, $crannySpy, $totwood, $totclay, $totiron, $totcrop);
+                    } else {
+                        $info_spy = "";
                     }
 
                     // prisoners freed during conquest attacks — extracted to handlePrisoners() [#155]
@@ -3780,7 +3786,7 @@ trait AutomationBattleResolution {
                         $rom, $ger, $gal, $nat, $natar,
                         $hun, $egy, $spa, $vik,
                         $DefenderHeroesTot, $DefenderHeroesDead,
-                        $info_ram, $info_cat, $info_chief, isset($info_spy) ? $info_spy : '',
+                        $info_ram, $info_cat, $info_chief, (!empty($scout) && isset($info_spy)) ? $info_spy : '',
                         $info_trap, $info_hero, $info_troop,
                         $data, $dead11, $herosend_def, $deadhero, $unitstraped_att,
                         $village_destroyed, $can_destroy, $catp_pic,

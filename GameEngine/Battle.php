@@ -245,7 +245,9 @@ class Battle {
 
     $herodata = $GLOBALS['h'.$heroUnit];
     $attack = (int)$hero['attack'];
-    $defence = (int)$hero['defence'];
+    // T4 hero port: fighting strength (stored in attack) applies to both attack and defence.
+    $isT4 = defined('NEW_FUNCTIONS_HERO_T4') && NEW_FUNCTIONS_HERO_T4;
+    $defence = $isT4 ? max($attack, (int)$hero['defence']) : (int)$hero['defence'];
     $attackBonus = (int)$hero['attackbonus'];
     $defenceBonus = (int)$hero['defencebonus'];
     $h_atk = $herodata['atk']

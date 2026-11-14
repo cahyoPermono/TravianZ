@@ -1285,11 +1285,16 @@ class Units {
      * @return array The hero stats array
      */
     private function buildHeroStats($hero, $herodata) {
-        $h_atk = $herodata['atk'] + 5 * floor($hero['attack'] * $herodata['atkp'] / 5);
-        $h_di = $herodata['di'] + 5 * floor($hero['defence'] * $herodata['dip'] / 5);
-        $h_dc = $herodata['dc'] + 5 * floor($hero['defence'] * $herodata['dcp'] / 5);
-        $h_ob = 1 + 0.002 * $hero['attackbonus'];
-        $h_db = 1 + 0.002 * $hero['defencebonus'];
+        $isT4 = defined('NEW_FUNCTIONS_HERO_T4') && NEW_FUNCTIONS_HERO_T4;
+        $attackPoints = (int)($hero['attack'] ?? 0);
+        // T4 hero port: fighting strength (stored in attack) applies to both attack and defence.
+        $defencePoints = $isT4 ? max($attackPoints, (int)($hero['defence'] ?? 0)) : (int)($hero['defence'] ?? 0);
+
+        $h_atk = $herodata['atk'] + 5 * floor($attackPoints * $herodata['atkp'] / 5);
+        $h_di = $herodata['di'] + 5 * floor($defencePoints * $herodata['dip'] / 5);
+        $h_dc = $herodata['dc'] + 5 * floor($defencePoints * $herodata['dcp'] / 5);
+        $h_ob = 1 + 0.002 * (int)($hero['attackbonus'] ?? 0);
+        $h_db = 1 + 0.002 * (int)($hero['defencebonus'] ?? 0);
 
         return [
             'heroid' => $hero['heroid'],
@@ -1299,9 +1304,9 @@ class Units {
             'intraining' => $hero['intraining'],
             'trainingtime' => $hero['trainingtime'],
             'level' => $hero['level'],
-            'attack' => $hero['attack'],
+            'attack' => $attackPoints,
             'atk' => $h_atk,
-            'defence' => $hero['defence'],
+            'defence' => $isT4 ? $defencePoints : (int)($hero['defence'] ?? 0),
             'di' => $h_di,
             'dc' => $h_dc,
             'attackbonus' => $hero['attackbonus'],

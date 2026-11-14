@@ -29,28 +29,38 @@ if (isset($_POST['name']) && !empty($_POST['name'])) {
 	echo "" . NAME_CHANGED . "";
 }
 
+$t4Hero = defined('NEW_FUNCTIONS_HERO_T4') && NEW_FUNCTIONS_HERO_T4;
+$t4HeroRes = $t4Hero;
+
+// Auto-migration T4: jika pemain memiliki poin lama yang tersisa di `defence`,
+// kembalikan poin tersebut ke `points` (unallocated) agar bisa dipakai bebas di sistem T4 baru,
+// dan sinkronkan defence = attack.
+if ($t4Hero && isset($hero_info['heroid']) && !empty($hero_info['defence']) && (int)$hero_info['defence'] > 0 && (int)$hero_info['defence'] !== (int)$hero_info['attack']) {
+	$oldDef = (int) $hero_info['defence'];
+	$heroId = (int) $hero_info['heroid'];
+	mysqli_query($database->dblink, "UPDATE " . TB_PREFIX . "hero SET `points` = `points` + $oldDef, `defence` = `attack` WHERE `heroid` = $heroId AND `defence` = $oldDef");
+	$hero_info['points'] = (int)($hero_info['points'] ?? 0) + $oldDef;
+	$hero_info['defence'] = (int) $hero_info['attack'];
+}
+
 // Explicit lookup: action from URL (?add=...) => column from `hero` table.
-// Used for both "(+)" links in the table and for the update
-// in the DB below. Single source of truth instead of 5 identical blocks.
-$heroStatColumns = [
-	'off'    => 'attack',
-	'deff'   => 'defence',
-	'obonus' => 'attackbonus',
-	'dbonus' => 'defencebonus',
-	'reg'    => 'regeneration',
-];
-
-// Atributul "Resources" apartine sistemului de erou T4: apare si poate primi
-// puncte doar cand functiile T4 sunt pornite. Tot flag-ul asta decide si daca
-// productia se aplica (vezi Village::loadHeroProd), deci cele doua nu pot ajunge
-// in dezacord - altfel jucatorii ar investi in ceva care nu produce nimic.
-// In plus, cu flag-ul stins interogarile de mai jos nu mai ating coloanele
-// `resources` / `res_type`, deci pagina merge si pe un server care inca nu a
-// rulat scriptul add-hero-resources.sql.
-$t4HeroRes = defined('NEW_FUNCTIONS_HERO_T4') && NEW_FUNCTIONS_HERO_T4;
-
-if ($t4HeroRes) {
-	$heroStatColumns['res'] = 'resources';
+if ($t4Hero) {
+	// T4 Hero: Fighting strength (attack) menggantikan Offence dan Defence
+	$heroStatColumns = [
+		'fs'     => 'attack',
+		'obonus' => 'attackbonus',
+		'dbonus' => 'defencebonus',
+		'reg'    => 'regeneration',
+		'res'    => 'resources',
+	];
+} else {
+	$heroStatColumns = [
+		'off'    => 'attack',
+		'deff'   => 'defence',
+		'obonus' => 'attackbonus',
+		'dbonus' => 'defencebonus',
+		'reg'    => 'regeneration',
+	];
 }
 
 $heroSelfUrl = (!empty($id) ? "build.php?id=" . $id : "hero.php");
@@ -199,16 +209,31 @@ $renderAddLink = function ($action) use ($hero_info, $id, $heroStatColumns, $her
             return ($pct == (int) $pct) ? (string) (int) $pct : (string) $pct;
         };
 
-        // nume afisat, valoarea, punctele investite si cheia pentru (+)
-        $t4Rows = array(
-            array(OFFENCE,      $t4ItemStrength > 0
-                                    ? $hero_info['atk'] . ' <span class="t4h-item">+' . number_format($t4ItemStrength) . '</span>'
-                                    : $hero_info['atk'],                           (int) $hero_info['attack'],       'off'),
-            array(DEFENCE,      $hero_info['dc'] . '/' . $hero_info['di'],         (int) $hero_info['defence'],      'deff'),
-            array(OFF_BONUS,    $t4BonusPct($hero_info['ob']) . '%',               (int) $hero_info['attackbonus'],  'obonus'),
-            array(DEF_BONUS,    $t4BonusPct($hero_info['db']) . '%',               (int) $hero_info['defencebonus'], 'dbonus'),
-            array(REGENERATION, ($hero_info['regeneration'] * 5 * SPEED) . '/' . DAY, (int) $hero_info['regeneration'], 'reg'),
-        );
+        if ($t4Hero) {
+            $fsLabel = defined('TZ_HERO_FIGHTING_STRENGTH') ? 'Fighting Strength' : 'Fighting Strength';
+            $fsDetail = 'Serangan: ' . number_format($hero_info['atk']) . ' | Pertahanan: ' . number_format($hero_info['di']) . ' Inf / ' . number_format($hero_info['dc']) . ' Kav';
+            $fsDisplay = $t4ItemStrength > 0
+                ? $hero_info['atk'] . ' <span class="t4h-item">+' . number_format($t4ItemStrength) . '</span>'
+                : $hero_info['atk'];
+
+            $t4Rows = array(
+                array('<span title="' . htmlspecialchars($fsDetail, ENT_QUOTES, 'UTF-8') . '">' . $fsLabel . '</span>', $fsDisplay, (int) $hero_info['attack'], 'fs'),
+                array(OFF_BONUS,    $t4BonusPct($hero_info['ob']) . '%',               (int) $hero_info['attackbonus'],  'obonus'),
+                array(DEF_BONUS,    $t4BonusPct($hero_info['db']) . '%',               (int) $hero_info['defencebonus'], 'dbonus'),
+                array(REGENERATION, ($hero_info['regeneration'] * 5 * SPEED) . '/' . DAY, (int) $hero_info['regeneration'], 'reg'),
+            );
+        } else {
+            // classic T3 fallback
+            $t4Rows = array(
+                array(OFFENCE,      $t4ItemStrength > 0
+                                        ? $hero_info['atk'] . ' <span class="t4h-item">+' . number_format($t4ItemStrength) . '</span>'
+                                        : $hero_info['atk'],                           (int) $hero_info['attack'],       'off'),
+                array(DEFENCE,      $hero_info['dc'] . '/' . $hero_info['di'],         (int) $hero_info['defence'],      'deff'),
+                array(OFF_BONUS,    $t4BonusPct($hero_info['ob']) . '%',               (int) $hero_info['attackbonus'],  'obonus'),
+                array(DEF_BONUS,    $t4BonusPct($hero_info['db']) . '%',               (int) $hero_info['defencebonus'], 'dbonus'),
+                array(REGENERATION, ($hero_info['regeneration'] * 5 * SPEED) . '/' . DAY, (int) $hero_info['regeneration'], 'reg'),
+            );
+        }
 
         if ($t4HeroRes) {
             $t4ResPoints = (int) ($hero_info['resources'] ?? 0);
@@ -251,6 +276,11 @@ $renderAddLink = function ($action) use ($hero_info, $id, $heroStatColumns, $her
         </tr>
     <?php } ?>
     </table>
+    <?php if ($t4Hero) { ?>
+        <div style="margin-top:6px;font-size:11px;color:#475569;background:#f8fafc;border-left:3px solid #3b82f6;padding:5px 8px;border-radius:2px;line-height:1.4;">
+            ⚔️ <b>Mekanisme T4 Aktif:</b> <i>Fighting Strength</i> berlaku ganda untuk <b>Serangan</b> (<?php echo number_format($hero_info['atk']); ?>) dan <b>Pertahanan</b> (<?php echo number_format($hero_info['di']); ?> Inf / <?php echo number_format($hero_info['dc']); ?> Kav).
+        </div>
+    <?php } ?>
 </div>
 
 <?php if ($t4HeroRes) { ?>
@@ -544,6 +574,11 @@ if ($t4HeroRes && isset($_POST['t4restype'])) {
 // nici doua cereri trimise simultan nu pot cheltui aceleasi puncte de doua ori.
 if (isset($_POST['t4points'])) {
 
+	// Alias legacy keys
+	if ($t4Hero && !isset($_POST['p_fs']) && isset($_POST['p_off'])) {
+		$_POST['p_fs'] = $_POST['p_off'];
+	}
+
 	$t4Alloc = array();
 	$t4Total = 0;
 
@@ -598,6 +633,11 @@ if (isset($_POST['t4points'])) {
 			$t4Stmt->bind_param(str_repeat('i', count($t4Values)), ...$t4Values);
 			$t4Stmt->execute();
 			$t4Stmt->close();
+
+			// Sinkronisasi nilai defence agar sama dengan attack (Fighting Strength)
+			if ($t4Hero) {
+				mysqli_query($database->dblink, "UPDATE " . TB_PREFIX . "hero SET `defence` = `attack` WHERE `heroid` = " . $t4HeroId);
+			}
 		}
 	}
 
@@ -607,6 +647,9 @@ if (isset($_POST['t4points'])) {
 
 if (isset($_GET['add'])) {
 	$action = $_GET['add'];
+	if ($t4Hero && ($action === 'off' || $action === 'deff')) {
+		$action = 'fs';
+	}
 
 	if ($action == "reset") {
 		if ($hero_info['level'] <= 3) {
@@ -627,6 +670,9 @@ if (isset($_GET['add'])) {
 			 * in urma daca se adauga un atribut nou.
 			 */
 			$resetCols  = array_values($heroStatColumns);
+			if ($t4Hero && !in_array('defence', $resetCols)) {
+				$resetCols[] = 'defence';
+			}
 			$resetSet   = array();
 			$resetWhere = array();
 
@@ -653,7 +699,8 @@ if (isset($_GET['add'])) {
 	// if level > 3, exactly like in the original: nothing happens (no redirect).
 	} elseif (isset($heroStatColumns[$action])) {
 		$column = $heroStatColumns[$action];
-		mysqli_query($database->dblink, "UPDATE " . TB_PREFIX . "hero SET `$column` = `$column` + 1, `points` = `points` - 1 WHERE `heroid` = " . $hero_info['heroid'] . " AND `points` > 0 AND `$column` < 100");
+		$syncDef = ($t4Hero && $column === 'attack') ? ", `defence` = `attack` + 1" : "";
+		mysqli_query($database->dblink, "UPDATE " . TB_PREFIX . "hero SET `$column` = `$column` + 1{$syncDef}, `points` = `points` - 1 WHERE `heroid` = " . (int)$hero_info['heroid'] . " AND `points` > 0 AND `$column` < 100");
 		header("Location: " . $heroSelfUrl);
 		exit;
 	}
