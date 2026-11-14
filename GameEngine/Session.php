@@ -567,6 +567,26 @@ function __construct() {
             return;
         }
 
+        // SELF-HEALING: Sinkronisasi units.hero dengan tabel hero
+        // Hanya desa tempat hero berada (hero.wref) yang boleh memiliki units.hero = 1.
+        // Desa-desa sekunder milik pemain yang bukan tempat hero berada HARUS units.hero = 0.
+        $myHero = $database->getHero($this->uid, 0, true);
+        if (!empty($myHero)) {
+            if (!empty($myHero['dead'])) {
+                @mysqli_query($database->dblink, "UPDATE " . TB_PREFIX . "units SET hero = 0 WHERE vref IN ($villageIDs) AND hero > 0");
+            } else {
+                $homeWid = (int)($myHero['wref'] ?? 0);
+                if ($homeWid > 0) {
+                    @mysqli_query($database->dblink, "UPDATE " . TB_PREFIX . "units SET hero = 0 WHERE vref IN ($villageIDs) AND vref != $homeWid AND hero > 0");
+                    @mysqli_query($database->dblink, "UPDATE " . TB_PREFIX . "units SET hero = 1 WHERE vref = $homeWid AND hero > 1");
+                } else {
+                    @mysqli_query($database->dblink, "UPDATE " . TB_PREFIX . "units SET hero = 1 WHERE vref IN ($villageIDs) AND hero > 1");
+                }
+            }
+        } else {
+            @mysqli_query($database->dblink, "UPDATE " . TB_PREFIX . "units SET hero = 1 WHERE vref IN ($villageIDs) AND hero > 1");
+        }
+
         $adventureTerms = '
             +
             IFNULL((SELECT COUNT(*) FROM ' . TB_PREFIX . 'movement

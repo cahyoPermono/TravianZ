@@ -309,7 +309,7 @@ class HeroAdventure
         $stmt->close();
         if (!$claimed) {
             $stmt = $this->db->prepare(
-                "UPDATE " . TB_PREFIX . "units SET hero = hero + 1 WHERE vref = ? LIMIT 1"
+                "UPDATE " . TB_PREFIX . "units SET hero = 1 WHERE vref = ? LIMIT 1"
             );
             $stmt->bind_param('i', $homeWref);
             $stmt->execute();
@@ -586,7 +586,7 @@ class HeroAdventure
 
             // Hero is home again.
             $stmt = $this->db->prepare(
-                "UPDATE " . TB_PREFIX . "units SET hero = hero + 1 WHERE vref = ? LIMIT 1"
+                "UPDATE " . TB_PREFIX . "units SET hero = 1 WHERE vref = ? LIMIT 1"
             );
             $stmt->bind_param('i', $home);
             $stmt->execute();

@@ -80,6 +80,9 @@ if ($spyIndex !== null) {
         $heroDeadAtt = (int)($dataarray[271] ?? 0);
     }
 }
+// An army can only contain at most 1 hero (safeguard against legacy desync/offset reading)
+$heroSentAtt = min(1, max(0, $heroSentAtt));
+$heroDeadAtt = min(1, max(0, $heroDeadAtt));
 $hasHero = ($heroSentAtt > 0);
 $colspan = $hasHero ? 11 : 10;
 

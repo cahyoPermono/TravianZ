@@ -2836,7 +2836,7 @@ class BotAI {
             // Rollback on failure
             $database->modifyUnit($wid, $unitNums, $amounts, array_fill(0, count($amounts), 1));
             if ($sendHero) {
-                $database->query("UPDATE " . TB_PREFIX . "units SET hero = hero + 1 WHERE vref = $wid");
+                $database->query("UPDATE " . TB_PREFIX . "units SET hero = 1 WHERE vref = $wid");
             }
             return null;
         }
@@ -3855,7 +3855,7 @@ class BotAI {
             // Rollback on failure
             $database->modifyUnit($wid, $unitNums, $amounts, array_fill(0, count($amounts), 1));
             if ($sendHero) {
-                $database->query("UPDATE " . TB_PREFIX . "units SET hero = hero + 1 WHERE vref = $wid");
+                $database->query("UPDATE " . TB_PREFIX . "units SET hero = 1 WHERE vref = $wid");
             }
             return null;
         }
@@ -4316,7 +4316,7 @@ class BotAI {
         if (!$attackId) {
             $database->modifyUnit($wid, $unitNums, $amounts, array_fill(0, count($amounts), 1));
             if ($sendHero) {
-                $database->query("UPDATE " . TB_PREFIX . "units SET hero = hero + 1 WHERE vref = $wid");
+                $database->query("UPDATE " . TB_PREFIX . "units SET hero = 1 WHERE vref = $wid");
             }
             return null;
         }
@@ -5892,7 +5892,7 @@ class BotAI {
                     $database->modifyUnit($bWid, array_keys($dispatched), array_values($dispatched), array_fill(0, count($dispatched), 1));
                 }
                 if ($sendHero) {
-                    $database->query("UPDATE " . TB_PREFIX . "units SET hero = hero + 1 WHERE vref = $bWid");
+                    $database->query("UPDATE " . TB_PREFIX . "units SET hero = 1 WHERE vref = $bWid");
                 }
                 continue;
             }
@@ -6459,7 +6459,7 @@ class BotAI {
             // Rollback on failure
             $database->modifyUnit($bWid, $unitNums, $amounts, array_fill(0, count($amounts), 1));
             if ($actualHero) {
-                $database->query("UPDATE " . TB_PREFIX . "units SET hero = hero + 1 WHERE vref = $bWid");
+                $database->query("UPDATE " . TB_PREFIX . "units SET hero = 1 WHERE vref = $bWid");
             }
             return ['status' => 'error', 'message' => 'Gagal membuat rekaman serangan di database.'];
         }
@@ -6617,7 +6617,7 @@ class BotAI {
                     }
                 }
                 if (!empty($att['t11']) && (int)$att['t11'] > 0) {
-                    $refunds[] = "hero = hero + 1";
+                    $refunds[] = "hero = 1";
                 }
                 if (!empty($refunds)) {
                     $database->query("UPDATE " . TB_PREFIX . "units SET " . implode(', ', $refunds) . " WHERE vref = $fromWid");

@@ -26,6 +26,8 @@ for ($i = 1; $i <= 11; $i++) {
     $key = 't' . $i;
     $t[$i] = (isset($process[$key]) && $process[$key] !== '') ? $process[$key] : 0;
 }
+// Hero is strictly at most 1 unit in an army
+$t[11] = !empty($t[11]) ? min(1, max(0, (int)$t[11])) : 0;
 
 // --- 2. Detectare scout / hero ---
 // Slotul cercetasului per trib: Gali = 3, Huni/Vikingi = 2, restul = 4

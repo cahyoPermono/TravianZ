@@ -40,7 +40,7 @@ $colspan = $hasHero ? 11 : 10;
         <td class="<?= $cnt == 0 ? 'none' : '' ?>"><?= $cnt ?></td>
     <?php endfor; ?>
     <?php if ($hasHero): ?>
-        <td><?= $village->unitarray['hero'] ?></td>
+        <td><?= min(1, max(0, (int)$village->unitarray['hero'])) ?></td>
     <?php endif; ?>
 </tr>
 </tbody>

@@ -104,7 +104,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
                 if (isset($_POST['hero']) && $_POST['hero'] !== '') {
-                    $heroVal = max(0, (int)$_POST['hero']);
+                    $heroVal = min(1, max(0, (int)$_POST['hero']));
                     $sets[] = "hero = {$heroVal}";
 
                     $uOwner = (int)$vRow['owner'];

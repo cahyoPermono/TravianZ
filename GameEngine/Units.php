@@ -823,6 +823,9 @@ class Units {
             }
         }
 
+		if(!empty($data['u11']) && (int)$data['u11'] > 1) {
+			$data['u11'] = 1;
+		}
 		if(($data['u11'] ?? 0) > ($village->unitarray['hero'] ?? 0)) $form->addError("error", "You can't send more units than you have");
 		if(($data['u11'] ?? 0) < 0) $form->addError("error", "You can't send negative units.");   
 		if($data['type'] != 1) $post['spy'] = 0; else $post['spy'] = $post['spy']?? 0;

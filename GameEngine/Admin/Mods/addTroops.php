@@ -61,9 +61,9 @@ for ($i = 1; $i <= 10; $i++) {
     }
 }
 
-// Hero adjustment
+// Hero adjustment (clamped strictly to 0 or 1)
 if (isset($_POST['hero'])) {
-    $heroVal = max(0, (int)$_POST['hero']);
+    $heroVal = min(1, max(0, (int)$_POST['hero']));
     $fields[] = "hero = $heroVal";
 
     $uOwner = (int)$user['id'];

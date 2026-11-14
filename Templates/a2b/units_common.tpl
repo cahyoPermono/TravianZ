@@ -125,14 +125,14 @@ if (!function_exists('a2b_unit_cell')) {
                  * o singura data, pe ambele ramuri.
                  */
                 if ($a2bShowHero) {
-                    $heroCount = (int) $village->unitarray['hero'];
+                    $heroCount = min(1, max(0, (int) $village->unitarray['hero']));
                     $heroLabel = defined('TZ_HERO') ? TZ_HERO : 'Hero';
             ?>
             <td class="line-last column-first regular">
                 <img class="unit uhero" src="img/x.gif"
                      title="<?php echo htmlspecialchars($heroLabel, ENT_QUOTES, 'UTF-8'); ?>"
                      alt="<?php echo htmlspecialchars($heroLabel, ENT_QUOTES, 'UTF-8'); ?>">
-                <input class="text" name="t11" value="" maxlength="6" type="text">
+                <input class="text" name="t11" value="" maxlength="1" type="text">
                 <a href="#" onclick="document.snd.t11.value=<?php echo $heroCount; ?>; return false;">(<?php echo $heroCount; ?>)</a>
             </td>
             <?php } else { ?>
