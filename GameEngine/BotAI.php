@@ -3238,8 +3238,9 @@ class BotAI {
     /**
      * Automated Hero AI:
      * 1. Auto-create starter hero if missing.
-     * 2. Auto-revive hero if dead.
-     * 3. Auto-dispatch hero on adventure if alive, healthy (>= 30% HP), and idle at home.
+     * 2. Auto-allocate unassigned stat points (Full Offence: Fighting Strength max 100, then Off-Bonus max 100).
+     * 3. Auto-revive hero if dead.
+     * 4. Auto-dispatch hero on adventure if alive, healthy (>= 30% HP), and idle at home.
      */
     public static function processHero(array $bot): ?string {
         global $database;
@@ -3253,13 +3254,14 @@ class BotAI {
         }
 
         // 1. Check hero record
-        $heroRow = $database->query_return("SELECT heroid, dead, health, inrevive, trainingtime, wref FROM " . TB_PREFIX . "hero WHERE uid = $uid LIMIT 1");
+        $heroRow = $database->query_return("SELECT heroid, dead, health, inrevive, trainingtime, wref, points, attack, defence, attackbonus FROM " . TB_PREFIX . "hero WHERE uid = $uid LIMIT 1");
 
         if (empty($heroRow[0])) {
             // Auto-create starter hero
             if (class_exists('Units')) {
                 Units::createStarterHero($uid, $wid, $tribe, $bot['username']);
-                return "Starter hero auto-created";
+                self::autoAllocateHeroPoints($uid);
+                return "Starter hero auto-created & stat points allocated to Offence";
             }
             return null;
         }
@@ -3270,6 +3272,14 @@ class BotAI {
         $inRevive = (int)$hero['inrevive'];
         $trainingTime = (int)$hero['trainingtime'];
 
+        $logEvents = [];
+
+        // 1b. Auto-allocate any unassigned stat points (Full Offence: Fighting Strength -> Off-Bonus)
+        $statAllocLog = self::autoAllocateHeroPoints($uid, $hero);
+        if ($statAllocLog) {
+            $logEvents[] = $statAllocLog;
+        }
+
         // 2. Auto-revive if dead
         if ($isDead === 1) {
             if ($inRevive === 1) {
@@ -3277,15 +3287,18 @@ class BotAI {
                     // Ready to finish revival
                     $database->query("UPDATE " . TB_PREFIX . "hero SET dead = 0, inrevive = 0, health = 100, lastupdate = " . time() . " WHERE uid = $uid");
                     $database->query("UPDATE " . TB_PREFIX . "units SET hero = 1 WHERE vref = $wid");
-                    return "Hero revive completed (100% HP, back in garrison)";
+                    $logEvents[] = "Hero revive completed (100% HP, back in garrison)";
+                    return implode(' | ', $logEvents);
                 }
-                return "Hero in revival (" . max(0, $trainingTime - time()) . "s remaining)";
+                $logEvents[] = "Hero in revival (" . max(0, $trainingTime - time()) . "s remaining)";
+                return implode(' | ', $logEvents);
             } else {
                 // Queue auto-revive (default 180s = 3 minutes)
                 $reviveDuration = defined('BOT_AI_REVIVE_DURATION') ? (int)BOT_AI_REVIVE_DURATION : 180;
                 $readyTime = time() + $reviveDuration;
                 $database->query("UPDATE " . TB_PREFIX . "hero SET inrevive = 1, trainingtime = $readyTime, wref = $wid WHERE uid = $uid");
-                return "Hero auto-revival started (ready in {$reviveDuration}s)";
+                $logEvents[] = "Hero auto-revival started (ready in {$reviveDuration}s)";
+                return implode(' | ', $logEvents);
             }
         }
 
@@ -3293,7 +3306,8 @@ class BotAI {
         if ($health <= 0) {
             $database->query("UPDATE " . TB_PREFIX . "hero SET dead = 1, inrevive = 1, trainingtime = " . (time() + 180) . ", wref = $wid WHERE uid = $uid");
             $database->query("UPDATE " . TB_PREFIX . "units SET hero = 0 WHERE vref = $wid");
-            return "Cleared wounded hero and queued revival";
+            $logEvents[] = "Cleared wounded hero and queued revival";
+            return implode(' | ', $logEvents);
         }
 
         // 3. Auto Adventure (if hero is at home, healthy >= 30% HP, and T4 adventure enabled)
@@ -3317,7 +3331,7 @@ class BotAI {
                             $targetAdv = $offers[0];
                             $resCode = $advObj->startAdventure($uid, (int)$targetAdv['id']);
                             if ($resCode === HeroAdventure::START_OK) {
-                                return "Hero embarked on adventure #{$targetAdv['id']} (diff: {$targetAdv['difficulty']})";
+                                $logEvents[] = "Hero embarked on adventure #{$targetAdv['id']} (diff: {$targetAdv['difficulty']})";
                             }
                         }
                     }
@@ -3325,7 +3339,113 @@ class BotAI {
             }
         }
 
+        return !empty($logEvents) ? implode(' | ', $logEvents) : null;
+    }
+
+    /**
+     * Automatically allocates a bot hero's unspent stat points into full offence:
+     * 1. Fighting Strength (attack / offence) up to 100/100.
+     * 2. Off-Bonus (attackbonus) up to 100/100.
+     * Synchronizes defence = attack for complete T4 mechanics consistency.
+     *
+     * @param int $uid Bot user ID
+     * @param array|null $hero Optional preloaded hero row
+     * @return string|null Log message if points were allocated, null otherwise
+     */
+    public static function autoAllocateHeroPoints(int $uid, ?array $hero = null): ?string {
+        global $database;
+        if ($uid <= 0) return null;
+
+        if ($hero === null) {
+            $heroRow = $database->query_return("SELECT heroid, points, attack, defence, attackbonus FROM " . TB_PREFIX . "hero WHERE uid = $uid LIMIT 1");
+            if (empty($heroRow[0])) return null;
+            $hero = $heroRow[0];
+        }
+
+        $heroid = (int)$hero['heroid'];
+        $points = (int)($hero['points'] ?? 0);
+        $attack = (int)($hero['attack'] ?? 0);
+        $defence = (int)($hero['defence'] ?? 0);
+        $attackbonus = (int)($hero['attackbonus'] ?? 0);
+
+        // Under T4 rules, if any legacy defence points exist, convert them to available points
+        if (defined('NEW_FUNCTIONS_HERO_T4') && NEW_FUNCTIONS_HERO_T4 && $defence > 0 && $defence !== $attack) {
+            $points += $defence;
+            $defence = $attack;
+        }
+
+        if ($points <= 0) {
+            return null;
+        }
+
+        $allocAtk = 0;
+        $allocBonus = 0;
+
+        // Priority 1: Fighting Strength (kolom attack / defence di T4) max 100
+        if ($attack < 100) {
+            $neededAtk = 100 - $attack;
+            $allocAtk = min($points, $neededAtk);
+            $attack += $allocAtk;
+            $points -= $allocAtk;
+        }
+
+        // Priority 2: Off-Bonus (kolom attackbonus) max 100
+        if ($points > 0 && $attackbonus < 100) {
+            $neededBonus = 100 - $attackbonus;
+            $allocBonus = min($points, $neededBonus);
+            $attackbonus += $allocBonus;
+            $points -= $allocBonus;
+        }
+
+        if ($allocAtk > 0 || $allocBonus > 0) {
+            $defVal = (defined('NEW_FUNCTIONS_HERO_T4') && NEW_FUNCTIONS_HERO_T4) ? $attack : $defence;
+            $now = time();
+            $database->query("UPDATE " . TB_PREFIX . "hero 
+                SET `attack` = $attack, `defence` = $defVal, `attackbonus` = $attackbonus, `points` = $points, `lastupdate` = $now 
+                WHERE `heroid` = $heroid");
+
+            $logParts = [];
+            if ($allocAtk > 0) $logParts[] = "+{$allocAtk} Fighting Strength ({$attack}/100)";
+            if ($allocBonus > 0) $logParts[] = "+{$allocBonus} Off-Bonus ({$attackbonus}/100)";
+
+            return "Poin Hero Bot dialokasikan: " . implode(', ', $logParts) . " (Sisa: {$points} poin)";
+        }
+
         return null;
+    }
+
+    /**
+     * Batch upgrades all bot heroes across the database:
+     * Allocates all unspent hero stat points into Fighting Strength (attack) and Off-Bonus (attackbonus).
+     *
+     * @return int Number of bot heroes updated.
+     */
+    public static function upgradeAllBotHeroes(): int {
+        global $database;
+        $updated = 0;
+
+        $query = "SELECT h.heroid, h.uid, h.points, h.attack, h.defence, h.attackbonus 
+                  FROM " . TB_PREFIX . "hero h 
+                  JOIN " . TB_PREFIX . "users u ON h.uid = u.id 
+                  WHERE u.is_bot = 1 
+                     OR u.email LIKE '%@bot.travianz%' 
+                     OR u.desc1 LIKE '%[#BOT]%' 
+                     OR u.desc2 LIKE '%[#BOT]%' 
+                     OR u.username LIKE 'Bot_%'";
+
+        $heroes = $database->query_return($query);
+        if (empty($heroes)) {
+            return 0;
+        }
+
+        foreach ($heroes as $hero) {
+            $res = self::autoAllocateHeroPoints((int)$hero['uid'], $hero);
+            if ($res !== null) {
+                $updated++;
+            }
+        }
+
+        return $updated;
     }
 
     /**
