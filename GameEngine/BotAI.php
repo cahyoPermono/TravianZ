@@ -1018,6 +1018,16 @@ class BotAI {
         $adminMaxArmy = (int)self::getConfig('BOT_AI_MAX_ARMY', 2500);
         $maxTroops = max($homeReserve + 20, min($adminMaxArmy, $maxTroops));
 
+        // Mode Himpun Pasukan Sebelum Serang (Anti-Misi Bunuh Diri):
+        // Jika mode ini aktif, tingkatkan batas kapasitas pasukan desa agar bot tidak tertahan di batas populasi kecil,
+        // sehingga bot leluasa menghimpun pasukan tempur hingga mencapai target minimal yang ditentukan admin.
+        $massArmyFirst = (bool)self::getConfig('BOT_AI_MASS_ARMY_FIRST', false);
+        $massArmyMinTroops = max(50, (int)self::getConfig('BOT_AI_MASS_ARMY_MIN_TROOPS', 1000));
+        if ($massArmyFirst) {
+            $massArmyCap = $massArmyMinTroops + $homeReserve + 100;
+            $maxTroops = max($maxTroops, min(max($adminMaxArmy, $massArmyCap), $massArmyCap));
+        }
+
         // Mode Mobilisasi Perang Benteng Kuno (Bastion War Mobilization):
         // Jika bot sedang bersiap merebut atau mempertahankan Benteng Kuno, tingkatkan batas pasukan desa
         // agar bot tidak mentok di batas populasi kecil (misal pop 100 mentok di 125 tentara).
@@ -1083,14 +1093,15 @@ class BotAI {
             return null; // Batas pasukan wajar tercapai
         }
 
-        // Mode Pemulihan Darurat atau Mode Himpun Pasukan Benteng Kuno (Ofensif / Defensif)
+        // Mode Pemulihan Darurat, Mode Himpun Pasukan Benteng Kuno, atau Mode Himpun Pasukan Server
         $isEmergencyRecovery = ($totalArmy < $homeReserve);
         $isAmassingBastion = (($isBastionContender || $isBastionDefender) && $atHomeTotal < ($bastionTarget + $homeReserve) && self::getConfig('BOT_AI_BASTION_WAR_MOBILIZATION', true));
+        $isAmassingTroops = ($massArmyFirst && $atHomeTotal < ($massArmyMinTroops + $homeReserve));
 
         // Batas antrean pelatihan di barak/stable:
         // Semakin maju desanya, semakin banyak antrean yang diizinkan agar barak/stable aktif berproduksi secara natural
-        if ($isEmergencyRecovery || $isAmassingBastion) {
-            $maxQueued = ($pop >= 400) ? 150 : max(50, min(100, $homeReserve * 2));
+        if ($isEmergencyRecovery || $isAmassingBastion || $isAmassingTroops) {
+            $maxQueued = ($pop >= 400) ? 250 : max(80, min(150, $homeReserve * 2));
         } else {
             if ($pop >= 500 && $brLevel >= 8) {
                 $maxQueued = 200;
@@ -1107,9 +1118,9 @@ class BotAI {
         }
 
         // Pacing pelatihan:
-        // 100% aktif saat pemulihan darurat atau himpun pasukan Benteng Kuno;
+        // 100% aktif saat pemulihan darurat, himpun pasukan Benteng Kuno, atau mode himpun pasukan;
         // Jaga agar antrean pelatihan tidak menganggur (idle) seperti pemain aktif
-        if (!$isEmergencyRecovery && !$isAmassingBastion) {
+        if (!$isEmergencyRecovery && !$isAmassingBastion && !$isAmassingTroops) {
             $chance = ($pop >= 200 && $queuedTotal < 25) ? 90 : (($pop >= 100) ? 75 : 60);
             if (rand(1, 100) > $chance) {
                 return null; // Menunggu tick berikutnya
@@ -1158,15 +1169,15 @@ class BotAI {
                     $trainCandidates[$tribeUnits['inf_adv']] = 25;
                 }
             }
-        } elseif ($isAmassingBastion) {
-            // Mode Mobilisasi Benteng Kuno: Prioritaskan infanteri ofensif & senjata kepung
+        } elseif ($isAmassingBastion || $isAmassingTroops) {
+            // Mode Mobilisasi Benteng Kuno & Himpun Pasukan: Prioritaskan infanteri ofensif & senjata kepung
             $trainCandidates[$tribeUnits['basic']] = ($tribe === 2) ? 60 : 35;
             if (!empty($tribeUnits['inf_adv']) && ($acLevel >= 1 || $brLevel >= 2 || $pop >= 40)) {
-                $trainCandidates[$tribeUnits['inf_adv']] = 45;
+                $trainCandidates[$tribeUnits['inf_adv']] = 50;
             }
             if ($enableCavalry && $stLevel >= 1) {
-                if (!empty($tribeUnits['cav_heavy'])) $trainCandidates[$tribeUnits['cav_heavy']] = 30;
-                elseif (!empty($tribeUnits['cav_light'])) $trainCandidates[$tribeUnits['cav_light']] = 25;
+                if (!empty($tribeUnits['cav_heavy'])) $trainCandidates[$tribeUnits['cav_heavy']] = 35;
+                elseif (!empty($tribeUnits['cav_light'])) $trainCandidates[$tribeUnits['cav_light']] = 30;
             }
             if ($wsLevel >= 1) {
                 if (!empty($tribeUnits['ram'])) $trainCandidates[$tribeUnits['ram']] = 15;
@@ -1363,6 +1374,8 @@ class BotAI {
             $batchSize = ($pop >= 400) ? rand(15, 30) : rand(6, 15);
         } elseif (!empty($activeConquest)) {
             $batchSize = ($pop >= 400) ? rand(20, 35) : (($pop >= 200) ? rand(10, 20) : rand(5, 12));
+        } elseif ($isAmassingTroops) {
+            $batchSize = ($pop >= 400) ? rand(25, 50) : (($pop >= 200) ? rand(15, 30) : rand(10, 20));
         } else {
             if ($pop >= 500 && $brLevel >= 12) {
                 $batchSize = rand(15, 35);
@@ -2631,6 +2644,11 @@ class BotAI {
 
         // Escort army check: ensure sufficient combat escort so Chief survives
         $minEscort = (int)self::getConfig('BOT_AI_CONQUEST_MIN_ESCORT', 80);
+        $massArmyFirst = (bool)self::getConfig('BOT_AI_MASS_ARMY_FIRST', false);
+        $massArmyMinTroops = max(50, (int)self::getConfig('BOT_AI_MASS_ARMY_MIN_TROOPS', 1000));
+        if ($massArmyFirst) {
+            $minEscort = max($minEscort, min(1000, (int)round($massArmyMinTroops * 0.5)));
+        }
         $homeReserve = self::getHomeReserve((int)($bot['pop'] ?? 50));
 
         $unitsRow = $database->query_return("SELECT * FROM " . TB_PREFIX . "units WHERE vref = $wid LIMIT 1");
@@ -4697,6 +4715,15 @@ class BotAI {
             return null; // Pasukan tempur ofensif belum mencukupi batas minimal serangan
         }
 
+        // Mode Himpun Pasukan (Anti-Misi Bunuh Diri):
+        // Jika fitur ini diaktifkan di admin, tahan seluruh serangan (raid biasa & balas dendam) sampai
+        // kekuatan tempur siap serang ($deployableCombat) mencapai ambang batas minimal yang ditentukan admin.
+        $massArmyFirst = (bool)self::getConfig('BOT_AI_MASS_ARMY_FIRST', false);
+        $massArmyMinTroops = max(50, (int)self::getConfig('BOT_AI_MASS_ARMY_MIN_TROOPS', 1000));
+        if ($massArmyFirst && $deployableCombat < $massArmyMinTroops) {
+            return "Mode Himpun Pasukan aktif: desa sedang menghimpun kekuatan tempur ({$deployableCombat}/{$massArmyMinTroops} unit) sebelum menyerang demi mencegah misi bunuh diri.";
+        }
+
         // Cek apakah desa sedang fokus menghimpun pasukan untuk ekspedisi Benteng Kuno (War Mobilization)
         if (self::isBastionContestingBot($bot) && self::getConfig('BOT_AI_BASTION_WAR_MOBILIZATION', true)) {
             $bastionTarget = self::getBastionTargetStrikeForce();
@@ -5239,18 +5266,21 @@ class BotAI {
         $isHumanTarget = empty($target['is_bot']);
 
         // Calculate tentative target party size based on deployable surplus:
+        $maxPartyCap = $massArmyFirst ? max(2500, (int)round($massArmyMinTroops * 1.5)) : 800;
         if ($isRevenge) {
-            // Retaliation strike: Send ~60% of deployable surplus (up to 400 troops)
-            $targetPartySize = min(400, max($minAttackForce, (int)floor($deployableCombat * 0.60)));
+            // Retaliation strike: Send ~60-70% of deployable surplus
+            $targetPartySize = min($maxPartyCap, max($minAttackForce, (int)floor($deployableCombat * ($massArmyFirst ? 0.70 : 0.60))));
         } elseif ($isHumanTarget && $targetPop >= 200) {
-            // Serangan ke Pemain Manusia Berkembang: Kerahkan 70% kekuatan tempur siap tempur (hingga 800 pasukan)!
-            $targetPartySize = min(800, max($minAttackForce, (int)floor($deployableCombat * 0.70)));
+            // Serangan ke Pemain Manusia Berkembang: Kerahkan 70-75% kekuatan tempur siap tempur
+            $targetPartySize = min($maxPartyCap, max($minAttackForce, (int)floor($deployableCombat * ($massArmyFirst ? 0.75 : 0.70))));
         } elseif ($dynamicScaling) {
-            // Dynamic scaling attack: ~45% of deployable surplus, up to 350 troops
-            $targetPartySize = min(350, max($minAttackForce, (int)floor($deployableCombat * 0.45)));
+            // Dynamic scaling attack: ~45-60% of deployable surplus
+            $dynCap = $massArmyFirst ? $maxPartyCap : 350;
+            $targetPartySize = min($dynCap, max($minAttackForce, (int)floor($deployableCombat * ($massArmyFirst ? 0.60 : 0.45))));
         } else {
             // Standard cap
-            $targetPartySize = min(150, max($minAttackForce, (int)floor($deployableCombat * 0.40)));
+            $stdCap = $massArmyFirst ? $maxPartyCap : 150;
+            $targetPartySize = min($stdCap, max($minAttackForce, (int)floor($deployableCombat * ($massArmyFirst ? 0.50 : 0.40))));
         }
         $targetPartySize = min($targetPartySize, $deployableCombat);
 

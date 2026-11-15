@@ -613,6 +613,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
         $attackEndHour = max(0, min(23, (int)($_POST['bot_attack_end_hour'] ?? 20)));
         $targetGlobalCooldown = max(300, min(14400, (int)($_POST['bot_target_global_cooldown'] ?? 2700)));
         $gangAttackMax = max(1, min(5, (int)($_POST['bot_gang_attack_max'] ?? 1)));
+        $massArmyFirst = !empty($_POST['bot_mass_army_first']);
+        $massArmyMinTroops = max(50, min(10000, (int)($_POST['bot_mass_army_min_troops'] ?? 1000)));
 
         $saveSuccess = BotAI::saveConfig([
             'BOT_AI_MAX_POP' => $maxPop,
@@ -623,6 +625,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
             'BOT_AI_TROOP_POP_FACTOR' => $troopPopFactor,
             'BOT_AI_MAX_ARMY' => $maxArmy,
             'BOT_AI_SCOUT_ENABLED' => $scoutEnabled,
+            'BOT_AI_MASS_ARMY_FIRST' => $massArmyFirst,
+            'BOT_AI_MASS_ARMY_MIN_TROOPS' => $massArmyMinTroops,
             'BOT_AI_ALLIANCE_DEFENSE_ENABLED' => $allianceDefenseEnabled,
             'BOT_AI_DEFENSE_RATIO_ACTIVE' => $defenseRatioActive,
             'BOT_AI_DEFENSE_RATIO_RECOVERY' => $defenseRatioRecovery,
@@ -660,6 +664,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
                 . "• Mobilisasi saat Kawan Diserang: <b>" . ($defenseRatioActive * 100) . "%</b> pasukan cadangan (Maks <b>$defenseMaxCap</b> unit/bot, Kuota: <b>$maxHelpers</b> bot penolong/desa)<br>"
                 . "• Filter Unit Pertahanan Murni: <b>" . ($pureDefOnly ? "Aktif (Hanya spesialis defense; cegah Clubswinger/Axeman mati sia-sia)" : "Nonaktif") . "</b><br>"
                 . "• Unit Scout (Pengintai): <b>" . ($scoutEnabled ? "Aktif (Latih di Barak/Stable, Anti-Spionase & Patroli Intai)" : "Nonaktif") . "</b><br>"
+                . "• Mode Himpun Pasukan (Anti-Misi Bunuh Diri): <b>" . ($massArmyFirst ? "Aktif (Kumpul min. " . number_format($massArmyMinTroops) . " unit sebelum serang)" : "Nonaktif") . "</b><br>"
                 . "• Perang Benteng Kuno (Kumpul Pasukan): <b>" . ($bastionWarMobilization ? "Aktif (Himpun Pasukan Sebelum Serang)" : "Nonaktif") . "</b> (Minimal: <b>$bastionMinAttackTroops</b> prajurit serbu / <b>" . ($bastionGarrisonFactor * 100) . "%</b> dari garnisun benteng)<br>"
                 . "• Ekspansi Desa Baru: <b>" . ($expansionEnabled ? "Aktif (Maks $maxVillages Desa/Bot)" : "Nonaktif") . "</b> (Berjalan secara natural via Padepokan Lvl 10, pelatihan 3 Pionir, CP, dan perjalanan perintis).<br>"
                 . "• Sanggar Paranormal Nusantara: <b>" . ($paranormalEnabled ? "Aktif (Natural & Bertahap)" : "Nonaktif") . "</b> (Konstruksi GID 51 di slot 38, pemanggilan Pocong/Kunti/Genderuwo & ritual Tuyul sesuai sumber daya).<br>"
@@ -716,6 +721,8 @@ $currentAttackStartHour = (int)BotAI::getConfig('BOT_AI_ATTACK_START_HOUR', 8);
 $currentAttackEndHour = (int)BotAI::getConfig('BOT_AI_ATTACK_END_HOUR', 20);
 $currentTargetGlobalCooldown = (int)BotAI::getConfig('BOT_AI_TARGET_GLOBAL_COOLDOWN', 2700);
 $currentGangAttackMax = (int)BotAI::getConfig('BOT_AI_GANG_ATTACK_MAX', 1);
+$currentMassArmyFirst = !empty(BotAI::getConfig('BOT_AI_MASS_ARMY_FIRST', false));
+$currentMassArmyMinTroops = (int)BotAI::getConfig('BOT_AI_MASS_ARMY_MIN_TROOPS', 1000);
 
 $botsQuery = "
     SELECT u.id, u.username, u.tribe, u.regtime, u.desc1, u.alliance,
@@ -1329,6 +1336,32 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
                             <span style="font-size:9px; color:#94a3b8; display:block; margin-left:20px; margin-top:2px;">
                                 Melarang bot melancarkan serangan baru (raid, penaklukan chief, maupun benteng kuno) antara pukul 20:00 (8 malam) hingga 08:00 (8 pagi) waktu server agar pemain manusia dapat beristirahat dengan tenang tanpa khawatir diserang bot.
                             </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="botm-form-group">
+                    <label>⚔️ Mode Himpun Pasukan Sebelum Menyerang (Anti-Misi Bunuh Diri):</label>
+                    <div style="background:#0f172a; padding:12px 14px; border-radius:6px; border:1px solid #1e293b; margin-top:2px;">
+                        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:#f8fafc; font-weight:bold; font-size:12px;">
+                            <input type="checkbox" name="bot_mass_army_first" value="1" <?php echo $currentMassArmyFirst ? 'checked' : ''; ?> style="width:16px; height:16px; cursor:pointer;">
+                            <span>Aktifkan Fokus Himpun Pasukan (Wajib Kumpul Pasukan Sebelum Boleh Serang)</span>
+                        </label>
+                        <span style="font-size:10px; color:<?php echo $currentMassArmyFirst ? '#34d399' : '#f87171'; ?>; display:block; margin-top:4px;">
+                            📌 <b>Settingan Aktif Saat Ini:</b> <?php echo $currentMassArmyFirst ? '🟢 AKTIF (Bot menahan serangan & fokus merekrut hingga minimal ' . number_format($currentMassArmyMinTroops) . ' unit)' : '🔴 NONAKTIF (Bot langsung menyerang saat ada kelebihan pasukan kecil)'; ?>
+                        </span>
+
+                        <div style="margin-top:10px;">
+                            <label style="font-size:11px; color:#94a3b8; display:block; margin-bottom:3px;">Minimal Pasukan Tempur Siap Serang (Target Mobilisasi Unit):</label>
+                            <input type="number" name="bot_mass_army_min_troops" class="botm-form-control" value="<?php echo $currentMassArmyMinTroops; ?>" min="50" max="10000" style="padding:5px 10px; font-size:12px; max-width:320px;" required>
+                            <span style="font-size:9px; color:#64748b; display:block; margin-top:3px;">
+                                Bot <b>TIDAK AKAN</b> melancarkan serangan (raid maupun balas dendam) jika kekuatan tempur di desanya masih di bawah angka ini. Sesuaikan dengan kekuatan pasukan user server saat ini (misal 1.000 - 5.000 unit).
+                            </span>
+                        </div>
+
+                        <div style="background:#1e1b4b; border:1px dashed #6366f1; border-radius:6px; padding:8px 10px; margin-top:10px; font-size:10px; color:#c7d2fe; line-height:1.5;">
+                            🛡️ <b>Mencegah Misi Bunuh Diri (Anti-Suicide Protection):</b><br>
+                            Saat opsi ini <b>diceklis</b>, bot tidak akan lagi mengirim 20-50 prajurit untuk menyerang desa pemain yang sudah memiliki 1k - 5k tentara pertahanan. Bot akan fokus melatih infanteri serang, kavaleri, dan senjata kepung hingga mencapai target minimal ini sebelum melancarkan gelombang serangan berskala besar (strike force).
                         </div>
                     </div>
                 </div>
