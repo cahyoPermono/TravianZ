@@ -22,6 +22,16 @@
 //-- fix by AL-Kateb - Simplified by iopietro
 $vTribe = (!empty($village->tribe) && $village->tribe > 0) ? (int)$village->tribe : ((!empty($session->tribe) && $session->tribe > 0) ? (int)$session->tribe : 1);
 $settlers = (int)($village->unitarray['u' . $vTribe . '0'] ?? 0);
+if ($settlers < 3) {
+    foreach ([7, 10, 6, 8, 9, 1, 2, 3] as $altTribe) {
+        $altSettlers = (int)($village->unitarray['u' . ($altTribe * 10)] ?? 0);
+        if ($altSettlers >= 3) {
+            $settlers = $altSettlers;
+            $vTribe = $altTribe;
+            break;
+        }
+    }
+}
 
 if ($settlers < 3 || !isset($_GET['id']) || !is_numeric($_GET['id'])) {
     header("location: dorf1.php");

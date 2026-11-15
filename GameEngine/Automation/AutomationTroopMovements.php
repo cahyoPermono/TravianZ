@@ -322,8 +322,12 @@ trait AutomationTroopMovements {
                     continue;
                 }
 
-                $tribe = $database->getUserField($database->getVillageField($data['to'], "owner"), "tribe", 0);
-                $database->modifyUnit($data['to'], [$tribe."0"], [3], [1]);
+                $toTribe = (int)$database->getVillageTribe($data['to']);
+                if ($toTribe <= 0) {
+                    $toTribe = (int)$database->getUserField($database->getVillageField($data['to'], "owner"), "tribe", 0);
+                }
+                if ($toTribe <= 0) $toTribe = 1;
+                $database->modifyUnit($data['to'], [$toTribe . "0"], [3], [1]);
                 
                 //If a settling is canceled, add 750 for each resource type
                 $database->modifyResource($data['to'], 750, 750, 750, 750, 1);
@@ -371,10 +375,11 @@ trait AutomationTroopMovements {
 			$taken = $database->getVillageState($data['to']);
 			if($taken != 1){
 				$fieldIDs[] = $data['to'];
-                $settlerOriginTribe = (int)$database->getVillageField($data['from'], 'tribe');
+                $settlerOriginTribe = (int)$database->getVillageTribe($data['from']);
                 if ($settlerOriginTribe <= 0) {
                     $settlerOriginTribe = (int)$database->getUserField($to['owner'], 'tribe', 0);
                 }
+                if ($settlerOriginTribe <= 0) $settlerOriginTribe = 1;
 				$database->addVillage($data['to'], $to['owner'], $user, '0', 2, null, 0, $settlerOriginTribe);
 				$database->addResourceFields($data['to'], $database->getVillageType($data['to']));
                 $addUnitsWrefs[] = $data['to'];

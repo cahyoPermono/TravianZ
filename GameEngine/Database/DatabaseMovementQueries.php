@@ -390,7 +390,10 @@ trait DatabaseMovementQueries {
 		// Satul poate lipsi (sters intre timp). Fara proprietar nu avem ce trib
 		// sa citim, deci nu are rost sa continuam cu null.
 		$vOwner = is_array($vinfo) && isset($vinfo['owner']) ? (int) $vinfo['owner'] : 0;
-		$vtribe = $vOwner > 0 ? $this->getUserField($vOwner, "tribe", 0) : 0;
+		$vtribe = $this->getVillageTribe($id);
+		if ($vtribe <= 0 && $vOwner > 0) {
+			$vtribe = (int)$this->getUserField($vOwner, "tribe", 0);
+		}
         $movingunits = [];
         
 		$outgoingarray = $this->getMovement(3, $id, 0);

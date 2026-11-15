@@ -597,7 +597,19 @@ if($isOasis){
     $total = count($database->getProfileVillages($session->uid));
     $need = ${'cp'.CP}[$total+1];
     $have = floor($database->getUserField($session->uid,'cp',0));
-    $settlers = $village->unitarray['u'.$session->tribe.'0'];
+    $vTribe = (!empty($village->tribe) && $village->tribe > 0) ? (int)$village->tribe : ((!empty($session->tribe) && $session->tribe > 0) ? (int)$session->tribe : 1);
+    $settlers = (int)($village->unitarray['u' . $vTribe . '0'] ?? 0);
+    if ($settlers < 3) {
+        $maxSettlers = $settlers;
+        foreach ([7, 10, 6, 8, 9, 1, 2, 3] as $altTribe) {
+            $altSettlers = (int)($village->unitarray['u' . ($altTribe * 10)] ?? 0);
+            if ($altSettlers > $maxSettlers) {
+                $maxSettlers = $altSettlers;
+                $vTribe = $altTribe;
+            }
+        }
+        $settlers = $maxSettlers;
+    }
     if($settlers>=3 && $have>=$need && $village->resarray['f39']>0){
         echo '<a href="a2b.php?id='.$d.'&s=1">&raquo; '.FNEWVILLAGE.'</a>';
     } elseif($settlers>=3 && $have<$need){

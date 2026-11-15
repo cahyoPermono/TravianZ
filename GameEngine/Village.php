@@ -219,7 +219,20 @@ class Village {
 		// (wref == wid), but it masked any wrong row coming from the cache. wid stays
 		// the source of truth.
 		$this->vname = $this->infoarray['name'];
-		$this->tribe = !empty($this->infoarray['tribe']) ? (int)$this->infoarray['tribe'] : (int)$this->sess->tribe;
+		$vTribe = !empty($this->infoarray['tribe']) ? (int)$this->infoarray['tribe'] : 0;
+		if ($vTribe <= 0 && !empty($this->unitarray)) {
+			foreach ([7, 10, 6, 8, 9, 1, 2, 3] as $candTribe) {
+				if (!empty($this->unitarray['u' . ($candTribe * 10)]) && (int)$this->unitarray['u' . ($candTribe * 10)] > 0) {
+					$vTribe = $candTribe;
+					break;
+				}
+			}
+			if ($vTribe > 0) {
+				$this->db->setVillageField($this->wid, 'tribe', $vTribe);
+				$this->infoarray['tribe'] = $vTribe;
+			}
+		}
+		$this->tribe = ($vTribe > 0) ? $vTribe : (int)$this->sess->tribe;
 		// Self-healing: Pulihkan Sanggar Paranormal (GID 51) jika terpotong jadi Barricade (GID 50)
 		$this->healNusantaraParanormal();
 

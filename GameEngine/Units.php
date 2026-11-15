@@ -1202,6 +1202,17 @@ class Units {
         $tribe = isset($village->tribe) && $village->tribe > 0 ? (int)$village->tribe : (isset($session->tribe) ? (int)$session->tribe : 1);
         $settlerKey = 'u' . $tribe . '0';
         $settlerCount = isset($village->unitarray[$settlerKey]) ? (int)$village->unitarray[$settlerKey] : 0;
+        if ($settlerCount < 3) {
+            foreach ([7, 10, 6, 8, 9, 1, 2, 3] as $altTribe) {
+                $altCount = isset($village->unitarray['u' . ($altTribe * 10)]) ? (int)$village->unitarray['u' . ($altTribe * 10)] : 0;
+                if ($altCount >= 3) {
+                    $tribe = $altTribe;
+                    $settlerKey = 'u' . $altTribe . '0';
+                    $settlerCount = $altCount;
+                    break;
+                }
+            }
+        }
 
         $sId = isset($post['s']) && is_numeric($post['s']) ? (int)$post['s'] : 0;
         $newvillage = $sId > 0 ? $database->getMInfo($sId) : null;

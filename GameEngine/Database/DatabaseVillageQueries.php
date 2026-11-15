@@ -469,6 +469,15 @@ trait DatabaseVillageQueries {
         if ($tribe > 0) {
             return $tribe;
         }
+        $u = $this->getUnit($wref);
+        if (!empty($u)) {
+            foreach ([7, 10, 6, 8, 9, 1, 2, 3] as $candTribe) {
+                if (!empty($u['u' . ($candTribe * 10)]) && (int)$u['u' . ($candTribe * 10)] > 0) {
+                    $this->setVillageField($wref, 'tribe', $candTribe);
+                    return $candTribe;
+                }
+            }
+        }
         $owner = (int)$this->getVillageField($wref, 'owner');
         if ($owner > 0) {
             $userTribe = (int)$this->getUserField($owner, 'tribe', 0);
@@ -2331,9 +2340,7 @@ trait DatabaseVillageQueries {
     }
 
     // Units at home
-    $ownerTribe = (int)$this->getUserField($village->owner, "tribe", 0);
-    $chiefCol = ($ownerTribe == 10) ? "+u99" : "";
-    $q = "SELECT (u10+u20+u30+u60+u70+u80+u90+u100) as R1, (u9+u19+u29+u59+u69+u79+u89{$chiefCol}) as R2
+    $q = "SELECT (u10+u20+u30+u60+u70+u80+u90+u100) as R1, (u9+u19+u29+u59+u69+u79+u89+u99) as R2
           FROM " . TB_PREFIX . "units
           WHERE vref = " . (int)$village->wid;
     $result = mysqli_query($this->dblink,$q);

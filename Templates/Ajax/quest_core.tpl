@@ -795,7 +795,18 @@ $unarray2 = array(
     9 => "u90",
     10 => "u100"
 );
-if ($units[$unarray2[$session->userinfo['tribe']]]<3){ $cp = CP;?>
+$vTribe = (!empty($village->tribe) && $village->tribe > 0) ? (int)$village->tribe : ((!empty($session->userinfo['tribe']) && $session->userinfo['tribe'] > 0) ? (int)$session->userinfo['tribe'] : 1);
+$settlerKey = $unarray2[$vTribe] ?? "u10";
+$settlerCount = (int)($units[$settlerKey] ?? 0);
+if ($settlerCount < 3) {
+    foreach ($unarray2 as $altKey) {
+        if ((int)($units[$altKey] ?? 0) >= 3) {
+            $settlerCount = (int)$units[$altKey];
+            break;
+        }
+    }
+}
+if ($settlerCount < 3){ $cp = CP;?>
 
 {"markup":"\n\t\t<div id=\"qstd\"><h1> <img class=\"point\" src=\"img\/x.gif\" alt=\"\" title=\"\"\/> <?php echo Q34; ?><\/h1><br \/><i>&rdquo;<?php echo Q34_DESC; ?>&rdquo;<\/i><br \/><br \/><div class=\"rew\"><p class=\"ta_aw\"><?php echo Q34_ORDER; ?><\/div><br \/><span id=\"qst_accpt\"><\/span><\/div>\n\t\t<div id=\"qstbg\" class=\"new_village\"><\/div>\n\t\t","number":"-34","reward":false,"qgsrc":"q_l<?php echo $session->userinfo['tribe'];?>","msrc":"<?php echo $messagelol; ?>","altstep":99}
 <?php $_SESSION['qstnew']='0'; }else{ $_SESSION['qstnew']='1'; ?>
@@ -1234,7 +1245,18 @@ if ($residence<10 && $palace<10 && $commandcenter<10){?>
 $units = $village->unitall;
 $unarray2=array(1=>"u10", 2=>"u20", 3=>"u30", 6=>"u60", 7=>"u70", 8=>"u80", 9=>"u90", 10=>"u100");
 $vil = $database->getProfileVillages($session->uid);
-if ( $units[$unarray2[$session->userinfo['tribe']]] < 3 && count( $vil ) == 1 ){ $cp = CP;?>
+$vTribe = (!empty($village->tribe) && $village->tribe > 0) ? (int)$village->tribe : ((!empty($session->userinfo['tribe']) && $session->userinfo['tribe'] > 0) ? (int)$session->userinfo['tribe'] : 1);
+$settlerKey = $unarray2[$vTribe] ?? "u10";
+$settlerCount = (int)($units[$settlerKey] ?? 0);
+if ($settlerCount < 3) {
+    foreach ($unarray2 as $altKey) {
+        if ((int)($units[$altKey] ?? 0) >= 3) {
+            $settlerCount = (int)$units[$altKey];
+            break;
+        }
+    }
+}
+if ( $settlerCount < 3 && count( $vil ) == 1 ){ $cp = CP;?>
 
 {"markup":"\n\t\t<div id=\"qstd\"><h1> <img class=\"point\" src=\"img\/x.gif\" alt=\"\" title=\"\"\/> <?php echo TZ_TASK_26_3_SETTLERS; ?><\/h1><br \/><i>&rdquo;To found a new village, you will need settlers. You can train them in the palace or residence.&rdquo;<\/i><br \/><br \/><div class=\"rew\"><p class=\"ta_aw\"><?php echo TZ_ORDER; ?><\/p><?php echo TZ_TRAIN_3_SETTLERS; ?><\/div><br \/><span id=\"qst_accpt\"><\/span><\/div>\n\t\t<div id=\"qstbg\" class=\"new_village\"><\/div>\n\t\t","number":"-34","reward":false,"qgsrc":"q_l<?php echo $session->userinfo['tribe'];?>","msrc":"<?php echo $messagelol; ?>","altstep":99}
 <?php $_SESSION['qstnew']='0'; }else{ $_SESSION['qstnew']='1'; ?>
