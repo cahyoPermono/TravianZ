@@ -88,6 +88,9 @@
     </tr>
 </table>
 <?php endif; ?>
+<div style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:4px; padding:6px 10px; margin:4px 0 8px 0; font-size:11px; text-align:center; color:#334155; line-height:1.5;">
+    🪙 <b>Hadiah Mingguan Silver:</b> Juara #1: <b>+300 Silver</b> &bull; Juara #2–3: <b>+150 Silver</b> &bull; Juara #4–5: <b>+100 Silver</b> &bull; Juara #6–10: <b>+50 Silver</b>
+</div>
 <script>
 var medalSeconds = <?php echo $left; ?>;
 setInterval(function(){

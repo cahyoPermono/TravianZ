@@ -122,7 +122,15 @@ trait AutomationMedals {
 
             // Award Silver reward to top 10 players if they accumulated positive points
             if ((int)$row[$field] > 0) {
-                $silverReward = ($i === 1) ? 300 : (($i <= 3) ? 150 : 50);
+                if ($i === 1) {
+                    $silverReward = defined('MEDAL_REWARD_RANK_1') ? (int)MEDAL_REWARD_RANK_1 : 300;
+                } elseif ($i <= 3) {
+                    $silverReward = defined('MEDAL_REWARD_RANK_2_3') ? (int)MEDAL_REWARD_RANK_2_3 : 150;
+                } elseif ($i <= 5) {
+                    $silverReward = defined('MEDAL_REWARD_RANK_4_5') ? (int)MEDAL_REWARD_RANK_4_5 : 100;
+                } else {
+                    $silverReward = defined('MEDAL_REWARD_RANK_6_10') ? (int)MEDAL_REWARD_RANK_6_10 : 50;
+                }
                 if (!class_exists('BlackMarket')) {
                     require_once dirname(__DIR__) . '/BlackMarket.php';
                 }
