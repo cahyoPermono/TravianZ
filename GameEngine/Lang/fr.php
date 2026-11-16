@@ -1394,6 +1394,7 @@ tz_def('WOUNDED_TROOPS', 'Troupes blessées');
 tz_def('NO_WOUNDED', 'Aucune troupe blessée à l\'hôpital.');
 tz_def('HEAL_BUTTON', 'Soigner');
 tz_def('HEAL_COST_HINT', 'Le soin coûte 50 % du coût d\'entraînement de l\'unité.');
+tz_def('HEALING', 'Soin');
 tz_def('HEALING_IN_PROGRESS', 'Soin en cours');
 tz_def('MANUAL_UDESC_51', 'Le Guerrier hun constitue l\'épine dorsale de l\'infanterie hunnique. Peu coûteux et rapide à entraîner, c\'est un soldat polyvalent tout à fait correct pour les premiers raids et la défense de base.');
 tz_def('MANUAL_UDESC_52', 'Le Cavalier éclaireur espionne les villages ennemis à grande vitesse. Il ne peut être repéré que par d\'autres éclaireurs et ne porte aucune arme de combat.');

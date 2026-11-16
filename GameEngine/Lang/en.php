@@ -1419,6 +1419,7 @@ tz_def('WOUNDED_TROOPS', 'Wounded troops');
 tz_def('NO_WOUNDED', 'There are no wounded troops in the hospital.');
 tz_def('HEAL_BUTTON', 'Heal');
 tz_def('HEAL_COST_HINT', 'Healing costs 50% of the unit training cost.');
+tz_def('HEALING', 'Healing');
 tz_def('HEALING_IN_PROGRESS', 'Healing in progress');
 tz_def('MANUAL_UDESC_51', "The Hun Warrior is the backbone of the Hun infantry. Cheap and quick to train, he is a decent all-round soldier for early raids and basic defence.");
 tz_def('MANUAL_UDESC_52', "The Scout Rider spies out enemy villages at great speed. He can only be seen by other scouts and carries no weapons for battle.");

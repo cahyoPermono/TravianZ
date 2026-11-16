@@ -1351,6 +1351,7 @@ tz_def('WOUNDED_TROOPS', 'Trupe rănite');
 tz_def('NO_WOUNDED', 'Nu există trupe rănite în spital.');
 tz_def('HEAL_BUTTON', 'Vindecă');
 tz_def('HEAL_COST_HINT', 'Vindecarea costă 50% din costul de antrenare al unității.');
+tz_def('HEALING', 'Vindecare');
 tz_def('HEALING_IN_PROGRESS', 'Vindecare în curs');
 
 tz_def('MANUAL_UDESC_51', "Războinicul Hun reprezintă baza infanteriei hunilor. Ieftin și rapid de antrenat, este un soldat echilibrat, ideal pentru raidurile timpurii și apărarea de bază.");

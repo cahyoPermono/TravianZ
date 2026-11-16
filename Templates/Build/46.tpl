@@ -19,7 +19,7 @@
 ## --------------------------------------------------------------------------- ##
 #################################################################################
 
-global $village, $building, $database, $technology, $generator, $bid46, $id, $loopsame, $doublebuild, $master;
+global $village, $building, $database, $technology, $generator, $bid46, $id, $loopsame, $doublebuild, $master, $session;
 
 include("next.tpl");
 
@@ -130,17 +130,65 @@ if (!empty($woundedRows)) {
     <p class="none"><?php echo NO_WOUNDED; ?></p>
     <?php endif; ?>
 
-    <?php if (!empty($healingRows)): ?>
+    <?php if (!empty($healingRows)):
+        $minNextRemaining = null;
+        if (!isset($session) || !is_object($session)) {
+            $session = new stdClass();
+        }
+        if (!isset($session->timer)) {
+            $session->timer = 0;
+        }
+    ?>
     <h4 class="hosp"><?php echo HEALING_IN_PROGRESS; ?></h4>
-    <table cellpadding="1" cellspacing="1" id="hospital_healing">
+    <table cellpadding="1" cellspacing="1" id="hospital_healing" class="under_progress">
+        <thead>
+            <tr>
+                <td><?php echo defined('HEALING') ? HEALING : (defined('TRAINING') ? TRAINING : 'Healing'); ?></td>
+                <td><?php echo DURATION; ?></td>
+                <td><?php echo FINISHED; ?></td>
+            </tr>
+        </thead>
+        <tbody>
         <?php foreach ($healingRows as $hr):
-            $doneAt = (int)$hr['timestamp2'] + ((int)$hr['amt'] - 1) * (int)$hr['eachtime']; ?>
+            $uName = $technology->getUnitName((int)$hr['unit']);
+            $amt = (int)$hr['amt'];
+            $doneAt = (int)$hr['timestamp2'] + ($amt - 1) * (int)$hr['eachtime'];
+            $remTotal = max(0, $doneAt - time());
+            $remNext = max(0, (int)$hr['timestamp2'] - time());
+            if ($minNextRemaining === null || $remNext < $minNextRemaining) {
+                $minNextRemaining = $remNext;
+            }
+            $finTime = isset($generator) ? $generator->procMTime($doneAt) : ['today', date("H:i:s", $doneAt)];
+            $durFmt = isset($generator) ? $generator->getTimeFormat($remTotal) : gmdate("H:i:s", $remTotal);
+            $timerId = ++$session->timer;
+        ?>
         <tr>
-            <td class="ico"><img class="unit u<?php echo (int)$hr['unit']; ?>" src="img/x.gif" alt="" /></td>
-            <td class="desc"><?php echo (int)$hr['amt']; ?> x <?php echo $technology->getUnitName((int)$hr['unit']); ?></td>
-            <td class="val"><?php echo date("H:i:s", $doneAt); ?></td>
+            <td class="desc">
+                <img class="unit u<?php echo (int)$hr['unit']; ?>" src="img/x.gif" alt="<?php echo htmlspecialchars($uName); ?>" title="<?php echo htmlspecialchars($uName); ?>" />
+                <?php echo $amt; ?> x <?php echo htmlspecialchars($uName); ?>
+            </td>
+            <td class="dur">
+                <span id="timer<?php echo $timerId; ?>"><?php echo $durFmt; ?></span>
+            </td>
+            <td class="fin">
+                <?php
+                if ($finTime[0] !== "today") echo "on " . $finTime[0] . " at ";
+                echo $finTime[1];
+                ?>
+            </td>
         </tr>
         <?php endforeach; ?>
+        <?php if ($minNextRemaining !== null):
+            $nextTimerId = ++$session->timer;
+            $nextFmt = isset($generator) ? $generator->getTimeFormat($minNextRemaining) : gmdate("H:i:s", $minNextRemaining);
+        ?>
+        <tr class="next">
+            <td colspan="3">
+                <?php echo defined('UNIT_FINISHED') ? UNIT_FINISHED : 'The next unit will be finished in'; ?> <span id="timer<?php echo $nextTimerId; ?>"><?php echo $nextFmt; ?></span>
+            </td>
+        </tr>
+        <?php endif; ?>
+        </tbody>
     </table>
     <?php endif; ?>
 
