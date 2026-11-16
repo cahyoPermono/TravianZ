@@ -3640,6 +3640,11 @@ class BotAI {
 
         if (!empty($activeIncoming)) {
             foreach ($activeIncoming as $inc) {
+                // Tactical Weather Check: under Karhutla (Wildfire Haze), incoming attacks with remaining time > 10m (600s) are masked
+                if (!self::isAttackVisibleUnderWeather((int)$inc['endtime'], (int)$inc['attack_type'])) {
+                    continue; // Masked by Karhutla smoke haze; bot cannot detect this attack yet!
+                }
+
                 $tWid = (int)$inc['target_wid'];
                 $dist = self::getDistance($botCoor['x'], $botCoor['y'], $inc['x'], $inc['y']);
                 if ($dist > $maxDefenseDist || $dist < 0.5) {
@@ -3846,10 +3851,12 @@ class BotAI {
         $modes = array_fill(0, count($amounts), 0);
         $database->modifyUnit($wid, $unitNums, $amounts, $modes);
 
-        // 2. Travel duration based on slowest marching unit
+        // 2. Travel duration based on slowest marching unit & weather conditions
         $marchSpeed = !empty($dispatchedSpeeds) ? min($dispatchedSpeeds) : 6;
+        $weatherMult = self::getWeatherSpeedMultiplier($tribe);
+        $effectiveSpeed = max(1.0, $marchSpeed * $weatherMult);
         $incSpeed = defined('INCREASE_SPEED') ? max(1, (int)INCREASE_SPEED) : 1;
-        $duration = max(30, (int)round(($threatTarget['dist'] / $marchSpeed) * 3600 / $incSpeed));
+        $duration = max(30, (int)round(($threatTarget['dist'] / $effectiveSpeed) * 3600 / $incSpeed));
 
         // 3. Map dispatched units to tribe slots t1..t10
         $t = array_fill(1, 10, 0);
@@ -4786,7 +4793,7 @@ class BotAI {
             $allyWrefFilter = implode(',', array_unique($allyWrefs));
 
             $activeIncoming = $database->query_return("
-                SELECT m.`from` as attacker_wref, m.starttime
+                SELECT m.`from` as attacker_wref, m.starttime, m.endtime, a.attack_type
                 FROM " . TB_PREFIX . "movement m
                 JOIN " . TB_PREFIX . "attacks a ON m.ref = a.id
                 WHERE m.`to` IN ($allyWrefFilter)
@@ -4800,6 +4807,9 @@ class BotAI {
 
             if (!empty($activeIncoming)) {
                 foreach ($activeIncoming as $inc) {
+                    if (!self::isAttackVisibleUnderWeather((int)($inc['endtime'] ?? 0), (int)($inc['attack_type'] ?? 3))) {
+                        continue; // Hidden by Karhutla smoke haze
+                    }
                     $aw = (int)$inc['attacker_wref'];
                     if ($aw > 0 && !isset($attackerWrefs[$aw])) {
                         $attackerWrefs[$aw] = (int)$inc['starttime'];
@@ -5375,9 +5385,11 @@ class BotAI {
         $modes = array_fill(0, count($amounts), 0);
         $database->modifyUnit($wid, $unitNums, $amounts, $modes);
 
-        // 2. Travel time based on slowest marching unit
+        // 2. Travel time based on slowest marching unit & weather
         $marchSpeed = !empty($dispatchedSpeeds) ? min($dispatchedSpeeds) : 6;
-        $duration = max(30, (int)round(($target['dist'] / $marchSpeed) * 3600 / INCREASE_SPEED));
+        $weatherMult = self::getWeatherSpeedMultiplier($tribe);
+        $effectiveSpeed = max(1.0, $marchSpeed * $weatherMult);
+        $duration = max(30, (int)round(($target['dist'] / $effectiveSpeed) * 3600 / INCREASE_SPEED));
 
         // 3. Map dispatched units to tribe slots t1..t10 for addAttack()
         $t = array_fill(1, 10, 0);
@@ -7080,6 +7092,39 @@ class BotAI {
             91 => 7, 92 => 6, 93 => 6, 94 => 15, 95 => 13, 96 => 9, 97 => 4, 98 => 3, 99 => 5, 100 => 5,
         ];
         return $speeds[$unitNum] ?? 6;
+    }
+
+    /**
+     * Check if an incoming attack is visible under current weather conditions (e.g. Karhutla smoke haze limit 10m).
+     *
+     * @param int $endtime Arrival timestamp
+     * @param int $attackType Attack type (3=attack, 4=raid)
+     * @return bool
+     */
+    public static function isAttackVisibleUnderWeather(int $endtime, int $attackType = 3): bool {
+        if (!class_exists('Weather')) {
+            @include_once __DIR__ . '/Weather.php';
+        }
+        if (class_exists('Weather') && method_exists('Weather', 'isAttackVisibleUnderWeather')) {
+            return (bool)\Weather::isAttackVisibleUnderWeather($endtime, $attackType);
+        }
+        return true;
+    }
+
+    /**
+     * Get troop walking speed multiplier factoring in weather conditions (Monsoon, Karhutla, Drought, Clear).
+     *
+     * @param int $tribe Tribe ID
+     * @return float
+     */
+    public static function getWeatherSpeedMultiplier(int $tribe): float {
+        if (!class_exists('Weather')) {
+            @include_once __DIR__ . '/Weather.php';
+        }
+        if (class_exists('Weather') && method_exists('Weather', 'getSpeedMultiplier')) {
+            return (float)\Weather::getSpeedMultiplier($tribe, false);
+        }
+        return 1.0;
     }
 
     /**
