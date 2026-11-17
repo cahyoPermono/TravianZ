@@ -179,6 +179,7 @@ if(isset($id)){
 </div>
 
 <div class="vcard"><div class="vhead"><?php echo ADM_TROOPS; ?></div><div style="padding:4px"><?php include('troops.tpl'); ?></div></div>
+<?php include('player_movements.tpl'); ?>
 <div class="vcard"><div class="vhead"><?php echo ADM_UPGRADES; ?></div><div style="padding:4px"><?php include('troopUpgrades.tpl'); ?></div></div>
 <div class="vcard"><div class="vhead"><?php echo ADM_ARTIFACT; ?></div><div style="padding:4px"><?php include('artifact.tpl'); ?></div></div>
 

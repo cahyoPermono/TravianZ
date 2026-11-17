@@ -100,7 +100,8 @@ if($deletion){
         include("playeradditionalinfo.tpl");
 		
 		include("playermedals.tpl");
-		include ("villages.tpl"); ?>
+		include ("villages.tpl");
+		include ("player_movements.tpl"); ?>
 
 <div style="display:grid;grid-template-columns:1fr;gap:12px;margin-top:12px;width:100%">
     <div>
