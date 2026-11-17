@@ -82,6 +82,7 @@ class MockScoutDatabase {
     public $addedAttacks = [];
     public $addedMovements = [];
     public $modifiedUnits = [];
+    public $customVillages = null;
 
     public function escape($str) {
         return addslashes($str);
@@ -90,7 +91,14 @@ class MockScoutDatabase {
     public function getCoor($wid) {
         if ($wid === 201) return ['x' => 10, 'y' => 10];
         if ($wid === 301) return ['x' => 12, 'y' => 12];
+        if ($wid === 401) return ['x' => 10, 'y' => 205]; // 195 tiles away
+        if ($wid === 501) return ['x' => 10, 'y' => 215]; // 205 tiles away (> 200 tiles)
         return ['x' => 0, 'y' => 0];
+    }
+
+    public function getVillageField($wid, $field) {
+        if ($field === 'owner') return 99;
+        return null;
     }
 
     public function query_return($sql) {
@@ -104,17 +112,63 @@ class MockScoutDatabase {
             return [['cnt' => 0]];
         }
 
+        // Bandit camps query (isBanditTarget)
+        if (strpos($sql, "UNION") !== false || (strpos($sql, "bandit_camps") !== false && strpos($sql, "v.wref, v.name") === false)) {
+            return [];
+        }
+
+        // Active incoming bot attacks check
+        if (strpos($sql, "SELECT COUNT(m.moveid) as cnt") !== false) {
+            return [['cnt' => 0]];
+        }
+
+        // Outgoing to target movement check
+        if (strpos($sql, "SELECT moveid") !== false) {
+            return [];
+        }
+
+        // User lookup for isBotUser
+        if (strpos($sql, "FROM " . TB_PREFIX . "users") !== false && strpos($sql, "WHERE id =") !== false) {
+            if (strpos($sql, "id = 888") !== false) {
+                // Mock bot user
+                return [[
+                    'id' => 888,
+                    'is_bot' => 1,
+                    'email' => 'bot888@bot.travianz',
+                    'desc1' => '[#BOT]',
+                    'desc2' => '',
+                    'username' => 'Bot_Alpha',
+                ]];
+            }
+            return [[
+                'id' => 99,
+                'is_bot' => 0,
+                'email' => 'human@example.com',
+                'desc1' => '',
+                'desc2' => '',
+                'username' => 'TargetPlayer',
+            ]];
+        }
+
         // Nearby targets query
         if (strpos($sql, "FROM " . TB_PREFIX . "vdata v") !== false) {
+            if ($this->customVillages !== null) {
+                return $this->customVillages;
+            }
             return [[
                 'wref' => 301,
                 'vname' => 'Enemy Village',
                 'pop' => 350,
+                'owner' => 99,
                 'uid' => 99,
                 'username' => 'TargetPlayer',
                 'alliance' => 0,
                 'access' => 2,
                 'protect' => 0,
+                'is_bot' => 0,
+                'email' => 'player@example.com',
+                'desc1' => '',
+                'desc2' => '',
                 'x' => 12,
                 'y' => 12,
             ]];
@@ -182,7 +236,11 @@ $botRow = [
 // Force day time and 100% scout chance for deterministic test
 if (!defined('BOT_AI_ATTACK_START_HOUR')) define('BOT_AI_ATTACK_START_HOUR', 0);
 if (!defined('BOT_AI_ATTACK_END_HOUR')) define('BOT_AI_ATTACK_END_HOUR', 24);
-BotAI::saveConfig(['BOT_AI_SCOUT_CHANCE' => 100]);
+BotAI::saveConfig([
+    'BOT_AI_SCOUT_CHANCE' => 100,
+    'BOT_AI_NIGHT_SLEEP_ENABLED' => false,
+    'BOT_AI_MAX_SCOUT_DISTANCE' => 200,
+]);
 
 $resultNotEnough = BotAI::processScout($botRow);
 assertEqual(null, $resultNotEnough, "processScout must NOT dispatch when scouts <= homeScoutReserve");
@@ -191,7 +249,6 @@ assertEqual(0, count($database->addedAttacks), "No attack record should be creat
 // Now give bot 20 scouts. Deployable = 20 - 8 = 12 scouts.
 $database->units = ['u4' => 20];
 $resultDispatched = BotAI::processScout($botRow);
-BotAI::saveConfig(['BOT_AI_SCOUT_CHANCE' => 50]);
 assertTrue($resultDispatched !== null, "processScout should dispatch when sufficient scouts are available");
 assertEqual(1, count($database->addedAttacks), "1 scout attack record created");
 
@@ -208,5 +265,85 @@ assertEqual(201, $database->addedMovements[0]['from'], "Movement from bot villag
 assertEqual(301, $database->addedMovements[0]['to'], "Movement to target village");
 
 echo "-> PASS: processScout successfully dispatched reconnaissance with attack_type = 1 and preserved home counter-espionage!\n";
+
+// TEST 5: Exclude fellow bots (only scout human players)
+echo "Test 5: Testing exclusion of fellow bots (no scouting fellow bots)...\n";
+$database->addedAttacks = [];
+$database->addedMovements = [];
+$database->customVillages = [[
+    'wref' => 8881,
+    'vname' => 'Bot Outpost',
+    'pop' => 300,
+    'owner' => 888,
+    'uid' => 888,
+    'username' => 'Bot_Alpha',
+    'alliance' => 0,
+    'access' => 2,
+    'protect' => 0,
+    'is_bot' => 1,
+    'email' => 'bot888@bot.travianz',
+    'desc1' => '[#BOT]',
+    'desc2' => '',
+    'x' => 12,
+    'y' => 12,
+]];
+$resultBotOnly = BotAI::processScout($botRow);
+assertEqual(null, $resultBotOnly, "Bot must NOT scout fellow bot village");
+assertEqual(0, count($database->addedAttacks), "No attack created against fellow bot");
+echo "-> PASS: Fellow bot village was strictly ignored!\n";
+
+// TEST 6: Radius 200 tiles check
+echo "Test 6: Testing radius 200 tiles boundary...\n";
+// Target at 205 tiles away (> 200 tiles)
+$database->customVillages = [[
+    'wref' => 501,
+    'vname' => 'Far Village',
+    'pop' => 300,
+    'owner' => 99,
+    'uid' => 99,
+    'username' => 'TargetPlayer',
+    'alliance' => 0,
+    'access' => 2,
+    'protect' => 0,
+    'is_bot' => 0,
+    'email' => 'player@example.com',
+    'desc1' => '',
+    'desc2' => '',
+    'x' => 10,
+    'y' => 215, // 205 tiles away
+]];
+$resultOutOfRange = BotAI::processScout($botRow);
+assertEqual(null, $resultOutOfRange, "Target beyond 200 tiles must NOT be scouted");
+
+// Target at 195 tiles away (<= 200 tiles)
+$database->customVillages = [[
+    'wref' => 401,
+    'vname' => 'InRange Village',
+    'pop' => 300,
+    'owner' => 99,
+    'uid' => 99,
+    'username' => 'TargetPlayer',
+    'alliance' => 0,
+    'access' => 2,
+    'protect' => 0,
+    'is_bot' => 0,
+    'email' => 'player@example.com',
+    'desc1' => '',
+    'desc2' => '',
+    'x' => 10,
+    'y' => 205, // 195 tiles away
+]];
+$resultInRange = BotAI::processScout($botRow);
+assertTrue($resultInRange !== null, "Target within 200 tiles should be scouted");
+assertEqual(1, count($database->addedAttacks), "1 attack created for in-range target");
+assertEqual(401, $database->addedMovements[0]['to'], "Scout dispatched to village within 200 tiles");
+echo "-> PASS: 200 tile radius boundary properly enforced!\n";
+
+// Restore config
+BotAI::saveConfig([
+    'BOT_AI_SCOUT_CHANCE' => 50,
+    'BOT_AI_NIGHT_SLEEP_ENABLED' => false,
+    'BOT_AI_MAX_SCOUT_DISTANCE' => 200,
+]);
 
 echo "\n=== ALL BotScoutAndTroopScalingTest TESTS PASSED SUCCESSFULLY! ===\n";

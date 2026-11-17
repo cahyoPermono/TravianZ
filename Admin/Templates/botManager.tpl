@@ -581,6 +581,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
         $troopPopFactor = max(0.3, min(3.5, (float)($_POST['bot_troop_pop_factor'] ?? 1.25)));
         $maxArmy = max(100, min(10000, (int)($_POST['bot_max_army'] ?? 2500)));
         $scoutEnabled = !empty($_POST['bot_scout_enabled']);
+        $maxScoutDist = max(10.0, min(500.0, (float)($_POST['bot_max_scout_distance'] ?? 200.0)));
 
         // Alliance mutual defense settings
         $allianceDefenseEnabled = !empty($_POST['bot_alliance_defense_enabled']);
@@ -625,6 +626,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
             'BOT_AI_TROOP_POP_FACTOR' => $troopPopFactor,
             'BOT_AI_MAX_ARMY' => $maxArmy,
             'BOT_AI_SCOUT_ENABLED' => $scoutEnabled,
+            'BOT_AI_MAX_SCOUT_DISTANCE' => $maxScoutDist,
             'BOT_AI_MASS_ARMY_FIRST' => $massArmyFirst,
             'BOT_AI_MASS_ARMY_MIN_TROOPS' => $massArmyMinTroops,
             'BOT_AI_ALLIANCE_DEFENSE_ENABLED' => $allianceDefenseEnabled,
@@ -663,7 +665,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
                 . "• Bantuan Bertahan Aliansi: <b>" . ($allianceDefenseEnabled ? "Aktif (Solid & Tanggap)" : "Nonaktif") . "</b><br>"
                 . "• Mobilisasi saat Kawan Diserang: <b>" . ($defenseRatioActive * 100) . "%</b> pasukan cadangan (Maks <b>$defenseMaxCap</b> unit/bot, Kuota: <b>$maxHelpers</b> bot penolong/desa)<br>"
                 . "• Filter Unit Pertahanan Murni: <b>" . ($pureDefOnly ? "Aktif (Hanya spesialis defense; cegah Clubswinger/Axeman mati sia-sia)" : "Nonaktif") . "</b><br>"
-                . "• Unit Scout (Pengintai): <b>" . ($scoutEnabled ? "Aktif (Latih di Barak/Stable, Anti-Spionase & Patroli Intai)" : "Nonaktif") . "</b><br>"
+                . "• Unit Scout (Pengintai): <b>" . ($scoutEnabled ? "Aktif (Latih di Barak/Stable, Anti-Spionase & Patroli Intai Khusus Pemain Asli - Radius $maxScoutDist Kotak)" : "Nonaktif") . "</b><br>"
                 . "• Mode Himpun Pasukan (Anti-Misi Bunuh Diri): <b>" . ($massArmyFirst ? "Aktif (Kumpul min. " . number_format($massArmyMinTroops) . " unit sebelum serang)" : "Nonaktif") . "</b><br>"
                 . "• Perang Benteng Kuno (Kumpul Pasukan): <b>" . ($bastionWarMobilization ? "Aktif (Himpun Pasukan Sebelum Serang)" : "Nonaktif") . "</b> (Minimal: <b>$bastionMinAttackTroops</b> prajurit serbu / <b>" . ($bastionGarrisonFactor * 100) . "%</b> dari garnisun benteng)<br>"
                 . "• Ekspansi Desa Baru: <b>" . ($expansionEnabled ? "Aktif (Maks $maxVillages Desa/Bot)" : "Nonaktif") . "</b> (Berjalan secara natural via Padepokan Lvl 10, pelatihan 3 Pionir, CP, dan perjalanan perintis).<br>"
@@ -689,6 +691,7 @@ $currentParanormalEnabled = !empty(BotAI::getConfig('BOT_AI_PARANORMAL_ENABLED',
 $currentTroopFactor = (float)BotAI::getConfig('BOT_AI_TROOP_POP_FACTOR', 1.25);
 $currentMaxArmy = (int)BotAI::getConfig('BOT_AI_MAX_ARMY', 2500);
 $currentScoutEnabled = !empty(BotAI::getConfig('BOT_AI_SCOUT_ENABLED', true));
+$currentMaxScoutDist = (float)BotAI::getConfig('BOT_AI_MAX_SCOUT_DISTANCE', 200.0);
 
 // Current Alliance Defense Configurations
 $currentAllianceDefEnabled = !empty(BotAI::getConfig('BOT_AI_ALLIANCE_DEFENSE_ENABLED', true));
@@ -770,6 +773,11 @@ if (!empty($botsList)) {
             $totalPop += (int)$b['pop'];
             $vrefs[] = (int)$b['wref'];
         }
+    }
+
+    // Self-heal excess / obsolete settlers in bot villages before rendering troops
+    if (class_exists('BotAI') && method_exists('BotAI', 'healExcessSettlers')) {
+        BotAI::healExcessSettlers();
     }
 
     // Sum troop counts and unit details across bot villages
@@ -1398,14 +1406,18 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
                 </div>
 
                 <div class="botm-form-group">
-                    <label>Unit Scout (Pengintai) &amp; Patroli Intai:</label>
+                    <label>Unit Scout (Pengintai) &amp; Patroli Intai (Khusus Pemain Asli):</label>
                     <div style="background:#0f172a; padding:10px 12px; border-radius:6px; border:1px solid #1e293b; margin-top:2px;">
                         <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:#f8fafc; font-weight:bold; font-size:12px;">
                             <input type="checkbox" name="bot_scout_enabled" value="1" <?php echo $currentScoutEnabled ? 'checked' : ''; ?> style="width:16px; height:16px; cursor:pointer;">
                             <span>Aktifkan Pelatihan &amp; Penggunaan Scout (Manusiawi)</span>
                         </label>
-                        <span style="font-size:10px; color:#38bdf8; display:block; margin-top:4px;">
-                            📌 <b>Saat ini:</b> <?php echo $currentScoutEnabled ? '🟢 AKTIF (Melatih scout di Barak/Stable, patroli & intai)' : '🔴 Nonaktif'; ?>
+                        <div style="margin-top:8px; display:flex; align-items:center; gap:10px;">
+                            <label style="font-size:11px; color:#94a3b8; margin:0;">Radius Pengintaian (kotak):</label>
+                            <input type="number" name="bot_max_scout_distance" value="<?php echo htmlspecialchars((string)$currentMaxScoutDist); ?>" min="10" max="500" step="5" style="width:90px; padding:4px 8px; font-size:12px; background:#1e293b; color:#fff; border:1px solid #334155; border-radius:4px;">
+                        </div>
+                        <span style="font-size:10px; color:#38bdf8; display:block; margin-top:6px;">
+                            📌 <b>Saat ini:</b> <?php echo $currentScoutEnabled ? '🟢 AKTIF (Melatih scout di Barak/Stable, mengintai HANYA pemain asli dalam radius ' . $currentMaxScoutDist . ' kotak - tidak mengintai sesama bot)' : '🔴 Nonaktif'; ?>
                         </span>
                     </div>
                 </div>

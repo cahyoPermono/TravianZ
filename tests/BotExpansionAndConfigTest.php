@@ -100,6 +100,14 @@ class MockExpansionDatabase {
 
     public function query($sql) {
         $this->queries[] = $sql;
+        // Parse DELETE FROM training
+        if (preg_match('/DELETE FROM \w*training WHERE vref = (\d+) AND unit = (\d+)/i', $sql, $m)) {
+            $vref = (int)$m[1];
+            $unit = (int)$m[2];
+            $this->training = array_values(array_filter($this->training, function($tr) use ($vref, $unit) {
+                return !((int)($tr['vref'] ?? 0) === $vref && (int)($tr['unit'] ?? 0) === $unit);
+            }));
+        }
         // Parse INSERT INTO training
         if (preg_match('/INSERT INTO \w*training\s*\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)/i', $sql, $m)) {
             $cols = array_map('trim', explode(',', $m[1]));
@@ -155,11 +163,42 @@ class MockExpansionDatabase {
     }
 
     public function query_return($sql) {
+        // SELECT v.wref, u.tribe, v.exp1 FROM vdata v JOIN users u
+        if (preg_match('/FROM\s+\w*vdata.+JOIN\s+\w*users/is', $sql)) {
+            $res = [];
+            foreach ($this->vdata as $wref => $v) {
+                $owner = (int)($v['owner'] ?? 0);
+                if (isset($this->users[$owner])) {
+                    $res[] = [
+                        'wref' => $wref,
+                        'tribe' => $this->users[$owner]['tribe'] ?? 1,
+                        'exp1' => $v['exp1'] ?? 0,
+                    ];
+                }
+            }
+            return $res;
+        }
+        // SELECT ... FROM vdata WHERE owner = ...
+        if (preg_match('/FROM\s+\w*vdata\s+WHERE\s+owner\s*=\s*(\d+)/is', $sql, $m)) {
+            $owner = (int)$m[1];
+            $res = [];
+            foreach ($this->vdata as $wref => $v) {
+                if ((int)($v['owner'] ?? 0) === $owner) {
+                    $res[] = $v;
+                }
+            }
+            return $res;
+        }
         // SELECT u30 as s FROM units
         if (preg_match('/SELECT\s+u(\d+)\s+as\s+s\s+FROM\s+\w*units\s+WHERE\s+vref\s*=\s*(\d+)/is', $sql, $m)) {
             $col = 'u' . $m[1];
             $vref = (int)$m[2];
             return [['s' => $this->units[$vref][$col] ?? 0]];
+        }
+        // SELECT uX, uY ... FROM units WHERE vref = ...
+        if (preg_match('/SELECT\s+u\d+.+FROM\s+\w*units\s+WHERE\s+vref\s*=\s*(\d+)/is', $sql, $m)) {
+            $vref = (int)$m[1];
+            return [$this->units[$vref] ?? []];
         }
         // SUM(amt) FROM training
         if (preg_match('/SUM\(amt\)\s+as\s+queued\s+FROM\s+\w*training\s+WHERE\s+vref\s*=\s*(\d+)\s+AND\s+unit\s*=\s*(\d+)/is', $sql, $m)) {
@@ -373,9 +412,9 @@ assertTrue(stripos($statusTransit['status_text'], "Ekspedisi ke") !== false, "St
 echo "PASS" . PHP_EOL;
 
 // ------------------------------------------------------------------------------
-// Test 4: Expansion to 3rd Village (BOT_AI_MAX_VILLAGES = 3)
+// Test 4: Expansion to 3rd Village (BOT_AI_MAX_VILLAGES = 3) & Sequential Expansion
 // ------------------------------------------------------------------------------
-echo "Test 4: Expansion to 3rd Village (BOT_AI_MAX_VILLAGES = 3)... ";
+echo "Test 4: Sequential Expansion (Desa 1 -> Desa 2 -> Desa 3)... ";
 
 // Configure max villages = 3
 BotAI::saveConfig(['BOT_AI_MAX_VILLAGES' => 3]);
@@ -403,20 +442,30 @@ $mockDb->wdata[$widVil2] = ['x' => 15, 'y' => 25];
 $mockDb->vdata[$botWid]['exp1'] = $widVil2;
 $mockDb->movement = []; // clear previous movement
 
-// Case 4A: Village 1 with Residence Lvl 10 (only 1 slot) cannot expand further
-$mockDb->fdata[$botWid]['f25'] = 10;
+// Case 4A: Village 1 already expanded (exp1 > 0), even with Residence Lvl 20, Village 1 cannot expand further
+$mockDb->fdata[$botWid]['f25'] = 20;
 $mockDb->fdata[$botWid]['f25t'] = 25;
 $mockDb->units[$botWid]['u30'] = 3;
-$resVil1Lvl10 = BotAI::processExpansion($botArray);
-assertEqual(null, $resVil1Lvl10, "Village 1 with Residence 10 cannot expand because slot 1 is used");
-
-// Case 4B: Village 1 upgrades Residence to Level 20 (unlocks slot 2 / exp2)
-$mockDb->fdata[$botWid]['f25'] = 20;
-$botArray['fdata'] = $mockDb->fdata[$botWid];
-$mockDb->units[$botWid]['u30'] = 3;
-$mockDb->users[$botUid]['cp'] = 8000; // sufficient CP for 3rd village
 $resVil1Lvl20 = BotAI::processExpansion($botArray);
-assertTrue($resVil1Lvl20 !== null && stripos($resVil1Lvl20, "Dispatched 3 Settlers") !== false, "Village 1 with Residence 20 can expand to 3rd village!");
+assertEqual(null, $resVil1Lvl20, "Village 1 cannot expand further because exp1 > 0 (sequential expansion hands over to Village 2)");
+// In addition, any obsolete settlers in Village 1 must be auto-cleared to 0
+assertEqual(0, (int)($mockDb->units[$botWid]['u30'] ?? 0), "Obsolete settlers in Village 1 must be cleared to 0");
+
+// Case 4B: Village 2 (the child village with exp1 == 0) is the one that trains settlers and expands to Village 3!
+$mockFdataVil2 = ['vref' => $widVil2, 'f25' => 10, 'f25t' => 25, 'f39' => 1, 'f39t' => 16];
+$mockDb->fdata[$widVil2] = $mockFdataVil2;
+$mockDb->units[$widVil2] = ['u30' => 3];
+$mockDb->users[$botUid]['cp'] = 8000; // sufficient CP for 3rd village
+$botArrayVil2 = [
+    'uid' => $botUid,
+    'id' => $botUid,
+    'wref' => $widVil2,
+    'tribe' => $botTribe,
+    'fdata' => $mockFdataVil2,
+    'vdata' => $mockDb->vdata[$widVil2],
+];
+$resVil2 = BotAI::processExpansion($botArrayVil2);
+assertTrue($resVil2 !== null && stripos($resVil2, "Dispatched 3 Settlers to found Village #3") !== false, "Village 2 is the one that trains settlers and dispatches expedition to found Village 3!");
 
 // Case 4C: When bot reaches 3 villages and max is 3, expansion stops
 $mockDb->movement = [];
@@ -427,8 +476,58 @@ $mockDb->vdata[$widVil3] = [
     'name' => 'Village_3',
     'exp1' => 0,
 ];
-$resVilAtMax = BotAI::processExpansion($botArray);
+$resVilAtMax = BotAI::processExpansion($botArrayVil2);
 assertEqual(null, $resVilAtMax, "When bot has reached max villages (3), processExpansion must return null");
+
+echo "PASS" . PHP_EOL;
+
+// ------------------------------------------------------------------------------
+// TEST 5: Maximum 3 Settlers Per Village Hard Cap & Self-Healing
+// ------------------------------------------------------------------------------
+echo "Test 5: Settler Cap (Max 3 Per Village) & Self-Healing... ";
+
+// Case 5A: An unexpanded village with bloated settlers (e.g. 34 Egyptian Settlers, tribe 7)
+$widEgypt = 3001;
+$egyptUid = 201;
+$mockDb->users[$egyptUid] = ['id' => $egyptUid, 'tribe' => 7];
+$mockDb->vdata[$widEgypt] = [
+    'wref' => $widEgypt,
+    'owner' => $egyptUid,
+    'exp1' => 0,
+    'exp2' => 0,
+    'exp3' => 0,
+];
+$mockDb->units[$widEgypt] = [
+    'u61' => 562,
+    'u62' => 16,
+    'u63' => 184,
+    'u64' => 25,
+    'u65' => 3,
+    'u70' => 34, // 34 Egyptian Settlers!
+];
+
+// Run trimVillageTroops on the unexpanded village
+BotAI::trimVillageTroops($widEgypt, 7, 200);
+assertEqual(3, (int)$mockDb->units[$widEgypt]['u70'], "trimVillageTroops must clamp bloated settlers (34) down to maximum 3 in unexpanded village");
+
+// Case 5B: A village that has already expanded (exp1 > 0) with bloated settlers (34)
+$mockDb->vdata[$widEgypt]['exp1'] = 3002;
+$mockDb->units[$widEgypt]['u70'] = 34;
+BotAI::trimVillageTroops($widEgypt, 7, 200);
+assertEqual(0, (int)$mockDb->units[$widEgypt]['u70'], "trimVillageTroops must zero out settlers in an already expanded village (exp1 > 0)");
+
+// Case 5C: BotAI::healExcessSettlers() across all bot villages
+$mockDb->vdata[$widEgypt]['exp1'] = 0;
+$mockDb->units[$widEgypt]['u70'] = 15;
+$healed = BotAI::healExcessSettlers();
+assertTrue($healed > 0, "healExcessSettlers must report healed settlers");
+assertEqual(3, (int)$mockDb->units[$widEgypt]['u70'], "healExcessSettlers must cap settlers to 3 in unexpanded village");
+
+// Case 5D: healExcessSettlers on village with exp1 > 0
+$mockDb->vdata[$widEgypt]['exp1'] = 3002;
+$mockDb->units[$widEgypt]['u70'] = 3;
+BotAI::healExcessSettlers();
+assertEqual(0, (int)$mockDb->units[$widEgypt]['u70'], "healExcessSettlers must zero out settlers in village with exp1 > 0");
 
 // Restore pre-test config
 if (!empty($preTestConfig)) {

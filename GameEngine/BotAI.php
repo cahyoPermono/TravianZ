@@ -206,6 +206,9 @@ class BotAI {
 
         @touch($lockFile);
 
+        // Self-heal excess/obsolete settlers across all bot villages
+        self::healExcessSettlers();
+
         // Fetch all active bot accounts and their villages
         $sql = "SELECT u.id as uid, u.username, u.tribe, u.access, u.alliance, u.regtime, u.timestamp,
                        v.wref, v.name as vname, v.pop, v.wood, v.clay, v.iron, v.crop, v.maxstore, v.maxcrop, v.lastupdate, v.created
@@ -803,7 +806,9 @@ class BotAI {
                         if ($rsLevel > 0 && $rsLevel < min(20, $maxBuildingLvl) && !isset($busySlots[30])) {
                             $candidates[] = ['slot' => 30, 'type' => 25, 'lvl' => $rsLevel + 1, 'name' => 'Residence'];
                             // Prioritize Residence up to level 10 if expansion enabled and age >= 2.5
-                            if ($rsLevel < 10 && self::getConfig('BOT_AI_EXPANSION_ENABLED', true) && $effectiveAgeDays >= 2.5) {
+                            // Only prioritize Residence for expansion if this village has not already expanded
+                            $hasExp = !empty($bot['vdata']['exp1'] ?? $bot['exp1'] ?? 0);
+                            if (!$hasExp && $rsLevel < 10 && self::getConfig('BOT_AI_EXPANSION_ENABLED', true) && $effectiveAgeDays >= 2.5) {
                                 $candidates[] = ['slot' => 30, 'type' => 25, 'lvl' => $rsLevel + 1, 'name' => 'Residence'];
                                 $candidates[] = ['slot' => 30, 'type' => 25, 'lvl' => $rsLevel + 1, 'name' => 'Residence'];
                             }
@@ -1462,25 +1467,49 @@ class BotAI {
             $currentTotal += (int)($row['u' . $u] ?? 0);
         }
 
-        if ($currentTotal <= $targetTotal) {
+        $chiefU = self::getChiefUnit($tribe);
+        $settlerU = $tribe * 10;
+
+        // Check whether this village has already expanded
+        $vFields = method_exists($database, 'getVillageFields') ? $database->getVillageFields($wid, 'exp1, exp2, exp3', false) : null;
+        $hasExpanded = !empty($vFields['exp1']) && (int)$vFields['exp1'] > 0;
+        $settlerCount = (int)($row['u' . $settlerU] ?? 0);
+        $chiefCount = (int)($row['u' . $chiefU] ?? 0);
+
+        // Conditions requiring trim:
+        // 1. Army exceeds targetTotal
+        // 2. Village already expanded but still has settlers (must be 0)
+        // 3. Unexpanded village has > 3 settlers (must be capped at max 3)
+        // 4. Chiefs exceed 3 (must be capped at max 3)
+        $needsSettlerTrim = ($hasExpanded && $settlerCount > 0) || (!$hasExpanded && $settlerCount > 3);
+        $needsChiefTrim = ($chiefCount > 3);
+
+        if ($currentTotal <= $targetTotal && !$needsSettlerTrim && !$needsChiefTrim) {
             return 0;
         }
 
         // Proportional trimming: scales down existing unit types proportionally
         // so the army retains its balanced composition (defenders, attackers, scouts)
-        // Chiefs and Settlers are preserved to keep natural expansion/conquest plans intact
-        $chiefU = self::getChiefUnit($tribe);
-        $settlerU = $tribe * 10;
-        $ratio = (float)$targetTotal / (float)$currentTotal;
+        // Chiefs and Settlers are capped: settlers = 0 if expanded, max 3 if not; chiefs = max 3
+        $ratio = ($currentTotal > 0) ? (float)$targetTotal / (float)$currentTotal : 1.0;
         $updates = [];
         $newTotal = 0;
         $unitCounts = [];
 
         foreach ($tribeUnits['all'] as $u) {
             $cnt = (int)($row['u' . $u] ?? 0);
-            if ($u === $chiefU || $u === $settlerU) {
-                // Strictly preserve existing chiefs and settlers
-                $unitCounts[$u] = $cnt;
+            if ($u === $settlerU) {
+                // Settler cap: max 3 per village. If already expanded, obsolete settlers are zeroed
+                $cappedSettlers = $hasExpanded ? 0 : min(3, $cnt);
+                $unitCounts[$u] = $cappedSettlers;
+                $newTotal += $cappedSettlers;
+                continue;
+            }
+            if ($u === $chiefU) {
+                // Chief cap: strictly preserve existing chiefs, max 3
+                $cappedChiefs = min(3, $cnt);
+                $unitCounts[$u] = $cappedChiefs;
+                $newTotal += $cappedChiefs;
                 continue;
             }
             if ($cnt > 0) {
@@ -1748,16 +1777,62 @@ class BotAI {
     }
 
     /**
+     * Self-healing routine to enforce maximum 3 settlers per village across all bot villages.
+     * If a village has already expanded (exp1 > 0), any obsolete settlers are cleared (0).
+     * If an unexpanded village has > 3 settlers, it is clamped to 3.
+     *
+     * @return int Number of excess settlers cleaned up
+     */
+    public static function healExcessSettlers(): int {
+        global $database;
+        $healed = 0;
+        $botVillages = $database->query_return("
+            SELECT v.wref, u.tribe, v.exp1
+            FROM " . TB_PREFIX . "vdata v
+            JOIN " . TB_PREFIX . "users u ON v.owner = u.id
+            WHERE u.access = 2
+              AND (u.is_bot = 1 OR u.email LIKE '%@bot.travianz' OR u.desc1 LIKE '%[#BOT]%' OR u.desc2 LIKE '%[#BOT]%' OR u.username LIKE 'Bot_%')
+        ");
+        if (empty($botVillages)) return 0;
+
+        foreach ($botVillages as $bv) {
+            $wid = (int)$bv['wref'];
+            $tribe = (int)$bv['tribe'];
+            $settlerU = $tribe * 10;
+            $hasExpanded = !empty($bv['exp1']) && (int)$bv['exp1'] > 0;
+
+            $uRow = $database->query_return("SELECT u{$settlerU} as s FROM " . TB_PREFIX . "units WHERE vref = $wid");
+            $curS = (int)($uRow[0]['s'] ?? 0);
+
+            if ($hasExpanded && $curS > 0) {
+                $database->query("UPDATE " . TB_PREFIX . "units SET u{$settlerU} = 0 WHERE vref = $wid");
+                $database->query("DELETE FROM " . TB_PREFIX . "training WHERE vref = $wid AND unit = $settlerU");
+                $healed += $curS;
+            } elseif (!$hasExpanded && $curS > 3) {
+                $database->query("UPDATE " . TB_PREFIX . "units SET u{$settlerU} = 3 WHERE vref = $wid");
+                $healed += ($curS - 3);
+            }
+        }
+
+        if ($healed > 0 && method_exists($database, 'clearUnitsCache')) {
+            $database->clearUnitsCache();
+        }
+
+        return $healed;
+    }
+
+    /**
      * Automated Natural Village Expansion:
-     * 100% genuine Travian mechanics for acquiring Village #2:
-     * - Requires Residence (Padepokan) Level 10 (exp1 == 0).
+     * 100% genuine Travian mechanics for sequential village expansion (Desa 1 -> Desa 2 -> Desa 3 -> ...):
+     * - Requires Residence / Palace Level 10 (exp1 == 0).
+     * - Once a village expands (exp1 > 0), it NEVER trains settlers again; expansion passes to the child village.
+     * - Strictly enforces maximum 3 settlers per village (home + queued <= 3).
      * - Requires genuine village storage capacity to fund settler costs.
-     * - Trains 3 Settlers sequentially in Residence, consuming real resources and taking genuine training time.
+     * - Trains 3 Settlers sequentially, consuming real resources and taking genuine training time.
      * - Requires sufficient Culture Points (CP) accumulated naturally by the bot's buildings.
      * - Requires 750 wood, 750 clay, 750 iron, 750 crop starting supplies.
      * - Dispatches genuine travel movement across the map (movement sort_type = 5).
      * - When movement arrives, standard AutomationTroopMovements::sendSettlersComplete() founds the village.
-     * - Village #2 grows from Day 0 naturally based on its own creation timestamp.
      */
     public static function processExpansion(array $bot): ?string {
         global $database;
@@ -1774,50 +1849,77 @@ class BotAI {
         $uid = (int)($bot['uid'] ?? $bot['id'] ?? 0);
         $wid = (int)$bot['wref'];
         $tribe = (int)$bot['tribe'];
+        $settlerUnit = $tribe * 10;
 
         // 1. Check total villages owned by this bot
-        $userVillages = $database->getProfileVillages($uid);
+        $userVillages = $database->query_return("
+            SELECT wref, name, capital, exp1, exp2, exp3, created
+            FROM " . TB_PREFIX . "vdata
+            WHERE owner = $uid AND (wref != 20201 OR owner = 91016)
+            ORDER BY capital DESC, created ASC, wref ASC
+        ");
+        if (empty($userVillages) && method_exists($database, 'getProfileVillages')) {
+            $userVillages = $database->getProfileVillages($uid);
+        }
         $villageCount = is_array($userVillages) ? count($userVillages) : 1;
         if ($villageCount >= $maxVillages) {
-            return null; // Already reached max villages configured by admin
+            // Already reached max villages configured by admin
+            $curS = $database->query_return("SELECT u{$settlerUnit} as s FROM " . TB_PREFIX . "units WHERE vref = $wid");
+            if (!empty($curS[0]['s']) && (int)$curS[0]['s'] > 0) {
+                $database->query("UPDATE " . TB_PREFIX . "units SET u{$settlerUnit} = 0 WHERE vref = $wid");
+            }
+            return null;
         }
 
-        // 2. Check Residence or Palace level in this village
-        // Residence (gid 25): lvl 10 = slot 1 (exp1), lvl 20 = slot 2 (exp2)
-        // Palace (gid 26): lvl 10 = slot 1 (exp1), lvl 15 = slot 2 (exp2), lvl 20 = slot 3 (exp3)
+        // 2. Sequential Expansion Rule:
+        // Desa ke-1 mendirikan Desa ke-2.
+        // Setelah Desa ke-2 berdiri, Desa ke-1 (exp1 > 0) TIDAK BOLEH lagi membuat settler / mendirikan desa!
+        // Settler untuk Desa ke-3 dibuat di Desa ke-2 (desa terbaru dengan exp1 == 0).
+        // Begitu seterusnya untuk Desa ke-4 dibuat di Desa ke-3, dst.
+        $vFields = method_exists($database, 'getVillageFields') ? $database->getVillageFields($wid, 'exp1, exp2, exp3', false) : null;
+        $hasExpanded = !empty($vFields['exp1']) && (int)$vFields['exp1'] > 0;
+
+        if ($hasExpanded) {
+            // Desa ini sudah mendirikan desa anak! Bersihkan sisa pionir usang jika ada
+            $curS = $database->query_return("SELECT u{$settlerUnit} as s FROM " . TB_PREFIX . "units WHERE vref = $wid");
+            if (!empty($curS[0]['s']) && (int)$curS[0]['s'] > 0) {
+                $database->query("UPDATE " . TB_PREFIX . "units SET u{$settlerUnit} = 0 WHERE vref = $wid");
+                $database->query("DELETE FROM " . TB_PREFIX . "training WHERE vref = $wid AND unit = $settlerUnit");
+            }
+            return null; // Desa ini sudah pernah ekspansi
+        }
+
+        // 3. Tentukan desa yang berhak melakukan ekspansi berikutnya (desa pertama dalam rantai urutan dengan exp1 == 0):
+        $designatedWid = 0;
+        if (is_array($userVillages)) {
+            foreach ($userVillages as $uv) {
+                $uExp1 = $uv['exp1'] ?? 0;
+                if (empty($uExp1) || (int)$uExp1 == 0) {
+                    $designatedWid = (int)($uv['wref'] ?? 0);
+                    break;
+                }
+            }
+        }
+        if ($designatedWid > 0 && $wid !== $designatedWid) {
+            return null; // Belum giliran desa ini untuk ekspansi
+        }
+
+        // 4. Hard cap pionir di desa: maksimal 3 pionir per desa
+        $unitRow = $database->query_return("SELECT u{$settlerUnit} as s FROM " . TB_PREFIX . "units WHERE vref = $wid");
+        $homeSettlers = (int)($unitRow[0]['s'] ?? 0);
+        if ($homeSettlers > 3) {
+            $database->query("UPDATE " . TB_PREFIX . "units SET u{$settlerUnit} = 3 WHERE vref = $wid");
+            $homeSettlers = 3;
+        }
+
+        // 5. Check Residence or Palace level in this designated village (Level >= 10 required)
         $rsLevel = self::getBuildingLevel($wid, 25, $bot['fdata'] ?? []);
         $palaceLevel = self::getBuildingLevel($wid, 26, $bot['fdata'] ?? []);
+        $effectiveBuildingLvl = max($rsLevel, $palaceLevel);
 
-        $allowedSlots = 0;
-        if ($rsLevel >= 20) {
-            $allowedSlots = 2;
-        } elseif ($rsLevel >= 10) {
-            $allowedSlots = 1;
-        }
-        if ($palaceLevel >= 20) {
-            $allowedSlots = max($allowedSlots, 3);
-        } elseif ($palaceLevel >= 15) {
-            $allowedSlots = max($allowedSlots, 2);
-        } elseif ($palaceLevel >= 10) {
-            $allowedSlots = max($allowedSlots, 1);
-        }
-
-        if ($allowedSlots < 1) {
+        if ($effectiveBuildingLvl < 10) {
             return null; // Residence/Palace not yet level 10, bot continues natural progression
         }
-
-        // 3. Check if this village has any free expansion slot
-        $vFields = method_exists($database, 'getVillageFields') ? $database->getVillageFields($wid, 'exp1, exp2, exp3', false) : null;
-        $usedSlots = 0;
-        if (!empty($vFields['exp1']) && (int)$vFields['exp1'] > 0) $usedSlots++;
-        if (!empty($vFields['exp2']) && (int)$vFields['exp2'] > 0) $usedSlots++;
-        if (!empty($vFields['exp3']) && (int)$vFields['exp3'] > 0) $usedSlots++;
-
-        if ($usedSlots >= $allowedSlots) {
-            return null; // All unlocked expansion slots for this village are already used
-        }
-
-        $freeSlots = $allowedSlots - $usedSlots;
 
         // Check if expansion slot is already reserved / occupied by Chief (at home, in training, or marching)
         $chiefUnit = self::getChiefUnit($tribe);
@@ -1832,12 +1934,12 @@ class BotAI {
                 WHERE m.from = $wid AND m.proc = 0 AND a.t9 > 0
             ");
             $marchingChiefs = (int)($mChiefsRow[0]['cnt'] ?? 0);
-            if (($homeChiefs + $queuedChiefs + $marchingChiefs) >= $freeSlots) {
+            if (($homeChiefs + $queuedChiefs + $marchingChiefs) >= 1) {
                 return null; // Slot is occupied/reserved for Chief conquest
             }
         }
 
-        // 4. Check if there is already a settlement movement in progress from this village
+        // 6. Check if there is already a settlement movement in progress from this village
         $inProgress = $database->query_return("
             SELECT moveid, endtime FROM " . TB_PREFIX . "movement
             WHERE `from` = $wid AND sort_type = 5 AND proc = 0
@@ -1848,8 +1950,7 @@ class BotAI {
             return "Settler expedition in transit to found new village (arrives in " . round($remaining / 60) . " mins)";
         }
 
-        // 5. Settler Unit & Cost
-        $settlerUnit = $tribe * 10;
+        // 7. Settler Unit & Cost
         $uVar = 'u' . $settlerUnit;
         $uData = $GLOBALS[$uVar] ?? null;
         if (!is_array($uData) && file_exists(__DIR__ . '/Data/unitdata.php')) {
@@ -1860,10 +1961,7 @@ class BotAI {
             return null;
         }
 
-        // 6. Check existing settlers (at home + in training)
-        $unitRow = $database->query_return("SELECT u{$settlerUnit} as s FROM " . TB_PREFIX . "units WHERE vref = $wid");
-        $homeSettlers = (int)($unitRow[0]['s'] ?? 0);
-
+        // 8. Check existing settlers (at home + in training)
         $trainRow = $database->query_return("
             SELECT SUM(amt) as queued FROM " . TB_PREFIX . "training
             WHERE vref = $wid AND unit = $settlerUnit
@@ -1871,7 +1969,14 @@ class BotAI {
         $queuedSettlers = (int)($trainRow[0]['queued'] ?? 0);
         $totalSettlers = $homeSettlers + $queuedSettlers;
 
-        // 7. If total settlers < 3, train the next settler naturally if resources are available
+        // If training queue has excess (total > 3), remove excess from training queue
+        if ($totalSettlers > 3) {
+            $database->query("DELETE FROM " . TB_PREFIX . "training WHERE vref = $wid AND unit = $settlerUnit");
+            $queuedSettlers = 0;
+            $totalSettlers = $homeSettlers;
+        }
+
+        // 9. If total settlers < 3, train the next settler naturally if resources are available
         if ($totalSettlers < 3) {
             $vRes = method_exists($database, 'getVillageFields') ? $database->getVillageFields($wid, 'wood, clay, iron, crop', false) : null;
             $curWood = (float)($vRes['wood'] ?? $bot['wood'] ?? $bot['vdata']['wood'] ?? 0);
@@ -1894,10 +1999,10 @@ class BotAI {
                 // Calculate training duration
                 $speed = defined('SPEED') ? max(1, (float)SPEED) : 1.0;
                 $baseTime = (int)($uData['time'] ?? 24000);
-                $resBonus = pow(0.95, max(0, $rsLevel - 1));
+                $resBonus = pow(0.95, max(0, $effectiveBuildingLvl - 1));
                 $duration = max(45, (int)round(($baseTime * $resBonus) / $speed));
 
-                // Queue training in Residence
+                // Queue training in Residence/Palace
                 $now = time();
                 $lastQueue = $database->query_return("
                     SELECT timestamp FROM " . TB_PREFIX . "training
@@ -1912,7 +2017,7 @@ class BotAI {
                     VALUES ($wid, $settlerUnit, 1, 1, $endTime, $duration, $startTime + $duration)
                 ");
 
-                return "Trained Settler (" . ($totalSettlers + 1) . "/3 queued in Residence, duration: " . round($duration / 60) . " mins, Cost: {$wCost}w, {$cCost}c, {$iCost}i, {$crCost}cr)";
+                return "Trained Settler (" . ($totalSettlers + 1) . "/3 queued in Residence/Palace, duration: " . round($duration / 60) . " mins, Cost: {$wCost}w, {$cCost}c, {$iCost}i, {$crCost}cr)";
             }
 
             return null; // Saving resources to train settler
@@ -1923,7 +2028,7 @@ class BotAI {
             return "Waiting for 3 Settlers to complete training ($homeSettlers/3 ready, $queuedSettlers in training)";
         }
 
-        // 8. 3 Settlers are ready at home! Check Culture Points requirement
+        // 10. 3 Settlers are ready at home! Check Culture Points requirement
         $mode = defined('CP') ? (int)CP : 1;
         global ${'cp' . $mode};
         if (!isset(${'cp' . $mode})) {
@@ -1938,7 +2043,7 @@ class BotAI {
             return "3 Settlers ready, awaiting Culture Points: {$userCP}/{$neededCP} CP needed for village #{$targetVillageIndex}";
         }
 
-        // 9. Check 750 starting resources for founding the new village
+        // 11. Check 750 starting resources for founding the new village
         $vRes = method_exists($database, 'getVillageFields') ? $database->getVillageFields($wid, 'wood, clay, iron, crop', false) : null;
         $curWood = (float)($vRes['wood'] ?? $bot['wood'] ?? $bot['vdata']['wood'] ?? 0);
         $curClay = (float)($vRes['clay'] ?? $bot['clay'] ?? $bot['vdata']['clay'] ?? 0);
@@ -1948,13 +2053,13 @@ class BotAI {
             return "3 Settlers ready, awaiting 750 of each resource for new village foundation";
         }
 
-        // 10. Check Rally Point (must be at least lvl 1 to dispatch movement)
+        // 12. Check Rally Point (must be at least lvl 1 to dispatch movement)
         $rpLvl = self::getBuildingLevel($wid, 16, $bot['fdata'] ?? []);
         if ($rpLvl < 1) {
             return null; // Rally point needed
         }
 
-        // 11. Find a valid uninhabited wilderness tile near this village
+        // 13. Find a valid uninhabited wilderness tile near this village
         $fromCoor = $database->getCoor($wid);
         if (!$fromCoor) return null;
         $fromX = (int)$fromCoor['x'];
@@ -1969,16 +2074,16 @@ class BotAI {
         $toX = (int)$targetTile['x'];
         $toY = (int)$targetTile['y'];
 
-        // 12. Deduct 750 of each resource and 3 settlers
+        // 14. Deduct 750 of each resource and 3 settlers
         $database->modifyResource($wid, 750, 750, 750, 750, 0);
         $database->modifyUnit($wid, [$settlerUnit], [3], [0]);
 
-        // 13. Calculate travel time
+        // 15. Calculate travel time
         $speed = defined('SPEED') ? max(1, (float)SPEED) : 1.0;
         $dist = sqrt(pow($toX - $fromX, 2) + pow($toY - $fromY, 2));
         $travelSec = max(60, (int)round(($dist / (5.0 * $speed)) * 3600));
 
-        // 14. Dispatch settlement movement (sort_type = 5)
+        // 16. Dispatch settlement movement (sort_type = 5)
         $database->addMovement(5, $wid, $targetWid, 0, time(), time() + $travelSec);
 
         return "Dispatched 3 Settlers to found Village #{$targetVillageIndex} at ($toX|$toY)! Distance: " . round($dist, 1) . " tiles (" . round($travelSec / 60) . " mins travel)";
@@ -2041,11 +2146,24 @@ class BotAI {
     public static function getExpansionStatus(int $uid, int $wid, int $tribe): array {
         global $database;
 
-        $userVillages = $database->getProfileVillages($uid);
+        $userVillages = $database->query_return("
+            SELECT wref, name, capital, exp1, exp2, exp3, created
+            FROM " . TB_PREFIX . "vdata
+            WHERE owner = $uid AND (wref != 20201 OR owner = 91016)
+            ORDER BY capital DESC, created ASC, wref ASC
+        ");
+        if (empty($userVillages) && method_exists($database, 'getProfileVillages')) {
+            $userVillages = $database->getProfileVillages($uid);
+        }
         $villageCount = is_array($userVillages) ? count($userVillages) : 1;
         $maxVillages = (int)self::getConfig('BOT_AI_MAX_VILLAGES', 2);
         $rsLevel = self::getBuildingLevel($wid, 25);
+        $palaceLevel = self::getBuildingLevel($wid, 26);
+        $effectiveBuildingLvl = max($rsLevel, $palaceLevel);
         $settlerUnit = $tribe * 10;
+
+        $vFields = method_exists($database, 'getVillageFields') ? $database->getVillageFields($wid, 'exp1, exp2, exp3', false) : null;
+        $hasExpanded = !empty($vFields['exp1']) && (int)$vFields['exp1'] > 0;
 
         $unitRow = $database->query_return("SELECT u{$settlerUnit} as s FROM " . TB_PREFIX . "units WHERE vref = $wid");
         $homeSettlers = (int)($unitRow[0]['s'] ?? 0);
@@ -2055,6 +2173,29 @@ class BotAI {
             WHERE vref = $wid AND unit = $settlerUnit
         ");
         $queuedSettlers = (int)($trainRow[0]['queued'] ?? 0);
+
+        // Self-heal excess / obsolete settlers
+        if ($hasExpanded && ($homeSettlers > 0 || $queuedSettlers > 0)) {
+            $database->query("UPDATE " . TB_PREFIX . "units SET u{$settlerUnit} = 0 WHERE vref = $wid");
+            $database->query("DELETE FROM " . TB_PREFIX . "training WHERE vref = $wid AND unit = $settlerUnit");
+            $homeSettlers = 0;
+            $queuedSettlers = 0;
+        } elseif (!$hasExpanded && $homeSettlers > 3) {
+            $database->query("UPDATE " . TB_PREFIX . "units SET u{$settlerUnit} = 3 WHERE vref = $wid");
+            $homeSettlers = 3;
+        }
+
+        // Designated expanding village in sequential chain
+        $designatedWid = 0;
+        if (is_array($userVillages)) {
+            foreach ($userVillages as $uv) {
+                $uExp1 = $uv['exp1'] ?? 0;
+                if (empty($uExp1) || (int)$uExp1 == 0) {
+                    $designatedWid = (int)($uv['wref'] ?? 0);
+                    break;
+                }
+            }
+        }
 
         $inProgress = $database->query_return("
             SELECT m.moveid, m.endtime, w.x, w.y
@@ -2070,20 +2211,27 @@ class BotAI {
             @include_once __DIR__ . '/Data/cp.php';
         }
         $cpTable = ${'cp' . $mode} ?? $GLOBALS['cp1'] ?? [];
-        $neededCP = (int)($cpTable[$villageCount + 1] ?? 2000);
+        $targetVillageIndex = $villageCount + 1;
+        $neededCP = (int)($cpTable[$targetVillageIndex] ?? 2000);
         $userCP = (int)$database->getUserField($uid, 'cp', 0);
 
         $statusText = '';
         if ($villageCount >= $maxVillages) {
             $statusText = "✅ Memiliki $villageCount Desa (Maksimal)";
+        } elseif ($hasExpanded) {
+            $childWid = (int)$vFields['exp1'];
+            $childName = $database->getVillageField($childWid, 'name') ?: ("Desa #" . $childWid);
+            $statusText = "✅ Sudah mendirikan " . htmlspecialchars($childName) . " (Slot ekspansi selesai)";
         } elseif (!empty($inProgress)) {
             $rem = max(0, (int)$inProgress[0]['endtime'] - time());
             $tx = $inProgress[0]['x'] ?? '?';
             $ty = $inProgress[0]['y'] ?? '?';
             $statusText = "🚶 Ekspedisi ke ($tx|$ty) - " . round($rem / 60) . "m";
+        } elseif ($designatedWid > 0 && $wid !== $designatedWid) {
+            $statusText = "⏸️ Menunggu giliran ekspansi";
         } elseif ($homeSettlers >= 3) {
             if ($userCP < $neededCP) {
-                $statusText = "⏳ 3 Pionir Siap (Menunggu CP: " . number_format($userCP) . "/" . number_format($neededCP) . ")";
+                $statusText = "⏳ 3 Pionir Siap (Menunggu CP: " . number_format($userCP) . "/" . number_format($neededCP) . " untuk Desa #$targetVillageIndex)";
             } else {
                 $vRes = method_exists($database, 'getVillageFields') ? $database->getVillageFields($wid, 'wood, clay, iron, crop', false) : null;
                 $curWood = (float)($vRes['wood'] ?? 0);
@@ -2101,28 +2249,29 @@ class BotAI {
                 if ($rpLevel < 1) {
                     $statusText = "🏗️ 3 Pionir Siap (Perlu Titik Temu Lvl 1)";
                 } elseif (!empty($missing)) {
-                    $statusText = "⏳ 3 Pionir Siap (Menabung bekal: " . implode(', ', $missing) . ")";
+                    $statusText = "⏳ 3 Pionir Siap (Menabung bekal: " . implode(', ', $missing) . " untuk Desa #$targetVillageIndex)";
                 } else {
-                    $statusText = "🏕️ 3 Pionir Siap (Menyiapkan ekspedisi - Siap berangkat pada siklus bot)";
+                    $statusText = "🏕️ 3 Pionir Siap (Siap mendirikan Desa #$targetVillageIndex pada siklus bot)";
                 }
             }
         } elseif ($queuedSettlers > 0) {
-            $statusText = "🔨 Melatih Pionir (" . ($homeSettlers + $queuedSettlers) . "/3)";
-        } elseif ($rsLevel >= 10) {
-            $statusText = "🏛️ Padepokan Lvl 10 (Menabung bahan pionir)";
+            $statusText = "🔨 Melatih Pionir (" . min(3, $homeSettlers + $queuedSettlers) . "/3) untuk Desa #$targetVillageIndex";
+        } elseif ($effectiveBuildingLvl >= 10) {
+            $statusText = "🏛️ Padepokan Lvl $effectiveBuildingLvl (Menabung bahan pionir Desa #$targetVillageIndex)";
         } else {
-            $statusText = "🏗️ Padepokan Lvl $rsLevel/10";
+            $statusText = "🏗️ Padepokan Lvl $effectiveBuildingLvl/10 (Persiapan Desa #$targetVillageIndex)";
         }
 
         return [
             'villages' => $villageCount,
             'max_villages' => $maxVillages,
-            'rs_level' => $rsLevel,
+            'rs_level' => $effectiveBuildingLvl,
             'cp' => $userCP,
             'cp_needed' => $neededCP,
-            'settlers_home' => $homeSettlers,
-            'settlers_queued' => $queuedSettlers,
+            'settlers_home' => $hasExpanded ? 0 : min(3, $homeSettlers),
+            'settlers_queued' => $hasExpanded ? 0 : min(3, $queuedSettlers),
             'in_progress' => !empty($inProgress),
+            'has_expanded' => $hasExpanded,
             'status_text' => $statusText,
         ];
     }
@@ -4455,75 +4604,105 @@ class BotAI {
         }
 
         $botAlliance = (int)($bot['alliance'] ?? 0);
-        $maxScoutDist = (float)self::getConfig('BOT_AI_MAX_SCOUT_DISTANCE', 40.0);
+        $maxScoutDist = (float)self::getConfig('BOT_AI_MAX_SCOUT_DISTANCE', 200.0);
 
-        // Find candidate targets: nearby player villages (non-alliance, not protected) or oases
+        // Find candidate targets: strictly human players (non-bot, non-alliance, not protected) within radius (default 200 tiles)
         $targetCandidates = [];
 
-        // 1. Nearby player villages
+        $bastionWref = class_exists('Bastion') ? Bastion::BASTION_WREF : 20201;
+        $adminRaidSql = (defined('ADMIN_ALLOW_INCOMING_RAIDS') && ADMIN_ALLOW_INCOMING_RAIDS)
+            ? "(u.access = 2 OR u.access = 9)"
+            : "u.access = 2";
+
+        // Query candidate player villages (strictly exclude fellow bots, system accounts, bandits, and protected players)
         $villages = $database->query_return("
-            SELECT v.wref, v.name as vname, v.pop, u.id as uid, u.username, u.alliance, u.access, u.protect,
+            SELECT v.wref, v.name as vname, v.pop, v.owner, u.id as uid, u.username, u.alliance, u.access, u.protect,
+                   u.is_bot, u.email, u.desc1, u.desc2,
                    w.x, w.y
             FROM " . TB_PREFIX . "vdata v
             JOIN " . TB_PREFIX . "users u ON v.owner = u.id
             JOIN " . TB_PREFIX . "wdata w ON v.wref = w.id
             WHERE v.wref != $wid
-              AND u.id != $uid
+              AND v.wref != $bastionWref
+              AND v.owner != $uid
               AND u.id NOT IN (1, 2, 4, 5)
               AND u.username != 'Gembong Bandit'
               AND u.email NOT LIKE '%bandit@system%'
+              AND (u.is_bot = 0 OR u.is_bot IS NULL)
+              AND u.email NOT LIKE '%@bot.travianz%'
+              AND u.desc1 NOT LIKE '%[#BOT]%'
+              AND u.desc2 NOT LIKE '%[#BOT]%'
+              AND u.username NOT LIKE 'Bot_%'
               AND v.wref NOT IN (SELECT wref FROM " . TB_PREFIX . "bandit_camps WHERE status = 1)
-              AND u.access = 2
-            LIMIT 40
+              AND $adminRaidSql
+              AND (u.protect IS NULL OR u.protect < " . time() . ")
         ");
 
         if (!empty($villages)) {
+            $maxGangAttacks = (int)self::getConfig('BOT_AI_GANG_ATTACK_MAX', 1);
+
             foreach ($villages as $v) {
-                if (self::isBanditTarget((int)$v['wref'])) {
+                $targetUid = (int)($v['uid'] ?? $v['owner'] ?? 0);
+                $targetWid = (int)$v['wref'];
+
+                // 1. Strictly verify the target is NOT a bot (no scouting fellow bots)
+                if (self::isBotUser($targetUid)) {
                     continue;
                 }
-                // Skip ally
+                $isBot = (!empty($v['is_bot']) ||
+                          strpos((string)($v['email'] ?? ''), '@bot.travianz') !== false ||
+                          strpos((string)($v['desc1'] ?? ''), '[#BOT]') !== false ||
+                          strpos((string)($v['desc2'] ?? ''), '[#BOT]') !== false ||
+                          strpos((string)($v['username'] ?? ''), 'Bot_') === 0);
+                if ($isBot) {
+                    continue;
+                }
+
+                // 2. Skip bandit targets
+                if (self::isBanditTarget($targetWid)) {
+                    continue;
+                }
+
+                // 3. Skip alliance members
                 if ($botAlliance > 0 && (int)$v['alliance'] === $botAlliance) {
                     continue;
                 }
-                // Skip beginner protected
-                if (method_exists($database, 'hasBeginnerProtection') && $database->hasBeginnerProtection((int)$v['wref'])) {
+
+                // 4. Skip beginner protected villages
+                if (method_exists($database, 'hasBeginnerProtection') && $database->hasBeginnerProtection($targetWid)) {
                     continue;
                 }
-                $dist = self::getDistance($botCoor['x'], $botCoor['y'], (int)$v['x'], (int)$v['y']);
-                if ($dist >= 0.5 && $dist <= $maxScoutDist) {
-                    $targetCandidates[] = [
-                        'wref' => (int)$v['wref'],
-                        'vname' => $v['vname'],
-                        'username' => $v['username'],
-                        'dist' => $dist,
-                        'is_oasis' => false,
-                    ];
-                }
-            }
-        }
 
-        // 2. Nearby oases (free or occupied)
-        if (empty($targetCandidates) || rand(1, 100) <= 30) {
-            $oases = $database->query_return("
-                SELECT w.id as wref, w.x, w.y, o.conqured, o.owner
-                FROM " . TB_PREFIX . "wdata w
-                JOIN " . TB_PREFIX . "odata o ON w.id = o.wref
-                LIMIT 30
-            ");
-            if (!empty($oases)) {
-                foreach ($oases as $o) {
-                    $dist = self::getDistance($botCoor['x'], $botCoor['y'], (int)$o['x'], (int)$o['y']);
-                    if ($dist >= 0.5 && $dist <= $maxScoutDist) {
-                        $targetCandidates[] = [
-                            'wref' => (int)$o['wref'],
-                            'vname' => 'Oasis (' . $o['x'] . '|' . $o['y'] . ')',
-                            'username' => 'Nature/Owner',
-                            'dist' => $dist,
-                            'is_oasis' => true,
-                        ];
-                    }
+                // 5. Check distance within max scout distance (radius 200 petak)
+                $dist = self::getDistance($botCoor['x'], $botCoor['y'], (int)$v['x'], (int)$v['y']);
+                if ($dist < 0.5 || $dist > $maxScoutDist) {
+                    continue;
                 }
+
+                // 6. Cegah bot mengirim scout ganda jika bot ini sudah memiliki gerakan aktif ke target tersebut
+                $ongoingToTarget = $database->query_return("
+                    SELECT moveid
+                    FROM " . TB_PREFIX . "movement
+                    WHERE `from` = $wid AND `to` = $targetWid AND sort_type = 3 AND proc = 0
+                    LIMIT 1
+                ");
+                if (!empty($ongoingToTarget)) {
+                    continue;
+                }
+
+                // 7. Anti-Dogpiling: Lewati desa yang saat ini sudah memiliki serangan/intai aktif dari bot
+                if (self::getActiveIncomingBotAttacks($targetWid) >= $maxGangAttacks) {
+                    continue;
+                }
+
+                $targetCandidates[] = [
+                    'wref' => $targetWid,
+                    'vname' => $v['vname'],
+                    'owner' => $targetUid,
+                    'username' => $v['username'],
+                    'dist' => $dist,
+                    'is_oasis' => false,
+                ];
             }
         }
 
@@ -4554,18 +4733,11 @@ class BotAI {
         $increaseSpeed = defined('INCREASE_SPEED') ? max(1, (float)INCREASE_SPEED) : 1.0;
         $duration = max(30, (int)round(($target['dist'] / $marchSpeed) * 3600 / $increaseSpeed));
 
-        // Anti-Dogpiling Check untuk Pengintaian ke Desa Pemain Manusia:
-        // Karena misi scout tercatat sebagai serangan (sort_type = 3) di antarmuka pemain,
-        // jangan kirim scout jika desa pemain sudah sedang diserang atau diintai oleh bot lain
-        if (empty($target['is_oasis'])) {
-            $targetOwner = (int)($database->getVillageField((int)$target['wref'], 'owner') ?? 0);
-            $targetIsBot = self::isBotUser($targetOwner);
-            if (!$targetIsBot) {
-                $maxGangAttacks = (int)self::getConfig('BOT_AI_GANG_ATTACK_MAX', 1);
-                if (self::getActiveIncomingBotAttacks((int)$target['wref']) >= $maxGangAttacks) {
-                    return null;
-                }
-            }
+        // Last-mile Anti-Dogpiling Check untuk Pengintaian ke Desa Pemain Manusia:
+        // Verifikasi instan sebelum pasukan dipotong
+        $maxGangAttacks = (int)self::getConfig('BOT_AI_GANG_ATTACK_MAX', 1);
+        if (self::getActiveIncomingBotAttacks((int)$target['wref']) >= $maxGangAttacks) {
+            return null;
         }
 
         // Deduct scouts from village
@@ -4580,7 +4752,7 @@ class BotAI {
         }
 
         // Spy type: 1 = spy resources and troops, 2 = spy defenses and troops
-        $spyMode = $target['is_oasis'] ? 1 : rand(1, 2);
+        $spyMode = rand(1, 2);
 
         $attackId = $database->addAttack(
             $wid,
@@ -4608,7 +4780,7 @@ class BotAI {
 
         $scoutName = self::getUnitName($scoutUnit);
         $modeDesc = ($spyMode === 1) ? 'sumber daya & pasukan' : 'pertahanan & bangunan';
-        return "Pengintaian diluncurkan! {$sendCount} {$scoutName} dikirim mengintai target {$target['vname']} ({$target['username']}) [mode: {$modeDesc}] - jarak: " . round($target['dist'], 1) . " tile, tiba dalam {$duration}s";
+        return "Pengintaian diluncurkan! {$sendCount} {$scoutName} dikirim mengintai target {$target['vname']} ({$target['username']} - Pemain Asli) [mode: {$modeDesc}] - jarak: " . round($target['dist'], 1) . " tile, tiba dalam {$duration}s";
     }
 
     /**

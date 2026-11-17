@@ -1213,7 +1213,28 @@ class Technology {
 			else
 			{
 		   		$slots = $database->getAvailableExpansionTraining();
-		   		if($unit % 10 == 0 && $slots['settlers'] <= $amt) $amt = $slots['settlers'];
+		   		if($unit % 10 == 0) {
+                    $amt = min($amt, $slots['settlers']);
+                    // Maksimal 3 pionir (settler) per desa
+                    $homeSettlers = 0;
+                    if (isset($village->unitarray['u' . $unit])) {
+                        $homeSettlers = (int)$village->unitarray['u' . $unit];
+                    } elseif (method_exists($database, 'query_return')) {
+                        $uRow = $database->query_return("SELECT u{$unit} as s FROM " . TB_PREFIX . "units WHERE vref = " . (int)$village->wid);
+                        $homeSettlers = (int)($uRow[0]['s'] ?? 0);
+                    }
+                    $queuedSettlers = 0;
+                    $trainlist = $this->getTrainingList(4);
+                    if (!empty($trainlist)) {
+                        foreach ($trainlist as $tr) {
+                            if ((int)$tr['unit'] === (int)$unit) {
+                                $queuedSettlers += (int)$tr['amt'];
+                            }
+                        }
+                    }
+                    $allowedSettlers = max(0, 3 - ($homeSettlers + $queuedSettlers));
+                    $amt = min($amt, $allowedSettlers);
+                }
 		   		if($unit % 10 == 9 && $slots['chiefs'] <= $amt) $amt = $slots['chiefs'];
 			}
 		}else{
