@@ -235,6 +235,8 @@ class Village {
 		$this->tribe = ($vTribe > 0) ? $vTribe : (int)$this->sess->tribe;
 		// Self-healing: Pulihkan Sanggar Paranormal (GID 51) jika terpotong jadi Barricade (GID 50)
 		$this->healNusantaraParanormal();
+		// Self-healing: Pulihkan pasukan suku lain yang tertinggal/residu mutasi ke suku desa saat ini
+		$this->healAlienTroops();
 
 		$this->awood = $this->infoarray['wood'];
 		$this->aclay = $this->infoarray['clay'];
@@ -588,6 +590,82 @@ class Village {
 
 		if (!empty($setParts) && !empty($this->wid)) {
 			$this->db->query("UPDATE " . TB_PREFIX . "fdata SET " . implode(', ', $setParts) . " WHERE vref = " . (int)$this->wid);
+		}
+	}
+
+	/**
+	 * Self-healing: Otomatis mendeteksi dan mengonversi pasukan dari suku lain yang tertinggal/nyasar
+	 * di tabel units desa ini (misalnya residu setelah Kitab Mutasi Leluhur, antrean training barak besar,
+	 * atau rumah sakit lama) ke unit ekuivalen suku desa saat ini.
+	 * Hewan alam liar (u31..u40 dari kandang hero) dan perangkap Gaul (u99/u99o) tetap aman dipertahankan.
+	 */
+	private function healAlienTroops(): void {
+		if (empty($this->unitarray) || !is_array($this->unitarray) || empty($this->wid)) {
+			return;
+		}
+
+		$vTribe = (int)($this->tribe ?? 1);
+		$baseUnits = [
+			1 => 1,   // Romawi: 1..10
+			2 => 11,  // Teuton: 11..20
+			3 => 21,  // Galia: 21..30
+			6 => 51,  // Hun: 51..60
+			7 => 61,  // Mesir: 61..70
+			8 => 71,  // Sparta: 71..80
+			9 => 81,  // Viking: 81..90
+			10 => 91, // Nusantara: 91..100
+		];
+
+		if (!isset($baseUnits[$vTribe])) {
+			return;
+		}
+
+		$villageBase = $baseUnits[$vTribe];
+		$validMin = $villageBase;
+		$validMax = $villageBase + 9;
+
+		$setParts = [];
+		$hasChanges = false;
+
+		for ($u = 1; $u <= 100; $u++) {
+			if ($u >= $validMin && $u <= $validMax) {
+				continue;
+			}
+			// KECUALIKAN: Hewan alam liar (u31..u40)
+			if ($u >= 31 && $u <= 40) {
+				continue;
+			}
+			// KECUALIKAN: Perangkap Trapper Galia (u99)
+			if ($u == 99) {
+				continue;
+			}
+
+			$col = 'u' . $u;
+			$qty = (int)($this->unitarray[$col] ?? 0);
+			if ($qty > 0) {
+				$slotOffset = ($u - 1) % 10;
+				$targetUnit = $villageBase + $slotOffset;
+				$targetCol = 'u' . $targetUnit;
+
+				// Update data in-memory unitarray
+				$newTotal = (int)($this->unitarray[$targetCol] ?? 0) + $qty;
+				$this->unitarray[$targetCol] = $newTotal;
+				$this->unitarray[$col] = 0;
+
+				$setParts[] = "`$targetCol` = `$targetCol` + $qty";
+				$setParts[] = "`$col` = 0";
+				$hasChanges = true;
+			}
+		}
+
+		if ($hasChanges && !empty($setParts)) {
+			$this->db->query("UPDATE " . TB_PREFIX . "units SET " . implode(', ', $setParts) . " WHERE vref = " . (int)$this->wid);
+			if (method_exists($this->db, 'clearUnitsCache')) {
+				$this->db->clearUnitsCache();
+			}
+			if (isset($this->tech) && method_exists($this->tech, 'getAllUnits')) {
+				$this->unitall = $this->tech->getAllUnits($this->wid);
+			}
 		}
 	}
 

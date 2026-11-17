@@ -1050,6 +1050,7 @@ class BlackMarket
                     while ($uRow = mysqli_fetch_assoc($uRes)) {
                         $vrefId = (int)$uRow['vref'];
                         $setParts = [];
+                        // 5a. Primary conversion from old tribe to new tribe
                         for ($i = 0; $i <= 9; $i++) {
                             $oldCol = 'u' . ($oldBase + $i);
                             $newCol = 'u' . ($newBase + $i);
@@ -1059,8 +1060,28 @@ class BlackMarket
                                 $totalNew = $newExisting + $qty;
                                 $setParts[] = "`$newCol` = $totalNew";
                                 $setParts[] = "`$oldCol` = 0";
+                                $uRow[$newCol] = $totalNew;
+                                $uRow[$oldCol] = 0;
                             }
                         }
+
+                        // 5b. Sweeping conversion for any foreign/alien troops left in this village
+                        for ($u = 1; $u <= 100; $u++) {
+                            if ($u >= $newBase && $u <= ($newBase + 9)) continue;
+                            if ($u >= 31 && $u <= 40) continue; // preserve nature animals from cages
+                            if ($u == 99) continue; // preserve Gaul traps
+                            $col = 'u' . $u;
+                            $remQty = (int)($uRow[$col] ?? 0);
+                            if ($remQty > 0) {
+                                $targetCol = 'u' . ($newBase + (($u - 1) % 10));
+                                $newTotal = (int)($uRow[$targetCol] ?? 0) + $remQty;
+                                $setParts[] = "`$targetCol` = $newTotal";
+                                $setParts[] = "`$col` = 0";
+                                $uRow[$targetCol] = $newTotal;
+                                $uRow[$col] = 0;
+                            }
+                        }
+
                         if (!empty($setParts)) {
                             mysqli_query($db, "UPDATE `" . TB_PREFIX . "units` SET " . implode(', ', $setParts) . " WHERE vref = $vrefId");
                         }
@@ -1087,11 +1108,19 @@ class BlackMarket
                     }
                 }
 
-                // 7. Convert active troop training queues in training table
+                // 7. Convert active troop training queues in training table (standard & Great Barracks/Stable)
                 for ($i = 0; $i <= 9; $i++) {
                     $oldUnit = $oldBase + $i;
                     $newUnit = $newBase + $i;
                     mysqli_query($db, "UPDATE `" . TB_PREFIX . "training` SET unit = $newUnit WHERE vref IN ($vList) AND unit = $oldUnit");
+                    mysqli_query($db, "UPDATE `" . TB_PREFIX . "training` SET unit = " . ($newUnit + 1000) . " WHERE vref IN ($vList) AND unit = " . ($oldUnit + 1000));
+                }
+
+                // 7b. Convert active hospital healing queues in healing table
+                for ($i = 0; $i <= 9; $i++) {
+                    $oldUnit = $oldBase + $i;
+                    $newUnit = $newBase + $i;
+                    mysqli_query($db, "UPDATE `" . TB_PREFIX . "healing` SET unit = $newUnit WHERE vref IN ($vList) AND unit = $oldUnit");
                 }
 
                 // 8. Convert active academy research in research table
@@ -1116,6 +1145,24 @@ class BlackMarket
                                 $totalNew = $newExisting + $qty;
                                 $setParts[] = "`$newCol` = $totalNew";
                                 $setParts[] = "`$oldCol` = 0";
+                                $enfRow[$newCol] = $totalNew;
+                                $enfRow[$oldCol] = 0;
+                            }
+                        }
+                        // Sweeping conversion for foreign troops in enforcement row
+                        for ($u = 1; $u <= 100; $u++) {
+                            if ($u >= $newBase && $u <= ($newBase + 9)) continue;
+                            if ($u >= 31 && $u <= 40) continue;
+                            if ($u == 99) continue;
+                            $col = 'u' . $u;
+                            $remQty = (int)($enfRow[$col] ?? 0);
+                            if ($remQty > 0) {
+                                $targetCol = 'u' . ($newBase + (($u - 1) % 10));
+                                $newTotal = (int)($enfRow[$targetCol] ?? 0) + $remQty;
+                                $setParts[] = "`$targetCol` = $newTotal";
+                                $setParts[] = "`$col` = 0";
+                                $enfRow[$targetCol] = $newTotal;
+                                $enfRow[$col] = 0;
                             }
                         }
                         if (!empty($setParts)) {
