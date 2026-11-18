@@ -617,6 +617,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
         $massArmyFirst = !empty($_POST['bot_mass_army_first']);
         $massArmyMinTroops = max(50, min(10000, (int)($_POST['bot_mass_army_min_troops'] ?? 1000)));
 
+        // Bot Psywar & Taunt IGM settings
+        $botTauntEnabled = !empty($_POST['bot_taunt_enabled']);
+        $botTauntCooldown = max(60, min(86400, (int)($_POST['bot_taunt_cooldown'] ?? 900)));
+        $botTauntChance = max(1, min(100, (int)($_POST['bot_taunt_chance'] ?? 80)));
+
         $saveSuccess = BotAI::saveConfig([
             'BOT_AI_MAX_POP' => $maxPop,
             'BOT_AI_MAX_BUILDING_LEVEL' => $maxBuildingLvl,
@@ -629,6 +634,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
             'BOT_AI_MAX_SCOUT_DISTANCE' => $maxScoutDist,
             'BOT_AI_MASS_ARMY_FIRST' => $massArmyFirst,
             'BOT_AI_MASS_ARMY_MIN_TROOPS' => $massArmyMinTroops,
+            'BOT_AI_TAUNT_ENABLED' => $botTauntEnabled,
+            'BOT_AI_TAUNT_COOLDOWN' => $botTauntCooldown,
+            'BOT_AI_TAUNT_CHANCE' => $botTauntChance,
             'BOT_AI_ALLIANCE_DEFENSE_ENABLED' => $allianceDefenseEnabled,
             'BOT_AI_DEFENSE_RATIO_ACTIVE' => $defenseRatioActive,
             'BOT_AI_DEFENSE_RATIO_RECOVERY' => $defenseRatioRecovery,
@@ -670,6 +678,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bot_action'])) {
                 . "• Perang Benteng Kuno (Kumpul Pasukan): <b>" . ($bastionWarMobilization ? "Aktif (Himpun Pasukan Sebelum Serang)" : "Nonaktif") . "</b> (Minimal: <b>$bastionMinAttackTroops</b> prajurit serbu / <b>" . ($bastionGarrisonFactor * 100) . "%</b> dari garnisun benteng)<br>"
                 . "• Ekspansi Desa Baru: <b>" . ($expansionEnabled ? "Aktif (Maks $maxVillages Desa/Bot)" : "Nonaktif") . "</b> (Berjalan secara natural via Padepokan Lvl 10, pelatihan 3 Pionir, CP, dan perjalanan perintis).<br>"
                 . "• Sanggar Paranormal Nusantara: <b>" . ($paranormalEnabled ? "Aktif (Natural & Bertahap)" : "Nonaktif") . "</b> (Konstruksi GID 51 di slot 38, pemanggilan Pocong/Kunti/Genderuwo & ritual Tuyul sesuai sumber daya).<br>"
+                . "• Psywar & Ejekan Bot (Bot Taunt IGM): <b>" . ($botTauntEnabled ? "Aktif (Peluang: {$botTauntChance}%, Cooldown: " . round($botTauntCooldown / 60) . " menit)" : "Nonaktif") . "</b> (Kirim pesan savage saat player gagal serang atau bot sukses merampok).<br>"
                 . "<span style='color:#34d399;'>💾 Pengaturan tersimpan aman di Database &amp; file konfigurasi server (kebal terhadap extract zip patch).</span>";
         } else {
             $flashError = "❌ <b>Gagal Menyimpan Pengaturan Bot AI!</b><br>"
@@ -726,6 +735,9 @@ $currentTargetGlobalCooldown = (int)BotAI::getConfig('BOT_AI_TARGET_GLOBAL_COOLD
 $currentGangAttackMax = (int)BotAI::getConfig('BOT_AI_GANG_ATTACK_MAX', 1);
 $currentMassArmyFirst = !empty(BotAI::getConfig('BOT_AI_MASS_ARMY_FIRST', false));
 $currentMassArmyMinTroops = (int)BotAI::getConfig('BOT_AI_MASS_ARMY_MIN_TROOPS', 1000);
+$currentBotTauntEnabled = !empty(BotAI::getConfig('BOT_AI_TAUNT_ENABLED', true));
+$currentBotTauntCooldown = (int)BotAI::getConfig('BOT_AI_TAUNT_COOLDOWN', 900);
+$currentBotTauntChance = (int)BotAI::getConfig('BOT_AI_TAUNT_CHANCE', 80);
 
 $botsQuery = "
     SELECT u.id, u.username, u.tribe, u.regtime, u.desc1, u.alliance,
@@ -1689,6 +1701,48 @@ $cronHttpUrl = $protocol . $host . '/cron.php?once=1&key=' . $cronKey;
                         <b style="color:#fff;">4. Ritual Khodam Tuyul</b><br>
                         Diaktifkan jika bot aktif merampok, Sanggar Lvl &gt;= 2, serta memiliki cadangan gandum &amp; bahan yang cukup (berkah jarahan +15% 24 jam).
                     </div>
+                </div>
+            </div>
+
+            <!-- Bot Psywar & Taunt IGM Section -->
+            <div class="botm-form-group" style="background:#0f172a; border:1px solid #3b82f6; border-radius:6px; padding:14px; margin-bottom:14px;">
+                <label style="color:#60a5fa; font-size:13px; font-weight:bold; display:flex; align-items:center; gap:6px;">
+                    💬 Psywar &amp; Pesan Ejekan Bot (Bot Taunt &amp; Reaction IGM):
+                </label>
+                <div style="margin-top:6px;">
+                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:#f8fafc; font-weight:bold; font-size:12px;">
+                        <input type="checkbox" name="bot_taunt_enabled" value="1" <?php echo $currentBotTauntEnabled ? 'checked' : ''; ?> style="width:16px; height:16px; cursor:pointer;">
+                        <span>Aktifkan Pesan Ejekan &amp; Psywar Bot ke Pemain Manusia (In-Game Message)</span>
+                    </label>
+                    <span style="font-size:10px; color:<?php echo $currentBotTauntEnabled ? '#34d399' : '#f87171'; ?>; display:block; margin-top:4px;">
+                        📌 <b>Status Saat Ini:</b> <?php echo $currentBotTauntEnabled ? '🟢 AKTIF (Bot otomatis mengirim pesan kocak &amp; savage ke pemain saat momen pertempuran dramatis)' : '🔴 NONAKTIF'; ?>
+                    </span>
+                </div>
+
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; margin-top:10px;">
+                    <div>
+                        <label style="font-size:11px; color:#94a3b8; display:block; margin-bottom:3px;">⏱️ Durasi Cooldown per Pemain (Detik):</label>
+                        <input type="number" name="bot_taunt_cooldown" class="botm-form-control" value="<?php echo $currentBotTauntCooldown; ?>" min="60" max="86400" step="30" style="padding:6px 10px; font-size:12px;">
+                        <span style="font-size:10px; color:#64748b; display:block; margin-top:2px;">
+                            Jeda waktu minimal sebelum bot yang sama boleh mengejek pemain yang sama lagi (default: 900 detik / 15 menit). Mencegah spam.
+                        </span>
+                    </div>
+                    <div>
+                        <label style="font-size:11px; color:#94a3b8; display:block; margin-bottom:3px;">🎲 Peluang Terpicu / Chance (%):</label>
+                        <input type="number" name="bot_taunt_chance" class="botm-form-control" value="<?php echo $currentBotTauntChance; ?>" min="1" max="100" style="padding:6px 10px; font-size:12px;">
+                        <span style="font-size:10px; color:#64748b; display:block; margin-top:2px;">
+                            Peluang pesan dikirim saat syarat battle terpenuhi (default: 80%). Memberikan dinamika natural seperti manusia asli.
+                        </span>
+                    </div>
+                </div>
+
+                <div style="background:#1e293b; border-radius:4px; padding:8px 12px; margin-top:10px; font-size:11px; color:#cbd5e1; line-height:1.5;">
+                    💡 <b>Momen Pemicu Pesan:</b>
+                    <ul style="margin:4px 0 0 16px; padding:0;">
+                        <li><b>Player Gagal Serang Bot:</b> Pasukan player mati semua/rata tanah di desa bot ➔ Bot mengirim pesan ucapan duka cita savage &amp; roasting (20 variasi kalimat unik).</li>
+                        <li><b>Bot Sukses Rampok Player:</b> Bot berhasil menjarah &ge; 200 resource atau meratakan garnisun player ➔ Bot mengirim pesan terima kasih bansos &amp; ngeledek (20 variasi kalimat unik).</li>
+                        <li><b>Bot Gagal Tembus / Dirampok Player:</b> Reaksi ngeles bot saat kalah bertahan atau omelan salty saat gudang bot dikuras player.</li>
+                    </ul>
                 </div>
             </div>
 

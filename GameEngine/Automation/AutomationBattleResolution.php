@@ -3830,6 +3830,25 @@ trait AutomationBattleResolution {
                         }
                     }
 
+                    // Bot Taunt & Reaction Messages (Psywar bot vs real players)
+                    if (file_exists(dirname(__DIR__) . '/BotTaunt.php')) {
+                        require_once dirname(__DIR__) . '/BotTaunt.php';
+                        try {
+                            \BotTaunt::onBattleResolution(
+                                $from,
+                                $to,
+                                (int)$totalsend_att,
+                                (int)$totaldead_att,
+                                (int)$totalsend_alldef,
+                                (int)$totaldead_alldef,
+                                $steal,
+                                (int)$type
+                            );
+                        } catch (\Throwable $e) {
+                            error_log("BotTaunt onBattleResolution error: " . $e->getMessage());
+                        }
+                    }
+
                     // remember the razed tile so any follow-up wave still queued in
                     // this same batch bounces home instead of fighting a phantom
                     // (now-deleted) village. Needed on top of the $to['wref'] check
