@@ -23,6 +23,7 @@ class BotTauntTest {
     public function runAll(): void {
         echo "=== Running BotTauntTest ===\n";
         $this->testSentenceCounts();
+        $this->testMkonmkoCustomRoasts();
         $this->testPlaceholderReplacement();
         $this->testIsRealPlayerGuard();
         $this->testCooldownAndEventTypes();
@@ -30,6 +31,37 @@ class BotTauntTest {
         if ($this->fails > 0) {
             exit(1);
         }
+    }
+
+    private function testMkonmkoCustomRoasts(): void {
+        echo "\nTesting mkonmko Custom Roasts (Kurus/Cungkring/Lidi theme):\n";
+
+        $mkonmkoFailSamples = [];
+        for ($i = 0; $i < 300; $i++) {
+            $res = BotTaunt::getRandomMkonmkoTaunt(BotTaunt::EVENT_PLAYER_FAIL);
+            $this->assert(!empty($res['topic']), "Topic for mkonmko EVENT_PLAYER_FAIL is not empty");
+            $this->assert(!empty($res['body']), "Body for mkonmko EVENT_PLAYER_FAIL is not empty");
+            $mkonmkoFailSamples[$res['body']] = true;
+        }
+        $uniqueFail = count($mkonmkoFailSamples);
+        $this->assert($uniqueFail >= 20, "mkonmko EVENT_PLAYER_FAIL has at least 20 unique custom sentences (found $uniqueFail)");
+
+        $mkonmkoRaidSamples = [];
+        for ($i = 0; $i < 300; $i++) {
+            $res = BotTaunt::getRandomMkonmkoTaunt(BotTaunt::EVENT_BOT_RAID_SUCCESS);
+            $this->assert(!empty($res['topic']), "Topic for mkonmko EVENT_BOT_RAID_SUCCESS is not empty");
+            $this->assert(!empty($res['body']), "Body for mkonmko EVENT_BOT_RAID_SUCCESS is not empty");
+            $mkonmkoRaidSamples[$res['body']] = true;
+        }
+        $uniqueRaid = count($mkonmkoRaidSamples);
+        $this->assert($uniqueRaid >= 20, "mkonmko EVENT_BOT_RAID_SUCCESS has at least 20 unique custom sentences (found $uniqueRaid)");
+
+        // Verifikasi kata kunci kurus/cungkring/lidi ada di koleksi
+        $allBodies = implode(' ', array_keys($mkonmkoFailSamples)) . ' ' . implode(' ', array_keys($mkonmkoRaidSamples));
+        $this->assert(stripos($allBodies, 'kurus') !== false, "mkonmko roasts contain 'kurus'");
+        $this->assert(stripos($allBodies, 'cungkring') !== false, "mkonmko roasts contain 'cungkring'");
+        $this->assert(stripos($allBodies, 'lidi') !== false, "mkonmko roasts contain 'lidi'");
+        $this->assert(stripos($allBodies, 'angin') !== false, "mkonmko roasts contain 'angin'");
     }
 
     private function testSentenceCounts(): void {

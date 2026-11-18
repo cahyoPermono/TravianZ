@@ -166,16 +166,23 @@ class BotTaunt {
             return false;
         }
 
-        $tauntData = self::getRandomTaunt($eventType);
-        if (empty($tauntData['body'])) {
-            return false;
-        }
-
         $botUser = (isset($database) && method_exists($database, 'getUserArray')) ? $database->getUserArray($botUid, 1) : null;
         $botName = !empty($botUser['username']) ? $botUser['username'] : 'Bot Panglima';
 
         $playerUser = (isset($database) && method_exists($database, 'getUserArray')) ? $database->getUserArray($playerUid, 1) : null;
         $playerName = !empty($playerUser['username']) ? $playerUser['username'] : 'Panglima';
+
+        // Custom savage taunts khusus untuk user mkonmko (tema: kurus kering / cungkring / lidi / kurang gizi)
+        $isMkonmko = (stripos($playerName, 'mkonmko') !== false);
+        if ($isMkonmko) {
+            $tauntData = self::getRandomMkonmkoTaunt($eventType);
+        } else {
+            $tauntData = self::getRandomTaunt($eventType);
+        }
+
+        if (empty($tauntData['body'])) {
+            return false;
+        }
 
         $villageName = !empty($context['village']) ? $context['village'] : 'Desa';
         $stolenRes = !empty($context['stolen']) ? number_format((int)$context['stolen']) : '0';
@@ -418,6 +425,139 @@ class BotTaunt {
                     "Cuma segitu doang yang bisa lu bawa? Gua mah ikhlas sedekah ke fakir resource kayak lu wkwk!",
                     "Gua doain pasukan lu kena santet di jalan pulang! Tunggu tanggal mainnya bro!",
                     "Catat tanggalnya baik-baik bos {player}, utang darah dibalas darah, utang gandum dibalas rata tanah!",
+                ];
+                break;
+        }
+
+        $chosenTopic = !empty($topics) ? $topics[array_rand($topics)] : "Pesan dari Bot";
+        $chosenMessage = !empty($messages) ? $messages[array_rand($messages)] : "";
+
+        return [
+            'topic' => $chosenTopic,
+            'body'  => $chosenMessage,
+        ];
+    }
+
+    /**
+     * Ambil template taunt custom khusus untuk user 'mkonmko'.
+     * Tema: Roasting badan kurus kering, cungkring, lidi, biting, tiup angin terbang, kurang gizi, posyandu.
+     */
+    public static function getRandomMkonmkoTaunt(string $eventType): array {
+        $topics = [];
+        $messages = [];
+
+        switch ($eventType) {
+            case self::EVENT_PLAYER_FAIL:
+                $topics = [
+                    "Makan dulu kon, jangan cuma makan angin! 🍲",
+                    "Wkwkwk pasukan lidi ambyar total! 💀",
+                    "Kon, ketiup angin ga tuh pasukannya? 💨",
+                    "Info posyandu & perbaikan gizi mkonmko 🏥",
+                    "Aduh kon... tulang rusuk lu aman kan? 🦴",
+                    "Pasukan kurang karbohidrat rata tanah! 🤣",
+                    "Turut berduka cita buat pasukan biting lu! 🌾",
+                    "Niat perang apa cosplay sedotan es kelapa? 😂",
+                    "Buset kon, disenggol dikit langsung patah! 😭",
+                    "Mkonmko kena mental! Makan gandum dulu gih! 🍚",
+                ];
+                $messages = [
+                    "Wkwkwk mkonmko mkonmko... pasukan lu sama kayak badan lu ya kon, kurus kering kena sentil dikit langsung ambyar rata tanah! Makan dulu sono!",
+                    "Buset kon, itu pasukan lu tadi disuruh nyerang apa mau peragaan busana tulang berjalan? Lembek amat kayak rengginang kena kuah!",
+                    "Aduh kon, lu ngirim pasukan apa ngirim sedotan es kelapa? Tipis banget bro, belom nyampe benteng gua udah pada patah pinggang wkwk!",
+                    "Turut berduka cita ya kon! Mending gandum di desa lu jangan dibikin pasukan dulu deh, lu makan sendiri aja biar badan lu ada dagingnya dikit wkwk!",
+                    "Kon, lu nyerang gua pake pasukan kurang gizi ya? Kasian banget liatnya, di depan pager desa gua langsung pada pingsan masuk angin!",
+                    "Hahaha! mkonmko, badan udah kayak biting pentol masih aja hobi cari ribut! Pulang sono kon, ntar ketiup angin malem terbang kebawa layangan!",
+                    "Gua kira Lord yang nyerang, taunya si cungkring mkonmko! Pasukan lu tadi niat mukul apa mau nebeng timbangan badan wkwkwk!",
+                    "Astagfirullah kon, itu pasukan lu sebelum berangkat udah sarapan belum? Kok pas nyampe desa gua langsung pada rebahan jadi fosil?!",
+                    "Rasain lu kon! Lu pikir desa gua sekerempeng tulang rusuk lu? Benteng gua beton baja bos, pasukan lidi lu yang kena mental!",
+                    "Wkwkwk mkonmko auto sedekah mayat! Jangan sedih ya kon, ntar gua kirimin suplemen penambah nafsu makan deh biar lu semangat lagi!",
+                    "Kon, kalo jalan di jembatan jangan kenceng-kenceng ya, takutnya jembatannya ga goyang tapi lu yang kebawa angin wkwk! Pasukan lu abis nih gua sikat!",
+                    "Innalillahi, pasukan kebanggaan si kurus mkonmko telah gugur tanpa sisa! Tahlilannya pake bubur kacang ijo ya kon biar lu cepet gemukan!",
+                    "Pasukan lu tadi pas mau nembus gerbang gua kayak sapu lidi diadu sama tembok beton kon, ya rontok lah! Belajar makan karbohidrat dulu sono!",
+                    "Kon mkonmko, daripada capek-capek bikin pasukan yang tipis kayak kertas minyak, mending lu fokus perbaikan gizi dulu di posyandu terdekat wkwk!",
+                    "Makanya kon, nyerang itu butuh tenaga! Pasukan lu loyo amat kayak belom makan 3 purnama, sekali senggol langsung pindah alam semua!",
+                    "Buset dah kon, lu nyerang bawa {losses} pasukan lidi buat apa coba? Kena hembusan AC barak gua aja langsung masuk angin massal wkwk!",
+                    "Pagi-pagi dapet kiriman rombongan tulang belulang dari desa mkonmko. Makasih loh hiburannya, lumayan buat kerajinan tangan di desa gua!",
+                    "Kon, sebelum nyerang lagi coba tes tiup lilin dulu deh. Kalo lilinnya gak mati tapi badan lu yang goyang, jangan coba-coba nyerang gua lagi ya!",
+                    "Aww kasian si mkonmko... pasukan lu yang {losses} ekor itu udah dikubur layak kok di ladang gandum gua, tenang aja ya lidi!",
+                    "Wkwkwk auto boncos! Udah mah badan tipis, tabungan pasukan ikutan tipis ludes. Ngenes banget hidup lu kon wkwk!",
+                ];
+                break;
+
+            case self::EVENT_BOT_RAID_SUCCESS:
+                $topics = [
+                    "Abis kan hartamu kon! Mumpung kurus puasa dulu! 🤑",
+                    "Gudang lu kering serasi sama badan lu wkwk 🧹",
+                    "Bansos gandum dari si cungkring mkonmko! 🌾",
+                    "Makasih donasinya ya si lidi! 🙏",
+                    "Kuras tuntas desa mkonmko tanpa ampun! 📦",
+                    "Kon, minum air putih aja dulu ya biar ga lemes! 💧",
+                    "Lapor: Gudang mkonmko bersih tanpa sisa! 💸",
+                    "ATM berjalan terlangsing se-server wkwk! 🏧",
+                    "Pagi yang cerah untuk malak si cungkring! ☀️",
+                    "Mkonmko kena pajak kebugaran wkwk! 🤣",
+                ];
+                $messages = [
+                    "Abis kan hartamu kon! Mumpung gandum lu {stolen} biji gua kuras semua, lu puasa senin-kamis dulu aja ya biar makin estetik badannya wkwk!",
+                    "Wkwkwk makasih ya mkonmko atas donasinya! Gudang lu sekarang udah bersih kerontang, serasi banget sama badan lu yang langsing tanpa lemak!",
+                    "Permisi mkonmko! Gandum {stolen} biji gua angkut ya, lagian di desa lu ga lu makan juga kan sampe badan lu kayak antena radio wkwk!",
+                    "Aduh seger bener kuras desa si cungkring! Tenang kon, gua sisain remahan gandum sebutir di pojokan gudang biar lu ga pingsan kelaparan!",
+                    "Hahaha mkonmko kena razia bansos! Pasukan gua pulang bawa harta lu sambil ketawa liat lu sembunyi di balik tiang listrik wkwk!",
+                    "Kon, lumbung gandum lu udah gua kosongin ya! Kalo lu butuh makan mending ngemis ke aliansi lu gih, bilang aja abis dipalak bot ganteng!",
+                    "Enak banget ya malakin si kurus mkonmko! Gak ada perlawanan sama sekali, pasukannya selemah sinyal di pedalaman wkwk!",
+                    "Lapor kon! Semua hasil panen {stolen} resource desa lu udah sukses pindah ke lumbung gua. Lu minum air putih hangat aja ya kon biar kenyang wkwkwk!",
+                    "Waduh mkonmko panen raya nih gua di desa lu! Makanya jangan kebanyakan begadang main game kon, badan kurus harta ludes kan jadinya!",
+                    "Gua kira di gudang lu ada stok susu formula penambah berat badan kon, taunya cuma ada debu sama angin doang wkwk! Makasih hartanya ya!",
+                    "Wkwkwk jangan nangis ya kon, ntar air mata lu bikin berat badan lu makin turun drastis lho! Besok gua mampir nagih upeti lagi ya!",
+                    "Gila seger bener! Sekali gua seruduk, desa lu langsung krisis pangan parah. Ayo kon kejar gua kalo ga masuk angin di jalan wkwk!",
+                    "Halo mkonmko! Cuma mau ngasih tau, kayu, tanah, besi, sama gandum lu udah aman di gudang gua. Lu fokus gemukin badan aja dulu ya!",
+                    "Pasukan gua tadi nyariin lu di desa kon, kirain ga ada orang, eh ternyata lu lagi berdiri nyaru sama tiang jemuran wkwk! Makasih loh hartanya!",
+                    "Panen besar dari desa si cungkring kebanggaan server! Tetap semangat ya kon, jangan lupa makan 4 sehat 5 sempurna biar gak melayang kena angin!",
+                    "Makanya kon, punya desa itu dijaga pake pasukan tebel, jangan pasukan setipis tisu toilet! Habis kan {stolen} harta lu gua embat wkwk!",
+                    "Kon mkonmko, denger-denger lu mau diet ya? Bagus deh, pas banget lumbung lu udah gua kosongin melompong. Semangat ya program dietnya!",
+                    "Buset, gampang banget malakin desa lu kon. Tadi garnisun lu gua senggol pake jempol kaki aja udah pada rontok semua. Cungkring bet!",
+                    "Lapor bos mkonmko! Harta {stolen} resource sudah mendarat di markas gua. Ditunggu isi ulang gudangnya ya, jangan telat setor pajak!",
+                    "Wkwkwk hartanya ludes tak bersisa! Kalo lu kesel bales dong kon, tapi awas ya pasukannya jangan lupa dikasih makan dulu biar ga tumbang di jalan!",
+                ];
+                break;
+
+            case self::EVENT_BOT_FAIL:
+                $topics = [
+                    "Halah kon, hoki doang dijagain aliansi! 😒",
+                    "Awas lu ya mkonmko, tunggu pembalasan gua! ⚔️",
+                    "Gua tiup desa lu melayang ntar kon! 💨",
+                    "Sembunyi di mana lu tadi cungkring? 🤔",
+                    "Jangan bangga dulu si lidi! 😏",
+                ];
+                $messages = [
+                    "Halah kon, lu hoki doang tadi ada bantuan aliansi! Kalo 1 lawan 1 mah lu gua tiup aja udah melayang ke pojok peta!",
+                    "Awas lu ya mkonmko! Tadi pasukan gua cuma silaturahmi doang, ga tega liat desa lu yang sepi kayak kuburan. Tunggu ronde dua!",
+                    "Cih, jangan sombong dulu lu cungkring! Besok gua dateng lagi bawa armada tempur yang lebih gede dari lingkar pinggang lu!",
+                    "Wah lu pasang pager berduri ya kon? Pantesan, kirain tulang lu yang dipasang di pager wkwk! Liat aja ntar pembalasan gua!",
+                    "Sialan si mkonmko hoki bet hari ini! Lu sembunyi di mana tadi pas perang kon? Di sela-sela kusen pintu ya makanya ga keliatan wkwk!",
+                    "Tadi pasukan gua cuma terpeleset doang kon karena tanah di desa lu licin kebanyakan air mata lu. Besok gua ratain!",
+                    "Bangga banget lu berhasil nahan serangan gua kon? Inget ya, berat badan lu belum nambah, jadi jangan kepedean dulu!",
+                    "Awas lu ya kon, gua lagi masak gandum di barak biar pasukan gua segede gaban. Siap-siap ditiup ya desa cungkring lu!",
+                ];
+                break;
+
+            case self::EVENT_PLAYER_RAID_SUCCESS:
+                $topics = [
+                    "Heh cungkring! Balikin gandum gua gak lu! 😡",
+                    "Gua tandain nama akun lu mkonmko! 📝",
+                    "Maling gandum buat beli obat gemuk ya lu?! 🤬",
+                    "Awas lu ya kon, gua tiup desa lu! 💣",
+                    "Utang gandum dibalas rata tanah kon! ☠️",
+                ];
+                $messages = [
+                    "Heh cungkring mkonmko! Balikin gandum gua gak lu! Lu kira badan lu kurus terus gua ga tega bales nyerang?! Gua tandain akun lu ya!",
+                    "Buset mkonmko berani-beraninya malak gua! Awas lu ya ntar malam gua tiup desa lu sampe rata sama tanah!",
+                    "Maling lu kon! Gandum {stolen} biji gua lu curi buat beli suplemen penambah nafsu makan ya?! Awas lu kalo ga gemuk-gemuk juga ntar!",
+                    "Sombong lu kon mentang-mentang bawa gerobak banyak! Gua doain gerobak lu keberatan muatan terus lu yang disuruh dorong sampe patah pinggang!",
+                    "Awas lu ya mkonmko! Utang gandum dibalas gandum, besok gua kuras balik desa lu biar lu makin kering kerontang!",
+                    "Berani banget ya si lidi satu ini maling di kandang macan! Tunggu gua bales, bakal gua bantai sampe lu nangis ke emak lu!",
+                    "Kon mkonmko, dapet harta banyak jangan lupa buat beli susu penambah berat badan ya, jangan cuma buat beli pasukan remuk lagi!",
+                    "Cuma bisa nyolong pas gua lagi tidur ya kon? Mental lu emang setipis tulang selangka lu! Tunggu pembalasan gua!",
                 ];
                 break;
         }
