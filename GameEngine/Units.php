@@ -753,7 +753,7 @@ class Units {
     }
     
     private function sendTroops($post) {
-        global $form, $database, $village, $session;
+        global $form, $database, $village, $session, $generator;
 
         $data = $database->getA2b($post['timestamp_checksum']);
         $tribe = (int)($village->tribe ?? $session->tribe ?? 1);
@@ -829,6 +829,37 @@ class Units {
 		if(($data['u11'] ?? 0) > ($village->unitarray['hero'] ?? 0)) $form->addError("error", "You can't send more units than you have");
 		if(($data['u11'] ?? 0) < 0) $form->addError("error", "You can't send negative units.");   
 		if($data['type'] != 1) $post['spy'] = 0; else $post['spy'] = $post['spy']?? 0;
+
+        // -------------------------------------------------------------
+        // Tactical Scheduled Arrival Validation (Custom Arrival Time)
+        // -------------------------------------------------------------
+        $isCustomArrival = !empty($post['custom_arrival_enable']);
+        $customDuration = 0;
+        if ($isCustomArrival) {
+            $troopsTime = $this->getWalkingTroopsTime($village->wid, $data['to_vid'], $session->uid, $tribe, $data, 1, 'u');
+            $normalDuration = (int)$database->getArtifactsValueInfluence($session->uid, $village->wid, 2, $troopsTime);
+            $minArrivalTimestamp = time() + $normalDuration;
+
+            if (!class_exists('BlackMarket')) {
+                require_once __DIR__ . '/BlackMarket.php';
+            }
+            $currentSilver = BlackMarket::getSilver((int)$session->uid);
+            if ($currentSilver < 500) {
+                $form->addError("error", "Koin Silver Anda tidak mencukupi untuk menjadwalkan waktu tiba (Dibutuhkan 500 Silver, Anda memiliki " . number_format($currentSilver) . " Silver).");
+            } else {
+                $targetTimestamp = $this->parseCustomArrivalTime($post, $normalDuration);
+                if ($targetTimestamp === false || $targetTimestamp <= 0) {
+                    $form->addError("error", "Format waktu tiba atau durasi perjalanan pasukan tidak valid.");
+                } elseif ($targetTimestamp < ($minArrivalTimestamp - 5)) {
+                    $minTimeStr = isset($generator) ? $generator->getTimeFormat($normalDuration) : ($normalDuration . " detik");
+                    $form->addError("error", "Waktu tiba tidak boleh lebih cepat dari waktu tempuh minimal (" . date('H:i:s', $minArrivalTimestamp) . " / durasi " . $minTimeStr . ").");
+                } elseif ($targetTimestamp > (time() + 86400 * 14)) {
+                    $form->addError("error", "Jadwal waktu tiba maksimal adalah 14 hari ke depan.");
+                } else {
+                    $customDuration = max($normalDuration, $targetTimestamp - time());
+                }
+            }
+        }
         
         if($form->returnErrors() > 0){
             $_SESSION['errorarray'] = $form->getErrors();
@@ -836,7 +867,20 @@ class Units {
             header( "Location: a2b.php" );
             exit;
         }else{
+            if ($isCustomArrival && $customDuration > 0) {
+                if (!BlackMarket::spendSilver((int)$session->uid, 500, 'Scheduled Attack Arrival')) {
+                    $form->addError("error", "Gagal memotong 500 Silver. Pastikan saldo Silver Anda mencukupi.");
+                    $_SESSION['errorarray'] = $form->getErrors();
+                    $_SESSION['valuearray'] = $_POST;
+                    header("Location: a2b.php");
+                    exit;
+                }
+            }
+
             if (empty($data['id']) || !$database->claimA2b((int)$data['id'], $post['timestamp_checksum'])) {
+                if ($isCustomArrival && $customDuration > 0) {
+                    BlackMarket::addSilver((int)$session->uid, 500); // Refund silver if request was already processed
+                }
                 $form->addError("error", "This troop send request was already processed. Please try again.");
                 $_SESSION['errorarray'] = $form->getErrors();
                 $_SESSION['valuearray'] = $_POST;
@@ -879,6 +923,9 @@ class Units {
             
             $troopsTime = $this->getWalkingTroopsTime($village->wid, $data['to_vid'], $session->uid, $tribe, $data, 1, 'u');
             $time = $database->getArtifactsValueInfluence($session->uid, $village->wid, 2, $troopsTime);
+            if ($isCustomArrival && $customDuration > 0) {
+                $time = $customDuration;
+            }
             
             $this->resolveCatapultTargets($post, $data);
             
@@ -905,6 +952,82 @@ class Units {
             header("Location: build.php?id=39");
             exit;
         }
+    }
+
+    /**
+     * Parse and calculate custom arrival timestamp from POST parameters.
+     *
+     * @param array $post
+     * @param int $normalDuration Normal travel duration in seconds
+     * @return int|false Returns Unix timestamp or false if invalid
+     */
+    public function parseCustomArrivalTime($post, $normalDuration) {
+        $now = time();
+        $mode = $post['custom_arrival_mode'] ?? 'clock';
+
+        // 1. If mode is duration, prioritize duration fields
+        if ($mode === 'duration' && (isset($post['custom_duration_h']) || isset($post['custom_duration_m']) || isset($post['custom_duration_s']))) {
+            $h = max(0, (int)($post['custom_duration_h'] ?? 0));
+            $m = max(0, (int)($post['custom_duration_m'] ?? 0));
+            $s = max(0, (int)($post['custom_duration_s'] ?? 0));
+            $totalSec = ($h * 3600) + ($m * 60) + $s;
+            if ($totalSec > 0) {
+                return $now + $totalSec;
+            }
+        }
+
+        // 2. Clock mode: Date & Time input
+        if (!empty($post['custom_arrival_time'])) {
+            $datePart = !empty($post['custom_arrival_date']) ? trim($post['custom_arrival_date']) : date('Y-m-d', $now);
+            $timePart = trim($post['custom_arrival_time']);
+            if (preg_match('/^\d{1,2}:\d{1,2}(:\d{1,2})?$/', $timePart)) {
+                $ts = strtotime($datePart . ' ' . $timePart);
+                if ($ts !== false) {
+                    if (empty($post['custom_arrival_date']) && $ts < $now) {
+                        $ts += 86400;
+                    }
+                    return $ts;
+                }
+            }
+        }
+
+        // 3. Fallback: duration inputs
+        if (isset($post['custom_duration_h']) || isset($post['custom_duration_m']) || isset($post['custom_duration_s'])) {
+            $h = max(0, (int)($post['custom_duration_h'] ?? 0));
+            $m = max(0, (int)($post['custom_duration_m'] ?? 0));
+            $s = max(0, (int)($post['custom_duration_s'] ?? 0));
+            $totalSec = ($h * 3600) + ($m * 60) + $s;
+            if ($totalSec > 0) {
+                return $now + $totalSec;
+            }
+        }
+
+        // 4. Fallback: custom duration in seconds
+        if (!empty($post['custom_duration_seconds']) && is_numeric($post['custom_duration_seconds'])) {
+            $totalSec = (int)$post['custom_duration_seconds'];
+            if ($totalSec > 0) {
+                return $now + $totalSec;
+            }
+        }
+
+        // 5. Fallback: datetime-local ISO format
+        if (!empty($post['custom_arrival_datetime'])) {
+            $dtStr = str_replace('T', ' ', trim($post['custom_arrival_datetime']));
+            $ts = strtotime($dtStr);
+            if ($ts !== false) {
+                return $ts;
+            }
+        }
+
+        // 6. Fallback: pre-calculated timestamp
+        if (!empty($post['custom_arrival_ts']) && is_numeric($post['custom_arrival_ts'])) {
+            $ts = (int)$post['custom_arrival_ts'];
+            if ($ts > $now) {
+                return $ts;
+            }
+        }
+
+        return false;
     }
 
     private function resolveCatapultTargets(&$post, $data) {

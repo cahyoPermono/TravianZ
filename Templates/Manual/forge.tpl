@@ -254,11 +254,11 @@ $recipes = class_exists('HeroForge') ? HeroForge::getRecipes() : [];
                 <tr>
                     <td><b>WORLD BOSS (Tier 4 Raid)</b><br><small style="color:#b91c1c;">(Sarang Naga &amp; Gembong Legenda)</small></td>
                     <td><span class="mf-pill mf-pill-boss">100% PASTI DROP</span></td>
-                    <td><b>Pool 80 pcs</b><br>(Bagi Hasil Raid)</td>
+                    <td><b>Pool 8 pcs</b><br>(+2 Bonus Last-Hit)</td>
                     <td>
-                        <b>Pusat Buruan Utama!</b> Setiap kali World Boss tumbang, <b>Pool 80 World Essence</b> dibagikan proporsional kepada semua pemain berdasarkan persentase <i>damage</i> yang dicatatkan di papan kontribusi.<br>
-                        • <i>Top Damager (Rank 1):</i> Memperoleh bagian terbesar (~25&ndash;35 Essence).<br>
-                        • <i>Last Hitter (Pukulan Terakhir):</i> Mendapatkan <b>Bonus Ekstra +3 Essence</b>!
+                        <b>Pusat Buruan Utama!</b> Setiap kali World Boss tumbang, <b>Pool 8 World Essence</b> dibagikan proporsional kepada semua pemain berdasarkan persentase <i>damage</i> yang dicatatkan di papan kontribusi.<br>
+                        • <i>Pemain Solo (100% Damage):</i> Memperoleh total 8 + 2 = <b>10 World Essence</b> (butuh 3x World Boss untuk 1 Item Legendaris).<br>
+                        • <i>Last Hitter (Pukulan Terakhir):</i> Mendapatkan <b>Bonus Ekstra +2 Essence</b>!
                     </td>
                 </tr>
             </tbody>

@@ -73,6 +73,11 @@ $colspan = $hasHero ? 11 : 10;
 $kata = !empty($process['t8']);
 ?>
 <h1><?php echo $actionType . " to " . $process[1]; ?></h1>
+<?php if (isset($form) && $form->getError('error')): ?>
+    <div style="margin: 10px 0; padding: 10px 14px; background: #fee2e2; border: 1.5px solid #ef4444; border-radius: 6px; font-size: 12px; color: #991b1b; font-weight: bold;">
+        ⚠️ <?php echo $form->getError('error'); ?>
+    </div>
+<?php endif; ?>
 <form method="post" action="a2b.php">
     <table id="short_info" cellpadding="1" cellspacing="1">
         <tbody>
@@ -253,7 +258,303 @@ $kata = !empty($process['t8']);
                 </td>
             </tr>
         </tbody>
+
+        <?php
+        if (!class_exists('BlackMarket')) {
+            @include_once __DIR__ . '/../../GameEngine/BlackMarket.php';
+        }
+        $userSilver = class_exists('BlackMarket') ? BlackMarket::getSilver((int)$session->uid) : 0;
+        $scheduleSilverCost = 500;
+        $canAffordSchedule = ($userSilver >= $scheduleSilverCost);
+
+        $serverNow = time();
+        $minArrivalTs = $serverNow + (int)$time;
+        $minArrivalDate = date('Y-m-d', $minArrivalTs);
+        $minArrivalTime = date('H:i:s', $minArrivalTs);
+        $minDurH = (int)floor($time / 3600);
+        $minDurM = (int)floor(($time % 3600) / 60);
+        $minDurS = (int)($time % 60);
+        ?>
+        <tbody class="infos custom_schedule_tbody" style="border-top: 1px dashed #cbd5e1;">
+            <tr>
+                <th style="vertical-align: top; padding-top: 8px;">
+                    🎯 Jadwal Tiba:<br>
+                    <span style="font-size: 10px; font-weight: normal; color: #64748b;">(Opsi Khusus)</span>
+                </th>
+                <td colspan="<?php echo $colspan; ?>" style="padding: 8px 10px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+                        <label style="display: inline-flex; align-items: center; cursor: <?php echo $canAffordSchedule ? 'pointer' : 'not-allowed'; ?>; font-weight: bold; font-size: 12.5px; color: #1e3a8a;">
+                            <input type="checkbox" name="custom_arrival_enable" id="custom_arrival_enable" value="1" <?php if (!$canAffordSchedule) echo 'disabled="disabled"'; ?> onchange="toggleCustomSchedule(this.checked)" style="margin-right: 6px; cursor: pointer;" />
+                            Atur Jam Tiba Pasukan (Schedule Attack Arrival)
+                        </label>
+                        <span style="background: #fef3c7; border: 1px solid #f59e0b; color: #92400e; font-size: 11px; font-weight: bold; padding: 2px 8px; border-radius: 4px;">
+                            🪙 Biaya: <?php echo number_format($scheduleSilverCost); ?> Silver
+                        </span>
+                    </div>
+
+                    <div style="margin-top: 4px; font-size: 11px;">
+                        Saldo Silver Anda: <b style="color: <?php echo $canAffordSchedule ? '#15803d' : '#dc2626'; ?>;"><?php echo number_format($userSilver); ?> Silver</b>
+                        <?php if (!$canAffordSchedule): ?>
+                            <span style="color: #dc2626; margin-left: 6px;">(⚠️ Silver tidak mencukupi, butuh 500 Silver)</span>
+                        <?php endif; ?>
+                    </div>
+
+                    <div id="custom_schedule_panel" style="display: none; margin-top: 10px; padding: 12px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px;">
+                        <div style="font-size: 11.5px; color: #475569; margin-bottom: 8px; line-height: 1.4;">
+                            ℹ️ Pasukan akan <b>langsung diberangkatkan sekarang</b>, dan kecepatan jalan diperlambat agar tiba tepat pada jadwal yang Anda inginkan.<br>
+                            ⚠️ <b>Aturan:</b> Waktu tiba <b>harus melebihi</b> waktu tempuh minimal (tidak bisa tiba lebih cepat dari waktu normal).
+                        </div>
+
+                        <div style="padding: 6px 10px; background: #e0f2fe; border-left: 3px solid #0284c7; border-radius: 2px; font-size: 11.5px; color: #0369a1; margin-bottom: 10px;">
+                            ⏱️ <b>Waktu Tempuh Minimal:</b> <?php echo $generator->getTimeFormat($time); ?> &nbsp;|&nbsp;
+                            <b>Paling Cepat Tiba:</b> <?php echo date('d/m/Y H:i:s', $minArrivalTs); ?>
+                        </div>
+
+                        <!-- Opsi 1: Tentukan Jam Tiba -->
+                        <div style="margin-bottom: 8px;">
+                            <b style="font-size: 12px; color: #334155;">1. Tentukan Waktu Tiba (Waktu Server):</b><br>
+                            <div style="display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; flex-wrap: wrap;">
+                                <span>Tanggal:</span>
+                                <input type="date" id="cust_date" name="custom_arrival_date" value="<?php echo $minArrivalDate; ?>" min="<?php echo date('Y-m-d', $serverNow); ?>" style="padding: 3px 6px; border: 1px solid #94a3b8; border-radius: 4px;" onchange="syncFromClock()" />
+                                <span>Jam (HH:MM:SS):</span>
+                                <input type="time" step="1" id="cust_time" name="custom_arrival_time" value="<?php echo $minArrivalTime; ?>" style="padding: 3px 6px; border: 1px solid #94a3b8; border-radius: 4px;" onchange="syncFromClock()" />
+                            </div>
+                        </div>
+
+                        <!-- Opsi 2: Tentukan Total Durasi -->
+                        <div style="margin-bottom: 10px;">
+                            <b style="font-size: 12px; color: #334155;">2. Atau Tentukan Total Durasi Perjalanan Pasukan:</b><br>
+                            <div style="display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; flex-wrap: wrap;">
+                                <input type="number" id="cust_dur_h" name="custom_duration_h" value="<?php echo $minDurH; ?>" min="0" max="336" style="width: 55px; padding: 3px 5px; border: 1px solid #94a3b8; border-radius: 4px; text-align: center;" oninput="syncFromDuration()" /> Jam
+                                <input type="number" id="cust_dur_m" name="custom_duration_m" value="<?php echo $minDurM; ?>" min="0" max="59" style="width: 45px; padding: 3px 5px; border: 1px solid #94a3b8; border-radius: 4px; text-align: center;" oninput="syncFromDuration()" /> Menit
+                                <input type="number" id="cust_dur_s" name="custom_duration_s" value="<?php echo $minDurS; ?>" min="0" max="59" style="width: 45px; padding: 3px 5px; border: 1px solid #94a3b8; border-radius: 4px; text-align: center;" oninput="syncFromDuration()" /> Detik
+                            </div>
+                        </div>
+
+                        <!-- Quick Presets -->
+                        <div style="margin-bottom: 10px; font-size: 11px;">
+                            <b style="color: #475569;">Quick Tambah Waktu:</b>
+                            <button type="button" onclick="addDelayMinutes(15)" style="cursor: pointer; padding: 2px 7px; margin-left: 3px; border: 1px solid #cbd5e1; background: #fff; border-radius: 3px;">+15 mnt</button>
+                            <button type="button" onclick="addDelayMinutes(30)" style="cursor: pointer; padding: 2px 7px; margin-left: 3px; border: 1px solid #cbd5e1; background: #fff; border-radius: 3px;">+30 mnt</button>
+                            <button type="button" onclick="addDelayMinutes(60)" style="cursor: pointer; padding: 2px 7px; margin-left: 3px; border: 1px solid #cbd5e1; background: #fff; border-radius: 3px;">+1 jam</button>
+                            <button type="button" onclick="addDelayMinutes(120)" style="cursor: pointer; padding: 2px 7px; margin-left: 3px; border: 1px solid #cbd5e1; background: #fff; border-radius: 3px;">+2 jam</button>
+                            <button type="button" onclick="roundNextHour()" style="cursor: pointer; padding: 2px 7px; margin-left: 3px; border: 1px solid #cbd5e1; background: #fff; border-radius: 3px;">Bulatkan Jam Berikutnya</button>
+                        </div>
+
+                        <!-- Live Summary Box -->
+                        <div id="cust_feedback_box" style="padding: 8px 10px; border-radius: 4px; font-size: 11.5px; background: #ffffff; border: 1px solid #e2e8f0;">
+                            <div><b>🎯 Rencana Kedatangan:</b> <span id="cust_calc_arrival" style="font-weight: bold; color: #1e3a8a;"><?php echo date('d/m/Y H:i:s', $minArrivalTs); ?></span></div>
+                            <div style="margin-top: 2px; color: #64748b;">
+                                Total Durasi: <b id="cust_calc_dur"><?php echo $generator->getTimeFormat($time); ?></b> &nbsp;|&nbsp;
+                                Perlambatan: +<span id="cust_calc_delay">0:00:00</span>
+                            </div>
+                            <div id="cust_error_alert" style="display: none; margin-top: 5px; color: #dc2626; font-weight: bold;">
+                                ❌ Waktu tiba tidak boleh lebih cepat dari waktu tempuh minimal (<?php echo date('H:i:s', $minArrivalTs); ?>)!
+                            </div>
+                            <div id="cust_ok_alert" style="margin-top: 5px; color: #15803d; font-weight: bold;">
+                                ✅ Jadwal tiba valid. Siap diberangkatkan!
+                            </div>
+                        </div>
+
+                        <input type="hidden" id="custom_arrival_ts" name="custom_arrival_ts" value="<?php echo $minArrivalTs; ?>" />
+                        <input type="hidden" id="custom_duration_seconds" name="custom_duration_seconds" value="<?php echo $time; ?>" />
+                        <input type="hidden" id="custom_arrival_mode" name="custom_arrival_mode" value="clock" />
+                    </div>
+                </td>
+            </tr>
+        </tbody>
     </table>
+
+    <script type="text/javascript">
+    var SCHEDULE_CFG = {
+        serverNow: <?php echo (int)$serverNow; ?>,
+        clientNow: Math.floor(Date.now() / 1000),
+        minDuration: <?php echo (int)$time; ?>,
+        minArrivalTs: <?php echo (int)$minArrivalTs; ?>,
+        userSilver: <?php echo (int)$userSilver; ?>,
+        costSilver: <?php echo (int)$scheduleSilverCost; ?>
+    };
+
+    function formatDuration(sec) {
+        if (sec < 0) sec = 0;
+        var h = Math.floor(sec / 3600);
+        var m = Math.floor((sec % 3600) / 60);
+        var s = sec % 60;
+        return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+    }
+
+    function toggleCustomSchedule(enabled) {
+        var panel = document.getElementById('custom_schedule_panel');
+        if (!panel) return;
+        panel.style.display = enabled ? 'block' : 'none';
+        if (enabled) {
+            syncFromClock();
+        }
+    }
+
+    function updateScheduleFeedback(targetTs, durationSec) {
+        var minTs = SCHEDULE_CFG.minArrivalTs;
+        var minDur = SCHEDULE_CFG.minDuration;
+        var isValid = (targetTs >= minTs);
+
+        var delaySec = Math.max(0, durationSec - minDur);
+
+        var dt = new Date(targetTs * 1000);
+        var pad = function(n) { return (n < 10 ? '0' : '') + n; };
+        var dateFormatted = pad(dt.getDate()) + '/' + pad(dt.getMonth() + 1) + '/' + dt.getFullYear() + ' ' + pad(dt.getHours()) + ':' + pad(dt.getMinutes()) + ':' + pad(dt.getSeconds());
+
+        var arrivalEl = document.getElementById('cust_calc_arrival');
+        var durEl = document.getElementById('cust_calc_dur');
+        var delayEl = document.getElementById('cust_calc_delay');
+        var errEl = document.getElementById('cust_error_alert');
+        var okEl = document.getElementById('cust_ok_alert');
+
+        if (arrivalEl) arrivalEl.innerText = dateFormatted;
+        if (durEl) durEl.innerText = formatDuration(durationSec);
+        if (delayEl) delayEl.innerText = formatDuration(delaySec);
+
+        if (isValid) {
+            if (errEl) errEl.style.display = 'none';
+            if (okEl) okEl.style.display = 'block';
+        } else {
+            if (errEl) errEl.style.display = 'block';
+            if (okEl) okEl.style.display = 'none';
+        }
+
+        var tsInput = document.getElementById('custom_arrival_ts');
+        var durInput = document.getElementById('custom_duration_seconds');
+        if (tsInput) tsInput.value = targetTs;
+        if (durInput) durInput.value = durationSec;
+    }
+
+    function syncFromClock() {
+        var dateEl = document.getElementById('cust_date');
+        var timeEl = document.getElementById('cust_time');
+        if (!dateEl || !timeEl) return;
+        var dateVal = dateEl.value;
+        var timeVal = timeEl.value;
+        if (!dateVal || !timeVal) return;
+
+        if (timeVal.split(':').length === 2) {
+            timeVal += ':00';
+        }
+
+        var parts = dateVal.split('-');
+        var tParts = timeVal.split(':');
+        if (parts.length !== 3 || tParts.length < 2) return;
+
+        var targetDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10), parseInt(tParts[0], 10), parseInt(tParts[1], 10), parseInt(tParts[2] || 0, 10));
+        var targetTs = Math.floor(targetDate.getTime() / 1000);
+        if (isNaN(targetTs)) return;
+
+        var durationSec = targetTs - SCHEDULE_CFG.serverNow;
+        if (durationSec < 0) durationSec = 0;
+
+        var h = Math.floor(durationSec / 3600);
+        var m = Math.floor((durationSec % 3600) / 60);
+        var s = durationSec % 60;
+
+        document.getElementById('cust_dur_h').value = h;
+        document.getElementById('cust_dur_m').value = m;
+        document.getElementById('cust_dur_s').value = s;
+        document.getElementById('custom_arrival_mode').value = 'clock';
+
+        updateScheduleFeedback(targetTs, durationSec);
+    }
+
+    function syncFromDuration() {
+        var h = parseInt(document.getElementById('cust_dur_h').value, 10) || 0;
+        var m = parseInt(document.getElementById('cust_dur_m').value, 10) || 0;
+        var s = parseInt(document.getElementById('cust_dur_s').value, 10) || 0;
+
+        var durationSec = (h * 3600) + (m * 60) + s;
+        var targetTs = SCHEDULE_CFG.serverNow + durationSec;
+
+        var dt = new Date(targetTs * 1000);
+        var pad = function(n) { return (n < 10 ? '0' : '') + n; };
+        var ymd = dt.getFullYear() + '-' + pad(dt.getMonth() + 1) + '-' + pad(dt.getDate());
+        var hms = pad(dt.getHours()) + ':' + pad(dt.getMinutes()) + ':' + pad(dt.getSeconds());
+
+        document.getElementById('cust_date').value = ymd;
+        document.getElementById('cust_time').value = hms;
+        document.getElementById('custom_arrival_mode').value = 'duration';
+
+        updateScheduleFeedback(targetTs, durationSec);
+    }
+
+    function addDelayMinutes(minutes) {
+        var durSec = parseInt(document.getElementById('custom_duration_seconds').value, 10) || SCHEDULE_CFG.minDuration;
+        if (durSec < SCHEDULE_CFG.minDuration) durSec = SCHEDULE_CFG.minDuration;
+        durSec += (minutes * 60);
+
+        var h = Math.floor(durSec / 3600);
+        var m = Math.floor((durSec % 3600) / 60);
+        var s = durSec % 60;
+
+        document.getElementById('cust_dur_h').value = h;
+        document.getElementById('cust_dur_m').value = m;
+        document.getElementById('cust_dur_s').value = s;
+
+        syncFromDuration();
+    }
+
+    function roundNextHour() {
+        var currentTs = parseInt(document.getElementById('custom_arrival_ts').value, 10) || SCHEDULE_CFG.minArrivalTs;
+        if (currentTs < SCHEDULE_CFG.minArrivalTs) currentTs = SCHEDULE_CFG.minArrivalTs;
+        var nextHourTs = Math.ceil((currentTs + 1) / 3600) * 3600;
+        var durSec = nextHourTs - SCHEDULE_CFG.serverNow;
+        if (durSec < SCHEDULE_CFG.minDuration) {
+            nextHourTs += 3600;
+            durSec = nextHourTs - SCHEDULE_CFG.serverNow;
+        }
+
+        var h = Math.floor(durSec / 3600);
+        var m = Math.floor((durSec % 3600) / 60);
+        var s = durSec % 60;
+
+        document.getElementById('cust_dur_h').value = h;
+        document.getElementById('cust_dur_m').value = m;
+        document.getElementById('cust_dur_s').value = s;
+
+        syncFromDuration();
+    }
+
+    function validateAttackSchedule() {
+        var chk = document.getElementById('custom_arrival_enable');
+        if (!chk || !chk.checked) {
+            return true;
+        }
+
+        if (SCHEDULE_CFG.userSilver < SCHEDULE_CFG.costSilver) {
+            alert('Koin Silver Anda tidak mencukupi untuk menggunakan opsi ini.\nDibutuhkan: ' + SCHEDULE_CFG.costSilver + ' Silver\nSaldo Anda: ' + SCHEDULE_CFG.userSilver + ' Silver');
+            return false;
+        }
+
+        var targetTs = parseInt(document.getElementById('custom_arrival_ts').value, 10) || 0;
+        if (targetTs < SCHEDULE_CFG.minArrivalTs) {
+            var minDt = new Date(SCHEDULE_CFG.minArrivalTs * 1000);
+            var pad = function(n) { return (n < 10 ? '0' : '') + n; };
+            var minTimeStr = pad(minDt.getHours()) + ':' + pad(minDt.getMinutes()) + ':' + pad(minDt.getSeconds());
+            alert('Waktu tiba tidak boleh lebih cepat dari waktu tempuh minimal!\nMinimal waktu tiba: ' + minTimeStr + '\nSilakan atur waktu tiba yang melebihi batas minimal.');
+            return false;
+        }
+
+        return true;
+    }
+
+    function handleAttackSubmit(btn) {
+        if (!btn || btn.disabled) return false;
+        if (!validateAttackSchedule()) {
+            return false;
+        }
+        btn.disabled = true;
+        var form = btn.form || document.querySelector('form[action="a2b.php"]') || document.getElementsByTagName('form')[0];
+        if (form) {
+            form.submit();
+        }
+        return true;
+    }
+    </script>
 
     <input name="timestamp" value="<?php echo time(); ?>" type="hidden">
     <input name="timestamp_checksum" value="<?php echo $ckey; ?>" type="hidden">
@@ -284,7 +585,7 @@ $kata = !empty($process['t8']);
         echo '<b>User presently has beginners protection</b>';
     } else {
     ?>
-        <p class="btn"><input value="ok" name="s1" id="btn_ok" class="dynamic_img " src="img/x.gif" alt="OK" type="image" onclick="if (this.disabled==false) {document.getElementsByTagName('form')[0].submit();} this.disabled=true;" onLoad="this.disabled=false;"></p>
+        <p class="btn"><input value="ok" name="s1" id="btn_ok" class="dynamic_img " src="img/x.gif" alt="OK" type="image" onclick="return handleAttackSubmit(this);" onLoad="this.disabled=false;"></p>
     <?php } ?>
 </form>
 </div>

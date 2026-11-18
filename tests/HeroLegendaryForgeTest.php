@@ -102,14 +102,14 @@ $clearRes = BanditCamp::rewardAndClearCamp($bossData, $attacker2, 'Attacker2', $
 assertTest(!empty($clearRes), "World Boss camp cleared successfully");
 
 // Check World Essence distribution:
-// Total pool = 80 Essence.
-// Attacker1 (70%): round(0.70 * 80) = 56 Essence.
-// Attacker2 (30% + last hit bonus 3): round(0.30 * 80) + 3 = 24 + 3 = 27 Essence.
+// Total pool = 8 Essence, Last-Hit Bonus = +2 Essence (Solo total = 10 Essence).
+// Attacker1 (70%): round(0.70 * 8) = 6 Essence.
+// Attacker2 (30% + last hit bonus 2): round(0.30 * 8) + 2 = 2 + 2 = 4 Essence.
 $ess1 = HeroForge::getEssenceCount($attacker1);
 $ess2 = HeroForge::getEssenceCount($attacker2);
 
-assertTest($ess1 === 56, "Attacker1 (70% damage) received 56 World Essence (got $ess1)");
-assertTest($ess2 === 27, "Attacker2 (30% damage + 3 last hit bonus) received 27 World Essence (got $ess2)");
+assertTest($ess1 === 6, "Attacker1 (70% damage) received 6 World Essence (got $ess1)");
+assertTest($ess2 === 4, "Attacker2 (30% damage + 2 last hit bonus) received 4 World Essence (got $ess2)");
 
 // -------------------------------------------------------------
 // Test 3: HeroForge Crafting Requirements & Execution

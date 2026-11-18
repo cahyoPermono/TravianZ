@@ -831,7 +831,7 @@ class BanditCamp {
                 require_once __DIR__ . '/HeroItems.php';
             }
             $t4HeroItems = new HeroItems();
-            $bossEssencePool = defined('BANDIT_BOSS_ESSENCE_POOL') ? (int)BANDIT_BOSS_ESSENCE_POOL : 80;
+            $bossEssencePool = defined('BANDIT_BOSS_ESSENCE_POOL') ? (int)BANDIT_BOSS_ESSENCE_POOL : 8;
 
             foreach ($contributors as $c) {
                 $cUid = (int)$c['uid'];
@@ -849,7 +849,7 @@ class BanditCamp {
                 // Calculate World Essence reward
                 $shareEssence = max(1, (int)round(($pct / 100) * $bossEssencePool));
                 if ($cUid === $conquerorUid) {
-                    $shareEssence += 3; // Bonus pukulan terakhir / last hit!
+                    $shareEssence += 2; // Bonus pukulan terakhir / last hit!
                 }
                 $t4HeroItems->addItem($cUid, 210, $shareEssence);
 
@@ -893,7 +893,7 @@ class BanditCamp {
                            "• Total Kerusakan / Damage Anda : " . number_format($cDamage) . " unit\n" .
                            "• Persentase Kontribusi          : {$pct}% (dari total " . number_format($totalBossDamage) . " damage)\n\n" .
                            "🎁 Hadiah Bagi Hasil yang Anda Dapatkan:\n" .
-                           "💎 World Essence (Bahan Tempa) : +" . number_format($shareEssence) . " pcs" . ($cUid === $conquerorUid ? " (termasuk +3 bonus Last-Hit!)" : "") . "\n" .
+                           "💎 World Essence (Bahan Tempa) : +" . number_format($shareEssence) . " pcs" . ($cUid === $conquerorUid ? " (termasuk +2 bonus Last-Hit!)" : "") . "\n" .
                            "🪙 Koin Silver        : +" . number_format($shareSilver) . "\n" .
                            "🏛️ Culture Points (CP) : +" . number_format($shareCp) . "\n" .
                            "⭐ Hero EXP            : +" . number_format($shareExp) . "\n" .
@@ -917,7 +917,7 @@ class BanditCamp {
                         $essenceDropped = mt_rand(1, 2);
                     }
                 } elseif ($campTier === self::TIER_WORLDBOSS) { // Soloed World Boss
-                    $essenceDropped = defined('BANDIT_BOSS_ESSENCE_POOL') ? (int)BANDIT_BOSS_ESSENCE_POOL : 80;
+                    $essenceDropped = (defined('BANDIT_BOSS_ESSENCE_POOL') ? (int)BANDIT_BOSS_ESSENCE_POOL : 8) + 2; // Pool (8) + Last-Hit Bonus (2) = 10 Essence
                 }
 
                 if ($essenceDropped > 0) {
