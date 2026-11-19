@@ -412,6 +412,190 @@ if(defined('NEW_FUNCTIONS_SPECIAL_MEDALS_SYSTEM') && NEW_FUNCTIONS_SPECIAL_MEDAL
               </tr>";
     }
 }
+
+// ==========================================
+// PVE & ACHIEVEMENT MEDALS SYSTEM
+// ==========================================
+$achUid = (int)$session->uid;
+if ($achUid > 0) {
+    // 1. Bandit Camps & World Boss
+    $qAchBandit = $database->query("
+        SELECT 
+            COUNT(*) as total_camps, 
+            SUM(CASE WHEN tier = 4 THEN 1 ELSE 0 END) as boss_camps 
+        FROM " . TB_PREFIX . "bandit_camps 
+        WHERE cleared_by = $achUid
+    ");
+    $achBanditData = ($qAchBandit && $r = $qAchBandit->fetch_assoc()) ? $r : ['total_camps' => 0, 'boss_camps' => 0];
+    $achBanditCamps = (int)($achBanditData['total_camps'] ?? 0);
+    $achBossCamps   = (int)($achBanditData['boss_camps'] ?? 0);
+
+    if ($achBanditCamps >= 10) {
+        echo "<tr>
+                <td>Bandit Hunter</td>
+                <td>{$achBanditCamps} camps</td>
+                <td>Tier 1</td>
+                <td><a href='#' onclick=\"insertMedal('[#BANDITHUNTER]'); return false;\">[#BANDITHUNTER]</a></td>
+              </tr>";
+    }
+
+    if ($achBanditCamps >= 30) {
+        echo "<tr>
+                <td>Bandit Slayer</td>
+                <td>{$achBanditCamps} camps</td>
+                <td>Tier 2</td>
+                <td><a href='#' onclick=\"insertMedal('[#BANDITSLAYER]'); return false;\">[#BANDITSLAYER]</a></td>
+              </tr>";
+    }
+
+    if ($achBanditCamps >= 75) {
+        echo "<tr>
+                <td>Bandit Nemesis</td>
+                <td>{$achBanditCamps} camps</td>
+                <td>Tier 3</td>
+                <td><a href='#' onclick=\"insertMedal('[#BANDITNEMESIS]'); return false;\">[#BANDITNEMESIS]</a></td>
+              </tr>";
+    }
+
+    if ($achBossCamps >= 1) {
+        echo "<tr>
+                <td>World Boss Slayer</td>
+                <td>{$achBossCamps} boss defeated</td>
+                <td>Special</td>
+                <td><a href='#' onclick=\"insertMedal('[#BOSSSLAYER]'); return false;\">[#BOSSSLAYER]</a></td>
+              </tr>";
+    }
+
+    // 2. Boss Raider (Damage Dealt)
+    $qAchDmg = $database->query("SELECT SUM(damage_dealt) as total_dmg FROM " . TB_PREFIX . "bandit_camp_attacks WHERE uid = $achUid");
+    $achBossDmg = (int)(($qAchDmg && $r = $qAchDmg->fetch_assoc()) ? $r['total_dmg'] : 0);
+    if ($achBossDmg >= 50000) {
+        echo "<tr>
+                <td>Grand Vanguard</td>
+                <td>" . number_format($achBossDmg) . " dmg</td>
+                <td>Raid</td>
+                <td><a href='#' onclick=\"insertMedal('[#BOSSRAIDER]'); return false;\">[#BOSSRAIDER]</a></td>
+              </tr>";
+    }
+
+    // 3. Oasis Master (3+ oases)
+    $qAchOasis = $database->query("SELECT COUNT(*) as c FROM " . TB_PREFIX . "odata WHERE owner = $achUid");
+    $achOasisCount = (int)(($qAchOasis && $r = $qAchOasis->fetch_assoc()) ? $r['c'] : 0);
+    if ($achOasisCount >= 3) {
+        echo "<tr>
+                <td>Oasis Master</td>
+                <td>{$achOasisCount} oases</td>
+                <td>Wild</td>
+                <td><a href='#' onclick=\"insertMedal('[#OASISMASTER]'); return false;\">[#OASISMASTER]</a></td>
+              </tr>";
+    }
+
+    // 4. Grand Warlord (20,000+ army)
+    $qAchArmy = $database->query("
+        SELECT MAX(u1+u2+u3+u4+u5+u6+u7+u8+u9+u10) as max_army 
+        FROM " . TB_PREFIX . "units u
+        JOIN " . TB_PREFIX . "vdata v ON v.wref = u.vref
+        WHERE v.owner = $achUid
+    ");
+    $achMaxArmy = (int)(($qAchArmy && $r = $qAchArmy->fetch_assoc()) ? $r['max_army'] : 0);
+    if ($achMaxArmy >= 20000) {
+        echo "<tr>
+                <td>Grand Warlord</td>
+                <td>" . number_format($achMaxArmy) . " troops</td>
+                <td>Military</td>
+                <td><a href='#' onclick=\"insertMedal('[#WARLORD]'); return false;\">[#WARLORD]</a></td>
+              </tr>";
+    }
+
+    // 5. Master of Whispers (2,000+ scouts)
+    $qAchScout = $database->query("
+        SELECT MAX(u4+u14+u24+u54+u64+u74+u84+u94) as max_scouts
+        FROM " . TB_PREFIX . "units u
+        JOIN " . TB_PREFIX . "vdata v ON v.wref = u.vref
+        WHERE v.owner = $achUid
+    ");
+    $achMaxScouts = (int)(($qAchScout && $r = $qAchScout->fetch_assoc()) ? $r['max_scouts'] : 0);
+    if ($achMaxScouts >= 2000) {
+        echo "<tr>
+                <td>Master of Whispers</td>
+                <td>" . number_format($achMaxScouts) . " scouts</td>
+                <td>Intel</td>
+                <td><a href='#' onclick=\"insertMedal('[#SCOUTMASTER]'); return false;\">[#SCOUTMASTER]</a></td>
+              </tr>";
+    }
+
+    // 6. Imperium (5+ settlements)
+    $qAchVil = $database->query("SELECT COUNT(*) as total_vils FROM " . TB_PREFIX . "vdata WHERE owner = $achUid");
+    $achTotalVils = (int)(($qAchVil && $r = $qAchVil->fetch_assoc()) ? $r['total_vils'] : 0);
+    if ($achTotalVils >= 5) {
+        echo "<tr>
+                <td>Imperium</td>
+                <td>{$achTotalVils} villages</td>
+                <td>Empire</td>
+                <td><a href='#' onclick=\"insertMedal('[#IMPERIUM]'); return false;\">[#IMPERIUM]</a></td>
+              </tr>";
+    }
+
+    // 7. Metropolis (1,000+ pop)
+    $qAchMetro = $database->query("SELECT MAX(pop) as max_pop FROM " . TB_PREFIX . "vdata WHERE owner = $achUid");
+    $achMaxPop = (int)(($qAchMetro && $r = $qAchMetro->fetch_assoc()) ? $r['max_pop'] : 0);
+    if ($achMaxPop >= 1000) {
+        echo "<tr>
+                <td>Metropolis</td>
+                <td>" . number_format($achMaxPop) . " pop</td>
+                <td>City</td>
+                <td><a href='#' onclick=\"insertMedal('[#METROPOLIS]'); return false;\">[#METROPOLIS]</a></td>
+              </tr>";
+    }
+
+    // 8. Economy Tycoon (200,000+ storage)
+    $qAchTycoon = $database->query("SELECT MAX(maxstore + maxcrop) as max_storage FROM " . TB_PREFIX . "vdata WHERE owner = $achUid");
+    $achMaxStorage = (int)(($qAchTycoon && $r = $qAchTycoon->fetch_assoc()) ? $r['max_storage'] : 0);
+    if ($achMaxStorage >= 200000) {
+        echo "<tr>
+                <td>Economy Tycoon</td>
+                <td>" . number_format($achMaxStorage) . " cap</td>
+                <td>Economy</td>
+                <td><a href='#' onclick=\"insertMedal('[#TYCOON]'); return false;\">[#TYCOON]</a></td>
+              </tr>";
+    }
+
+    // 9. Hero Veteran (Hero Level >= 50)
+    $qAchHero50 = $database->query("SELECT level FROM " . TB_PREFIX . "hero WHERE uid = $achUid LIMIT 1");
+    $achHeroLvl = (int)(($qAchHero50 && $r = $qAchHero50->fetch_assoc()) ? $r['level'] : 0);
+    if ($achHeroLvl >= 50) {
+        echo "<tr>
+                <td>Hero Veteran</td>
+                <td>Level {$achHeroLvl}</td>
+                <td>Hero</td>
+                <td><a href='#' onclick=\"insertMedal('[#HERO50]'); return false;\">[#HERO50]</a></td>
+              </tr>";
+    }
+
+    // 10. Grand Forge Master (Tier 3 or enhanced item)
+    $qAchForge = $database->query("SELECT COUNT(*) as c FROM " . TB_PREFIX . "hero_items WHERE uid = $achUid AND (itemid % 3 = 0 OR stat_value > 0) AND slot > 0");
+    $achForgeItems = (int)(($qAchForge && $r = $qAchForge->fetch_assoc()) ? $r['c'] : 0);
+    if ($achForgeItems >= 1) {
+        echo "<tr>
+                <td>Forge Master</td>
+                <td>{$achForgeItems} items</td>
+                <td>Equipment</td>
+                <td><a href='#' onclick=\"insertMedal('[#FORGEMASTER]'); return false;\">[#FORGEMASTER]</a></td>
+              </tr>";
+    }
+
+    // 11. Alliance Philanthropist (500,000+ donated resources)
+    $qAchDonation = $database->query("SELECT SUM(amount) as total_donated FROM " . TB_PREFIX . "alliance_donation WHERE uid = $achUid");
+    $achTotalDonated = (int)(($qAchDonation && $r = $qAchDonation->fetch_assoc()) ? $r['total_donated'] : 0);
+    if ($achTotalDonated >= 500000) {
+        echo "<tr>
+                <td>Alliance Philanthropist</td>
+                <td>" . number_format($achTotalDonated) . " res</td>
+                <td>Alliance</td>
+                <td><a href='#' onclick=\"insertMedal('[#PHILANTHROPIST]'); return false;\">[#PHILANTHROPIST]</a></td>
+              </tr>";
+    }
+}
 ?>
 
 </table>
@@ -419,8 +603,16 @@ if(defined('NEW_FUNCTIONS_SPECIAL_MEDALS_SYSTEM') && NEW_FUNCTIONS_SPECIAL_MEDAL
 
 <!-- JS -->
 <script>
+let lastActiveProfileTextarea = 'be1';
+document.addEventListener('DOMContentLoaded', function() {
+    const t1 = document.querySelector('textarea[name="be1"]');
+    const t2 = document.querySelector('textarea[name="be2"]');
+    if (t1) t1.addEventListener('focus', function() { lastActiveProfileTextarea = 'be1'; });
+    if (t2) t2.addEventListener('focus', function() { lastActiveProfileTextarea = 'be2'; });
+});
+
 function insertMedal(code) {
-    const textarea = document.querySelector('textarea[name="be1"]');
+    const textarea = document.querySelector('textarea[name="' + lastActiveProfileTextarea + '"]') || document.querySelector('textarea[name="be1"]');
     if (!textarea) return;
 
     textarea.focus();

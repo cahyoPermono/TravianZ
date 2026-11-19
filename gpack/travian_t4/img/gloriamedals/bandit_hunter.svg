@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 155" width="120" height="155">
+    <defs>
+        <!-- Drop Shadow Filters -->
+        <filter id="m_bh_shadow" x="-20%" y="-15%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="4" stdDeviation="3.5" flood-color="#000000" flood-opacity="0.55"/>
+        </filter>
+        <filter id="m_bh_emboss" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="1.5" stdDeviation="1" flood-color="#FFFFFF" flood-opacity="0.75" result="light"/>
+            <feDropShadow dx="0" dy="-1.5" stdDeviation="1" flood-color="#000000" flood-opacity="0.65" result="dark"/>
+        </filter>
+        <filter id="m_bh_glow" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="3" result="blur"/>
+            <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+        </filter>
+
+        <!-- Ribbon Gradients -->
+        <linearGradient id="m_bh_rib_l" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#1B4D2E"/>
+            <stop offset="30%" stop-color="#2E7D32"/>
+            <stop offset="70%" stop-color="#143C22"/>
+            <stop offset="100%" stop-color="#1B4D2E"/>
+        </linearGradient>
+        <linearGradient id="m_bh_rib_stripe" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#C4823F"/>
+            <stop offset="50%" stop-color="#F4B266"/>
+            <stop offset="100%" stop-color="#C4823F"/>
+        </linearGradient>
+        <linearGradient id="m_bh_rib_v" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.25"/>
+            <stop offset="20%" stop-color="#FFFFFF" stop-opacity="0.0"/>
+            <stop offset="80%" stop-color="#000000" stop-opacity="0.0"/>
+            <stop offset="100%" stop-color="#000000" stop-opacity="0.45"/>
+        </linearGradient>
+
+        <!-- Clasp / Bar Gradients -->
+        <linearGradient id="m_bh_clasp" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#C47A38"/>
+            <stop offset="25%" stop-color="#FFFFFF"/>
+            <stop offset="50%" stop-color="#C47A38"/>
+            <stop offset="100%" stop-color="#6A3510"/>
+        </linearGradient>
+        <linearGradient id="m_bh_ring" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#C47A38"/>
+            <stop offset="40%" stop-color="#FFFFFF"/>
+            <stop offset="70%" stop-color="#3D1D08"/>
+            <stop offset="100%" stop-color="#C47A38"/>
+        </linearGradient>
+
+        <!-- Medallion Rim Gradients -->
+        <linearGradient id="m_bh_rim" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#E8B078"/>
+            <stop offset="25%" stop-color="#D48C46"/>
+            <stop offset="50%" stop-color="#3D1D08"/>
+            <stop offset="75%" stop-color="#8C532B"/>
+            <stop offset="100%" stop-color="#5C3014"/>
+        </linearGradient>
+        <linearGradient id="m_bh_rim_inner" x1="100%" y1="100%" x2="0%" y2="0%">
+            <stop offset="0%" stop-color="#E8B078"/>
+            <stop offset="50%" stop-color="#8C532B"/>
+            <stop offset="100%" stop-color="#3D1D08"/>
+        </linearGradient>
+
+        <!-- Medallion Face Radial Gradient -->
+        <radialGradient id="m_bh_face" cx="45%" cy="40%" r="65%">
+            <stop offset="0%" stop-color="#A86834"/>
+            <stop offset="70%" stop-color="#4A240C"/>
+            <stop offset="100%" stop-color="#0A0604"/>
+        </radialGradient>
+
+        <!-- Gold Relief Gradient for Emblems -->
+        <linearGradient id="m_bh_gold_relief" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#FFF8D6"/>
+            <stop offset="35%" stop-color="#FFDF66"/>
+            <stop offset="70%" stop-color="#C2870A"/>
+            <stop offset="100%" stop-color="#734F00"/>
+        </linearGradient>
+
+        <!-- Silver Relief Gradient -->
+        <linearGradient id="m_bh_silver_relief" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#FFFFFF"/>
+            <stop offset="35%" stop-color="#E1E8F0"/>
+            <stop offset="70%" stop-color="#8E9AA6"/>
+            <stop offset="100%" stop-color="#4B5560"/>
+        </linearGradient>
+    </defs>    <!-- Hanging Ribbon -->
+    <g filter="url(#m_bh_shadow)">
+        <polygon points="35,8 85,8 85,55 60,68 35,55" fill="url(#m_bh_rib_l)"/>
+        <polygon points="50,8 70,8 70,62 60,68 50,62" fill="url(#m_bh_rib_stripe)"/>
+        <polygon points="35,8 85,8 85,55 60,68 35,55" fill="url(#m_bh_rib_v)"/>
+        <line x1="37" y1="8" x2="37" y2="56" stroke="#FFD700" stroke-width="1.5" opacity="0.75"/>
+        <line x1="83" y1="8" x2="83" y2="56" stroke="#FFD700" stroke-width="1.5" opacity="0.75"/>
+    </g>
+
+    <!-- Top Hanger Bar / Clasp -->
+    <g filter="url(#m_bh_shadow)">
+        <rect x="28" y="5" width="64" height="8" rx="2.5" fill="url(#m_bh_clasp)" stroke="#3D2505" stroke-width="0.8"/>
+        <circle cx="32" cy="9" r="1.5" fill="#FFF" opacity="0.8"/>
+        <circle cx="88" cy="9" r="1.5" fill="#FFF" opacity="0.8"/>
+    </g>
+
+    <!-- Connecting Suspension Ring -->
+    <circle cx="60" cy="65" r="8" fill="none" stroke="url(#m_bh_ring)" stroke-width="3" filter="url(#m_bh_shadow)"/>
+
+    <!-- Circular Medallion Body -->
+    <g filter="url(#m_bh_shadow)">
+        <circle cx="60" cy="102" r="43" fill="url(#m_bh_rim)" stroke="#1F1206" stroke-width="1"/>
+        <circle cx="60" cy="102" r="39.5" fill="none" stroke="url(#m_bh_rim_inner)" stroke-width="1.5" stroke-dasharray="1.8,1.8"/>
+        <circle cx="60" cy="102" r="37" fill="url(#m_bh_rim_inner)" stroke="#261608" stroke-width="0.8"/>
+        <circle cx="60" cy="102" r="34" fill="url(#m_bh_face)"/>
+        <g opacity="0.18" stroke="#FFFFFF" stroke-width="0.7">
+            <line x1="72" y1="102" x2="93" y2="102"/>
+            <line x1="71.1" y1="106.6" x2="90.5" y2="114.6"/>
+            <line x1="68.5" y1="110.5" x2="83.3" y2="125.3"/>
+            <line x1="64.6" y1="113.1" x2="72.6" y2="132.5"/>
+            <line x1="60" y1="114" x2="60" y2="135"/>
+            <line x1="55.4" y1="113.1" x2="47.4" y2="132.5"/>
+            <line x1="51.5" y1="110.5" x2="36.7" y2="125.3"/>
+            <line x1="48.9" y1="106.6" x2="29.5" y2="114.6"/>
+            <line x1="48" y1="102" x2="27" y2="102"/>
+            <line x1="48.9" y1="97.4" x2="29.5" y2="89.4"/>
+            <line x1="51.5" y1="93.5" x2="36.7" y2="78.7"/>
+            <line x1="55.4" y1="90.9" x2="47.4" y2="71.5"/>
+            <line x1="60" y1="90" x2="60" y2="69"/>
+            <line x1="64.6" y1="90.9" x2="72.6" y2="71.5"/>
+            <line x1="68.5" y1="93.5" x2="83.3" y2="78.7"/>
+            <line x1="71.1" y1="97.4" x2="90.5" y2="89.4"/>
+        </g>
+        <!-- Laurel Wreath Inner Border -->
+        <g opacity="0.4" fill="url(#m_bh_gold_relief)">
+            <ellipse cx="34" cy="87" rx="2.5" ry="4.5" transform="rotate(-60 34 87)"/>
+            <ellipse cx="86" cy="87" rx="2.5" ry="4.5" transform="rotate(60 86 87)"/>
+            <ellipse cx="42.4" cy="77.7" rx="2.5" ry="4.5" transform="rotate(-36 42.4 77.7)"/>
+            <ellipse cx="77.6" cy="77.7" rx="2.5" ry="4.5" transform="rotate(36 77.6 77.7)"/>
+            <ellipse cx="53.8" cy="72.7" rx="2.5" ry="4.5" transform="rotate(-12 53.8 72.7)"/>
+            <ellipse cx="66.2" cy="72.7" rx="2.5" ry="4.5" transform="rotate(12 66.2 72.7)"/>
+            <ellipse cx="66.2" cy="72.7" rx="2.5" ry="4.5" transform="rotate(12 66.2 72.7)"/>
+            <ellipse cx="53.8" cy="72.7" rx="2.5" ry="4.5" transform="rotate(-12 53.8 72.7)"/>
+            <ellipse cx="77.6" cy="77.7" rx="2.5" ry="4.5" transform="rotate(36 77.6 77.7)"/>
+            <ellipse cx="42.4" cy="77.7" rx="2.5" ry="4.5" transform="rotate(-36 42.4 77.7)"/>
+            <ellipse cx="86" cy="87" rx="2.5" ry="4.5" transform="rotate(60 86 87)"/>
+            <ellipse cx="34" cy="87" rx="2.5" ry="4.5" transform="rotate(-60 34 87)"/>
+        </g>
+    </g>
+
+    <!-- Emblem: Bandit Hunter (Outlaw Skull & Daggers) -->
+    <g filter="url(#m_bh_emboss)" fill="url(#m_bh_bronze_relief ?? #m_bh_gold_relief)" stroke="#3D1A04" stroke-width="0.7">
+        <!-- Crossed Daggers -->
+        <path d="M 42,86 L 78,118 M 40,84 L 46,85 L 43,91 Z M 76,116 L 81,121 L 79,123 L 74,118 Z"/>
+        <path d="M 78,86 L 42,118 M 80,84 L 77,91 L 74,85 Z M 44,116 L 39,121 L 41,123 L 46,118 Z"/>
+        <!-- Outlaw Bandana Wrap -->
+        <path d="M 47,94 Q 60,86 73,94 L 71,98 Q 60,91 49,98 Z" fill="#C43B27"/>
+        <!-- Skull Base -->
+        <path d="M 49,95 C 47,88 73,88 71,95 C 72,103 69,107 66,108 L 66,113 L 54,113 L 54,108 C 51,107 48,103 49,95 Z" fill="#F4EDE0"/>
+        <!-- Eye Sockets (one with eyepatch strap) -->
+        <line x1="47" y1="94" x2="65" y2="108" stroke="#1F150A" stroke-width="1.2"/>
+        <circle cx="55" cy="101" r="3.2" fill="#1F150A"/>
+        <circle cx="65" cy="101" r="3.2" fill="#1F150A"/>
+        <!-- Nose Cavity & Teeth -->
+        <polygon points="60,105 58,108 62,108" fill="#1F150A"/>
+        <rect x="56" y="110" width="1.8" height="2.5" fill="#1F150A"/>
+        <rect x="59.1" y="110" width="1.8" height="2.5" fill="#1F150A"/>
+        <rect x="62.2" y="110" width="1.8" height="2.5" fill="#1F150A"/>
+    </g>    <!-- Tier Stars -->
+    <g filter="url(#m_bh_shadow)" fill="url(#m_bh_gold_relief)" stroke="#4A2E00" stroke-width="0.5">
+        <path d="M 60,135 m 0,-5.5 1.6,3.6 3.9,0.4 -2.9,2.6 0.8,3.9 -3.4,-2 -3.4,2 0.8,-3.9 -2.9,-2.6 3.9,-0.4 z"/>
+    </g>
+    <!-- Bottom Ribbon Title Scroll -->
+    <g filter="url(#m_bh_shadow)">
+        <path d="M 26,140 Q 60,135 94,140 L 98,148 Q 60,143 22,148 Z" fill="#241407" stroke="#C9A020" stroke-width="0.8"/>
+        <text x="60" y="145.5" font-family="'Georgia', 'Times New Roman', serif" font-size="6.5" font-weight="bold" fill="#FFE680" text-anchor="middle" letter-spacing="0.8">BANDIT HUNTER</text>
+    </g></svg>

@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 155" width="120" height="155">
+    <defs>
+        <!-- Drop Shadow Filters -->
+        <filter id="m_fm_shadow" x="-20%" y="-15%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="4" stdDeviation="3.5" flood-color="#000000" flood-opacity="0.55"/>
+        </filter>
+        <filter id="m_fm_emboss" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="1.5" stdDeviation="1" flood-color="#FFFFFF" flood-opacity="0.75" result="light"/>
+            <feDropShadow dx="0" dy="-1.5" stdDeviation="1" flood-color="#000000" flood-opacity="0.65" result="dark"/>
+        </filter>
+        <filter id="m_fm_glow" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="3" result="blur"/>
+            <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+        </filter>
+
+        <!-- Ribbon Gradients -->
+        <linearGradient id="m_fm_rib_l" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#212121"/>
+            <stop offset="30%" stop-color="#424242"/>
+            <stop offset="70%" stop-color="#0D0D0D"/>
+            <stop offset="100%" stop-color="#212121"/>
+        </linearGradient>
+        <linearGradient id="m_fm_rib_stripe" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#FF6D00"/>
+            <stop offset="50%" stop-color="#FFA726"/>
+            <stop offset="100%" stop-color="#FF6D00"/>
+        </linearGradient>
+        <linearGradient id="m_fm_rib_v" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.25"/>
+            <stop offset="20%" stop-color="#FFFFFF" stop-opacity="0.0"/>
+            <stop offset="80%" stop-color="#000000" stop-opacity="0.0"/>
+            <stop offset="100%" stop-color="#000000" stop-opacity="0.45"/>
+        </linearGradient>
+
+        <!-- Clasp / Bar Gradients -->
+        <linearGradient id="m_fm_clasp" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#E5C158"/>
+            <stop offset="25%" stop-color="#FFFFFF"/>
+            <stop offset="50%" stop-color="#E5C158"/>
+            <stop offset="100%" stop-color="#3D3422"/>
+        </linearGradient>
+        <linearGradient id="m_fm_ring" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#E5C158"/>
+            <stop offset="40%" stop-color="#FFFFFF"/>
+            <stop offset="70%" stop-color="#0F0D0C"/>
+            <stop offset="100%" stop-color="#E5C158"/>
+        </linearGradient>
+
+        <!-- Medallion Rim Gradients -->
+        <linearGradient id="m_fm_rim" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#FFDF73"/>
+            <stop offset="25%" stop-color="#FFF2A3"/>
+            <stop offset="50%" stop-color="#0F0D0C"/>
+            <stop offset="75%" stop-color="#D4AF37"/>
+            <stop offset="100%" stop-color="#1F1B18"/>
+        </linearGradient>
+        <linearGradient id="m_fm_rim_inner" x1="100%" y1="100%" x2="0%" y2="0%">
+            <stop offset="0%" stop-color="#FFDF73"/>
+            <stop offset="50%" stop-color="#D4AF37"/>
+            <stop offset="100%" stop-color="#0F0D0C"/>
+        </linearGradient>
+
+        <!-- Medallion Face Radial Gradient -->
+        <radialGradient id="m_fm_face" cx="45%" cy="40%" r="65%">
+            <stop offset="0%" stop-color="#2A2624"/>
+            <stop offset="70%" stop-color="#12100F"/>
+            <stop offset="100%" stop-color="#0A0604"/>
+        </radialGradient>
+
+        <!-- Gold Relief Gradient for Emblems -->
+        <linearGradient id="m_fm_gold_relief" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#FFF8D6"/>
+            <stop offset="35%" stop-color="#FFDF66"/>
+            <stop offset="70%" stop-color="#C2870A"/>
+            <stop offset="100%" stop-color="#734F00"/>
+        </linearGradient>
+
+        <!-- Silver Relief Gradient -->
+        <linearGradient id="m_fm_silver_relief" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#FFFFFF"/>
+            <stop offset="35%" stop-color="#E1E8F0"/>
+            <stop offset="70%" stop-color="#8E9AA6"/>
+            <stop offset="100%" stop-color="#4B5560"/>
+        </linearGradient>
+    </defs>    <!-- Hanging Ribbon -->
+    <g filter="url(#m_fm_shadow)">
+        <polygon points="32,8 88,8 74,66 60,78 46,66" fill="url(#m_fm_rib_l)"/>
+        <polygon points="52,8 68,8 60,78" fill="url(#m_fm_rib_stripe)"/>
+        <polygon points="32,8 88,8 74,66 60,78 46,66" fill="url(#m_fm_rib_v)"/>
+    </g>
+
+    <!-- Top Hanger Bar / Clasp -->
+    <g filter="url(#m_fm_shadow)">
+        <rect x="28" y="5" width="64" height="8" rx="2.5" fill="url(#m_fm_clasp)" stroke="#3D2505" stroke-width="0.8"/>
+        <circle cx="32" cy="9" r="1.5" fill="#FFF" opacity="0.8"/>
+        <circle cx="88" cy="9" r="1.5" fill="#FFF" opacity="0.8"/>
+    </g>
+
+    <!-- Connecting Suspension Ring -->
+    <circle cx="60" cy="65" r="8" fill="none" stroke="url(#m_fm_ring)" stroke-width="3" filter="url(#m_fm_shadow)"/>
+
+    <!-- Circular Medallion Body -->
+    <g filter="url(#m_fm_shadow)">
+        <circle cx="60" cy="102" r="43" fill="url(#m_fm_rim)" stroke="#1F1206" stroke-width="1"/>
+        <circle cx="60" cy="102" r="39.5" fill="none" stroke="url(#m_fm_rim_inner)" stroke-width="1.5" stroke-dasharray="1.8,1.8"/>
+        <circle cx="60" cy="102" r="37" fill="url(#m_fm_rim_inner)" stroke="#261608" stroke-width="0.8"/>
+        <circle cx="60" cy="102" r="34" fill="url(#m_fm_face)"/>
+        <g opacity="0.18" stroke="#FFFFFF" stroke-width="0.7">
+            <line x1="72" y1="102" x2="93" y2="102"/>
+            <line x1="71.1" y1="106.6" x2="90.5" y2="114.6"/>
+            <line x1="68.5" y1="110.5" x2="83.3" y2="125.3"/>
+            <line x1="64.6" y1="113.1" x2="72.6" y2="132.5"/>
+            <line x1="60" y1="114" x2="60" y2="135"/>
+            <line x1="55.4" y1="113.1" x2="47.4" y2="132.5"/>
+            <line x1="51.5" y1="110.5" x2="36.7" y2="125.3"/>
+            <line x1="48.9" y1="106.6" x2="29.5" y2="114.6"/>
+            <line x1="48" y1="102" x2="27" y2="102"/>
+            <line x1="48.9" y1="97.4" x2="29.5" y2="89.4"/>
+            <line x1="51.5" y1="93.5" x2="36.7" y2="78.7"/>
+            <line x1="55.4" y1="90.9" x2="47.4" y2="71.5"/>
+            <line x1="60" y1="90" x2="60" y2="69"/>
+            <line x1="64.6" y1="90.9" x2="72.6" y2="71.5"/>
+            <line x1="68.5" y1="93.5" x2="83.3" y2="78.7"/>
+            <line x1="71.1" y1="97.4" x2="90.5" y2="89.4"/>
+        </g>
+        <!-- Laurel Wreath Inner Border -->
+        <g opacity="0.4" fill="url(#m_fm_gold_relief)">
+            <ellipse cx="34" cy="87" rx="2.5" ry="4.5" transform="rotate(-60 34 87)"/>
+            <ellipse cx="86" cy="87" rx="2.5" ry="4.5" transform="rotate(60 86 87)"/>
+            <ellipse cx="42.4" cy="77.7" rx="2.5" ry="4.5" transform="rotate(-36 42.4 77.7)"/>
+            <ellipse cx="77.6" cy="77.7" rx="2.5" ry="4.5" transform="rotate(36 77.6 77.7)"/>
+            <ellipse cx="53.8" cy="72.7" rx="2.5" ry="4.5" transform="rotate(-12 53.8 72.7)"/>
+            <ellipse cx="66.2" cy="72.7" rx="2.5" ry="4.5" transform="rotate(12 66.2 72.7)"/>
+            <ellipse cx="66.2" cy="72.7" rx="2.5" ry="4.5" transform="rotate(12 66.2 72.7)"/>
+            <ellipse cx="53.8" cy="72.7" rx="2.5" ry="4.5" transform="rotate(-12 53.8 72.7)"/>
+            <ellipse cx="77.6" cy="77.7" rx="2.5" ry="4.5" transform="rotate(36 77.6 77.7)"/>
+            <ellipse cx="42.4" cy="77.7" rx="2.5" ry="4.5" transform="rotate(-36 42.4 77.7)"/>
+            <ellipse cx="86" cy="87" rx="2.5" ry="4.5" transform="rotate(60 86 87)"/>
+            <ellipse cx="34" cy="87" rx="2.5" ry="4.5" transform="rotate(-60 34 87)"/>
+        </g>
+    </g>
+
+    <!-- Emblem: Grand Forge Master (Anvil, Hammer & Tempered Sword) -->
+    <g filter="url(#m_fm_emboss)">
+        <!-- Fire & Sparks Blast -->
+        <circle cx="60" cy="92" r="14" fill="#FF5722" opacity="0.6" filter="url(#m_fm_glow)"/>
+        <circle cx="60" cy="92" r="8" fill="#FFEB3B" opacity="0.8"/>
+        <circle cx="53" cy="85" r="1.5" fill="#FFF"/>
+        <circle cx="67" cy="83" r="1.5" fill="#FFF"/>
+        <!-- Heavy Steel Anvil -->
+        <path d="M 42,98 L 74,98 L 78,102 L 72,105 L 67,105 L 69,114 L 51,114 L 53,105 L 42,105 L 38,98 Z" fill="#37474F" stroke="#102027" stroke-width="1"/>
+        <!-- Fiery Glowing Sword Point Down into Anvil -->
+        <line x1="60" y1="77" x2="60" y2="98" stroke="#FFF9C4" stroke-width="3" stroke-linecap="round"/>
+        <line x1="56" y1="81" x2="64" y2="81" stroke="#FFD700" stroke-width="2"/>
+        <!-- Heavy Blacksmith Hammer striking from above right -->
+        <line x1="74" y1="76" x2="63" y2="87" stroke="#8D6E63" stroke-width="2.5" stroke-linecap="round"/>
+        <rect x="58" y="85" width="8" height="5" rx="1" fill="#78909C" stroke="#263238" stroke-width="0.8" transform="rotate(45 62 87)"/>
+    </g>    <!-- Tier Stars -->
+    <g filter="url(#m_fm_shadow)" fill="url(#m_fm_gold_relief)" stroke="#4A2E00" stroke-width="0.5">
+        <path d="M 49,135 m 0,-5.5 1.6,3.6 3.9,0.4 -2.9,2.6 0.8,3.9 -3.4,-2 -3.4,2 0.8,-3.9 -2.9,-2.6 3.9,-0.4 z"/>
+        <path d="M 60,135 m 0,-5.5 1.6,3.6 3.9,0.4 -2.9,2.6 0.8,3.9 -3.4,-2 -3.4,2 0.8,-3.9 -2.9,-2.6 3.9,-0.4 z"/>
+        <path d="M 71,135 m 0,-5.5 1.6,3.6 3.9,0.4 -2.9,2.6 0.8,3.9 -3.4,-2 -3.4,2 0.8,-3.9 -2.9,-2.6 3.9,-0.4 z"/>
+    </g>
+    <!-- Bottom Ribbon Title Scroll -->
+    <g filter="url(#m_fm_shadow)">
+        <path d="M 26,140 Q 60,135 94,140 L 98,148 Q 60,143 22,148 Z" fill="#241407" stroke="#C9A020" stroke-width="0.8"/>
+        <text x="60" y="145.5" font-family="'Georgia', 'Times New Roman', serif" font-size="6.5" font-weight="bold" fill="#FFE680" text-anchor="middle" letter-spacing="0.8">FORGE MASTER</text>
+    </g></svg>

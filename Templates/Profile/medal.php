@@ -19,7 +19,7 @@
 
     //gp link
     $separator=isset($separator)? $separator:"";
-    $gpack_load=isset($user['gpack'])? $user['gpack']:$database->getUserField($_SESSION['username'], 'gpack', 1);
+    $gpack_load = isset($user['gpack']) ? $user['gpack'] : (!empty($_SESSION['username']) ? $database->getUserField($_SESSION['username'], 'gpack', 1) : null);
     if($gpack_load== null || GP_ENABLE == false) {
     $gpack= $separator.GP_LOCATE;
     } else {
@@ -234,6 +234,202 @@ if(defined('NEW_FUNCTIONS_SPECIAL_MEDALS_SYSTEM') && NEW_FUNCTIONS_SPECIAL_MEDAL
     $profiel = str_replace("[#WALLMASTER]", "", $profiel);
 	}
 
+}
+
+// ====================================================
+// PVE & ACHIEVEMENT MEDALS SYSTEM
+// ====================================================
+$achUid = (int)($displayarray['id'] ?? 0);
+if ($achUid > 0) {
+    $achUser = htmlspecialchars($displayarray['username'] ?? '', ENT_QUOTES);
+    $achTribeMap = [1=>'Romans',2=>'Teutons',3=>'Gauls',6=>'Huns',7=>'Egyptians',8=>'Spartans',9=>'Vikings',10=>'Nusantara'];
+    $achTribe = $achTribeMap[$displayarray['tribe'] ?? 0] ?? 'Travian';
+
+    // 1. Bandit Hunter Series & Boss Slayer
+    if (preg_match('/\[#(BANDITHUNTER|BANDIT1|BANDITSLAYER|BANDIT2|BANDITNEMESIS|BANDIT3|BOSSSLAYER|BOSS1)\]/i', $profiel)) {
+        $qBandit = $database->query("
+            SELECT 
+                COUNT(*) as total_camps, 
+                SUM(CASE WHEN tier = 4 THEN 1 ELSE 0 END) as boss_camps 
+            FROM " . TB_PREFIX . "bandit_camps 
+            WHERE cleared_by = $achUid
+        ");
+        $banditData = ($qBandit && $r = $qBandit->fetch_assoc()) ? $r : ['total_camps' => 0, 'boss_camps' => 0];
+        $totalBanditCamps = (int)($banditData['total_camps'] ?? 0);
+        $totalBossCamps   = (int)($banditData['boss_camps'] ?? 0);
+
+        // [#BANDITHUNTER] / [#BANDIT1] - 10+ camps
+        if ($totalBanditCamps >= 10) {
+            $tip = "<table><tr><td>Name:</td><td>{$achUser}</td></tr><tr><td>Tribe:</td><td>{$achTribe}</td></tr><tr><td>Category:</td><td>Bandit Hunter</td></tr><tr><td>Camps Cleared:</td><td>{$totalBanditCamps}</td></tr><tr><td>Title:</td><td>Frontier Guardian</td></tr></table>";
+            $profiel = preg_replace('/\[#(BANDITHUNTER|BANDIT1)\]/i', "<img src='{$gpack}img/gloriamedals/bandit_hunter.svg' width='76' height='98' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
+        } else {
+            $profiel = preg_replace('/\[#(BANDITHUNTER|BANDIT1)\]/i', '', $profiel);
+        }
+
+        // [#BANDITSLAYER] / [#BANDIT2] - 30+ camps
+        if ($totalBanditCamps >= 30) {
+            $tip = "<table><tr><td>Name:</td><td>{$achUser}</td></tr><tr><td>Tribe:</td><td>{$achTribe}</td></tr><tr><td>Category:</td><td>Bandit Slayer</td></tr><tr><td>Camps Cleared:</td><td>{$totalBanditCamps}</td></tr><tr><td>Title:</td><td>Scourge of Outlaws</td></tr></table>";
+            $profiel = preg_replace('/\[#(BANDITSLAYER|BANDIT2)\]/i', "<img src='{$gpack}img/gloriamedals/bandit_slayer.svg' width='76' height='98' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
+        } else {
+            $profiel = preg_replace('/\[#(BANDITSLAYER|BANDIT2)\]/i', '', $profiel);
+        }
+
+        // [#BANDITNEMESIS] / [#BANDIT3] - 75+ camps
+        if ($totalBanditCamps >= 75) {
+            $tip = "<table><tr><td>Name:</td><td>{$achUser}</td></tr><tr><td>Tribe:</td><td>{$achTribe}</td></tr><tr><td>Category:</td><td>Bandit Nemesis</td></tr><tr><td>Camps Cleared:</td><td>{$totalBanditCamps}</td></tr><tr><td>Title:</td><td>Terror of Banditry</td></tr></table>";
+            $profiel = preg_replace('/\[#(BANDITNEMESIS|BANDIT3)\]/i', "<img src='{$gpack}img/gloriamedals/bandit_nemesis.svg' width='76' height='98' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
+        } else {
+            $profiel = preg_replace('/\[#(BANDITNEMESIS|BANDIT3)\]/i', '', $profiel);
+        }
+
+        // [#BOSSSLAYER] / [#BOSS1] - 1+ World Boss (Tier 4)
+        if ($totalBossCamps >= 1) {
+            $tip = "<table><tr><td>Name:</td><td>{$achUser}</td></tr><tr><td>Tribe:</td><td>{$achTribe}</td></tr><tr><td>Category:</td><td>World Boss Slayer</td></tr><tr><td>Bosses Defeated:</td><td>{$totalBossCamps}</td></tr><tr><td>Title:</td><td>Titan Conqueror</td></tr></table>";
+            $profiel = preg_replace('/\[#(BOSSSLAYER|BOSS1)\]/i', "<img src='{$gpack}img/gloriamedals/boss_slayer.svg' width='76' height='98' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
+        } else {
+            $profiel = preg_replace('/\[#(BOSSSLAYER|BOSS1)\]/i', '', $profiel);
+        }
+    }
+
+    // 2. Boss Raider / Grand Vanguard (Damage Dealt >= 50,000)
+    if (preg_match('/\[#BOSSRAIDER\]/i', $profiel)) {
+        $qDmg = $database->query("SELECT SUM(damage_dealt) as total_dmg FROM " . TB_PREFIX . "bandit_camp_attacks WHERE uid = $achUid");
+        $totalBossDmg = (int)(($qDmg && $r = $qDmg->fetch_assoc()) ? $r['total_dmg'] : 0);
+        if ($totalBossDmg >= 50000) {
+            $fmtDmg = number_format($totalBossDmg);
+            $tip = "<table><tr><td>Name:</td><td>{$achUser}</td></tr><tr><td>Tribe:</td><td>{$achTribe}</td></tr><tr><td>Category:</td><td>Grand Vanguard</td></tr><tr><td>Raid Damage:</td><td>{$fmtDmg}</td></tr><tr><td>Title:</td><td>Frontline Crusher</td></tr></table>";
+            $profiel = preg_replace('/\[#BOSSRAIDER\]/i', "<img src='{$gpack}img/gloriamedals/boss_raider.svg' width='76' height='98' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
+        } else {
+            $profiel = preg_replace('/\[#BOSSRAIDER\]/i', '', $profiel);
+        }
+    }
+
+    // 3. Oasis Master ([#OASISMASTER] >= 3 oases)
+    if (preg_match('/\[#OASISMASTER\]/i', $profiel)) {
+        $qOasis = $database->query("SELECT COUNT(*) as c FROM " . TB_PREFIX . "odata WHERE owner = $achUid");
+        $oasisCount = (int)(($qOasis && $r = $qOasis->fetch_assoc()) ? $r['c'] : 0);
+        if ($oasisCount >= 3) {
+            $tip = "<table><tr><td>Name:</td><td>{$achUser}</td></tr><tr><td>Tribe:</td><td>{$achTribe}</td></tr><tr><td>Category:</td><td>Oasis Master</td></tr><tr><td>Oases Held:</td><td>{$oasisCount}</td></tr><tr><td>Title:</td><td>Sovereign of the Wild</td></tr></table>";
+            $profiel = preg_replace('/\[#OASISMASTER\]/i', "<img src='{$gpack}img/gloriamedals/oasis_master.svg' width='76' height='98' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
+        } else {
+            $profiel = preg_replace('/\[#OASISMASTER\]/i', '', $profiel);
+        }
+    }
+
+    // 4. Grand Warlord ([#WARLORD] >= 20,000 standing army in one village)
+    if (preg_match('/\[#WARLORD\]/i', $profiel)) {
+        $qArmy = $database->query("
+            SELECT MAX(u1+u2+u3+u4+u5+u6+u7+u8+u9+u10) as max_army 
+            FROM " . TB_PREFIX . "units u
+            JOIN " . TB_PREFIX . "vdata v ON v.wref = u.vref
+            WHERE v.owner = $achUid
+        ");
+        $maxArmy = (int)(($qArmy && $r = $qArmy->fetch_assoc()) ? $r['max_army'] : 0);
+        if ($maxArmy >= 20000) {
+            $fmtArmy = number_format($maxArmy);
+            $tip = "<table><tr><td>Name:</td><td>{$achUser}</td></tr><tr><td>Tribe:</td><td>{$achTribe}</td></tr><tr><td>Category:</td><td>Grand Warlord</td></tr><tr><td>Peak Army:</td><td>{$fmtArmy} troops</td></tr><tr><td>Title:</td><td>Commander of Armies</td></tr></table>";
+            $profiel = preg_replace('/\[#WARLORD\]/i', "<img src='{$gpack}img/gloriamedals/warlord.svg' width='76' height='98' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
+        } else {
+            $profiel = preg_replace('/\[#WARLORD\]/i', '', $profiel);
+        }
+    }
+
+    // 5. Master of Whispers ([#SCOUTMASTER] >= 2,000 scouts in one village)
+    if (preg_match('/\[#SCOUTMASTER\]/i', $profiel)) {
+        $qScout = $database->query("
+            SELECT MAX(u4+u14+u24+u54+u64+u74+u84+u94) as max_scouts
+            FROM " . TB_PREFIX . "units u
+            JOIN " . TB_PREFIX . "vdata v ON v.wref = u.vref
+            WHERE v.owner = $achUid
+        ");
+        $maxScouts = (int)(($qScout && $r = $qScout->fetch_assoc()) ? $r['max_scouts'] : 0);
+        if ($maxScouts >= 2000) {
+            $fmtScouts = number_format($maxScouts);
+            $tip = "<table><tr><td>Name:</td><td>{$achUser}</td></tr><tr><td>Tribe:</td><td>{$achTribe}</td></tr><tr><td>Category:</td><td>Master of Whispers</td></tr><tr><td>Peak Scouts:</td><td>{$fmtScouts} scouts</td></tr><tr><td>Title:</td><td>All-Seeing Eye</td></tr></table>";
+            $profiel = preg_replace('/\[#SCOUTMASTER\]/i', "<img src='{$gpack}img/gloriamedals/scout_master.svg' width='76' height='98' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
+        } else {
+            $profiel = preg_replace('/\[#SCOUTMASTER\]/i', '', $profiel);
+        }
+    }
+
+    // 6. Imperium ([#IMPERIUM] >= 5 settlements)
+    if (preg_match('/\[#IMPERIUM\]/i', $profiel)) {
+        $qVil = $database->query("SELECT COUNT(*) as total_vils, SUM(pop) as total_pop FROM " . TB_PREFIX . "vdata WHERE owner = $achUid");
+        $vilData = ($qVil && $r = $qVil->fetch_assoc()) ? $r : ['total_vils' => 0, 'total_pop' => 0];
+        $totalVils = (int)($vilData['total_vils'] ?? 0);
+        $totalPop  = (int)($vilData['total_pop'] ?? 0);
+        if ($totalVils >= 5) {
+            $fmtPop = number_format($totalPop);
+            $tip = "<table><tr><td>Name:</td><td>{$achUser}</td></tr><tr><td>Tribe:</td><td>{$achTribe}</td></tr><tr><td>Category:</td><td>Imperium</td></tr><tr><td>Settlements:</td><td>{$totalVils}</td></tr><tr><td>Population:</td><td>{$fmtPop}</td></tr><tr><td>Title:</td><td>Emperor of Realms</td></tr></table>";
+            $profiel = preg_replace('/\[#IMPERIUM\]/i', "<img src='{$gpack}img/gloriamedals/imperium.svg' width='76' height='98' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
+        } else {
+            $profiel = preg_replace('/\[#IMPERIUM\]/i', '', $profiel);
+        }
+    }
+
+    // 7. Metropolis ([#METROPOLIS] >= 1,000 population in a single village)
+    if (preg_match('/\[#METROPOLIS\]/i', $profiel)) {
+        $qMetro = $database->query("SELECT name, pop FROM " . TB_PREFIX . "vdata WHERE owner = $achUid ORDER BY pop DESC LIMIT 1");
+        $metroData = ($qMetro && $r = $qMetro->fetch_assoc()) ? $r : ['name' => '', 'pop' => 0];
+        $maxPop = (int)($metroData['pop'] ?? 0);
+        $maxPopName = htmlspecialchars($metroData['name'] ?? '', ENT_QUOTES);
+        if ($maxPop >= 1000) {
+            $tip = "<table><tr><td>Name:</td><td>{$achUser}</td></tr><tr><td>Tribe:</td><td>{$achTribe}</td></tr><tr><td>Category:</td><td>Metropolis</td></tr><tr><td>Largest City:</td><td>{$maxPopName}</td></tr><tr><td>Population:</td><td>" . number_format($maxPop) . "</td></tr><tr><td>Title:</td><td>Grand City Builder</td></tr></table>";
+            $profiel = preg_replace('/\[#METROPOLIS\]/i', "<img src='{$gpack}img/gloriamedals/metropolis.svg' width='76' height='98' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
+        } else {
+            $profiel = preg_replace('/\[#METROPOLIS\]/i', '', $profiel);
+        }
+    }
+
+    // 8. Economy Tycoon ([#TYCOON] maxstore + maxcrop >= 200,000 in a single village)
+    if (preg_match('/\[#TYCOON\]/i', $profiel)) {
+        $qTycoon = $database->query("SELECT MAX(maxstore + maxcrop) as max_storage FROM " . TB_PREFIX . "vdata WHERE owner = $achUid");
+        $maxStorage = (int)(($qTycoon && $r = $qTycoon->fetch_assoc()) ? $r['max_storage'] : 0);
+        if ($maxStorage >= 200000) {
+            $fmtStore = number_format($maxStorage);
+            $tip = "<table><tr><td>Name:</td><td>{$achUser}</td></tr><tr><td>Tribe:</td><td>{$achTribe}</td></tr><tr><td>Category:</td><td>Economy Tycoon</td></tr><tr><td>Storage Capacity:</td><td>{$fmtStore}</td></tr><tr><td>Title:</td><td>Wealth of Nations</td></tr></table>";
+            $profiel = preg_replace('/\[#TYCOON\]/i', "<img src='{$gpack}img/gloriamedals/tycoon.svg' width='76' height='98' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
+        } else {
+            $profiel = preg_replace('/\[#TYCOON\]/i', '', $profiel);
+        }
+    }
+
+    // 9. Hero Veteran ([#HERO50] Hero level >= 50)
+    if (preg_match('/\[#HERO50\]/i', $profiel)) {
+        $qHero50 = $database->query("SELECT level FROM " . TB_PREFIX . "hero WHERE uid = $achUid LIMIT 1");
+        $heroLvl = (int)(($qHero50 && $r = $qHero50->fetch_assoc()) ? $r['level'] : 0);
+        if ($heroLvl >= 50) {
+            $tip = "<table><tr><td>Name:</td><td>{$achUser}</td></tr><tr><td>Tribe:</td><td>{$achTribe}</td></tr><tr><td>Category:</td><td>Hero Veteran</td></tr><tr><td>Level:</td><td>{$heroLvl}</td></tr><tr><td>Title:</td><td>Seasoned Champion</td></tr></table>";
+            $profiel = preg_replace('/\[#HERO50\]/i', "<img src='{$gpack}img/gloriamedals/hero50.svg' width='76' height='98' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
+        } else {
+            $profiel = preg_replace('/\[#HERO50\]/i', '', $profiel);
+        }
+    }
+
+    // 10. Grand Forge Master ([#FORGEMASTER] Tier 3 or upgraded item in hero_items)
+    if (preg_match('/\[#FORGEMASTER\]/i', $profiel)) {
+        $qForge = $database->query("SELECT COUNT(*) as c FROM " . TB_PREFIX . "hero_items WHERE uid = $achUid AND (itemid % 3 = 0 OR stat_value > 0) AND slot > 0");
+        $forgeItems = (int)(($qForge && $r = $qForge->fetch_assoc()) ? $r['c'] : 0);
+        if ($forgeItems >= 1) {
+            $tip = "<table><tr><td>Name:</td><td>{$achUser}</td></tr><tr><td>Tribe:</td><td>{$achTribe}</td></tr><tr><td>Category:</td><td>Forge Master</td></tr><tr><td>Masterpieces:</td><td>{$forgeItems}</td></tr><tr><td>Title:</td><td>Supreme Blacksmith</td></tr></table>";
+            $profiel = preg_replace('/\[#FORGEMASTER\]/i', "<img src='{$gpack}img/gloriamedals/forge_master.svg' width='76' height='98' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
+        } else {
+            $profiel = preg_replace('/\[#FORGEMASTER\]/i', '', $profiel);
+        }
+    }
+
+    // 11. Alliance Philanthropist ([#PHILANTHROPIST] Total donation >= 500,000 resources)
+    if (preg_match('/\[#PHILANTHROPIST\]/i', $profiel)) {
+        $qDonation = $database->query("SELECT SUM(amount) as total_donated FROM " . TB_PREFIX . "alliance_donation WHERE uid = $achUid");
+        $totalDonated = (int)(($qDonation && $r = $qDonation->fetch_assoc()) ? $r['total_donated'] : 0);
+        if ($totalDonated >= 500000) {
+            $fmtDonated = number_format($totalDonated);
+            $tip = "<table><tr><td>Name:</td><td>{$achUser}</td></tr><tr><td>Tribe:</td><td>{$achTribe}</td></tr><tr><td>Category:</td><td>Alliance Philanthropist</td></tr><tr><td>Donated Resources:</td><td>{$fmtDonated}</td></tr><tr><td>Title:</td><td>Pillar of the Alliance</td></tr></table>";
+            $profiel = preg_replace('/\[#PHILANTHROPIST\]/i', "<img src='{$gpack}img/gloriamedals/philanthropist.svg' width='76' height='98' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
+        } else {
+            $profiel = preg_replace('/\[#PHILANTHROPIST\]/i', '', $profiel);
+        }
+    }
 }
 
 // METHOD CODED IN CONFIG
