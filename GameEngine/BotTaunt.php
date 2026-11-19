@@ -26,6 +26,7 @@ class BotTaunt {
     const EVENT_PLAYER_RAID_SUCCESS= 'player_raid_success';// Player serang bot dan berhasil merampok banyak harta
 
     private static bool $tableChecked = false;
+    private static array $processedBattles = [];
 
     /**
      * Pastikan tabel penampung log cooldown taunt bot tersedia di database.
@@ -225,7 +226,8 @@ class BotTaunt {
         int $totalsend_alldef,
         int $totaldead_alldef,
         array $steal,
-        int $type
+        int $type,
+        int $moveid = 0
     ): void {
         // Jangan proses serangan intai (scout)
         if ($type === 1) {
@@ -238,6 +240,13 @@ class BotTaunt {
         if ($attUid <= 0 || $defUid <= 0 || $attUid === $defUid) {
             return;
         }
+
+        // Deduplikasi in-memory: cegah proses pertempuran yang sama terpicu dua kali
+        $battleKey = ($moveid > 0) ? 'm_' . $moveid : ('b_' . $attUid . '_' . $defUid . '_' . ($from['wref'] ?? 0) . '_' . ($to['wref'] ?? 0));
+        if (isset(self::$processedBattles[$battleKey])) {
+            return;
+        }
+        self::$processedBattles[$battleKey] = true;
 
         $attIsBot = class_exists('BotAI') && BotAI::isBotUser($attUid);
         $defIsBot = class_exists('BotAI') && BotAI::isBotUser($defUid);
@@ -313,12 +322,12 @@ class BotTaunt {
             case self::EVENT_PLAYER_FAIL:
                 $topics = [
                     "Wkwkwk ada yang sedekah mayat nih!",
-                    "Niat nyerang apa mau piknik bro? 😂",
-                    "Turut berduka cita wkwk 💀",
-                    "Lu pikir desa gua kardus ya? 🤣",
+                    "Niat nyerang apa mau piknik bro? :D",
+                    "Turut berduka cita wkwk",
+                    "Lu pikir desa gua kardus ya? wkwk",
                     "Info loker pasukan baru wkwk",
                     "Laporan: Pasukan lu pensiun dini!",
-                    "Aduh aduh... boncos ya dek? 😭",
+                    "Aduh aduh... boncos ya dek? :(",
                     "Santai bro, cuma game wkwk",
                     "GG WP! Pasukan lu punah total!",
                     "Lain kali belajar simulasi tempur dulu ya!",
@@ -349,16 +358,16 @@ class BotTaunt {
 
             case self::EVENT_BOT_RAID_SUCCESS:
                 $topics = [
-                    "Abis kan hartamu! Rasain lu! 🤑",
-                    "Makasih bansos gratisnya ya bos! 🙏",
-                    "Paket penjarahan mendarat mulus! 📦",
+                    "Abis kan hartamu! Rasain lu! :P",
+                    "Makasih bansos gratisnya ya bos! :)",
+                    "Paket penjarahan mendarat mulus!",
                     "Keren juga lumbung pribadi gua di desa lu wkwk",
-                    "Pagi yang cerah untuk malak desa lu! ☀️",
-                    "Lapor: Panen raya di desa lu sukses! 🌾",
-                    "Besok gua mampir nagih pajak lagi ya! 💸",
-                    "Gudang lu bersih kinclong sekarang wkwk 🧹",
-                    "Jangan lupa diisi lagi gudangnya ya! 😉",
-                    "Enak bener ya punya ATM berjalan! 🏧",
+                    "Pagi yang cerah untuk malak desa lu!",
+                    "Lapor: Panen raya di desa lu sukses!",
+                    "Besok gua mampir nagih pajak lagi ya!",
+                    "Gudang lu bersih kinclong sekarang wkwk",
+                    "Jangan lupa diisi lagi gudangnya ya! ;)",
+                    "Enak bener ya punya ATM berjalan!",
                 ];
                 $messages = [
                     "Abis kan hartamu! Rasain lu! Makasih ya bos atas kiriman bansos gratisnya, gudang lu lumayan juga isinya buat renovasi kastil gua wkwk!",
@@ -386,11 +395,11 @@ class BotTaunt {
 
             case self::EVENT_BOT_FAIL:
                 $topics = [
-                    "Awas lu ya, tadi cuma tes ombak! 🌊",
-                    "Hoki doang lu dijagain aliansi! 😒",
-                    "Tunggu pembalasan gua besok! ⚔️",
-                    "Gua tandain koordinat lu! 📍",
-                    "Jangan kepedean dulu bos! 😏",
+                    "Awas lu ya, tadi cuma tes ombak!",
+                    "Hoki doang lu dijagain aliansi!",
+                    "Tunggu pembalasan gua besok!",
+                    "Gua tandain koordinat lu!",
+                    "Jangan kepedean dulu bos! :D",
                 ];
                 $messages = [
                     "Halah hoki doang lu ada reinforce dari aliansi lu! Liat aja ntar malam pas lu tidur pulas!",
@@ -408,11 +417,11 @@ class BotTaunt {
 
             case self::EVENT_PLAYER_RAID_SUCCESS:
                 $topics = [
-                    "Heh maling! Balikin harta gua! 😡",
-                    "Gua tandain nama akun lu! 📝",
-                    "Awas lu ya, tunggu pembalasan gua! 💣",
-                    "Dasar tetangga ga ada akhlak wkwk! 🤬",
-                    "Utang gandum dibalas rata tanah! ☠️",
+                    "Heh maling! Balikin harta gua!",
+                    "Gua tandain nama akun lu!",
+                    "Awas lu ya, tunggu pembalasan gua!",
+                    "Dasar tetangga ga ada akhlak wkwk!",
+                    "Utang gandum dibalas rata tanah!",
                 ];
                 $messages = [
                     "Heh maling! Balikin gandum gua gak lu! Beraninya nyolong pas gua lagi ga megang HP!",
@@ -449,16 +458,16 @@ class BotTaunt {
         switch ($eventType) {
             case self::EVENT_PLAYER_FAIL:
                 $topics = [
-                    "Makan dulu kon, jangan cuma makan angin! 🍲",
-                    "Wkwkwk pasukan lidi ambyar total! 💀",
-                    "Kon, ketiup angin ga tuh pasukannya? 💨",
-                    "Info posyandu & perbaikan gizi mkonmko 🏥",
-                    "Aduh kon... tulang rusuk lu aman kan? 🦴",
-                    "Pasukan kurang karbohidrat rata tanah! 🤣",
-                    "Turut berduka cita buat pasukan biting lu! 🌾",
-                    "Niat perang apa cosplay sedotan es kelapa? 😂",
-                    "Buset kon, disenggol dikit langsung patah! 😭",
-                    "Mkonmko kena mental! Makan gandum dulu gih! 🍚",
+                    "Makan dulu kon, jangan cuma makan angin!",
+                    "Wkwkwk pasukan lidi ambyar total!",
+                    "Kon, ketiup angin ga tuh pasukannya? wkwk",
+                    "Info posyandu & perbaikan gizi mkonmko",
+                    "Aduh kon... tulang rusuk lu aman kan? :D",
+                    "Pasukan kurang karbohidrat rata tanah! wkwk",
+                    "Turut berduka cita buat pasukan biting lu!",
+                    "Niat perang apa cosplay sedotan es kelapa? :D",
+                    "Buset kon, disenggol dikit langsung patah!",
+                    "Mkonmko kena mental! Makan gandum dulu gih!",
                 ];
                 $messages = [
                     "Wkwkwk mkonmko mkonmko... pasukan lu sama kayak badan lu ya kon, kurus kering kena sentil dikit langsung ambyar rata tanah! Makan dulu sono!",
@@ -486,16 +495,16 @@ class BotTaunt {
 
             case self::EVENT_BOT_RAID_SUCCESS:
                 $topics = [
-                    "Abis kan hartamu kon! Mumpung kurus puasa dulu! 🤑",
-                    "Gudang lu kering serasi sama badan lu wkwk 🧹",
-                    "Bansos gandum dari si cungkring mkonmko! 🌾",
-                    "Makasih donasinya ya si lidi! 🙏",
-                    "Kuras tuntas desa mkonmko tanpa ampun! 📦",
-                    "Kon, minum air putih aja dulu ya biar ga lemes! 💧",
-                    "Lapor: Gudang mkonmko bersih tanpa sisa! 💸",
-                    "ATM berjalan terlangsing se-server wkwk! 🏧",
-                    "Pagi yang cerah untuk malak si cungkring! ☀️",
-                    "Mkonmko kena pajak kebugaran wkwk! 🤣",
+                    "Abis kan hartamu kon! Mumpung kurus puasa dulu! :P",
+                    "Gudang lu kering serasi sama badan lu wkwk",
+                    "Bansos gandum dari si cungkring mkonmko!",
+                    "Makasih donasinya ya si lidi! :)",
+                    "Kuras tuntas desa mkonmko tanpa ampun!",
+                    "Kon, minum air putih aja dulu ya biar ga lemes!",
+                    "Lapor: Gudang mkonmko bersih tanpa sisa!",
+                    "ATM berjalan terlangsing se-server wkwk!",
+                    "Pagi yang cerah untuk malak si cungkring!",
+                    "Mkonmko kena pajak kebugaran wkwk!",
                 ];
                 $messages = [
                     "Abis kan hartamu kon! Mumpung gandum lu {stolen} biji gua kuras semua, lu puasa senin-kamis dulu aja ya biar makin estetik badannya wkwk!",
@@ -523,11 +532,11 @@ class BotTaunt {
 
             case self::EVENT_BOT_FAIL:
                 $topics = [
-                    "Halah kon, hoki doang dijagain aliansi! 😒",
-                    "Awas lu ya mkonmko, tunggu pembalasan gua! ⚔️",
-                    "Gua tiup desa lu melayang ntar kon! 💨",
-                    "Sembunyi di mana lu tadi cungkring? 🤔",
-                    "Jangan bangga dulu si lidi! 😏",
+                    "Halah kon, hoki doang dijagain aliansi!",
+                    "Awas lu ya mkonmko, tunggu pembalasan gua! [!]",
+                    "Gua tiup desa lu melayang ntar kon! wkwk",
+                    "Sembunyi di mana lu tadi cungkring? :D",
+                    "Jangan bangga dulu si lidi! :P",
                 ];
                 $messages = [
                     "Halah kon, lu hoki doang tadi ada bantuan aliansi! Kalo 1 lawan 1 mah lu gua tiup aja udah melayang ke pojok peta!",
@@ -543,11 +552,11 @@ class BotTaunt {
 
             case self::EVENT_PLAYER_RAID_SUCCESS:
                 $topics = [
-                    "Heh cungkring! Balikin gandum gua gak lu! 😡",
-                    "Gua tandain nama akun lu mkonmko! 📝",
-                    "Maling gandum buat beli obat gemuk ya lu?! 🤬",
-                    "Awas lu ya kon, gua tiup desa lu! 💣",
-                    "Utang gandum dibalas rata tanah kon! ☠️",
+                    "Heh cungkring! Balikin gandum gua gak lu! [!-]",
+                    "Gua tandain nama akun lu mkonmko! [x]",
+                    "Maling gandum buat beli obat gemuk ya lu?! wkwk",
+                    "Awas lu ya kon, gua tiup desa lu! [!]",
+                    "Utang gandum dibalas rata tanah kon!",
                 ];
                 $messages = [
                     "Heh cungkring mkonmko! Balikin gandum gua gak lu! Lu kira badan lu kurus terus gua ga tega bales nyerang?! Gua tandain akun lu ya!",

@@ -72,8 +72,11 @@ trait DatabaseMessageQueries {
 
     public function sendPendingMessages() {
         if (count(self::$sendMessageQueryCache)) {
-            mysqli_query($this->dblink, "INSERT INTO " . TB_PREFIX . "mdata VALUES " . implode(', ', self::$sendMessageQueryCache));
+            $ret = mysqli_query($this->dblink, "INSERT INTO " . TB_PREFIX . "mdata VALUES " . implode(', ', self::$sendMessageQueryCache));
+            self::$sendMessageQueryCache = [];
+            return $ret;
         }
+        return true;
     }
 
     function setArchived($id, $uid) {

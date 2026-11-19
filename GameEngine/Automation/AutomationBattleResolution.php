@@ -3842,7 +3842,8 @@ trait AutomationBattleResolution {
                                 (int)$totalsend_alldef,
                                 (int)$totaldead_alldef,
                                 $steal,
-                                (int)$type
+                                (int)$type,
+                                (int)($data['moveid'] ?? 0)
                             );
                         } catch (\Throwable $e) {
                             error_log("BotTaunt onBattleResolution error: " . $e->getMessage());

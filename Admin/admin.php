@@ -125,6 +125,7 @@ function admin_validated_page(string $raw): string
         'assassinManager',
         'bastionManager',
         'oasisManager',
+        'heroManager',
     ];
 
     return in_array($raw, $whitelist, true) ? $raw : '';
@@ -322,6 +323,10 @@ if ($page !== '') {
         case 'oasisManager':
             $subpage = 'Oasis & Map Tile Manager';
             $not_include_mootools_js = true;
+            break;
+
+        case 'heroManager':
+            $subpage = '👑 Hero Inventory & Equipment Manager';
             break;
 
         case 'users':
@@ -920,6 +925,8 @@ body.app #menu li.sub ul li a:hover{color:#d97706!important}
                                 <li><a href="?p=users"><?php echo ADMIN_LIST_USERS; ?></a></li>
                                 <li><a href="?p=addUsers"><?php echo ADMIN_CREATE_USERS; ?></a></li>
                                 <li><a href="?p=addTroops"><font color="#38bdf8"><b>⚔️ Troop Manager (Tambah Pasukan)</b></font></a></li>
+                        <li><a href="?p=heroManager"><font color="#f59e0b"><b>👑 Hero Inventory Manager</b></font></a></li>
+                                <li><a href="?p=heroManager"><font color="#f59e0b"><b>👑 Hero Inventory Manager</b></font></a></li>
                                 <li><a href="?p=botManager"><font color="#22c55e"><b>🤖 Bot AI Manager</b></font></a></li>
                                 <li><a href="?p=ormasManager"><font color="#ea580c"><b>🦹 Ormas & Preman Manager</b></font></a></li>
                                 <li><a href="?p=weatherManager"><font color="#0284c7"><b>🌤️ Weather & Disaster Manager</b></font></a></li>
@@ -959,6 +966,7 @@ body.app #menu li.sub ul li a:hover{color:#d97706!important}
                         <li><a href="?p=ban"><?php echo ADMIN_BAN; ?></a></li>
                         <li><a href="?p=multiacc"><?php echo ADMIN_MULTI_ACCOUNT_DETECTION; ?></a></li>
                         <li><a href="?p=addTroops"><font color="#38bdf8"><b>⚔️ Troop Manager (Tambah Pasukan)</b></font></a></li>
+                        <li><a href="?p=heroManager"><font color="#f59e0b"><b>👑 Hero Inventory Manager</b></font></a></li>
                         <li><a href="?p=botManager"><font color="#22c55e"><b>🤖 Bot AI Manager</b></font></a></li>
                         <li><a href="?p=ormasManager"><font color="#ea580c"><b>🦹 Ormas & Preman Manager</b></font></a></li>
                         <li><a href="?p=weatherManager"><font color="#0284c7"><b>🌤️ Weather & Disaster Manager</b></font></a></li>
