@@ -464,6 +464,22 @@ if ($tab === 'history') {
 		.btn-pve-rally:hover {
 			background: #d35400;
 		}
+		.btn-pve-expedition {
+			display: inline-block;
+			background: #4f46e5;
+			color: #ffffff !important;
+			padding: 3px 8px;
+			border-radius: 3px;
+			font-weight: bold;
+			font-size: 10px;
+			text-decoration: none !important;
+			border: 1px solid #4338ca;
+			box-shadow: 0 1px 3px rgba(79, 70, 229, 0.25);
+			transition: background 0.15s ease;
+		}
+		.btn-pve-expedition:hover {
+			background: #4338ca;
+		}
 		.btn-pve-map {
 			display: inline-block;
 			background: #f4efe2;
@@ -635,6 +651,9 @@ if ($tab === 'history') {
 			<a href="bandit.php?tab=history" class="pve-tab-btn <?php if($tab == 'history') echo 'active'; ?>">
 				🏆 Riwayat
 			</a>
+			<a href="expedition.php" class="pve-tab-btn" style="border-color: #a5b4fc; background: #eef2ff; color: #4338ca;">
+				🛡️ Ekspedisi Co-op
+			</a>
 		</div>
 
 		<!-- VILLAGE REFERENCE & TOTAL TARGETS -->
@@ -763,6 +782,9 @@ if ($tab === 'history') {
 									<a class="btn-pve-raid" href="a2b.php?s=2&z=<?php echo $camp['wref']; ?>&c=4">⚔️ Serbu / Jarah</a>
 								<?php } else { ?>
 									<a class="btn-pve-rally" href="build.php?id=39" title="Klik untuk membangun Titik Temu di desa ini">🏛️ Bangun Titik Temu</a>
+								<?php } ?>
+								<?php if ((int)$camp['tier'] >= 3 && (int)$camp['cur_hp'] > 0) { ?>
+									<a class="btn-pve-expedition" href="expedition.php?camp=<?php echo $camp['id']; ?>" title="Buka / Gabung ke Forward Camp ekspedisi aliansi">🛡️ Ekspedisi Co-op</a>
 								<?php } ?>
 							</div>
 						</div>

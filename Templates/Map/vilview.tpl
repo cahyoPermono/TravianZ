@@ -581,6 +581,9 @@ echo ' '.$coords;
         &raquo; ⚔️ Serbu Sarang Ini (<?php echo BUILDRALLY; ?>)
     <?php } ?>
 </td></tr>
+<?php if (!empty($banditData['tier']) && (int)$banditData['tier'] >= 3 && (int)$banditData['cur_hp'] > 0) { ?>
+<tr><td><a href="expedition.php?camp=<?php echo $banditData['id']; ?>" style="color: #4f46e5; font-weight: bold;">&raquo; 🛡️⚔️ Buka / Gabung Alliance Expedition (Forward Camp)</a></td></tr>
+<?php } ?>
 <tr><td><a href="bandit.php">&raquo; 🗺️ Buka Radar Sarang Bandit &amp; World Boss</a></td></tr>
 <?php } elseif(!$basearray['occupied']){?>
 <tr><td class="none">

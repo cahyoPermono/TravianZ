@@ -223,6 +223,10 @@ class Automation {
             try {
                 require_once __DIR__ . '/BanditCamp.php';
                 BanditCamp::run();
+                if (file_exists(__DIR__ . '/Expedition/ExpeditionEngine.php')) {
+                    require_once __DIR__ . '/Expedition/ExpeditionEngine.php';
+                    ExpeditionEngine::processExpeditions();
+                }
             } catch (\Throwable $e) {
                 error_log("BanditCamp error: " . $e->getMessage());
             }

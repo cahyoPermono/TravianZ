@@ -15,6 +15,18 @@ $parsed = [];
 parse_str($rawContent, $parsed);
 
 $isIntel = (!empty($parsed['type']) && $parsed['type'] === 'bandit_intel');
+$isExpedition = (!empty($parsed['type']) && $parsed['type'] === 'expedition_report');
+$expAction = $parsed['action'] ?? '';
+$expLosses = $parsed['losses_pct'] ?? '0';
+$expWood = (int)($parsed['wood'] ?? 0);
+$expClay = (int)($parsed['clay'] ?? 0);
+$expIron = (int)($parsed['iron'] ?? 0);
+$expCrop = (int)($parsed['crop'] ?? 0);
+$expSilver = (int)($parsed['silver'] ?? 0);
+$expCp = (int)($parsed['cp'] ?? 0);
+$expExp = (int)($parsed['exp'] ?? 0);
+$expEssence = (int)($parsed['essence'] ?? 0);
+$expReason = $parsed['reason'] ?? '';
 $campName = $parsed['camp_name'] ?? 'Sarang Penyamun';
 $conqueror = $parsed['conqueror'] ?? 'Pejuang Sekutu';
 $conquerorUid = (int)($parsed['conqueror_uid'] ?? 0);
@@ -96,6 +108,67 @@ $conquerorLink = ($conquerorUid > 0)
             <p style="margin: 6px 0 0 0; color: #86efac; font-size: 11px;">
                 Bonus koin perak dan pengalaman telah otomatis ditambahkan ke status Hero Anda sebagai kompensasi bekal jalan.
             </p>
+        </div>
+        <?php } ?>
+    </div>
+<?php } elseif ($isExpedition) { ?>
+    <!-- ALLIANCE EXPEDITION REPORT -->
+    <div style="background: linear-gradient(135deg, #0f172a, #1e1b4b); color: #f8fafc; border: 1px solid #4338ca; border-radius: 8px; padding: 16px; margin-bottom: 12px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; border-bottom: 1px solid #3730a3; padding-bottom: 8px;">
+            <div style="display: flex; align-items: center;">
+                <span style="font-size: 26px; margin-right: 10px;"><?php echo ($expAction === 'victory') ? '👑' : (($expAction === 'cancelled') ? '🛡️' : '💀'); ?></span>
+                <div>
+                    <h3 style="margin: 0; color: <?php echo ($expAction === 'victory') ? '#38bdf8' : (($expAction === 'cancelled') ? '#fbbf24' : '#f87171'); ?>; font-size: 16px;">
+                        Laporan Alliance Expedition: <?php echo ($expAction === 'victory') ? 'Kemenangan Bersama' : (($expAction === 'cancelled') ? 'Ekspedisi Dibatalkan' : 'Terpukul Mundur'); ?>
+                    </h3>
+                    <span style="color: #a5b4fc; font-size: 12px;">Target: <?php echo htmlspecialchars($campName, ENT_QUOTES, 'UTF-8'); ?></span>
+                </div>
+            </div>
+            <div>
+                <span style="background: rgba(99, 102, 241, 0.2); border: 1px solid #6366f1; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; color: #c7d2fe;">
+                    Forward Camp
+                </span>
+            </div>
+        </div>
+
+        <div style="background: rgba(15, 23, 42, 0.7); border-radius: 6px; padding: 12px; margin-bottom: 12px; border-left: 4px solid #6366f1; font-size: 13px; line-height: 1.6; color: #e2e8f0;">
+            <?php echo nl2br(htmlspecialchars($msgText, ENT_QUOTES, 'UTF-8')); ?>
+        </div>
+
+        <?php if ($expAction === 'victory') { ?>
+        <!-- Rewards Grid -->
+        <div style="background: rgba(30, 27, 75, 0.6); border: 1px solid #4f46e5; border-radius: 6px; padding: 12px; margin-top: 10px;">
+            <div style="font-weight: bold; color: #a5b4fc; margin-bottom: 8px; font-size: 12px;">
+                🎁 Bagian Rampasan &amp; Hadiah Anda (50% Rata + 50% Kontribusi):
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px;">
+                <div style="background: rgba(15, 23, 42, 0.8); padding: 6px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; color: #f1f5f9;">
+                    🌲 Kayu: <span style="color: #4ade80;">+<?php echo number_format($expWood); ?></span>
+                </div>
+                <div style="background: rgba(15, 23, 42, 0.8); padding: 6px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; color: #f1f5f9;">
+                    🧱 Liat: <span style="color: #fb923c;">+<?php echo number_format($expClay); ?></span>
+                </div>
+                <div style="background: rgba(15, 23, 42, 0.8); padding: 6px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; color: #f1f5f9;">
+                    ⛏️ Besi: <span style="color: #94a3b8;">+<?php echo number_format($expIron); ?></span>
+                </div>
+                <div style="background: rgba(15, 23, 42, 0.8); padding: 6px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; color: #f1f5f9;">
+                    🌾 Gandum: <span style="color: #facc15;">+<?php echo number_format($expCrop); ?></span>
+                </div>
+                <div style="background: rgba(15, 23, 42, 0.8); padding: 6px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; color: #f1f5f9;">
+                    🪙 Silver: <span style="color: #38bdf8;">+<?php echo number_format($expSilver); ?></span>
+                </div>
+                <div style="background: rgba(15, 23, 42, 0.8); padding: 6px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; color: #f1f5f9;">
+                    🏛️ CP: <span style="color: #c084fc;">+<?php echo number_format($expCp); ?></span>
+                </div>
+                <div style="background: rgba(15, 23, 42, 0.8); padding: 6px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; color: #f1f5f9;">
+                    ⭐ Hero EXP: <span style="color: #e879f9;">+<?php echo number_format($expExp); ?></span>
+                </div>
+                <?php if ($expEssence > 0) { ?>
+                <div style="background: rgba(15, 23, 42, 0.8); padding: 6px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; color: #f1f5f9; border: 1px solid #ec4899;">
+                    💎 Essence: <span style="color: #f472b6;">+<?php echo number_format($expEssence); ?></span>
+                </div>
+                <?php } ?>
+            </div>
         </div>
         <?php } ?>
     </div>
