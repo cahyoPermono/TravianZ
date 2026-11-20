@@ -261,7 +261,7 @@ if ($achUid > 0) {
         // [#BANDITHUNTER] / [#BANDIT1] - 10+ camps
         if ($totalBanditCamps >= 10) {
             $tip = "<table><tr><td>Name:</td><td>{$achUser}</td></tr><tr><td>Tribe:</td><td>{$achTribe}</td></tr><tr><td>Category:</td><td>Bandit Hunter</td></tr><tr><td>Camps Cleared:</td><td>{$totalBanditCamps}</td></tr><tr><td>Title:</td><td>Frontier Guardian</td></tr></table>";
-            $profiel = preg_replace('/\[#(BANDITHUNTER|BANDIT1)\]/i', "<img src='{$gpack}img/gloriamedals/bandit_hunter.svg' width='76' height='98' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
+            $profiel = preg_replace('/\[#(BANDITHUNTER|BANDIT1)\]/i', "<img src='{$gpack}img/gloriamedals/bandit_hunter.svg' width='38' height='49' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
         } else {
             $profiel = preg_replace('/\[#(BANDITHUNTER|BANDIT1)\]/i', '', $profiel);
         }
@@ -269,7 +269,7 @@ if ($achUid > 0) {
         // [#BANDITSLAYER] / [#BANDIT2] - 30+ camps
         if ($totalBanditCamps >= 30) {
             $tip = "<table><tr><td>Name:</td><td>{$achUser}</td></tr><tr><td>Tribe:</td><td>{$achTribe}</td></tr><tr><td>Category:</td><td>Bandit Slayer</td></tr><tr><td>Camps Cleared:</td><td>{$totalBanditCamps}</td></tr><tr><td>Title:</td><td>Scourge of Outlaws</td></tr></table>";
-            $profiel = preg_replace('/\[#(BANDITSLAYER|BANDIT2)\]/i', "<img src='{$gpack}img/gloriamedals/bandit_slayer.svg' width='76' height='98' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
+            $profiel = preg_replace('/\[#(BANDITSLAYER|BANDIT2)\]/i', "<img src='{$gpack}img/gloriamedals/bandit_slayer.svg' width='38' height='49' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
         } else {
             $profiel = preg_replace('/\[#(BANDITSLAYER|BANDIT2)\]/i', '', $profiel);
         }
@@ -277,7 +277,7 @@ if ($achUid > 0) {
         // [#BANDITNEMESIS] / [#BANDIT3] - 75+ camps
         if ($totalBanditCamps >= 75) {
             $tip = "<table><tr><td>Name:</td><td>{$achUser}</td></tr><tr><td>Tribe:</td><td>{$achTribe}</td></tr><tr><td>Category:</td><td>Bandit Nemesis</td></tr><tr><td>Camps Cleared:</td><td>{$totalBanditCamps}</td></tr><tr><td>Title:</td><td>Terror of Banditry</td></tr></table>";
-            $profiel = preg_replace('/\[#(BANDITNEMESIS|BANDIT3)\]/i', "<img src='{$gpack}img/gloriamedals/bandit_nemesis.svg' width='76' height='98' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
+            $profiel = preg_replace('/\[#(BANDITNEMESIS|BANDIT3)\]/i', "<img src='{$gpack}img/gloriamedals/bandit_nemesis.svg' width='38' height='49' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
         } else {
             $profiel = preg_replace('/\[#(BANDITNEMESIS|BANDIT3)\]/i', '', $profiel);
         }
@@ -285,7 +285,7 @@ if ($achUid > 0) {
         // [#BOSSSLAYER] / [#BOSS1] - 1+ World Boss (Tier 4)
         if ($totalBossCamps >= 1) {
             $tip = "<table><tr><td>Name:</td><td>{$achUser}</td></tr><tr><td>Tribe:</td><td>{$achTribe}</td></tr><tr><td>Category:</td><td>World Boss Slayer</td></tr><tr><td>Bosses Defeated:</td><td>{$totalBossCamps}</td></tr><tr><td>Title:</td><td>Titan Conqueror</td></tr></table>";
-            $profiel = preg_replace('/\[#(BOSSSLAYER|BOSS1)\]/i', "<img src='{$gpack}img/gloriamedals/boss_slayer.svg' width='76' height='98' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
+            $profiel = preg_replace('/\[#(BOSSSLAYER|BOSS1)\]/i', "<img src='{$gpack}img/gloriamedals/boss_slayer.svg' width='38' height='49' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
         } else {
             $profiel = preg_replace('/\[#(BOSSSLAYER|BOSS1)\]/i', '', $profiel);
         }
@@ -298,7 +298,7 @@ if ($achUid > 0) {
         if ($totalBossDmg >= 50000) {
             $fmtDmg = number_format($totalBossDmg);
             $tip = "<table><tr><td>Name:</td><td>{$achUser}</td></tr><tr><td>Tribe:</td><td>{$achTribe}</td></tr><tr><td>Category:</td><td>Grand Vanguard</td></tr><tr><td>Raid Damage:</td><td>{$fmtDmg}</td></tr><tr><td>Title:</td><td>Frontline Crusher</td></tr></table>";
-            $profiel = preg_replace('/\[#BOSSRAIDER\]/i', "<img src='{$gpack}img/gloriamedals/boss_raider.svg' width='76' height='98' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
+            $profiel = preg_replace('/\[#BOSSRAIDER\]/i', "<img src='{$gpack}img/gloriamedals/boss_raider.svg' width='38' height='49' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
         } else {
             $profiel = preg_replace('/\[#BOSSRAIDER\]/i', '', $profiel);
         }
@@ -310,7 +310,7 @@ if ($achUid > 0) {
         $oasisCount = (int)(($qOasis && $r = $qOasis->fetch_assoc()) ? $r['c'] : 0);
         if ($oasisCount >= 3) {
             $tip = "<table><tr><td>Name:</td><td>{$achUser}</td></tr><tr><td>Tribe:</td><td>{$achTribe}</td></tr><tr><td>Category:</td><td>Oasis Master</td></tr><tr><td>Oases Held:</td><td>{$oasisCount}</td></tr><tr><td>Title:</td><td>Sovereign of the Wild</td></tr></table>";
-            $profiel = preg_replace('/\[#OASISMASTER\]/i', "<img src='{$gpack}img/gloriamedals/oasis_master.svg' width='76' height='98' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
+            $profiel = preg_replace('/\[#OASISMASTER\]/i', "<img src='{$gpack}img/gloriamedals/oasis_master.svg' width='38' height='49' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
         } else {
             $profiel = preg_replace('/\[#OASISMASTER\]/i', '', $profiel);
         }
@@ -328,7 +328,7 @@ if ($achUid > 0) {
         if ($maxArmy >= 20000) {
             $fmtArmy = number_format($maxArmy);
             $tip = "<table><tr><td>Name:</td><td>{$achUser}</td></tr><tr><td>Tribe:</td><td>{$achTribe}</td></tr><tr><td>Category:</td><td>Grand Warlord</td></tr><tr><td>Peak Army:</td><td>{$fmtArmy} troops</td></tr><tr><td>Title:</td><td>Commander of Armies</td></tr></table>";
-            $profiel = preg_replace('/\[#WARLORD\]/i', "<img src='{$gpack}img/gloriamedals/warlord.svg' width='76' height='98' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
+            $profiel = preg_replace('/\[#WARLORD\]/i', "<img src='{$gpack}img/gloriamedals/warlord.svg' width='38' height='49' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
         } else {
             $profiel = preg_replace('/\[#WARLORD\]/i', '', $profiel);
         }
@@ -346,7 +346,7 @@ if ($achUid > 0) {
         if ($maxScouts >= 2000) {
             $fmtScouts = number_format($maxScouts);
             $tip = "<table><tr><td>Name:</td><td>{$achUser}</td></tr><tr><td>Tribe:</td><td>{$achTribe}</td></tr><tr><td>Category:</td><td>Master of Whispers</td></tr><tr><td>Peak Scouts:</td><td>{$fmtScouts} scouts</td></tr><tr><td>Title:</td><td>All-Seeing Eye</td></tr></table>";
-            $profiel = preg_replace('/\[#SCOUTMASTER\]/i', "<img src='{$gpack}img/gloriamedals/scout_master.svg' width='76' height='98' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
+            $profiel = preg_replace('/\[#SCOUTMASTER\]/i', "<img src='{$gpack}img/gloriamedals/scout_master.svg' width='38' height='49' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
         } else {
             $profiel = preg_replace('/\[#SCOUTMASTER\]/i', '', $profiel);
         }
@@ -361,7 +361,7 @@ if ($achUid > 0) {
         if ($totalVils >= 5) {
             $fmtPop = number_format($totalPop);
             $tip = "<table><tr><td>Name:</td><td>{$achUser}</td></tr><tr><td>Tribe:</td><td>{$achTribe}</td></tr><tr><td>Category:</td><td>Imperium</td></tr><tr><td>Settlements:</td><td>{$totalVils}</td></tr><tr><td>Population:</td><td>{$fmtPop}</td></tr><tr><td>Title:</td><td>Emperor of Realms</td></tr></table>";
-            $profiel = preg_replace('/\[#IMPERIUM\]/i', "<img src='{$gpack}img/gloriamedals/imperium.svg' width='76' height='98' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
+            $profiel = preg_replace('/\[#IMPERIUM\]/i', "<img src='{$gpack}img/gloriamedals/imperium.svg' width='38' height='49' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
         } else {
             $profiel = preg_replace('/\[#IMPERIUM\]/i', '', $profiel);
         }
@@ -375,7 +375,7 @@ if ($achUid > 0) {
         $maxPopName = htmlspecialchars($metroData['name'] ?? '', ENT_QUOTES);
         if ($maxPop >= 1000) {
             $tip = "<table><tr><td>Name:</td><td>{$achUser}</td></tr><tr><td>Tribe:</td><td>{$achTribe}</td></tr><tr><td>Category:</td><td>Metropolis</td></tr><tr><td>Largest City:</td><td>{$maxPopName}</td></tr><tr><td>Population:</td><td>" . number_format($maxPop) . "</td></tr><tr><td>Title:</td><td>Grand City Builder</td></tr></table>";
-            $profiel = preg_replace('/\[#METROPOLIS\]/i', "<img src='{$gpack}img/gloriamedals/metropolis.svg' width='76' height='98' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
+            $profiel = preg_replace('/\[#METROPOLIS\]/i', "<img src='{$gpack}img/gloriamedals/metropolis.svg' width='38' height='49' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
         } else {
             $profiel = preg_replace('/\[#METROPOLIS\]/i', '', $profiel);
         }
@@ -388,7 +388,7 @@ if ($achUid > 0) {
         if ($maxStorage >= 200000) {
             $fmtStore = number_format($maxStorage);
             $tip = "<table><tr><td>Name:</td><td>{$achUser}</td></tr><tr><td>Tribe:</td><td>{$achTribe}</td></tr><tr><td>Category:</td><td>Economy Tycoon</td></tr><tr><td>Storage Capacity:</td><td>{$fmtStore}</td></tr><tr><td>Title:</td><td>Wealth of Nations</td></tr></table>";
-            $profiel = preg_replace('/\[#TYCOON\]/i', "<img src='{$gpack}img/gloriamedals/tycoon.svg' width='76' height='98' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
+            $profiel = preg_replace('/\[#TYCOON\]/i', "<img src='{$gpack}img/gloriamedals/tycoon.svg' width='38' height='49' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
         } else {
             $profiel = preg_replace('/\[#TYCOON\]/i', '', $profiel);
         }
@@ -400,7 +400,7 @@ if ($achUid > 0) {
         $heroLvl = (int)(($qHero50 && $r = $qHero50->fetch_assoc()) ? $r['level'] : 0);
         if ($heroLvl >= 50) {
             $tip = "<table><tr><td>Name:</td><td>{$achUser}</td></tr><tr><td>Tribe:</td><td>{$achTribe}</td></tr><tr><td>Category:</td><td>Hero Veteran</td></tr><tr><td>Level:</td><td>{$heroLvl}</td></tr><tr><td>Title:</td><td>Seasoned Champion</td></tr></table>";
-            $profiel = preg_replace('/\[#HERO50\]/i', "<img src='{$gpack}img/gloriamedals/hero50.svg' width='76' height='98' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
+            $profiel = preg_replace('/\[#HERO50\]/i', "<img src='{$gpack}img/gloriamedals/hero50.svg' width='38' height='49' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
         } else {
             $profiel = preg_replace('/\[#HERO50\]/i', '', $profiel);
         }
@@ -412,7 +412,7 @@ if ($achUid > 0) {
         $forgeItems = (int)(($qForge && $r = $qForge->fetch_assoc()) ? $r['c'] : 0);
         if ($forgeItems >= 1) {
             $tip = "<table><tr><td>Name:</td><td>{$achUser}</td></tr><tr><td>Tribe:</td><td>{$achTribe}</td></tr><tr><td>Category:</td><td>Forge Master</td></tr><tr><td>Masterpieces:</td><td>{$forgeItems}</td></tr><tr><td>Title:</td><td>Supreme Blacksmith</td></tr></table>";
-            $profiel = preg_replace('/\[#FORGEMASTER\]/i', "<img src='{$gpack}img/gloriamedals/forge_master.svg' width='76' height='98' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
+            $profiel = preg_replace('/\[#FORGEMASTER\]/i', "<img src='{$gpack}img/gloriamedals/forge_master.svg' width='38' height='49' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
         } else {
             $profiel = preg_replace('/\[#FORGEMASTER\]/i', '', $profiel);
         }
@@ -425,7 +425,7 @@ if ($achUid > 0) {
         if ($totalDonated >= 500000) {
             $fmtDonated = number_format($totalDonated);
             $tip = "<table><tr><td>Name:</td><td>{$achUser}</td></tr><tr><td>Tribe:</td><td>{$achTribe}</td></tr><tr><td>Category:</td><td>Alliance Philanthropist</td></tr><tr><td>Donated Resources:</td><td>{$fmtDonated}</td></tr><tr><td>Title:</td><td>Pillar of the Alliance</td></tr></table>";
-            $profiel = preg_replace('/\[#PHILANTHROPIST\]/i', "<img src='{$gpack}img/gloriamedals/philanthropist.svg' width='76' height='98' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
+            $profiel = preg_replace('/\[#PHILANTHROPIST\]/i', "<img src='{$gpack}img/gloriamedals/philanthropist.svg' width='38' height='49' style='vertical-align:middle; margin:2px;' border='0' onmouseout='med_closeDescription()' onmousemove=\"med_mouseMoveHandler(arguments[0],'{$tip}')\">", $profiel);
         } else {
             $profiel = preg_replace('/\[#PHILANTHROPIST\]/i', '', $profiel);
         }
