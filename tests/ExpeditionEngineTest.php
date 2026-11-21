@@ -8,6 +8,7 @@
 require_once dirname(__DIR__) . '/autoloader.php';
 require_once dirname(__DIR__) . '/GameEngine/config.php';
 require_once dirname(__DIR__) . '/GameEngine/Database.php';
+require_once dirname(__DIR__) . '/GameEngine/Data/unitdata.php';
 require_once dirname(__DIR__) . '/GameEngine/BanditCamp.php';
 require_once dirname(__DIR__) . '/GameEngine/Expedition/ExpeditionEngine.php';
 

@@ -779,6 +779,14 @@ class ExpeditionEngine {
         if (!empty($uDeductUpdates)) {
             $sqlDeduct = "UPDATE `" . TB_PREFIX . "units` SET " . implode(', ', $uDeductUpdates) . " WHERE vref = $fromWref";
             mysqli_query($database->dblink, $sqlDeduct);
+
+            // Sinkronkan starvupdate di desa saat pasukan berkurang
+            $database->setVillageFields($fromWref, ['starvupdate'], [$now]);
+            $database->addStarvationData($fromWref);
+
+            if (method_exists($database, 'clearUnitsCache')) {
+                $database->clearUnitsCache();
+            }
         }
 
         // Insert ke s1_expedition_members
@@ -849,8 +857,16 @@ class ExpeditionEngine {
             }
 
             if (!empty($restoreUpdates) && $mWref > 0) {
+                // Pastikan baris di tabel units ada
+                $qEnsure = "INSERT INTO `" . TB_PREFIX . "units` (`vref`) VALUES ($mWref) ON DUPLICATE KEY UPDATE `vref` = `vref`";
+                mysqli_query($database->dblink, $qEnsure);
+
                 $sqlRestore = "UPDATE `" . TB_PREFIX . "units` SET " . implode(', ', $restoreUpdates) . " WHERE vref = $mWref";
                 mysqli_query($database->dblink, $sqlRestore);
+
+                // Sinkronkan starvupdate ke waktu sekarang agar tidak terkena akumulasi timedif kelaparan retroaktif
+                $database->setVillageFields($mWref, ['starvupdate'], [$now]);
+                $database->addStarvationData($mWref);
             }
 
             // Kembalikan kuota harian
@@ -861,6 +877,10 @@ class ExpeditionEngine {
             $noticeMsg = "type=expedition_report&action=cancelled&reason=" . urlencode($reason) . "&message=" . urlencode("Sesi Forward Camp ekspedisi telah dibatalkan ($reason). Seluruh armada pasukan Anda telah dipulangkan kembali ke desa dengan selamat tanpa kerugian apapun.");
             $database->addNotice($mUid, $mWref, 0, 28, $noticeTopic, $noticeMsg, $now);
         }
+
+        if (method_exists($database, 'clearUnitsCache')) {
+            $database->clearUnitsCache();
+        }
     }
 
     /**
@@ -869,6 +889,7 @@ class ExpeditionEngine {
     public static function resolveAssault(int $expeditionId): array {
         global $database;
         self::ensureTables();
+        $now = time();
 
         $expRows = $database->query_return("SELECT * FROM `" . TB_PREFIX . "expeditions` WHERE id = $expeditionId LIMIT 1");
         if (empty($expRows[0])) {
@@ -1004,8 +1025,16 @@ class ExpeditionEngine {
             }
 
             if (!empty($survivedUpdates) && $mWref > 0) {
+                // Pastikan baris di tabel units ada
+                $qEnsure = "INSERT INTO `" . TB_PREFIX . "units` (`vref`) VALUES ($mWref) ON DUPLICATE KEY UPDATE `vref` = `vref`";
+                mysqli_query($database->dblink, $qEnsure);
+
                 $sqlSurv = "UPDATE `" . TB_PREFIX . "units` SET " . implode(', ', $survivedUpdates) . " WHERE vref = $mWref";
                 mysqli_query($database->dblink, $sqlSurv);
+
+                // Sinkronkan starvupdate ke waktu sekarang agar tidak terkena akumulasi timedif kelaparan retroaktif
+                $database->setVillageFields($mWref, ['starvupdate'], [$now]);
+                $database->addStarvationData($mWref);
             }
 
             // Update catatan persentase kerugian di s1_expedition_members
@@ -1015,6 +1044,10 @@ class ExpeditionEngine {
                     `damage_dealt` = " . (int)($memberDamageMap[$mUid] ?? 0) . "
                 WHERE `expedition_id` = $expeditionId AND `uid` = $mUid
             ");
+        }
+
+        if (method_exists($database, 'clearUnitsCache')) {
+            $database->clearUnitsCache();
         }
 
         $now = time();
