@@ -235,6 +235,7 @@ $database->query("DELETE FROM " . TB_PREFIX . "users WHERE id IN ($leaderUid, $m
 $database->query("DELETE FROM " . TB_PREFIX . "vdata WHERE wref IN ($leaderVillage, $memberVillage)");
 $database->query("DELETE FROM " . TB_PREFIX . "units WHERE vref IN ($leaderVillage, $memberVillage)");
 $database->query("DELETE FROM " . TB_PREFIX . "expedition_daily_usage WHERE uid IN ($leaderUid, $memberUid)");
+$database->query("DELETE FROM " . TB_PREFIX . "expeditions WHERE alliance_id = $mockAllyId");
 
 // Insert test users (Romans = 1, Gauls = 3)
 $time = time();
@@ -263,11 +264,24 @@ if (!$targetCamp) {
 }
 $targetCampId = (int)$targetCamp['id'];
 
+$database->query("DELETE FROM " . TB_PREFIX . "expeditions WHERE alliance_id = $mockAllyId");
+$database->query("DELETE FROM " . TB_PREFIX . "expedition_daily_usage WHERE uid IN ($leaderUid, $memberUid)");
+$database->query("DELETE FROM " . TB_PREFIX . "expeditions WHERE alliance_id = $mockAllyId");
+
 // Test Create Expedition
-$createRes = ExpeditionEngine::createExpedition($leaderUid, $targetCampId, 15, $leaderVillage, ['u1' => 600]);
+$createRes = ExpeditionEngine::createExpedition($leaderUid, $targetCampId, 60, $leaderVillage, ['u1' => 600]);
 assertTrue($createRes['status'] === 'success', "Leader should successfully create expedition: " . ($createRes['message'] ?? ''));
 $testExpId = (int)$createRes['expedition_id'];
 assertTrue($testExpId > 0, "Expedition ID must be greater than 0");
+
+// Test Travel Time Gate: If lobby remaining time is shorter than troop travel time, joining MUST be rejected
+$database->query("UPDATE " . TB_PREFIX . "expeditions SET impact_time = " . (time() + 2) . " WHERE id = $testExpId");
+$gateFailRes = ExpeditionEngine::joinExpedition($testExpId, $memberUid, $memberVillage, ['u1' => 300]);
+assertTrue($gateFailRes['status'] === 'error', "Joining should fail when travel time exceeds remaining lobby duration");
+assertTrue(strpos($gateFailRes['message'], 'melebihi sisa waktu persiapan lobi') !== false, "Error message should mention remaining lobby time exceeded");
+
+// Restore sufficient lobby remaining time (1 hour)
+$database->query("UPDATE " . TB_PREFIX . "expeditions SET impact_time = " . (time() + 3600) . " WHERE id = $testExpId");
 
 // Verify troops deducted from leader village (1000 - 600 = 400 remaining)
 $vUnitsLeader = $database->getUnit($leaderVillage, false);
@@ -317,6 +331,7 @@ $database->query("DELETE FROM " . TB_PREFIX . "users WHERE id IN ($leaderUid, $m
 $database->query("DELETE FROM " . TB_PREFIX . "vdata WHERE wref IN ($leaderVillage, $memberVillage)");
 $database->query("DELETE FROM " . TB_PREFIX . "units WHERE vref IN ($leaderVillage, $memberVillage)");
 $database->query("DELETE FROM " . TB_PREFIX . "expedition_daily_usage WHERE uid IN ($leaderUid, $memberUid)");
+$database->query("DELETE FROM " . TB_PREFIX . "expeditions WHERE alliance_id = $mockAllyId");
 
 $database->query("INSERT INTO " . TB_PREFIX . "users (id, username, alliance, tribe, access, regtime, timestamp) VALUES ($leaderUid, 'ExpLeader', $mockAllyId, 1, 2, $time, $time)");
 $database->query("INSERT INTO " . TB_PREFIX . "users (id, username, alliance, tribe, access, regtime, timestamp) VALUES ($memberUid, 'ExpMember', $mockAllyId, 3, 2, $time, $time)");
@@ -367,5 +382,6 @@ $database->query("DELETE FROM " . TB_PREFIX . "users WHERE id IN ($leaderUid, $m
 $database->query("DELETE FROM " . TB_PREFIX . "vdata WHERE wref IN ($leaderVillage, $memberVillage)");
 $database->query("DELETE FROM " . TB_PREFIX . "units WHERE vref IN ($leaderVillage, $memberVillage)");
 $database->query("DELETE FROM " . TB_PREFIX . "expedition_daily_usage WHERE uid IN ($leaderUid, $memberUid)");
+$database->query("DELETE FROM " . TB_PREFIX . "expeditions WHERE alliance_id = $mockAllyId");
 
 echo "All Alliance Expedition Unit & Lifecycle Tests Passed Successfully!\n";

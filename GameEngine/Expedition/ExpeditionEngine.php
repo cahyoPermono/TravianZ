@@ -286,7 +286,7 @@ class ExpeditionEngine {
         }
         if (!isset($generator) || !is_object($generator)) {
             require_once dirname(__DIR__) . '/Generator.php';
-            $generator = new Generator();
+            $generator = new MyGenerator();
         }
         $coorFrom = $database->getCoor($fromWref);
         $coorTo = $database->getCoor($toWref);
@@ -305,7 +305,7 @@ class ExpeditionEngine {
         global $database, $generator;
         if (!isset($generator) || !is_object($generator)) {
             require_once dirname(__DIR__) . '/Generator.php';
-            $generator = new Generator();
+            $generator = new MyGenerator();
         }
         $coorCamp = $database->getCoor($campWref);
         $coorBoss = $database->getCoor($targetWref);
