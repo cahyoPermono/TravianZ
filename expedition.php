@@ -22,6 +22,7 @@ require_once("GameEngine/Expedition/ExpeditionEngine.php");
 
 $start_timer = $generator->pageLoadTimeStart();
 ExpeditionEngine::ensureTables();
+ExpeditionEngine::processExpeditions();
 
 $uid = (int)($session->uid ?? 0);
 $userAlliance = (int)($session->userarray['alliance'] ?? 0);
@@ -137,22 +138,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $expId = (int)($_POST['expedition_id'] ?? 0);
         $details = ExpeditionEngine::getExpeditionDetails($expId);
         if (!empty($details) && (int)$details['expedition']['leader_uid'] === $uid) {
-            $res = ExpeditionEngine::resolveAssault($expId);
-            if ($res['status'] === 'victory') {
-                $msgSuccess = "Serangan Forward Camp berhasil! " . $details['expedition']['camp_name'] . " berhasil ditaklukkan bersama aliansi Anda!";
+            $res = ExpeditionEngine::launchAssaultMarch($expId, $uid);
+            if ($res['status'] === 'success') {
+                $msgSuccess = $res['message'];
+                header("Location: expedition.php?id=" . $expId . "&msg=" . urlencode($msgSuccess));
+                exit;
             } else {
-                $msgError = "Pertempuran sengit terjadi namun pertahanan lawan masih bertahan. Pasukan telah dipulangkan.";
+                $msgError = $res['message'];
             }
-            header("Location: berichte.php");
-            exit;
         } else {
-            $msgError = "Hanya pemimpin ekspedisi yang dapat meluncurkan serangan lebih awal.";
+            $msgError = "Hanya pemimpin ekspedisi (Rally Leader) yang dapat meluncurkan serangan bersama.";
         }
     }
 }
 
 if (!empty($_GET['msg'])) {
     $msgSuccess = $_GET['msg'];
+}
+if (!empty($_GET['err'])) {
+    $msgError = $_GET['err'];
 }
 
 // Cari ekspedisi yang akan ditampilkan
@@ -723,6 +727,93 @@ for ($i = 1; $i <= 10; $i++) {
 				<a href="bandit.php" class="btn-exp-action btn-exp-create">&laquo; Kembali ke Radar Bandit</a>
 			</div>
 
+		<!-- JIKA STATUS EKSPEDISI SEDANG BERBARIS MENUJU SASARAN BOSS (STATUS_MARCHING = 4) -->
+		<?php } elseif (!empty($expDetails) && (int)$expDetails['expedition']['status'] === ExpeditionEngine::STATUS_MARCHING) { 
+			$exp = $expDetails['expedition'];
+			$members = $expDetails['members'];
+			$synergies = $expDetails['synergies'];
+			$isLeader = ($uid === (int)$exp['leader_uid']);
+			$timeLeft = max(0, (int)$exp['impact_time'] - time());
+			$totalDuration = max(1, (int)$exp['march_duration']);
+			$elapsed = min($totalDuration, max(0, time() - (int)$exp['launch_time']));
+			$pctComplete = min(100, max(0, round(($elapsed / $totalDuration) * 100)));
+			$timerNum = ++$session->timer;
+			$fmtTime = sprintf('%02d:%02d:%02d', intdiv($timeLeft, 3600), intdiv($timeLeft % 3600, 60), $timeLeft % 60);
+		?>
+			<div class="exp-card" style="border: 2px solid #f59e0b; background: linear-gradient(180deg, #fffbeb 0%, #ffffff 100%);">
+				<div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #fde68a; padding-bottom: 8px; margin-bottom: 12px;">
+					<div>
+						<span style="font-size: 15px; font-weight: bold; color: #92400e;">🎺 PASUKAN KOALISI SEDANG BERBARIS KE SASARAN</span>
+						<div style="font-size: 11px; color: #78350f; margin-top: 2px;">
+							Virtual Camp <b><?php echo htmlspecialchars($exp['camp_vname']); ?> (<?php echo $exp['camp_x']; ?>|<?php echo $exp['camp_y']; ?>)</b> ➔ <b><?php echo htmlspecialchars($exp['camp_name']); ?> (<?php echo $campData['x']; ?>|<?php echo $campData['y']; ?>)</b>
+						</div>
+					</div>
+					<div>
+						<span class="exp-timer-pill" style="background: #fef3c7; color: #b45309; padding: 5px 12px; border-radius: 6px; font-weight: bold; font-size: 13px; border: 1px solid #fcd34d; display: inline-flex; align-items: center; gap: 4px;">
+							⏱️ Benturan Dalam: <span id="timer<?php echo $timerNum; ?>" class="exp-live-timer" data-seconds="<?php echo $timeLeft; ?>"><?php echo $fmtTime; ?></span>
+						</span>
+					</div>
+				</div>
+
+				<!-- Visual March Progress Bar -->
+				<div style="margin: 12px 0;">
+					<div style="display: flex; justify-content: space-between; font-size: 11px; color: #92400e; font-weight: bold; margin-bottom: 4px;">
+						<span>⛺ Berangkat dari Virtual Camp</span>
+						<span>⚔️ Perjalanan: <?php echo $pctComplete; ?>%</span>
+						<span>🏰 Sasaran Boss</span>
+					</div>
+					<div style="width: 100%; height: 12px; background: #fef3c7; border: 1px solid #fde68a; border-radius: 6px; overflow: hidden; position: relative;">
+						<div style="width: <?php echo $pctComplete; ?>%; height: 100%; background: linear-gradient(90deg, #f59e0b, #d97706); border-radius: 5px; transition: width 1s linear;"></div>
+					</div>
+				</div>
+
+				<!-- March Details Notice -->
+				<div style="background: #fffdf5; border: 1px solid #fef08a; border-radius: 6px; padding: 10px 12px; font-size: 11.5px; color: #78350f; line-height: 1.5; margin-bottom: 12px;">
+					Armada koalisi aliansi telah berangkat serentak dari Virtual Camp. Seluruh prajurit tetap mengonsumsi gandum dari desa masing-masing selama perjalanan. Pertempuran sengit akan langsung terjadi begitu pasukan tiba di lokasi boss!
+				</div>
+
+				<!-- Participating Regiments -->
+				<div style="font-weight: bold; color: #334155; font-size: 11px; margin-bottom: 6px;">
+					🛡️ Divisi Pasukan Koalisi dalam Mars (<?php echo count($members); ?> Pemain):
+				</div>
+				<div class="slot-grid">
+					<?php foreach ($members as $slot => $m) { 
+						$isSlotLeader = ((int)$m['uid'] === (int)$exp['leader_uid']);
+					?>
+						<div class="slot-box filled <?php echo $isSlotLeader ? 'leader' : ''; ?>" style="border-color: #f59e0b;">
+							<div class="slot-role"><?php echo $isSlotLeader ? '👑 Rally Leader' : '⚔️ Komandan Divisi'; ?></div>
+							<div class="slot-username" title="<?php echo htmlspecialchars($m['username'] ?? 'Pemain'); ?>"><?php echo htmlspecialchars($m['username'] ?? 'Pemain'); ?></div>
+							<div class="slot-power">⚡ <?php echo number_format((int)$m['attack_power']); ?></div>
+							<?php if (!empty($m['has_hero'])) { ?>
+								<div class="slot-hero-badge">⭐ Hero</div>
+							<?php } ?>
+						</div>
+					<?php } ?>
+				</div>
+
+				<!-- Active Tribe Synergies -->
+				<div class="synergy-box" style="margin-top: 12px;">
+					<div style="font-weight: bold; font-size: 11px; color: #6b21a8; margin-bottom: 4px;">
+						✨ Sinergi Suku Aktif dalam Serbuan:
+					</div>
+					<?php foreach ($synergies['synergies'] as $syn) { ?>
+						<span class="synergy-badge" title="<?php echo htmlspecialchars($syn['desc']); ?>">
+							<?php echo htmlspecialchars($syn['badge']); ?>
+						</span>
+					<?php } ?>
+					<?php if (!empty($synergies['coalition_bonus'])) { ?>
+						<span class="synergy-badge coalition" title="Bonus Suku Beragam">
+							<?php echo htmlspecialchars($synergies['coalition_bonus']['badge']); ?>
+						</span>
+					<?php } ?>
+				</div>
+
+				<div style="margin-top: 12px; border-top: 1px solid #f1f5f9; padding-top: 10px; display: flex; justify-content: space-between; align-items: center;">
+					<a href="bandit.php" style="color: #64748b; font-size: 11px; text-decoration: underline;">&laquo; Kembali ke Radar Bandit</a>
+					<span style="font-size: 11px; color: #94a3b8;">Halaman ini otomatis merefresh saat benturan tiba</span>
+				</div>
+			</div>
+
 		<!-- JIKA SEDANG MELIHAT SESI EKSPEDISI TERTENTU (LOBBY AKTIF) -->
 		<?php } elseif (!empty($expDetails)) { 
 			$exp = $expDetails['expedition'];
@@ -730,12 +821,16 @@ for ($i = 1; $i <= 10; $i++) {
 			$synergies = $expDetails['synergies'];
 			$isLeader = ($uid === (int)$exp['leader_uid']);
 			$hasJoined = false;
+			$marchingCount = 0;
 			foreach ($members as $m) {
 				if ((int)$m['uid'] === $uid) {
 					$hasJoined = true;
-					break;
+				}
+				if ((int)($m['status'] ?? 1) === 0 && (int)($m['arrive_time'] ?? 0) > time()) {
+					$marchingCount++;
 				}
 			}
+			$allArrivedAtCamp = ($marchingCount === 0);
 			$timeLeft = max(0, (int)$exp['impact_time'] - time());
 		?>
 			<div class="exp-card">
@@ -744,6 +839,9 @@ for ($i = 1; $i <= 10; $i++) {
 					<div class="exp-camp-title-wrap">
 						<span style="font-size: 14px; font-weight: bold; color: #1e1b4b;">🎯 <?php echo htmlspecialchars($exp['camp_name']); ?></span>
 						<span style="color: #64748b; font-size: 11px; margin-left: 2px;">(<?php echo $campData['x']; ?>|<?php echo $campData['y']; ?>)</span>
+						<div style="font-size: 11px; color: #4338ca; margin-top: 2px;">
+							⛺ Virtual Camp: <b><?php echo htmlspecialchars($exp['camp_vname']); ?></b> (<?php echo $exp['camp_x']; ?>|<?php echo $exp['camp_y']; ?>)
+						</div>
 					</div>
 					<div class="exp-camp-timer-wrap">
 						<?php
@@ -751,7 +849,7 @@ for ($i = 1; $i <= 10; $i++) {
 						$fmtTime = sprintf('%02d:%02d:%02d', intdiv($timeLeft, 3600), intdiv($timeLeft % 3600, 60), $timeLeft % 60);
 						?>
 						<span class="exp-timer-pill" style="background: #e0e7ff; color: #4338ca; padding: 4px 10px; border-radius: 6px; font-weight: bold; font-size: 12px; border: 1px solid #c7d2fe; display: inline-flex; align-items: center; gap: 4px;">
-							⏱️ Benturan: <span id="timer<?php echo $timerNum; ?>" class="exp-live-timer" data-seconds="<?php echo $timeLeft; ?>"><?php echo $fmtTime; ?></span>
+							⏱️ Batas Persiapan: <span id="timer<?php echo $timerNum; ?>" class="exp-live-timer" data-seconds="<?php echo $timeLeft; ?>"><?php echo $fmtTime; ?></span>
 						</span>
 					</div>
 				</div>
@@ -766,11 +864,27 @@ for ($i = 1; $i <= 10; $i++) {
 					?>
 						<?php if ($m) { 
 							$isSlotLeader = ((int)$m['uid'] === (int)$exp['leader_uid']);
+							$isAtCamp = ((int)($m['status'] ?? 1) === 1 || (int)($m['arrive_time'] ?? 0) <= time());
+							$remMarch = max(0, (int)($m['arrive_time'] ?? 0) - time());
 						?>
 							<div class="slot-box filled <?php echo $isSlotLeader ? 'leader' : ''; ?>">
-								<div class="slot-role"><?php echo $isSlotLeader ? '👑 Leader' : '⚔️ Anggota'; ?></div>
+								<?php if ($isSlotLeader) { ?>
+									<div class="slot-role">👑 Leader (Camp)</div>
+								<?php } elseif ($isAtCamp) { ?>
+									<div class="slot-role" style="color: #16a34a;">⛺ Tiba di Camp</div>
+								<?php } else { ?>
+									<div class="slot-role" style="color: #d97706;">🚶 Berbaris</div>
+								<?php } ?>
 								<div class="slot-username" title="<?php echo htmlspecialchars($m['username'] ?? 'Pemain'); ?>"><?php echo htmlspecialchars($m['username'] ?? 'Pemain'); ?></div>
 								<div class="slot-power">⚡ <?php echo number_format((int)$m['attack_power']); ?></div>
+								<?php if (!$isAtCamp && $remMarch > 0) { 
+									$mTimerNum = ++$session->timer;
+									$mFmt = sprintf('%02d:%02d', intdiv($remMarch, 60), $remMarch % 60);
+								?>
+									<div style="font-size: 8px; color: #b45309; font-weight: bold; background: #fef3c7; border-radius: 3px; padding: 1px 2px; margin-top: 2px;">
+										Tiba: <span id="mtimer<?php echo $mTimerNum; ?>" class="exp-live-timer" data-seconds="<?php echo $remMarch; ?>"><?php echo $mFmt; ?></span>
+									</div>
+								<?php } ?>
 								<?php if (!empty($m['has_hero'])) { ?>
 									<div class="slot-hero-badge">⭐ Hero</div>
 								<?php } ?>
@@ -786,7 +900,14 @@ for ($i = 1; $i <= 10; $i++) {
 				</div>
 
 				<!-- Party Readiness & Launch Status Banner -->
-				<?php if (count($members) < 2) { ?>
+				<?php if ($marchingCount > 0) { ?>
+					<div style="margin: 10px 0 6px 0; background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 9px 12px; font-size: 11px; color: #92400e; display: flex; align-items: center; gap: 8px;">
+						<span style="font-size: 16px;">🚶</span>
+						<div>
+							<b>Pasukan Sedang Berbaris Menuju Virtual Camp (<?php echo $marchingCount; ?> pemain):</b> Pasukan anggota sedang berjalan dari desanya menuju titik kumpul ekspedisi. Serangan serentak ke Boss dapat diluncurkan segera setelah seluruh anggota tiba di Virtual Camp.
+						</div>
+					</div>
+				<?php } elseif (count($members) < 2) { ?>
 					<div style="margin: 10px 0 6px 0; background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 9px 12px; font-size: 11px; color: #92400e; display: flex; align-items: center; gap: 8px;">
 						<span style="font-size: 16px;">⏳</span>
 						<div>
@@ -797,11 +918,11 @@ for ($i = 1; $i <= 10; $i++) {
 					<div style="margin: 10px 0 6px 0; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 9px 12px; font-size: 11px; color: #166534; display: flex; align-items: center; gap: 8px;">
 						<span style="font-size: 16px;">⚔️</span>
 						<div>
-							<b>Siap Tempur (<?php echo count($members); ?>/5):</b> Syarat minimal 2 pemain <b>sudah terpenuhi</b>! Tidak wajib menunggu 5 orang.
+							<b>Semua Pasukan di Camp Siap Tempur (<?php echo count($members); ?>/5):</b> Syarat minimal 2 pemain <b>sudah terpenuhi</b>!
 							<?php if ($isLeader) { ?>
-								Anda dapat menunggu anggota lain bergabung hingga timer habis, atau klik tombol <b>⚡ Luncurkan Sekarang</b> di bawah untuk serbu instan!
+								Anda dapat menunggu anggota lain bergabung hingga timer habis, atau klik tombol <b>⚡ Luncurkan Sekarang</b> di bawah untuk berangkat menuju sasaran!
 							<?php } else { ?>
-								Menunggu Leader meluncurkan serangan, atau otomatis berangkat saat timer benturan di atas habis.
+								Menunggu Leader meluncurkan serangan, atau otomatis berangkat saat timer persiapan habis.
 							<?php } ?>
 						</div>
 					</div>
@@ -809,9 +930,9 @@ for ($i = 1; $i <= 10; $i++) {
 					<div style="margin: 10px 0 6px 0; background: #fdf2f8; border: 1px solid #fbcfe8; border-radius: 6px; padding: 9px 12px; font-size: 11px; color: #831843; display: flex; align-items: center; gap: 8px;">
 						<span style="font-size: 16px;">🔥</span>
 						<div>
-							<b>Forward Camp Penuh (5/5)!</b> Seluruh slot pasukan aliansi telah terisi lengkap.
+							<b>Forward Camp Penuh (5/5) &amp; Siap Tempur!</b> Seluruh slot pasukan aliansi telah terisi lengkap.
 							<?php if ($isLeader) { ?>
-								Silakan klik tombol <b>⚡ Luncurkan Sekarang</b> di bawah untuk melancarkan serangan gabungan sekarang!
+								Silakan klik tombol <b>⚡ Luncurkan Sekarang</b> di bawah untuk memberangkatkan seluruh armada!
 							<?php } else { ?>
 								Menunggu Leader meluncurkan serangan atau otomatis berangkat saat timer habis.
 							<?php } ?>
@@ -855,13 +976,19 @@ for ($i = 1; $i <= 10; $i++) {
 								</button>
 							</form>
 							<?php if (count($members) >= 2) { ?>
-								<form method="post" action="expedition.php" style="display: inline; margin: 0;">
-									<input type="hidden" name="action" value="launch_now" />
-									<input type="hidden" name="expedition_id" value="<?php echo $exp['id']; ?>" />
-									<button type="submit" class="btn-exp-action btn-exp-launch" onclick="return confirm('Luncurkan serangan Forward Camp sekarang bersama seluruh anggota yang sudah siap?');">
-										⚡ Luncurkan Sekarang (<?php echo count($members); ?>/5)
+								<?php if ($allArrivedAtCamp) { ?>
+									<form method="post" action="expedition.php" style="display: inline; margin: 0;">
+										<input type="hidden" name="action" value="launch_now" />
+										<input type="hidden" name="expedition_id" value="<?php echo $exp['id']; ?>" />
+										<button type="submit" class="btn-exp-action btn-exp-launch" onclick="return confirm('Luncurkan serbuan pasukan gabungan dari Virtual Camp menuju sasaran sekarang?');">
+											⚡ Luncurkan Sekarang (<?php echo count($members); ?>/5)
+										</button>
+									</form>
+								<?php } else { ?>
+									<button type="button" class="btn-exp-action" style="background: #94a3b8; color: #ffffff; cursor: not-allowed;" title="Menunggu seluruh pasukan anggota tiba di Virtual Camp">
+										⏳ Menunggu Pasukan Tiba (<?php echo $marchingCount; ?>)
 									</button>
-								</form>
+								<?php } ?>
 							<?php } ?>
 						<?php } else { ?>
 							<?php if (count($members) >= 2) { ?>
@@ -878,14 +1005,35 @@ for ($i = 1; $i <= 10; $i++) {
 				</div>
 			</div>
 
+			<!-- Notice status jika sudah bergabung atau merupakan leader -->
+			<?php if ($isLeader) { ?>
+				<div class="exp-card" style="background: #eff6ff; border: 1px solid #bfdbfe; font-size: 11.5px; color: #1e40af; line-height: 1.5;">
+					👑 <b>Anda adalah Pemimpin Ekspedisi (Rally Leader).</b> Titik kumpul Virtual Camp berada di desa Anda (<b><?php echo htmlspecialchars($exp['camp_vname']); ?></b>). Anggota aliansi lain akan menggerakkan pasukan mereka menuju desa ini terlebih dahulu. Setelah semua berkumpul, pasukan gabungan akan berbaris serentak menuju Sarang Boss.
+				</div>
+			<?php } elseif ($hasJoined) { ?>
+				<div class="exp-card" style="background: #f0fdf4; border: 1px solid #bbf7d0; font-size: 11.5px; color: #166534; line-height: 1.5;">
+					⚔️ <b>Anda telah mengerahkan pasukan ke Forward Camp ini.</b> Pasukan Anda tetap mengonsumsi gandum dari desa asal Anda (<b><?php echo htmlspecialchars($village->vname); ?></b>) selama ekspedisi berlangsung. Satu akun dibatasi hanya dapat menyetor pasukan dari 1 desa per ekspedisi.
+				</div>
+			<?php } ?>
+
 			<!-- Form Deploy Pasukan Jika Anggota Belum Bergabung -->
-			<?php if (!$hasJoined && count($members) < 5 && $dailyRemaining > 0) { 
+			<?php if (!$isLeader && !$hasJoined && count($members) < 5 && $dailyRemaining > 0) { 
 				$reqPower = max(50, (int)round((int)$campData['cur_hp'] * ExpeditionEngine::MIN_POWER_RATIO));
+				$coorCurr = $database->getCoor($currentVref);
+				$dx = abs(($coorCurr['x'] ?? 0) - (int)$exp['camp_x']);
+				if ($dx > WORLD_MAX) $dx = (2 * WORLD_MAX + 1) - $dx;
+				$dy = abs(($coorCurr['y'] ?? 0) - (int)$exp['camp_y']);
+				if ($dy > WORLD_MAX) $dy = (2 * WORLD_MAX + 1) - $dy;
+				$distToCamp = round(sqrt(pow($dx, 2) + pow($dy, 2)), 1);
 			?>
 			<div class="exp-card">
-				<h4 style="color: #1e1b4b; margin: 0 0 8px 0;">⚔️ Kerahkan Pasukan ke Forward Camp</h4>
+				<h4 style="color: #1e1b4b; margin: 0 0 6px 0;">⚔️ Kerahkan Pasukan ke Forward Camp</h4>
+				<div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 7px 10px; margin-bottom: 10px; font-size: 11px; color: #475569;">
+					📍 <b>Rute Gerak:</b> Dari desa Anda <b><?php echo htmlspecialchars($village->vname); ?> (<?php echo $coorCurr['x'] ?? 0; ?>|<?php echo $coorCurr['y'] ?? 0; ?>)</b> ➔ Virtual Camp <b><?php echo htmlspecialchars($exp['camp_vname']); ?> (<?php echo $exp['camp_x']; ?>|<?php echo $exp['camp_y']; ?>)</b> &bull; Jarak: <b><?php echo $distToCamp; ?> tiles</b>.<br>
+					Pasukan butuh waktu berjalan antar desa untuk mencapai camp. Pasukan tetap memakan gandum dari desa Anda.
+				</div>
 				<p style="color: #64748b; font-size: 11px; margin: 0 0 10px 0;">
-					Pilih pasukan dari desa Anda (<b><?php echo htmlspecialchars($village->vname); ?></b>) untuk bergabung ke battlegroup. Minimal kekuatan yang dibutuhkan: <b><?php echo number_format($reqPower); ?></b> Attack Power.
+					Minimal kekuatan yang dibutuhkan: <b><?php echo number_format($reqPower); ?></b> Attack Power.
 				</p>
 
 				<form method="post" action="expedition.php">

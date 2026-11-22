@@ -104,6 +104,29 @@ class BanditCamp {
     }
 
     /**
+     * Hitung berapa kali World Boss (Tier 4) telah berhasil ditumbangkan oleh pemain.
+     */
+    public static function getWorldBossDefeatCount(): int {
+        global $database;
+        if (!isset($database->dblink) || !$database->dblink) return 0;
+        self::ensureTable();
+        $res = $database->query_return("SELECT COUNT(*) as total FROM `" . TB_PREFIX . "bandit_camps` WHERE tier = " . self::TIER_WORLDBOSS . " AND status = 0");
+        return !empty($res[0]['total']) ? (int)$res[0]['total'] : 0;
+    }
+
+    /**
+     * Hapus permanen desa bandit dan bebaskan tile peta.
+     */
+    public static function razeBanditVillage(int $wref): void {
+        global $database;
+        if ($wref <= 0 || !isset($database->dblink)) return;
+        $database->query("DELETE FROM " . TB_PREFIX . "vdata WHERE wref = $wref");
+        $database->query("DELETE FROM " . TB_PREFIX . "fdata WHERE vref = $wref");
+        $database->query("DELETE FROM " . TB_PREFIX . "units WHERE vref = $wref");
+        $database->query("UPDATE " . TB_PREFIX . "wdata SET occupied = 0 WHERE id = $wref");
+    }
+
+    /**
      * Ensure database table exists.
      */
     public static function ensureTable() {
@@ -112,6 +135,7 @@ class BanditCamp {
             id int(11) NOT NULL AUTO_INCREMENT,
             wref int(11) NOT NULL,
             tier tinyint(2) NOT NULL DEFAULT 1,
+            level int(11) NOT NULL DEFAULT 1,
             name varchar(64) NOT NULL,
             max_hp int(11) NOT NULL DEFAULT 100,
             cur_hp int(11) NOT NULL DEFAULT 100,
@@ -128,9 +152,16 @@ class BanditCamp {
             created int(11) NOT NULL,
             PRIMARY KEY (id),
             KEY (wref),
-            KEY (status)
+            KEY (status),
+            KEY (tier)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
         mysqli_query($database->dblink, $q);
+
+        // Auto-migrate column level if missing
+        $colsLevel = $database->query_return("SHOW COLUMNS FROM " . TB_PREFIX . "bandit_camps LIKE 'level'");
+        if (empty($colsLevel)) {
+            mysqli_query($database->dblink, "ALTER TABLE " . TB_PREFIX . "bandit_camps ADD COLUMN `level` int(11) NOT NULL DEFAULT 1 AFTER `tier`");
+        }
 
         $qAttacks = "CREATE TABLE IF NOT EXISTS " . TB_PREFIX . "bandit_camp_attacks (
             id int(11) NOT NULL AUTO_INCREMENT,
@@ -307,6 +338,12 @@ class BanditCamp {
             $req = $minScale[$t] ?? $minScale[self::TIER_OUTPOST];
             $campId = (int)$c['id'];
             $wref = (int)$c['wref'];
+
+            if ($t === self::TIER_WORLDBOSS) {
+                $currDefeats = self::getWorldBossDefeatCount();
+                $expectedLvl = max(1, $currDefeats + 1);
+                $database->query("UPDATE " . TB_PREFIX . "bandit_camps SET `level` = $expectedLvl WHERE id = $campId AND `level` < $expectedLvl");
+            }
 
             // Check if this camp has outdated rewards
             if ((int)$c['reward_exp'] < $req['exp'] || (int)$c['reward_silver'] < $req['silver'] || (int)$c['bounty_wood'] < $req['bounty']) {
@@ -593,9 +630,32 @@ class BanditCamp {
 
         $profiles = self::getTierProfiles();
         $p = $profiles[$tier] ?? $profiles[self::TIER_OUTPOST];
-        $campName = $p['names'][array_rand($p['names'])];
+        $baseName = $p['names'][array_rand($p['names'])];
+        $campName = $baseName;
         $pop = (int)$p['pop'];
         $bounty = (int)$p['bounty'];
+        $exp = (int)$p['exp'];
+        $cp = (int)$p['cp'];
+        $silver = (int)$p['silver'];
+        $bossLevel = 1;
+
+        // Skalakan World Boss (Tier 4) setiap kali tumbang (makin sering tumbang makin kuat)
+        if ($tier === self::TIER_WORLDBOSS) {
+            $bossLevel = self::getWorldBossDefeatCount() + 1;
+            $scaleMultiplier = 1.0 + (($bossLevel - 1) * 0.25);
+            $campName = "[WORLD BOSS - LV. {$bossLevel}] " . $baseName;
+            $bounty = (int)round($bounty * $scaleMultiplier);
+            $exp = (int)round($exp * (1.0 + (($bossLevel - 1) * 0.15)));
+            $cp = (int)round($cp * (1.0 + (($bossLevel - 1) * 0.15)));
+            $silver = (int)round($silver * (1.0 + (($bossLevel - 1) * 0.20)));
+            $pop = (int)round($pop * (1.0 + (($bossLevel - 1) * 0.10)));
+
+            // Perkuat prajurit penjaga Boss
+            foreach ($p['troops'] as $uNum => $amt) {
+                $p['troops'][$uNum] = (int)round($amt * $scaleMultiplier);
+            }
+        }
+
         $storage = max(40000, (int)round($bounty * 1.5));
 
         // 1. Create village entry in vdata
@@ -637,9 +697,9 @@ class BanditCamp {
 
         $database->query("
             INSERT INTO " . TB_PREFIX . "bandit_camps
-            (wref, tier, name, max_hp, cur_hp, bounty_wood, bounty_clay, bounty_iron, bounty_crop, reward_exp, reward_cp, reward_silver, status, created)
+            (wref, tier, level, name, max_hp, cur_hp, bounty_wood, bounty_clay, bounty_iron, bounty_crop, reward_exp, reward_cp, reward_silver, status, created)
             VALUES
-            ($wref, $tier, '$nameEsc', $totalGuards, $totalGuards, $bounty, $bounty, $bounty, $bounty, $exp, $cp, $silver, 1, $time)
+            ($wref, $tier, $bossLevel, '$nameEsc', $totalGuards, $totalGuards, $bounty, $bounty, $bounty, $bounty, $exp, $cp, $silver, 1, $time)
         ");
 
         $campId = mysqli_insert_id($database->dblink);

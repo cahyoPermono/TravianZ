@@ -461,6 +461,35 @@ class Technology {
 				if(!isset($ownunit['hero'])) $ownunit['hero'] = 0;
 				$ownunit['hero'] += (isset($movement['hero']) ? $movement['hero'] : 0);
 			}
+
+			// Pasukan yang sedang dikerahkan ke Ekspedisi Aliansi (Forward Camp / Marching) tetap makan gandum desa asal
+			if (isset($database->dblink) && $database->dblink) {
+				$expQuery = "SELECT m.* FROM `" . TB_PREFIX . "expedition_members` m 
+							 JOIN `" . TB_PREFIX . "expeditions` e ON m.expedition_id = e.id 
+							 WHERE m.from_wref = " . (int)$base . " AND e.status IN (0, 4)";
+				$expRows = $database->query_return($expQuery);
+				if (!empty($expRows)) {
+					foreach ($expRows as $em) {
+						$emTribe = (int)($em['tribe'] ?? 1);
+						for ($i = 1; $i <= 10; $i++) {
+							$cnt = (int)($em['u' . $i] ?? 0);
+							if ($cnt > 0) {
+								$globalUnitId = ($emTribe - 1) * 10 + $i;
+								if (!isset($ownunit['u' . $globalUnitId])) {
+									$ownunit['u' . $globalUnitId] = 0;
+								}
+								$ownunit['u' . $globalUnitId] += $cnt;
+							}
+						}
+						if (!empty($em['has_hero'])) {
+							if (!isset($ownunit['hero'])) {
+								$ownunit['hero'] = 0;
+							}
+							$ownunit['hero'] += 1;
+						}
+					}
+				}
+			}
 		}
 		return $ownunit;
     }

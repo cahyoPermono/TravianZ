@@ -16,10 +16,11 @@
 
 class ExpeditionEngine {
 
-    const STATUS_LOBBY     = 0; // Forward Camp persiapan (buka slot lobi 2-5 pemain)
+    const STATUS_LOBBY     = 0; // Forward Camp persiapan (buka slot lobi 2-5 pemain, pasukan jalan ke camp)
     const STATUS_RESOLVED  = 1; // Ekspedisi sukses benturan dan menang (Boss tewas)
     const STATUS_FAILED    = 2; // Ekspedisi terpukul mundur (Boss selamat / partial damage)
     const STATUS_CANCELLED = 3; // Ekspedisi dibatalkan (auto-refund karena kuota kurang / dibatalkan leader)
+    const STATUS_MARCHING  = 4; // Pasukan gabungan sedang bergerak bersama dari Virtual Camp menuju Sarang Boss
 
     const DAILY_LIMIT = 3;       // Maksimal 3x ekspedisi per hari per pemain (Anti-Abuse)
     const MIN_MEMBERS = 2;       // Minimal 2 pemain untuk meluncurkan serangan bersama
@@ -40,11 +41,14 @@ class ExpeditionEngine {
             `id` int(11) NOT NULL AUTO_INCREMENT,
             `camp_id` int(11) NOT NULL,
             `target_wref` int(11) NOT NULL,
+            `camp_wref` int(11) NOT NULL DEFAULT 0,
             `leader_uid` int(11) NOT NULL,
             `alliance_id` int(11) NOT NULL DEFAULT 0,
             `status` tinyint(2) NOT NULL DEFAULT 0,
             `impact_time` int(11) NOT NULL,
             `prep_duration` int(11) NOT NULL DEFAULT 1200,
+            `launch_time` int(11) NOT NULL DEFAULT 0,
+            `march_duration` int(11) NOT NULL DEFAULT 0,
             `min_participants` tinyint(2) NOT NULL DEFAULT 2,
             `max_participants` tinyint(2) NOT NULL DEFAULT 5,
             `created_at` int(11) NOT NULL,
@@ -55,6 +59,17 @@ class ExpeditionEngine {
             KEY (`status`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
         mysqli_query($database->dblink, $q1);
+
+        // Auto-migrate kolom baru di s1_expeditions jika belum ada
+        $colCampWref = $database->query_return("SHOW COLUMNS FROM `" . TB_PREFIX . "expeditions` LIKE 'camp_wref'");
+        if (empty($colCampWref)) {
+            mysqli_query($database->dblink, "ALTER TABLE `" . TB_PREFIX . "expeditions` ADD COLUMN `camp_wref` int(11) NOT NULL DEFAULT 0 AFTER `target_wref`");
+        }
+        $colLaunchTime = $database->query_return("SHOW COLUMNS FROM `" . TB_PREFIX . "expeditions` LIKE 'launch_time'");
+        if (empty($colLaunchTime)) {
+            mysqli_query($database->dblink, "ALTER TABLE `" . TB_PREFIX . "expeditions` ADD COLUMN `launch_time` int(11) NOT NULL DEFAULT 0 AFTER `impact_time`");
+            mysqli_query($database->dblink, "ALTER TABLE `" . TB_PREFIX . "expeditions` ADD COLUMN `march_duration` int(11) NOT NULL DEFAULT 0 AFTER `launch_time`");
+        }
 
         // 2. Tabel Anggota & Pasukan di Forward Camp
         $q2 = "CREATE TABLE IF NOT EXISTS `" . TB_PREFIX . "expedition_members` (
@@ -77,6 +92,9 @@ class ExpeditionEngine {
             `attack_power` bigint(20) NOT NULL DEFAULT 0,
             `damage_dealt` bigint(20) NOT NULL DEFAULT 0,
             `losses_pct` decimal(5,2) NOT NULL DEFAULT 0.00,
+            `travel_time` int(11) NOT NULL DEFAULT 0,
+            `arrive_time` int(11) NOT NULL DEFAULT 0,
+            `status` tinyint(2) NOT NULL DEFAULT 1,
             `reward_wood` int(11) NOT NULL DEFAULT 0,
             `reward_clay` int(11) NOT NULL DEFAULT 0,
             `reward_iron` int(11) NOT NULL DEFAULT 0,
@@ -92,6 +110,14 @@ class ExpeditionEngine {
             KEY (`uid`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
         mysqli_query($database->dblink, $q2);
+
+        // Auto-migrate kolom baru di s1_expedition_members jika belum ada
+        $colTravelTime = $database->query_return("SHOW COLUMNS FROM `" . TB_PREFIX . "expedition_members` LIKE 'travel_time'");
+        if (empty($colTravelTime)) {
+            mysqli_query($database->dblink, "ALTER TABLE `" . TB_PREFIX . "expedition_members` ADD COLUMN `travel_time` int(11) NOT NULL DEFAULT 0 AFTER `losses_pct`");
+            mysqli_query($database->dblink, "ALTER TABLE `" . TB_PREFIX . "expedition_members` ADD COLUMN `arrive_time` int(11) NOT NULL DEFAULT 0 AFTER `travel_time`");
+            mysqli_query($database->dblink, "ALTER TABLE `" . TB_PREFIX . "expedition_members` ADD COLUMN `status` tinyint(2) NOT NULL DEFAULT 1 AFTER `arrive_time`");
+        }
 
         // 3. Tabel Batas Harian Partisipasi (Daily Usage)
         $q3 = "CREATE TABLE IF NOT EXISTS `" . TB_PREFIX . "expedition_daily_usage` (
@@ -207,6 +233,114 @@ class ExpeditionEngine {
         }
 
         return max(0, $totalAtk);
+    }
+
+    /**
+     * Hitung kecepatan bergerak (tiles/hour) unit paling lambat dari kelompok pasukan.
+     */
+    public static function calculateSlowestSpeed(int $tribe, array $troops, bool $hasHero = false, int $uid = 0): int {
+        static $unitDataCache = null;
+        if ($unitDataCache === null) {
+            $unitDataFile = dirname(__DIR__) . '/Data/unitdata.php';
+            if (file_exists($unitDataFile)) {
+                require $unitDataFile;
+                $unitDataCache = [];
+                for ($i = 1; $i <= 100; $i++) {
+                    $varName = 'u' . $i;
+                    if (isset($$varName) && is_array($$varName)) {
+                        $unitDataCache[$i] = $$varName;
+                    }
+                }
+            }
+        }
+
+        $minSpeed = 999;
+        for ($i = 1; $i <= 10; $i++) {
+            $count = (int)($troops['u' . $i] ?? ($troops[$i] ?? 0));
+            if ($count > 0) {
+                $globalUnitId = ($tribe - 1) * 10 + $i;
+                $spd = (int)($unitDataCache[$globalUnitId]['speed'] ?? 7);
+                if ($spd > 0 && $spd < $minSpeed) {
+                    $minSpeed = $spd;
+                }
+            }
+        }
+
+        if ($hasHero) {
+            $heroSpeed = 14;
+            if ($minSpeed === 999) {
+                $minSpeed = $heroSpeed;
+            }
+        }
+
+        return ($minSpeed === 999) ? 7 : $minSpeed;
+    }
+
+    /**
+     * Hitung durasi perjalanan (detik) antara dua koordinat desa berdasarkan unit terlambat.
+     */
+    public static function calculateTravelTime(int $fromWref, int $toWref, int $tribe, array $troops, bool $hasHero = false, int $uid = 0): int {
+        global $database, $generator;
+        if ($fromWref === $toWref) {
+            return 0;
+        }
+        if (!isset($generator) || !is_object($generator)) {
+            require_once dirname(__DIR__) . '/Generator.php';
+            $generator = new Generator();
+        }
+        $coorFrom = $database->getCoor($fromWref);
+        $coorTo = $database->getCoor($toWref);
+        if (empty($coorFrom) || empty($coorTo)) {
+            return 60;
+        }
+        $speed = self::calculateSlowestSpeed($tribe, $troops, $hasHero, $uid);
+        $seconds = $generator->procDistanceTime($coorTo, $coorFrom, $speed, 1, $fromWref);
+        return max(10, (int)$seconds);
+    }
+
+    /**
+     * Hitung durasi berbarisnya seluruh armada koalisi dari Virtual Camp ke sasaran Boss.
+     */
+    public static function calculateCoalitionMarchTime(int $expeditionId, int $campWref, int $targetWref): int {
+        global $database, $generator;
+        if (!isset($generator) || !is_object($generator)) {
+            require_once dirname(__DIR__) . '/Generator.php';
+            $generator = new Generator();
+        }
+        $coorCamp = $database->getCoor($campWref);
+        $coorBoss = $database->getCoor($targetWref);
+        if (empty($coorCamp) || empty($coorBoss)) {
+            return 120;
+        }
+
+        $members = $database->query_return("SELECT * FROM `" . TB_PREFIX . "expedition_members` WHERE expedition_id = $expeditionId");
+        $minSpeed = 999;
+        $tribes = [];
+        foreach ($members as $m) {
+            $mTribe = (int)$m['tribe'];
+            $tribes[] = $mTribe;
+            $mTroops = [];
+            for ($i = 1; $i <= 10; $i++) {
+                $mTroops['u' . $i] = (int)$m['u' . $i];
+            }
+            $mSpeed = self::calculateSlowestSpeed($mTribe, $mTroops, (bool)$m['has_hero'], (int)$m['uid']);
+            if ($mSpeed < $minSpeed) {
+                $minSpeed = $mSpeed;
+            }
+        }
+        if ($minSpeed === 999) {
+            $minSpeed = 7;
+        }
+
+        $rawSeconds = $generator->procDistanceTime($coorBoss, $coorCamp, $minSpeed, 1, $campWref);
+
+        // Jika aliansi punya suku Galia -> Sinergi Rapid Egress (+20% kecepatan pulang & mars)
+        $synergies = self::computeSynergiesFromTribes($tribes);
+        if (!empty($synergies['speed_buff']) && $synergies['speed_buff'] > 0) {
+            $rawSeconds = (int)round($rawSeconds / (1.0 + $synergies['speed_buff']));
+        }
+
+        return max(20, (int)$rawSeconds);
     }
 
     /**
@@ -612,22 +746,23 @@ class ExpeditionEngine {
         $now = time();
         $impactTime = $now + ($prepMinutes * 60);
 
-        // Buat record ekspedisi
+        // Buat record ekspedisi dengan camp_wref bertitik pusat di desa inisiator (Virtual Camp)
+        $campWref = $fromWref;
         $qExp = "INSERT INTO `" . TB_PREFIX . "expeditions` 
-                 (`camp_id`, `target_wref`, `leader_uid`, `alliance_id`, `status`, `impact_time`, `prep_duration`, `min_participants`, `max_participants`, `created_at`)
-                 VALUES ($campId, " . (int)$camp['wref'] . ", $leaderUid, $allianceId, 0, $impactTime, " . ($prepMinutes * 60) . ", " . self::MIN_MEMBERS . ", " . self::MAX_MEMBERS . ", $now)";
+                 (`camp_id`, `target_wref`, `camp_wref`, `leader_uid`, `alliance_id`, `status`, `impact_time`, `prep_duration`, `launch_time`, `march_duration`, `min_participants`, `max_participants`, `created_at`)
+                 VALUES ($campId, " . (int)$camp['wref'] . ", $campWref, $leaderUid, $allianceId, 0, $impactTime, " . ($prepMinutes * 60) . ", 0, 0, " . self::MIN_MEMBERS . ", " . self::MAX_MEMBERS . ", $now)";
         mysqli_query($database->dblink, $qExp);
         $expeditionId = mysqli_insert_id($database->dblink);
 
-        // Deduct pasukan dari desa dan catat di s1_expedition_members
-        self::deductAndRegisterMember($expeditionId, $leaderUid, $fromWref, $leaderTribe, $troops, $hasHero, $atkPower);
+        // Leader sudah berada di titik kumpul Virtual Camp (travel_time = 0, status = 1)
+        self::deductAndRegisterMember($expeditionId, $leaderUid, $fromWref, $leaderTribe, $troops, $hasHero, $atkPower, 0, $now, 1);
         self::recordDailyUsage($leaderUid);
 
         return [
             'status' => 'success',
             'expedition_id' => $expeditionId,
             'impact_time' => $impactTime,
-            'message' => "Forward Camp berhasil dibentuk! Lobi ekspedisi terbuka untuk anggota aliansi Anda."
+            'message' => "Forward Camp berhasil dibentuk di desa Anda! Lobi ekspedisi terbuka untuk anggota aliansi Anda."
         ];
     }
 
@@ -670,10 +805,23 @@ class ExpeditionEngine {
             return ['status' => 'error', 'message' => "Anda bukan anggota dari aliansi penyelenggara ekspedisi ini!"];
         }
 
-        // 4. Periksa apakah sudah bergabung
+        // 4. Pembatasan Akun yang Sama (Anti Multi-Desa Akun Sama dalam 1 Ekspedisi)
+        if ($uid === (int)$exp['leader_uid']) {
+            return ['status' => 'error', 'message' => "Pemimpin ekspedisi sudah terdaftar dengan desa utamanya dan tidak dapat mendaftarkan desa lain ke lobi yang sama!"];
+        }
+
         $existing = $database->query_return("SELECT id FROM `" . TB_PREFIX . "expedition_members` WHERE expedition_id = $expeditionId AND uid = $uid LIMIT 1");
         if (!empty($existing[0])) {
-            return ['status' => 'error', 'message' => "Anda sudah menyetor pasukan ke Forward Camp ekspedisi ini!"];
+            return ['status' => 'error', 'message' => "Akun Anda sudah memiliki desa/pasukan yang bergabung di ekspedisi ini! Satu pemain hanya diperbolehkan bergabung dari 1 desa."];
+        }
+
+        // Pastikan desa pemberangkatan benar-benar milik user tersebut
+        if ($fromWref <= 0) {
+            $fromWref = (int)$database->getVillageID($uid);
+        }
+        $vilOwner = (int)$database->getVillageField($fromWref, 'owner');
+        if ($vilOwner !== $uid) {
+            return ['status' => 'error', 'message' => "Desa pemberangkatan tidak valid atau bukan milik akun Anda!"];
         }
 
         // 5. Cek batas maksimal peserta
@@ -683,10 +831,6 @@ class ExpeditionEngine {
         }
 
         // 6. Validasi Pasukan & Kekuatan Minimal
-        if ($fromWref <= 0) {
-            $fromWref = (int)$database->getVillageID($uid);
-        }
-
         // Deteksi suku desa pemberangkatan (village tribe)
         $fromVilRows = $database->query_return("SELECT tribe FROM `" . TB_PREFIX . "vdata` WHERE wref = $fromWref LIMIT 1");
         $vTribe = !empty($fromVilRows[0]['tribe']) ? (int)$fromVilRows[0]['tribe'] : 0;
@@ -725,9 +869,6 @@ class ExpeditionEngine {
         }
 
         // 7. Cek ketersediaan pasukan di desa
-        if ($fromWref <= 0) {
-            $fromWref = (int)$database->getVillageID($uid);
-        }
         $vUnits = $database->getUnit($fromWref, false);
         for ($i = 1; $i <= 10; $i++) {
             $unitCol = 'u' . (($userTribe - 1) * 10 + $i);
@@ -738,14 +879,29 @@ class ExpeditionEngine {
             }
         }
 
-        // Deduct & register
-        self::deductAndRegisterMember($expeditionId, $uid, $fromWref, $userTribe, $troops, $hasHero, $atkPower);
+        // 8. Hitung Waktu Jalan Pasukan dari Desa Anggota ke Virtual Camp (camp_wref)
+        $campWref = (int)($exp['camp_wref'] ?? 0);
+        if ($campWref <= 0) {
+            $campWref = (int)$database->getVillageID((int)$exp['leader_uid']);
+        }
+
+        $now = time();
+        $travelTime = self::calculateTravelTime($fromWref, $campWref, $userTribe, $troops, $hasHero, $uid);
+        $arriveTime = $now + $travelTime;
+        $mStatus = 0; // 0 = Sedang berbaris menuju camp
+
+        // Deduct & register member
+        self::deductAndRegisterMember($expeditionId, $uid, $fromWref, $userTribe, $troops, $hasHero, $atkPower, $travelTime, $arriveTime, $mStatus);
         self::recordDailyUsage($uid);
+
+        $travelMin = ceil($travelTime / 60);
 
         return [
             'status' => 'success',
             'expedition_id' => $expeditionId,
-            'message' => "Berhasil bergabung ke Forward Camp! Pasukan Anda telah dikerahkan ke titik kumpul ekspedisi."
+            'travel_time' => $travelTime,
+            'arrive_time' => $arriveTime,
+            'message' => "Berhasil bergabung ke Forward Camp! Pasukan Anda sedang berbaris menuju Virtual Camp (Estimasi tiba: {$travelMin} menit)."
         ];
     }
 
@@ -759,10 +915,16 @@ class ExpeditionEngine {
         int $tribe,
         array $troops,
         bool $hasHero,
-        int $atkPower
+        int $atkPower,
+        int $travelTime = 0,
+        int $arriveTime = 0,
+        int $mStatus = 1
     ): void {
         global $database;
         $now = time();
+        if ($arriveTime <= 0) {
+            $arriveTime = $now;
+        }
 
         $uCols = [];
         $uDeductUpdates = [];
@@ -792,12 +954,12 @@ class ExpeditionEngine {
         // Insert ke s1_expedition_members
         $hasHeroVal = $hasHero ? 1 : 0;
         $q = "INSERT INTO `" . TB_PREFIX . "expedition_members` 
-              (`expedition_id`, `uid`, `from_wref`, `tribe`, `u1`, `u2`, `u3`, `u4`, `u5`, `u6`, `u7`, `u8`, `u9`, `u10`, `has_hero`, `attack_power`, `joined_at`)
+              (`expedition_id`, `uid`, `from_wref`, `tribe`, `u1`, `u2`, `u3`, `u4`, `u5`, `u6`, `u7`, `u8`, `u9`, `u10`, `has_hero`, `attack_power`, `travel_time`, `arrive_time`, `status`, `joined_at`)
               VALUES (
                   $expeditionId, $uid, $fromWref, $tribe,
                   {$uCols['u1']}, {$uCols['u2']}, {$uCols['u3']}, {$uCols['u4']}, {$uCols['u5']},
                   {$uCols['u6']}, {$uCols['u7']}, {$uCols['u8']}, {$uCols['u9']}, {$uCols['u10']},
-                  $hasHeroVal, $atkPower, $now
+                  $hasHeroVal, $atkPower, $travelTime, $arriveTime, $mStatus, $now
               )";
         mysqli_query($database->dblink, $q);
     }
@@ -1222,6 +1384,89 @@ class ExpeditionEngine {
     }
 
     /**
+     * Luncurkan mars serbuan gabungan dari Virtual Camp menuju Sarang Boss (Status 0 -> Status 4).
+     */
+    public static function launchAssaultMarch(int $expeditionId, int $leaderUid = 0): array {
+        global $database;
+        self::ensureTables();
+        $now = time();
+
+        $expRows = $database->query_return("SELECT * FROM `" . TB_PREFIX . "expeditions` WHERE id = $expeditionId LIMIT 1");
+        if (empty($expRows[0])) {
+            return ['status' => 'error', 'message' => "Ekspedisi tidak ditemukan."];
+        }
+        $exp = $expRows[0];
+        if ((int)$exp['status'] !== self::STATUS_LOBBY) {
+            return ['status' => 'error', 'message' => "Hanya ekspedisi dalam status lobi yang dapat diberangkatkan ke sasaran."];
+        }
+
+        // Jika dipanggil manual oleh leader, validasi UID
+        if ($leaderUid > 0 && $leaderUid !== (int)$exp['leader_uid']) {
+            return ['status' => 'error', 'message' => "Hanya pemimpin ekspedisi (Rally Leader) yang dapat meluncurkan serangan."];
+        }
+
+        // Update status anggota yang waktu tempuhnya sudah habis
+        $database->query("UPDATE `" . TB_PREFIX . "expedition_members` SET `status` = 1 WHERE `expedition_id` = $expeditionId AND `status` = 0 AND `arrive_time` <= $now");
+
+        // Ambil data anggota ekspedisi
+        $members = $database->query_return("SELECT * FROM `" . TB_PREFIX . "expedition_members` WHERE expedition_id = $expeditionId");
+        if (count($members) < self::MIN_MEMBERS) {
+            return ['status' => 'error', 'message' => "Jumlah anggota minimal belum terpenuhi (Minimal " . self::MIN_MEMBERS . " pemain)."];
+        }
+
+        // Cek apakah ada anggota yang pasukannya masih berbaris menuju camp
+        foreach ($members as $m) {
+            if ((int)$m['status'] === 0 && (int)$m['arrive_time'] > $now) {
+                $rem = (int)$m['arrive_time'] - $now;
+                return ['status' => 'error', 'message' => "Pasukan anggota masih dalam perjalanan menuju Virtual Camp (Tiba dalam {$rem} detik). Harap tunggu hingga semua pasukan tiba di camp!"];
+            }
+        }
+
+        $campWref = (int)($exp['camp_wref'] ?? 0);
+        if ($campWref <= 0) {
+            $campWref = (int)$database->getVillageID((int)$exp['leader_uid']);
+        }
+        $targetWref = (int)$exp['target_wref'];
+
+        $marchDuration = self::calculateCoalitionMarchTime($expeditionId, $campWref, $targetWref);
+        $impactTime = $now + $marchDuration;
+
+        $database->query("
+            UPDATE `" . TB_PREFIX . "expeditions`
+            SET `status` = " . self::STATUS_MARCHING . ",
+                `launch_time` = $now,
+                `march_duration` = $marchDuration,
+                `impact_time` = $impactTime
+            WHERE id = $expeditionId
+        ");
+
+        // Pastikan seluruh anggota berstatus 1 (sudah di camp dan kini ikut berbaris)
+        $database->query("UPDATE `" . TB_PREFIX . "expedition_members` SET `status` = 1 WHERE `expedition_id` = $expeditionId");
+
+        // Kirim notifikasi Notice 28 ke seluruh anggota aliansi yang bergabung
+        $camp = $database->query_return("SELECT name FROM `" . TB_PREFIX . "bandit_camps` WHERE id = " . (int)$exp['camp_id'] . " LIMIT 1");
+        $campName = !empty($camp[0]['name']) ? $camp[0]['name'] : "Target Ekspedisi";
+        $durMin = ceil($marchDuration / 60);
+
+        foreach ($members as $m) {
+            $mUid = (int)$m['uid'];
+            $mWref = (int)$m['from_wref'];
+            $noticeTopic = "🎺 [FORWARD CAMP] Pasukan Koalisi Berangkat Menyerang {$campName}!";
+            $noticeText = "type=expedition_report&action=marching&camp_name=" . urlencode($campName) .
+                          "&march_duration={$marchDuration}&impact_time={$impactTime}&expedition_id={$expeditionId}" .
+                          "&message=" . urlencode("Seluruh pasukan koalisi aliansi telah berkumpul di Virtual Camp dan kini sedang bergerak bersama menuju {$campName}!\n\nEstimasi waktu benturan: {$durMin} menit (" . date('H:i:s', $impactTime) . ").");
+            $database->addNotice($mUid, $mWref, 0, 28, $noticeTopic, $noticeText, $now);
+        }
+
+        return [
+            'status' => 'success',
+            'march_duration' => $marchDuration,
+            'impact_time' => $impactTime,
+            'message' => "Pasukan koalisi berhasil diberangkatkan dari Virtual Camp menuju sasaran! Estimasi tiba: {$durMin} menit."
+        ];
+    }
+
+    /**
      * Memproses ekspedisi aktif secara otomatis (Dipanggil dari Automation.php atau cron).
      */
     public static function processExpeditions(bool $force = false): array {
@@ -1229,12 +1474,40 @@ class ExpeditionEngine {
         self::ensureTables();
 
         $now = time();
-        $processed = ['resolved' => 0, 'cancelled' => 0];
+        $processed = ['launched' => 0, 'resolved' => 0, 'cancelled' => 0];
 
-        // Cari ekspedisi dalam status lobby yang sudah mencapai impact_time
-        $due = $database->query_return("SELECT id FROM `" . TB_PREFIX . "expeditions` WHERE `status` = " . self::STATUS_LOBBY . " AND `impact_time` <= $now");
-        if (!empty($due)) {
-            foreach ($due as $exp) {
+        // 1. Update anggota yang sedang berbaris ke Virtual Camp jika sudah tiba
+        $database->query("UPDATE `" . TB_PREFIX . "expedition_members` SET `status` = 1 WHERE `status` = 0 AND `arrive_time` <= $now");
+
+        // 2. Cek ekspedisi dalam status lobby yang sudah mencapai impact_time
+        $dueLobbies = $database->query_return("SELECT id FROM `" . TB_PREFIX . "expeditions` WHERE `status` = " . self::STATUS_LOBBY . " AND `impact_time` <= $now");
+        if (!empty($dueLobbies)) {
+            foreach ($dueLobbies as $exp) {
+                $eId = (int)$exp['id'];
+                $arrived = $database->query_return("SELECT COUNT(*) as total FROM `" . TB_PREFIX . "expedition_members` WHERE expedition_id = $eId AND (status = 1 OR arrive_time <= $now)");
+                $totalArrived = !empty($arrived[0]['total']) ? (int)$arrived[0]['total'] : 0;
+
+                if ($totalArrived >= self::MIN_MEMBERS) {
+                    $resLaunch = self::launchAssaultMarch($eId);
+                    if ($resLaunch['status'] === 'success') {
+                        $processed['launched']++;
+                    } else {
+                        self::refundMembers($eId, "Waktu persiapan habis dan beberapa anggota gagal tiba di titik kumpul.");
+                        $database->query("UPDATE `" . TB_PREFIX . "expeditions` SET `status` = " . self::STATUS_CANCELLED . " WHERE id = $eId");
+                        $processed['cancelled']++;
+                    }
+                } else {
+                    self::refundMembers($eId, "Waktu persiapan habis dan kuota minimal " . self::MIN_MEMBERS . " anggota tidak terpenuhi.");
+                    $database->query("UPDATE `" . TB_PREFIX . "expeditions` SET `status` = " . self::STATUS_CANCELLED . " WHERE id = $eId");
+                    $processed['cancelled']++;
+                }
+            }
+        }
+
+        // 3. Cek ekspedisi dalam status marching yang waktu benturannya sudah tiba
+        $dueMarching = $database->query_return("SELECT id FROM `" . TB_PREFIX . "expeditions` WHERE `status` = " . self::STATUS_MARCHING . " AND `impact_time` <= $now");
+        if (!empty($dueMarching)) {
+            foreach ($dueMarching as $exp) {
                 $eId = (int)$exp['id'];
                 $res = self::resolveAssault($eId);
                 if (isset($res['status'])) {
@@ -1258,6 +1531,9 @@ class ExpeditionEngine {
         self::ensureTables();
         $expeditionId = (int)$expeditionId;
 
+        // Sinkronkan status tiba anggota
+        $database->query("UPDATE `" . TB_PREFIX . "expedition_members` SET `status` = 1 WHERE `expedition_id` = $expeditionId AND `status` = 0 AND `arrive_time` <= " . time());
+
         $expRows = $database->query_return("
             SELECT e.*, b.name as camp_name, b.tier as camp_tier, b.cur_hp, b.max_hp, b.bounty_wood, b.bounty_clay, b.bounty_iron, b.bounty_crop, b.reward_silver, b.reward_cp, b.reward_exp, w.x, w.y
             FROM `" . TB_PREFIX . "expeditions` e
@@ -1271,10 +1547,24 @@ class ExpeditionEngine {
         }
 
         $exp = $expRows[0];
+
+        // Ambil info koordinat dan nama desa titik kumpul Virtual Camp
+        $campWref = (int)($exp['camp_wref'] ?? 0);
+        if ($campWref <= 0) {
+            $campWref = (int)$database->getVillageID((int)$exp['leader_uid']);
+        }
+        $campCoor = $database->getCoor($campWref);
+        $campVname = $database->getVillageField($campWref, 'name');
+        $exp['camp_x'] = $campCoor['x'] ?? 0;
+        $exp['camp_y'] = $campCoor['y'] ?? 0;
+        $exp['camp_vname'] = !empty($campVname) ? $campVname : 'Virtual Camp';
+
         $members = $database->query_return("
-            SELECT m.*, u.username
+            SELECT m.*, u.username, v.name as from_vname, w.x as from_x, w.y as from_y
             FROM `" . TB_PREFIX . "expedition_members` m
             LEFT JOIN `" . TB_PREFIX . "users` u ON m.uid = u.id
+            LEFT JOIN `" . TB_PREFIX . "vdata` v ON m.from_wref = v.wref
+            LEFT JOIN `" . TB_PREFIX . "wdata` w ON m.from_wref = w.id
             WHERE m.expedition_id = $expeditionId
             ORDER BY m.joined_at ASC
         ");
@@ -1298,14 +1588,14 @@ class ExpeditionEngine {
     }
 
     /**
-     * Ambil ekspedisi lobi yang sedang aktif untuk sebuah sarang bandit tertentu.
+     * Ambil ekspedisi lobi/marching yang sedang aktif untuk sebuah sarang bandit tertentu.
      */
     public static function getActiveCampExpedition(int $campId): ?array {
         global $database;
         self::ensureTables();
         $campId = (int)$campId;
 
-        $exp = $database->query_return("SELECT id FROM `" . TB_PREFIX . "expeditions` WHERE camp_id = $campId AND status = " . self::STATUS_LOBBY . " LIMIT 1");
+        $exp = $database->query_return("SELECT id FROM `" . TB_PREFIX . "expeditions` WHERE camp_id = $campId AND status IN (" . self::STATUS_LOBBY . ", " . self::STATUS_MARCHING . ") LIMIT 1");
         if (!empty($exp[0]['id'])) {
             return self::getExpeditionDetails((int)$exp[0]['id']);
         }
@@ -1324,7 +1614,7 @@ class ExpeditionEngine {
         $rows = $database->query_return("
             SELECT e.id
             FROM `" . TB_PREFIX . "expeditions` e
-            WHERE e.alliance_id = $allianceId AND e.status = " . self::STATUS_LOBBY . "
+            WHERE e.alliance_id = $allianceId AND e.status IN (" . self::STATUS_LOBBY . ", " . self::STATUS_MARCHING . ")
             ORDER BY e.impact_time ASC
         ");
 
