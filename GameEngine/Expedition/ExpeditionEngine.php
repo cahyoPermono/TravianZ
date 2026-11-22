@@ -874,7 +874,7 @@ class ExpeditionEngine {
 
             // Kirim notifikasi Notice Type 28
             $noticeTopic = "🛡️ [FORWARD CAMP] Ekspedisi Aliansi Dibatalkan";
-            $noticeMsg = "type=expedition_report&action=cancelled&reason=" . urlencode($reason) . "&message=" . urlencode("Sesi Forward Camp ekspedisi telah dibatalkan ($reason). Seluruh armada pasukan Anda telah dipulangkan kembali ke desa dengan selamat tanpa kerugian apapun.");
+            $noticeMsg = "type=expedition_report&action=cancelled&expedition_id=" . $expeditionId . "&reason=" . urlencode($reason) . "&message=" . urlencode("Sesi Forward Camp ekspedisi telah dibatalkan ($reason). Seluruh armada pasukan Anda telah dipulangkan kembali ke desa dengan selamat tanpa kerugian apapun.");
             $database->addNotice($mUid, $mWref, 0, 28, $noticeTopic, $noticeMsg, $now);
         }
 
@@ -1158,6 +1158,7 @@ class ExpeditionEngine {
                 $noticeText = "type=expedition_report&action=victory&camp_name=" . urlencode($camp['name']) . "&losses_pct=" . round($effectiveLossRatio * 100, 2) .
                               "&wood=" . $r['wood'] . "&clay=" . $r['clay'] . "&iron=" . $r['iron'] . "&crop=" . $r['crop'] .
                               "&silver=" . $r['silver'] . "&cp=" . $r['cp'] . "&exp=" . $r['exp'] . "&essence=" . $r['essence'] .
+                              "&expedition_id=" . $expeditionId .
                               "&message=" . urlencode(
                                   "Serangan gabungan Forward Camp berhasil menumbangkan {$camp['name']}!\n\n" .
                                   "🛡️ Sinergi Suku Aktif:\n" . implode("\n", $synergyBadges) . "\n\n" .
@@ -1203,6 +1204,7 @@ class ExpeditionEngine {
                 $mUid = (int)$mRow['uid'];
                 $noticeTopic = "💀 [EKSPEDISI ALIANSI: TERPUKUL MUNDUR] Pertahanan {$camp['name']} Terlalu Kuat!";
                 $noticeText = "type=expedition_report&action=defeat&camp_name=" . urlencode($camp['name']) . "&losses_pct=" . round($effectiveLossRatio * 100, 2) .
+                              "&expedition_id=" . $expeditionId .
                               "&message=" . urlencode(
                                   "Serangan gabungan Forward Camp ke {$camp['name']} tidak berhasil menembus pertahanan lawan.\n" .
                                   "Pasukan ekspedisi menanggung kerugian bersama sebesar " . round($effectiveLossRatio * 100, 2) . "%."
