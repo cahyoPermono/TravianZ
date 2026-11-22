@@ -658,7 +658,7 @@ class ExpeditionEngine {
 
         $leaderUid = (int)$leaderUid;
         $campId = (int)$campId;
-        $prepMinutes = max(10, min(120, (int)$prepMinutes));
+        $prepMinutes = max(10, min(180, (int)$prepMinutes));
 
         // 1. Validasi Kuota Harian Inisiator
         if (!self::canJoinExpedition($leaderUid)) {
@@ -887,6 +887,18 @@ class ExpeditionEngine {
 
         $now = time();
         $travelTime = self::calculateTravelTime($fromWref, $campWref, $userTribe, $troops, $hasHero, $uid);
+        $remainingLobbyTime = (int)$exp['impact_time'] - $now;
+
+        // Validasi Waktu Tempuh: Pasukan harus tiba SEBELUM jam persiapan lobi berakhir!
+        if ($travelTime > $remainingLobbyTime) {
+            $travelFmt = sprintf('%02d:%02d:%02d', intdiv($travelTime, 3600), intdiv($travelTime % 3600, 60), $travelTime % 60);
+            $lobbyRemFmt = sprintf('%02d:%02d:%02d', intdiv(max(0, $remainingLobbyTime), 3600), intdiv(max(0, $remainingLobbyTime) % 3600, 60), max(0, $remainingLobbyTime) % 60);
+            return [
+                'status' => 'error',
+                'message' => "Waktu tempuh pasukan Anda ({$travelFmt}) melebihi sisa waktu persiapan lobi ({$lobbyRemFmt})! Pasukan tidak akan sempat tiba di Virtual Camp sebelum ekspedisi diberangkatkan. Silakan gunakan desa yang lebih dekat dengan Virtual Camp atau kirim pasukan yang lebih cepat (hindari unit lambat seperti senjata kepung/catapult/ram/administrator)."
+            ];
+        }
+
         $arriveTime = $now + $travelTime;
         $mStatus = 0; // 0 = Sedang berbaris menuju camp
 

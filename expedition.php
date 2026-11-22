@@ -89,7 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
     if ($action === 'create') {
         $campId = (int)($_POST['camp_id'] ?? 0);
-        $prepMin = max(10, min(120, (int)($_POST['prep_minutes'] ?? 20)));
+        $prepMin = max(10, min(180, (int)($_POST['prep_minutes'] ?? 60)));
         $hasHero = (!empty($_POST['has_hero']) && $heroInVillage);
 
         $troops = [];
@@ -204,11 +204,20 @@ $dailyRemaining = max(0, ExpeditionEngine::DAILY_LIMIT - $dailyUsage);
 // Ambil troops di desa saat ini
 $villageUnits = $database->getUnit($currentVref, false);
 
-// Buat pemetaan jumlah pasukan maksimal per unit (u1..u10)
+// Buat pemetaan jumlah pasukan maksimal, kecepatan, dan nama unit (u1..u10)
 $maxTroopMap = [];
+$unitSpeedMap = [];
+$unitNameMap = [];
+$unitDataFile = __DIR__ . '/GameEngine/Data/unitdata.php';
+if (file_exists($unitDataFile)) {
+    require_once $unitDataFile;
+}
 for ($i = 1; $i <= 10; $i++) {
     $globalUId = ($userTribe - 1) * 10 + $i;
     $maxTroopMap['u' . $i] = (int)($villageUnits['u' . $globalUId] ?? 0);
+    $varName = 'u' . $globalUId;
+    $unitSpeedMap['u' . $i] = (int)($$varName['speed'] ?? 7);
+    $unitNameMap['u' . $i] = defined('U' . $globalUId) ? constant('U' . $globalUId) : "Unit $i";
 }
 
 ?>
@@ -239,6 +248,7 @@ for ($i = 1; $i <= 10; $i++) {
 				var input = form.elements[inputName];
 				if (input) {
 					input.value = maxCount;
+					if (typeof recalcJoinTravelTime === 'function') recalcJoinTravelTime();
 				}
 			}
 		}
@@ -253,6 +263,7 @@ for ($i = 1; $i <= 10; $i++) {
 					input.value = troops[key];
 				}
 			}
+			if (typeof recalcJoinTravelTime === 'function') recalcJoinTravelTime();
 		}
 
 		function clearAllTroops(triggerEl) {
@@ -262,6 +273,130 @@ for ($i = 1; $i <= 10; $i++) {
 				var input = form.elements['u' + i];
 				if (input) {
 					input.value = 0;
+				}
+			}
+			if (typeof recalcJoinTravelTime === 'function') recalcJoinTravelTime();
+		}
+
+		// Travel Time Live Calculator for Join Form
+		var joinTravelSecMap = <?php 
+			$secMapData = [];
+			if (isset($exp) && !empty($exp) && !$isLeader && !$hasJoined) {
+				$cWref = (int)($exp['camp_wref'] ?? 0);
+				if ($cWref <= 0) $cWref = (int)$database->getVillageID((int)$exp['leader_uid']);
+				$cCoor = $database->getCoor($cWref);
+				$vCoor = $database->getCoor($currentVref);
+				for ($i = 1; $i <= 10; $i++) {
+					$spd = (int)($unitSpeedMap['u' . $i] ?? 7);
+					$secMapData['u' . $i] = (int)$generator->procDistanceTime($cCoor, $vCoor, $spd, 1, $currentVref);
+				}
+			}
+			echo json_encode($secMapData);
+		?>;
+		var joinHeroTravelSec = <?php 
+			if (isset($exp) && !empty($exp) && !$isLeader && !$hasJoined) {
+				$cWref = (int)($exp['camp_wref'] ?? 0);
+				if ($cWref <= 0) $cWref = (int)$database->getVillageID((int)$exp['leader_uid']);
+				echo (int)$generator->procDistanceTime($database->getCoor($cWref), $database->getCoor($currentVref), 14, 1, $currentVref);
+			} else {
+				echo 0;
+			}
+		?>;
+		var joinUnitNameMap = <?php echo json_encode($unitNameMap); ?>;
+		var joinRemLobbySec = <?php echo isset($exp['impact_time']) ? max(0, (int)$exp['impact_time'] - time()) : 0; ?>;
+
+		function recalcJoinTravelTime() {
+			var form = document.getElementById('expJoinForm');
+			if (!form) return;
+
+			var estSpan = document.getElementById('joinEstTravelSpan');
+			var badge = document.getElementById('joinTravelStatusBadge');
+			var btn = document.getElementById('btnJoinSubmit');
+			var timerEl = document.getElementById('joinLobbyTimerSpan');
+
+			var currentRemSec = timerEl ? parseInt(timerEl.getAttribute('data-seconds'), 10) : joinRemLobbySec;
+			if (isNaN(currentRemSec)) currentRemSec = 0;
+
+			var maxTravelSec = 0;
+			var slowestName = '';
+			var totalTroops = 0;
+
+			for (var i = 1; i <= 10; i++) {
+				var input = form.elements['u' + i];
+				if (input) {
+					var val = parseInt(input.value, 10);
+					if (!isNaN(val) && val > 0) {
+						totalTroops += val;
+						var sec = joinTravelSecMap['u' + i] || 0;
+						if (sec > maxTravelSec) {
+							maxTravelSec = sec;
+							slowestName = joinUnitNameMap['u' + i] || ('Unit ' + i);
+						}
+					}
+				}
+			}
+
+			var heroCheck = document.getElementById('joinHeroCheck');
+			var hasHero = (heroCheck && heroCheck.checked && !heroCheck.disabled);
+			if (hasHero) {
+				if (maxTravelSec === 0) {
+					maxTravelSec = joinHeroTravelSec;
+					slowestName = 'Hero';
+				}
+			}
+
+			function formatTime(s) {
+				var h = Math.floor(s / 3600);
+				var m = Math.floor((s % 3600) / 60);
+				var sec = s % 60;
+				return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m + ':' + (sec < 10 ? '0' : '') + sec;
+			}
+
+			if (totalTroops === 0 && !hasHero) {
+				if (estSpan) estSpan.innerHTML = '00:00:00 (Belum pilih pasukan)';
+				if (badge) {
+					badge.style.display = 'none';
+				}
+				if (btn) {
+					btn.disabled = false;
+					btn.style.opacity = '1';
+					btn.style.cursor = 'pointer';
+					btn.title = '';
+				}
+				return;
+			}
+
+			var travelStr = formatTime(maxTravelSec);
+			var lobbyStr = formatTime(Math.max(0, currentRemSec));
+
+			if (estSpan) {
+				estSpan.innerHTML = travelStr + (slowestName ? ' (' + slowestName + ')' : '');
+			}
+
+			if (badge) {
+				badge.style.display = 'block';
+				if (maxTravelSec <= currentRemSec) {
+					badge.style.background = '#dcfce7';
+					badge.style.border = '1px solid #86efac';
+					badge.style.color = '#15803d';
+					badge.innerHTML = '✅ <b>Pasukan Tiba Tepat Waktu!</b> Pasukan Anda membutuhkan waktu <b>' + travelStr + '</b> dan akan tiba sebelum lobi ditutup (Sisa jendela persiapan: <b>' + lobbyStr + '</b>). Pasukan siap berkumpul untuk menyerang boss serentak!';
+					if (btn) {
+						btn.disabled = false;
+						btn.style.opacity = '1';
+						btn.style.cursor = 'pointer';
+						btn.title = 'Kirim pasukan sekarang ke Forward Camp';
+					}
+				} else {
+					badge.style.background = '#fee2e2';
+					badge.style.border = '1px solid #fca5a5';
+					badge.style.color = '#b91c1c';
+					badge.innerHTML = '❌ <b>PERINGATAN: Pasukan Tidak Sempat Tiba!</b> Waktu tempuh (<b>' + travelStr + '</b>) melebihi sisa waktu persiapan lobi (<b>' + lobbyStr + '</b>) karena membawa unit berkecepatan lambat (<b>' + slowestName + '</b>).<br>&bull; <i>Solusi:</i> Kurangi atau hilangkan unit lambat tersebut, ATAU ganti desa aktif Anda ke desa yang letaknya lebih dekat dengan Virtual Camp.';
+					if (btn) {
+						btn.disabled = true;
+						btn.style.opacity = '0.5';
+						btn.style.cursor = 'not-allowed';
+						btn.title = 'Waktu tempuh pasukan melebihi sisa persiapan lobi!';
+					}
 				}
 			}
 		}
@@ -287,6 +422,9 @@ for ($i = 1; $i <= 10; $i++) {
 						el.setAttribute('data-seconds', -1);
 						setTimeout(function() { window.location.reload(); }, 2500);
 					}
+				}
+				if (typeof recalcJoinTravelTime === 'function') {
+					recalcJoinTravelTime();
 				}
 			}
 			setInterval(tickExpTimers, 1000);
@@ -1019,24 +1157,46 @@ for ($i = 1; $i <= 10; $i++) {
 			<!-- Form Deploy Pasukan Jika Anggota Belum Bergabung -->
 			<?php if (!$isLeader && !$hasJoined && count($members) < 5 && $dailyRemaining > 0) { 
 				$reqPower = max(50, (int)round((int)$campData['cur_hp'] * ExpeditionEngine::MIN_POWER_RATIO));
+				$campWref = (int)($exp['camp_wref'] ?? 0);
+				if ($campWref <= 0) {
+					$campWref = (int)$database->getVillageID((int)$exp['leader_uid']);
+				}
 				$coorCurr = $database->getCoor($currentVref);
-				$dx = abs(($coorCurr['x'] ?? 0) - (int)$exp['camp_x']);
+				$coorCamp = $database->getCoor($campWref);
+				$dx = abs(($coorCurr['x'] ?? 0) - ($coorCamp['x'] ?? 0));
 				if ($dx > WORLD_MAX) $dx = (2 * WORLD_MAX + 1) - $dx;
-				$dy = abs(($coorCurr['y'] ?? 0) - (int)$exp['camp_y']);
+				$dy = abs(($coorCurr['y'] ?? 0) - ($coorCamp['y'] ?? 0));
 				if ($dy > WORLD_MAX) $dy = (2 * WORLD_MAX + 1) - $dy;
 				$distToCamp = round(sqrt(pow($dx, 2) + pow($dy, 2)), 1);
+
+				$nowTime = time();
+				$remLobbySec = max(0, (int)$exp['impact_time'] - $nowTime);
 			?>
 			<div class="exp-card">
 				<h4 style="color: #1e1b4b; margin: 0 0 6px 0;">⚔️ Kerahkan Pasukan ke Forward Camp</h4>
-				<div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 7px 10px; margin-bottom: 10px; font-size: 11px; color: #475569;">
+				<div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 7px 10px; margin-bottom: 10px; font-size: 11px; color: #475569; line-height: 1.5;">
 					📍 <b>Rute Gerak:</b> Dari desa Anda <b><?php echo htmlspecialchars($village->vname); ?> (<?php echo $coorCurr['x'] ?? 0; ?>|<?php echo $coorCurr['y'] ?? 0; ?>)</b> ➔ Virtual Camp <b><?php echo htmlspecialchars($exp['camp_vname']); ?> (<?php echo $exp['camp_x']; ?>|<?php echo $exp['camp_y']; ?>)</b> &bull; Jarak: <b><?php echo $distToCamp; ?> tiles</b>.<br>
-					Pasukan butuh waktu berjalan antar desa untuk mencapai camp. Pasukan tetap memakan gandum dari desa Anda.
+					⏳ Pasukan butuh waktu berjalan antar desa untuk mencapai camp. Pasukan tetap memakan gandum dari desa Anda.
 				</div>
+
+				<!-- Live Route & Travel Window Status Indicator -->
+				<div id="joinTravelPanel" style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px 12px; margin-bottom: 10px;">
+					<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 6px;">
+						<div style="font-size: 11px; color: #334155;">
+							⏳ <b>Batas Persiapan Lobi:</b> <span id="joinLobbyTimerSpan" class="exp-live-timer" data-seconds="<?php echo $remLobbySec; ?>" style="font-weight: bold; color: #b45309;"><?php echo sprintf('%02d:%02d:%02d', intdiv($remLobbySec, 3600), intdiv($remLobbySec % 3600, 60), $remLobbySec % 60); ?></span>
+						</div>
+						<div style="font-size: 11px; color: #334155;">
+							🏃 <b>Estimasi Waktu Tempuh:</b> <span id="joinEstTravelSpan" style="font-weight: bold; color: #1e1b4b;">00:00:00 (Belum pilih pasukan)</span>
+						</div>
+					</div>
+					<div id="joinTravelStatusBadge" style="display: none; padding: 8px 10px; border-radius: 4px; font-size: 11px; line-height: 1.4;"></div>
+				</div>
+
 				<p style="color: #64748b; font-size: 11px; margin: 0 0 10px 0;">
 					Minimal kekuatan yang dibutuhkan: <b><?php echo number_format($reqPower); ?></b> Attack Power.
 				</p>
 
-				<form method="post" action="expedition.php">
+				<form method="post" action="expedition.php" id="expJoinForm">
 					<input type="hidden" name="action" value="join" />
 					<input type="hidden" name="expedition_id" value="<?php echo $exp['id']; ?>" />
 
@@ -1069,7 +1229,7 @@ for ($i = 1; $i <= 10; $i++) {
 							<tbody>
 								<tr>
 									<?php for ($i = 1; $i <= 10; $i++) { ?>
-										<td><input type="text" name="u<?php echo $i; ?>" value="0" /></td>
+										<td><input type="text" name="u<?php echo $i; ?>" value="0" onkeyup="if(typeof recalcJoinTravelTime==='function') recalcJoinTravelTime();" onchange="if(typeof recalcJoinTravelTime==='function') recalcJoinTravelTime();" /></td>
 									<?php } ?>
 								</tr>
 							</tbody>
@@ -1079,16 +1239,16 @@ for ($i = 1; $i <= 10; $i++) {
 					<div class="exp-deploy-bottom" style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
 						<?php if ($heroInVillage) { ?>
 							<label class="exp-hero-label" style="font-size: 11px; font-weight: bold; color: #1e293b; display: flex; align-items: center; gap: 4px; cursor: pointer;">
-								<input type="checkbox" name="has_hero" value="1" checked="checked" />
+								<input type="checkbox" name="has_hero" id="joinHeroCheck" value="1" checked="checked" onchange="if(typeof recalcJoinTravelTime==='function') recalcJoinTravelTime();" />
 								⭐ Sertakan Hero Pemimpin <span style="color: #16a34a; font-size: 10px; font-weight: normal;">(Tersedia di desa ini)</span>
 							</label>
 						<?php } else { ?>
 							<label class="exp-hero-label" style="font-size: 11px; font-weight: bold; color: #94a3b8; display: flex; align-items: center; gap: 4px; cursor: not-allowed;" title="Hero sedang mati atau berada di desa lain">
-								<input type="checkbox" name="has_hero" value="1" disabled="disabled" />
+								<input type="checkbox" name="has_hero" id="joinHeroCheck" value="1" disabled="disabled" />
 								⭐ Sertakan Hero Pemimpin <span style="color: #ef4444; font-size: 10px; font-weight: normal;">(Tidak ada di desa ini)</span>
 							</label>
 						<?php } ?>
-						<button type="submit" class="btn-exp-action btn-exp-join">
+						<button type="submit" id="btnJoinSubmit" class="btn-exp-action btn-exp-join">
 							Kirim ke Forward Camp &raquo;
 						</button>
 					</div>
@@ -1115,14 +1275,19 @@ for ($i = 1; $i <= 10; $i++) {
 					<input type="hidden" name="camp_id" value="<?php echo $campData['id']; ?>" />
 
 					<div style="margin-bottom: 12px; background: #f8fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
-						<label style="font-size: 11px; font-weight: bold; color: #334155;">⏱️ Durasi Persiapan Lobi (Menit):</label>
-						<select name="prep_minutes" style="margin-left: 8px; padding: 3px 6px; border-radius: 4px; border: 1px solid #cbd5e1; font-size: 11px; background: #ffffff;">
-							<option value="15">15 Menit (Cepat)</option>
-							<option value="20" selected="selected">20 Menit (Standar)</option>
-							<option value="30">30 Menit (Menengah)</option>
-							<option value="60">60 Menit / 1 Jam (Jarak Jauh)</option>
-							<option value="120">120 Menit / 2 Jam (Lintas Peta)</option>
+						<label style="font-size: 11px; font-weight: bold; color: #334155;">⏱️ Durasi Persiapan Lobi:</label>
+						<select name="prep_minutes" style="margin-left: 8px; padding: 4px 8px; border-radius: 4px; border: 1px solid #cbd5e1; font-size: 11px; background: #ffffff;">
+							<option value="15">15 Menit (Kilat)</option>
+							<option value="30">30 Menit (Cepat)</option>
+							<option value="45">45 Menit (Standar)</option>
+							<option value="60" selected="selected">60 Menit / 1 Jam (Rekomendasi)</option>
+							<option value="90">90 Menit / 1.5 Jam (Jarak Jauh)</option>
+							<option value="120">120 Menit / 2 Jam (Lintas Wilayah)</option>
+							<option value="180">180 Menit / 3 Jam (Lintas Peta Dunia)</option>
 						</select>
+						<div style="font-size: 10.5px; color: #64748b; margin-top: 5px; line-height: 1.4;">
+							💡 <i>Gunakan durasi lebih panjang (60–180 menit) jika anggota aliansi Anda tersebar di koordinat jauh agar pasukan mereka sempat tiba di Virtual Camp sebelum lobi ditutup.</i>
+						</div>
 					</div>
 
 					<div style="display: flex; justify-content: space-between; align-items: center; margin: 8px 0 4px 0;">
