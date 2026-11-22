@@ -289,26 +289,150 @@ for ($i = 1; $i <= 10; $i++) {
 		})();
 	</script>
 	<style type="text/css">
+		/* PAGE-LEVEL LAYOUT FIXES: Prevent footer collision and enable smooth scrolling */
 		html, body {
 			height: auto !important;
 			min-height: 100% !important;
 			overflow-y: auto !important;
 		}
+
 		.wrapper {
 			height: auto !important;
 			min-height: 100% !important;
 			position: relative !important;
 			padding-bottom: 20px !important;
 		}
-		div#content.statistics {
-			width: 502px !important;
-			padding: 38px 25px 50px !important;
-			float: left !important;
-			box-sizing: content-box !important;
-			min-height: 480px !important;
-			overflow-y: auto !important;
-			overflow-x: hidden !important;
+
+		/* Footer must sit naturally below #mid and never cover content */
+		div#footer {
+			position: static !important;
+			bottom: auto !important;
+			clear: both !important;
+			margin-top: 30px !important;
+			padding-bottom: 25px !important;
+			width: 100% !important;
 		}
+
+		.footer-stopper {
+			display: none !important;
+		}
+
+		/* DESKTOP LAYOUT (min-width: 861px) */
+		@media screen and (min-width: 861px) {
+			div#content.statistics {
+				width: 502px !important;
+				padding: 38px 25px 50px !important;
+				float: left !important;
+				box-sizing: content-box !important;
+				min-height: 480px !important;
+				max-height: calc(100vh - 195px) !important;
+				overflow-y: auto !important;
+				overflow-x: hidden !important;
+				position: relative !important;
+			}
+			div#side_info {
+				margin-top: 32px !important;
+			}
+			/* Sleek Custom Scrollbar */
+			div#content.statistics::-webkit-scrollbar {
+				width: 7px;
+			}
+			div#content.statistics::-webkit-scrollbar-track {
+				background: #f1ebd8;
+				border-radius: 4px;
+			}
+			div#content.statistics::-webkit-scrollbar-thumb {
+				background: #b5a485;
+				border-radius: 4px;
+			}
+			div#content.statistics::-webkit-scrollbar-thumb:hover {
+				background: #877555;
+			}
+		}
+
+		/* MOBILE RESPONSIVE ENGINE (max-width: 860px) */
+		@media screen and (max-width: 860px) {
+			div#content.statistics {
+				width: 100% !important;
+				max-width: 100% !important;
+				float: none !important;
+				padding: 6px 4px !important;
+				box-sizing: border-box !important;
+				min-height: 0 !important;
+				max-height: none !important;
+				overflow-y: visible !important;
+				overflow-x: hidden !important;
+			}
+			.exp-header {
+				padding: 12px 14px !important;
+				flex-direction: column !important;
+				align-items: flex-start !important;
+				gap: 8px !important;
+			}
+			.exp-header .exp-pill {
+				align-self: flex-start !important;
+			}
+			.exp-title {
+				font-size: 15px !important;
+			}
+			.exp-card {
+				padding: 12px 10px !important;
+				margin-bottom: 10px !important;
+			}
+			.exp-camp-target-bar {
+				flex-direction: column !important;
+				align-items: flex-start !important;
+				gap: 8px !important;
+			}
+			.exp-camp-timer-wrap {
+				width: 100% !important;
+			}
+			.exp-timer-pill {
+				display: flex !important;
+				justify-content: center !important;
+				width: 100% !important;
+				box-sizing: border-box !important;
+			}
+			.exp-actions-bar {
+				flex-direction: column-reverse !important;
+				align-items: stretch !important;
+				gap: 10px !important;
+			}
+			.exp-actions-bar .btn-exp-action {
+				width: 100% !important;
+				text-align: center !important;
+				box-sizing: border-box !important;
+				padding: 10px 14px !important;
+			}
+			.exp-actions-bar .exp-action-group {
+				width: 100% !important;
+				display: flex !important;
+				flex-direction: column !important;
+				gap: 8px !important;
+			}
+			.exp-actions-bar .exp-action-group form {
+				width: 100% !important;
+			}
+			.exp-deploy-bottom {
+				flex-direction: column !important;
+				align-items: stretch !important;
+				gap: 10px !important;
+			}
+			.exp-deploy-bottom .btn-exp-action {
+				width: 100% !important;
+				text-align: center !important;
+				padding: 10px !important;
+				box-sizing: border-box !important;
+			}
+			.exp-hero-label {
+				padding: 8px 10px !important;
+				background: #f8fafc !important;
+				border: 1px solid #e2e8f0 !important;
+				border-radius: 6px !important;
+			}
+		}
+
+		/* BASE COMPONENT STYLING */
 		.exp-header {
 			background: linear-gradient(135deg, #1e1b4b, #312e81);
 			color: #ffffff;
@@ -324,20 +448,23 @@ for ($i = 1; $i <= 10; $i++) {
 			font-size: 17px;
 			font-weight: bold;
 			color: #e0e7ff;
+			line-height: 1.25;
 		}
 		.exp-subtitle {
 			font-size: 11px;
 			color: #c7d2fe;
-			margin-top: 2px;
+			margin-top: 3px;
+			line-height: 1.35;
 		}
 		.exp-pill {
 			background: rgba(255, 255, 255, 0.15);
 			border: 1px solid rgba(255, 255, 255, 0.3);
-			padding: 3px 10px;
+			padding: 4px 10px;
 			border-radius: 12px;
 			font-size: 11px;
 			font-weight: bold;
 			color: #fef08a;
+			white-space: nowrap;
 		}
 		.exp-card {
 			background: #ffffff;
@@ -347,68 +474,127 @@ for ($i = 1; $i <= 10; $i++) {
 			margin-bottom: 14px;
 			box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 		}
+
+		/* PARTY 5 SLOTS GRID - ALWAYS 5 COLUMNS */
 		.slot-grid {
 			display: grid;
-			grid-template-columns: repeat(auto-fit, minmax(85px, 1fr));
-			gap: 8px;
+			grid-template-columns: repeat(5, 1fr);
+			gap: 6px;
 			margin: 10px 0;
 		}
 		.slot-box {
 			background: #f8fafc;
-			border: 1px solid #cbd5e1;
+			border: 1.5px dashed #cbd5e1;
 			border-radius: 6px;
-			padding: 8px 6px;
+			padding: 8px 4px;
 			text-align: center;
 			font-size: 11px;
+			min-width: 0;
+			box-sizing: border-box;
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+			min-height: 64px;
 		}
 		.slot-box.filled {
 			background: #f0fdf4;
-			border-color: #86efac;
+			border: 1.5px solid #86efac;
 		}
 		.slot-box.leader {
-			border-color: #f59e0b;
+			border: 1.5px solid #f59e0b;
 			background: #fffbeb;
 		}
 		.slot-role {
-			font-size: 9.5px;
+			font-size: 9px;
 			font-weight: bold;
 			text-transform: uppercase;
 			color: #64748b;
-			margin-bottom: 4px;
+			margin-bottom: 3px;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+		.slot-box.leader .slot-role {
+			color: #b45309;
+		}
+		.slot-box.filled:not(.leader) .slot-role {
+			color: #15803d;
 		}
 		.slot-username {
 			font-weight: bold;
 			color: #1e293b;
+			font-size: 11px;
 			white-space: nowrap;
 			overflow: hidden;
 			text-overflow: ellipsis;
 		}
 		.slot-power {
-			font-size: 10px;
+			font-size: 9.5px;
 			color: #059669;
 			font-weight: bold;
 			margin-top: 2px;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
 		}
+		.slot-hero-badge {
+			font-size: 8.5px;
+			color: #d97706;
+			font-weight: bold;
+			margin-top: 1px;
+			white-space: nowrap;
+		}
+
+		/* Compact styling for very small mobile screens (<= 480px) */
+		@media screen and (max-width: 480px) {
+			.slot-grid {
+				gap: 3px !important;
+			}
+			.slot-box {
+				padding: 6px 2px !important;
+				min-height: 58px !important;
+			}
+			.slot-role {
+				font-size: 8px !important;
+			}
+			.slot-username {
+				font-size: 10px !important;
+			}
+			.slot-power {
+				font-size: 9px !important;
+			}
+			.slot-hero-badge {
+				font-size: 8px !important;
+			}
+		}
+
+		/* SYNERGY BOX & BADGES */
 		.synergy-box {
-			background: #faf5ff;
-			border: 1px solid #e9d5ff;
+			background: #f5f3ff;
+			border: 1px solid #ddd6fe;
 			border-radius: 6px;
 			padding: 10px 12px;
 			margin-bottom: 12px;
 		}
 		.synergy-badge {
-			display: inline-block;
+			display: inline-flex;
+			align-items: center;
 			background: #9333ea;
 			color: #ffffff;
 			font-size: 10px;
 			font-weight: bold;
-			padding: 2px 7px;
-			border-radius: 4px;
+			padding: 3px 8px;
+			border-radius: 5px;
 			margin: 2px 3px 2px 0;
+			box-shadow: 0 1px 2px rgba(147, 51, 234, 0.2);
+			line-height: 1.3;
 		}
 		.synergy-badge.coalition {
-			background: #b45309;
+			background: #d97706;
+			box-shadow: 0 1px 2px rgba(217, 119, 6, 0.2);
 		}
+
+		/* ACTION BUTTONS */
 		.btn-exp-action {
 			display: inline-block;
 			padding: 6px 14px;
@@ -419,6 +605,7 @@ for ($i = 1; $i <= 10; $i++) {
 			cursor: pointer;
 			border: none;
 			transition: all 0.15s ease;
+			box-sizing: border-box;
 		}
 		.btn-exp-create {
 			background: #4f46e5;
@@ -440,10 +627,19 @@ for ($i = 1; $i <= 10; $i++) {
 			background: #ef4444;
 			color: #ffffff !important;
 		}
+		.btn-exp-cancel:hover {
+			background: #dc2626;
+		}
 		.btn-exp-launch {
 			background: #d97706;
 			color: #ffffff !important;
+			box-shadow: 0 2px 8px rgba(217, 119, 6, 0.4);
 		}
+		.btn-exp-launch:hover {
+			background: #b45309;
+		}
+
+		/* TROOP TABLE WRAPPER */
 		.troop-table-wrapper {
 			overflow-x: auto;
 			width: 100%;
@@ -463,15 +659,15 @@ for ($i = 1; $i <= 10; $i++) {
 		}
 		.troop-input-table th, .troop-input-table td {
 			width: 10%;
-			padding: 4px 1px;
+			padding: 5px 1px;
 			border-bottom: 1px solid #e2e8f0;
 			text-align: center;
 			vertical-align: middle;
 		}
 		.troop-input-table input[type="text"] {
-			width: 34px;
+			width: 36px;
 			max-width: 90%;
-			padding: 2px 1px;
+			padding: 3px 1px;
 			text-align: center;
 			border: 1px solid #cbd5e1;
 			border-radius: 4px;
@@ -485,10 +681,11 @@ for ($i = 1; $i <= 10; $i++) {
 		}
 	</style>
 </head>
-<body class="v35 webkit chrome">
+<body class="v35 ie ie8">
 <div class="wrapper">
+<img style="filter:chroma();" src="img/x.gif" id="msfilter" alt="" />
 <div id="dynamic_header"></div>
-<div id="header"></div>
+<?php include("Templates/header.tpl"); ?>
 <div id="mid">
 <?php include("Templates/menu.tpl"); ?>
 	<div id="content" class="statistics">
@@ -543,17 +740,17 @@ for ($i = 1; $i <= 10; $i++) {
 		?>
 			<div class="exp-card">
 				<!-- Top Bar: Target & Status -->
-				<div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 10px;">
-					<div>
+				<div class="exp-camp-target-bar" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 10px;">
+					<div class="exp-camp-title-wrap">
 						<span style="font-size: 14px; font-weight: bold; color: #1e1b4b;">🎯 <?php echo htmlspecialchars($exp['camp_name']); ?></span>
-						<span style="color: #64748b; font-size: 11px;">(<?php echo $campData['x']; ?>|<?php echo $campData['y']; ?>)</span>
+						<span style="color: #64748b; font-size: 11px; margin-left: 2px;">(<?php echo $campData['x']; ?>|<?php echo $campData['y']; ?>)</span>
 					</div>
-					<div>
+					<div class="exp-camp-timer-wrap">
 						<?php
 						$timerNum = ++$session->timer;
 						$fmtTime = sprintf('%02d:%02d:%02d', intdiv($timeLeft, 3600), intdiv($timeLeft % 3600, 60), $timeLeft % 60);
 						?>
-						<span style="background: #e0e7ff; color: #4338ca; padding: 3px 10px; border-radius: 4px; font-weight: bold; font-size: 12px; border: 1px solid #c7d2fe; display: inline-flex; align-items: center; gap: 4px;">
+						<span class="exp-timer-pill" style="background: #e0e7ff; color: #4338ca; padding: 4px 10px; border-radius: 6px; font-weight: bold; font-size: 12px; border: 1px solid #c7d2fe; display: inline-flex; align-items: center; gap: 4px;">
 							⏱️ Benturan: <span id="timer<?php echo $timerNum; ?>" class="exp-live-timer" data-seconds="<?php echo $timeLeft; ?>"><?php echo $fmtTime; ?></span>
 						</span>
 					</div>
@@ -572,17 +769,17 @@ for ($i = 1; $i <= 10; $i++) {
 						?>
 							<div class="slot-box filled <?php echo $isSlotLeader ? 'leader' : ''; ?>">
 								<div class="slot-role"><?php echo $isSlotLeader ? '👑 Leader' : '⚔️ Anggota'; ?></div>
-								<div class="slot-username"><?php echo htmlspecialchars($m['username'] ?? 'Pemain'); ?></div>
+								<div class="slot-username" title="<?php echo htmlspecialchars($m['username'] ?? 'Pemain'); ?>"><?php echo htmlspecialchars($m['username'] ?? 'Pemain'); ?></div>
 								<div class="slot-power">⚡ <?php echo number_format((int)$m['attack_power']); ?></div>
 								<?php if (!empty($m['has_hero'])) { ?>
-									<div style="font-size: 9px; color: #d97706; margin-top: 1px;">⭐ Hero</div>
+									<div class="slot-hero-badge">⭐ Hero</div>
 								<?php } ?>
 							</div>
 						<?php } else { ?>
 							<div class="slot-box">
 								<div class="slot-role" style="color: #94a3b8;">Slot #<?php echo $slot; ?></div>
-								<div style="color: #cbd5e1; margin: 4px 0;">Terbuka</div>
-								<div style="font-size: 9.5px; color: #94a3b8;">Menunggu</div>
+								<div class="slot-username" style="color: #cbd5e1; font-weight: normal;">Terbuka</div>
+								<div class="slot-power" style="color: #94a3b8; font-weight: normal;">Menunggu</div>
 							</div>
 						<?php } ?>
 					<?php } ?>
@@ -644,13 +841,13 @@ for ($i = 1; $i <= 10; $i++) {
 				</div>
 
 				<!-- Action Controls -->
-				<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px; border-top: 1px solid #f1f5f9; padding-top: 10px;">
+				<div class="exp-actions-bar" style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px; border-top: 1px solid #f1f5f9; padding-top: 10px;">
 					<div>
-						<a href="bandit.php" style="color: #64748b; font-size: 11px; text-decoration: underline;">&laquo; Kembali ke Radar</a>
+						<a href="bandit.php" style="color: #64748b; font-size: 11px; text-decoration: underline; display: inline-block; padding: 4px 0;">&laquo; Kembali ke Radar</a>
 					</div>
-					<div style="display: flex; gap: 6px; align-items: center;">
+					<div class="exp-action-group" style="display: flex; gap: 6px; align-items: center;">
 						<?php if ($isLeader) { ?>
-							<form method="post" action="expedition.php" style="display: inline;">
+							<form method="post" action="expedition.php" style="display: inline; margin: 0;">
 								<input type="hidden" name="action" value="cancel" />
 								<input type="hidden" name="expedition_id" value="<?php echo $exp['id']; ?>" />
 								<button type="submit" class="btn-exp-action btn-exp-cancel" onclick="return confirm('Apakah Anda yakin ingin membatalkan ekspedisi ini? Seluruh pasukan akan dipulangkan.');">
@@ -658,23 +855,23 @@ for ($i = 1; $i <= 10; $i++) {
 								</button>
 							</form>
 							<?php if (count($members) >= 2) { ?>
-								<form method="post" action="expedition.php" style="display: inline;">
+								<form method="post" action="expedition.php" style="display: inline; margin: 0;">
 									<input type="hidden" name="action" value="launch_now" />
 									<input type="hidden" name="expedition_id" value="<?php echo $exp['id']; ?>" />
-									<button type="submit" class="btn-exp-action btn-exp-launch" style="font-weight: bold; box-shadow: 0 2px 8px rgba(217, 119, 6, 0.4);" onclick="return confirm('Luncurkan serangan Forward Camp sekarang bersama seluruh anggota yang sudah siap?');">
+									<button type="submit" class="btn-exp-action btn-exp-launch" onclick="return confirm('Luncurkan serangan Forward Camp sekarang bersama seluruh anggota yang sudah siap?');">
 										⚡ Luncurkan Sekarang (<?php echo count($members); ?>/5)
 									</button>
 								</form>
 							<?php } ?>
 						<?php } else { ?>
 							<?php if (count($members) >= 2) { ?>
-								<span style="color: #166534; font-size: 11px; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 4px 10px; border-radius: 4px; font-weight: bold;">
+								<div style="color: #166534; font-size: 11px; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 6px 12px; border-radius: 5px; font-weight: bold; text-align: center;">
 									⚔️ Siap Tempur &bull; Menunggu Leader meluncurkan serangan
-								</span>
+								</div>
 							<?php } else { ?>
-								<span style="color: #64748b; font-size: 11px; background: #f8fafc; border: 1px solid #cbd5e1; padding: 4px 10px; border-radius: 4px;">
+								<div style="color: #64748b; font-size: 11px; background: #f8fafc; border: 1px solid #cbd5e1; padding: 6px 12px; border-radius: 5px; text-align: center;">
 									⏳ Menunggu anggota lain bergabung (Min. 2 pemain)
-								</span>
+								</div>
 							<?php } ?>
 						<?php } ?>
 					</div>
@@ -731,14 +928,14 @@ for ($i = 1; $i <= 10; $i++) {
 						</table>
 					</div>
 
-					<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+					<div class="exp-deploy-bottom" style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
 						<?php if ($heroInVillage) { ?>
-							<label style="font-size: 11px; font-weight: bold; color: #1e293b; display: flex; align-items: center; gap: 4px; cursor: pointer;">
+							<label class="exp-hero-label" style="font-size: 11px; font-weight: bold; color: #1e293b; display: flex; align-items: center; gap: 4px; cursor: pointer;">
 								<input type="checkbox" name="has_hero" value="1" checked="checked" />
 								⭐ Sertakan Hero Pemimpin <span style="color: #16a34a; font-size: 10px; font-weight: normal;">(Tersedia di desa ini)</span>
 							</label>
 						<?php } else { ?>
-							<label style="font-size: 11px; font-weight: bold; color: #94a3b8; display: flex; align-items: center; gap: 4px; cursor: not-allowed;" title="Hero sedang mati atau berada di desa lain">
+							<label class="exp-hero-label" style="font-size: 11px; font-weight: bold; color: #94a3b8; display: flex; align-items: center; gap: 4px; cursor: not-allowed;" title="Hero sedang mati atau berada di desa lain">
 								<input type="checkbox" name="has_hero" value="1" disabled="disabled" />
 								⭐ Sertakan Hero Pemimpin <span style="color: #ef4444; font-size: 10px; font-weight: normal;">(Tidak ada di desa ini)</span>
 							</label>
@@ -816,14 +1013,14 @@ for ($i = 1; $i <= 10; $i++) {
 						</table>
 					</div>
 
-					<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px;">
+					<div class="exp-deploy-bottom" style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px;">
 						<?php if ($heroInVillage) { ?>
-							<label style="font-size: 11px; font-weight: bold; color: #1e293b; display: flex; align-items: center; gap: 4px; cursor: pointer;">
+							<label class="exp-hero-label" style="font-size: 11px; font-weight: bold; color: #1e293b; display: flex; align-items: center; gap: 4px; cursor: pointer;">
 								<input type="checkbox" name="has_hero" value="1" checked="checked" />
 								⭐ Sertakan Hero Pemimpin <span style="color: #16a34a; font-size: 10px; font-weight: normal;">(Tersedia di desa ini)</span>
 							</label>
 						<?php } else { ?>
-							<label style="font-size: 11px; font-weight: bold; color: #94a3b8; display: flex; align-items: center; gap: 4px; cursor: not-allowed;" title="Hero sedang mati atau berada di desa lain">
+							<label class="exp-hero-label" style="font-size: 11px; font-weight: bold; color: #94a3b8; display: flex; align-items: center; gap: 4px; cursor: not-allowed;" title="Hero sedang mati atau berada di desa lain">
 								<input type="checkbox" name="has_hero" value="1" disabled="disabled" />
 								⭐ Sertakan Hero Pemimpin <span style="color: #ef4444; font-size: 10px; font-weight: normal;">(Tidak ada di desa ini)</span>
 							</label>
@@ -885,6 +1082,10 @@ for ($i = 1; $i <= 10; $i++) {
 		include("Templates/multivillage.tpl");
 		include("Templates/quest.tpl");
 		include("Templates/news.tpl");
+		if(!NEW_FUNCTIONS_DISPLAY_LINKS) {
+			echo "<br><br><br><br>";
+			include("Templates/links.tpl");
+		}
 		?>
 	</div>
 	<div class="clear"></div>
@@ -896,5 +1097,18 @@ for ($i = 1; $i <= 10; $i++) {
 include("Templates/footer.tpl");
 include("Templates/res.tpl");
 ?>
+
+<div id="stime">
+<div id="ltime">
+<div id="ltimeWrap">
+<?php echo defined('CALCULATED_IN') ? CALCULATED_IN : 'Calculated in';?> <b><?php
+echo round(($generator->pageLoadTimeEnd()-$start_timer)*1000);
+?></b> ms
+<br /><?php echo defined('SERVER_TIME') ? SERVER_TIME : 'Server time:';?> <span id="tp1" class="b"><?php echo date('H:i:s'); ?></span>
+</div>
+</div>
+</div>
+
+<div id="ce"></div>
 </body>
 </html>
