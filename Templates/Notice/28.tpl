@@ -165,9 +165,6 @@ $conquerorLink = ($conquerorUid > 0)
     $allTribes = [];
     $totalExpAtk = 0;
     $totalExpDamage = 0;
-    $totalExpSent = 0;
-    $totalExpLost = 0;
-    $totalExpSurvived = 0;
     $leaderUid = 0;
 
     if ($expeditionId > 0) {
@@ -225,8 +222,310 @@ $conquerorLink = ($conquerorUid > 0)
         $lossPctFloat = (float)$expMembers[0]["losses_pct"];
     }
 ?>
+    <!-- HIGH CONTRAST & RESPONSIVE SCOPED STYLES -->
+    <style>
+        .exp-wrap {
+            background: #090d16 !important;
+            color: #f8fafc !important;
+            border: 1px solid #3b82f6 !important;
+            border-radius: 10px !important;
+            padding: 14px !important;
+            margin-bottom: 14px !important;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45) !important;
+            box-sizing: border-box !important;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+        }
+        .exp-wrap * {
+            box-sizing: border-box !important;
+        }
+
+        /* Squad Card */
+        .exp-squad-card {
+            background: #111a2e !important;
+            border: 1px solid #24324d !important;
+            border-radius: 8px !important;
+            padding: 12px !important;
+            margin-bottom: 14px !important;
+        }
+        .exp-squad-card.is-viewer {
+            border: 2px solid #38bdf8 !important;
+            background: #112240 !important;
+            box-shadow: 0 0 14px rgba(56, 189, 248, 0.22) !important;
+        }
+
+        /* Squad Header */
+        .exp-squad-head {
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            flex-wrap: wrap !important;
+            gap: 6px !important;
+            padding-bottom: 8px !important;
+            border-bottom: 1px solid #24324d !important;
+            margin-bottom: 8px !important;
+        }
+        .exp-squad-meta-left {
+            display: flex !important;
+            align-items: center !important;
+            flex-wrap: wrap !important;
+            gap: 6px !important;
+        }
+        .exp-squad-meta-right {
+            font-size: 12px !important;
+            color: #94a3b8 !important;
+        }
+
+        /* Squad Stats Bar */
+        .exp-squad-stats {
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            flex-wrap: wrap !important;
+            gap: 8px !important;
+            font-size: 11px !important;
+            color: #cbd5e1 !important;
+            margin-bottom: 8px !important;
+        }
+        .exp-stat-dmg {
+            display: flex !important;
+            align-items: center !important;
+            gap: 6px !important;
+        }
+
+        /* Troop Table High Contrast Styling */
+        .exp-table-scroll {
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch !important;
+            margin-bottom: 8px !important;
+            border-radius: 6px !important;
+            border: 1px solid #24324d !important;
+            background: #090e1a !important;
+        }
+        .exp-table {
+            width: 100% !important;
+            min-width: 530px !important;
+            border-collapse: collapse !important;
+            text-align: center !important;
+            font-size: 11px !important;
+            background: #090e1a !important;
+            margin: 0 !important;
+        }
+        .exp-table th,
+        .exp-table td {
+            border: 1px solid #24324d !important;
+            padding: 5px 3px !important;
+            text-align: center !important;
+            vertical-align: middle !important;
+        }
+        .exp-table thead th {
+            background: #1e293b !important;
+            color: #e2e8f0 !important;
+            font-weight: 600 !important;
+        }
+        .exp-table thead th.kategori-th {
+            text-align: left !important;
+            padding-left: 8px !important;
+            width: 130px !important;
+            color: #cbd5e1 !important;
+        }
+        .exp-table thead th.total-th {
+            text-align: right !important;
+            padding-right: 8px !important;
+            width: 65px !important;
+            color: #cbd5e1 !important;
+        }
+
+        /* Table Row 1: Pasukan Awal (Dikirim) */
+        .exp-table tr.r-sent,
+        .exp-table tr.r-sent td {
+            background: #111a2e !important;
+            color: #ffffff !important;
+        }
+        .exp-table tr.r-sent td.r-label {
+            text-align: left !important;
+            padding-left: 8px !important;
+            font-weight: bold !important;
+            color: #f8fafc !important;
+        }
+        .exp-table tr.r-sent td.val-pos {
+            font-weight: bold !important;
+            color: #ffffff !important;
+            font-size: 11px !important;
+        }
+        .exp-table tr.r-sent td.val-nil {
+            color: #52637a !important;
+        }
+        .exp-table tr.r-sent td.val-sum {
+            text-align: right !important;
+            padding-right: 8px !important;
+            font-weight: bold !important;
+            color: #ffffff !important;
+        }
+
+        /* Table Row 2: Gugur (Casualties) */
+        .exp-table tr.r-lost,
+        .exp-table tr.r-lost td {
+            background: #231218 !important;
+            color: #fca5a5 !important;
+        }
+        .exp-table tr.r-lost td.r-label {
+            text-align: left !important;
+            padding-left: 8px !important;
+            font-weight: bold !important;
+            color: #f87171 !important;
+        }
+        .exp-table tr.r-lost td.val-pos {
+            font-weight: bold !important;
+            color: #f87171 !important;
+            font-size: 11px !important;
+        }
+        .exp-table tr.r-lost td.val-nil {
+            color: #55343d !important;
+        }
+        .exp-table tr.r-lost td.val-sum {
+            text-align: right !important;
+            padding-right: 8px !important;
+            font-weight: bold !important;
+            color: #f87171 !important;
+        }
+
+        /* Table Row 3: Sembuh (Galia) */
+        .exp-table tr.r-rec,
+        .exp-table tr.r-rec td {
+            background: #0c2317 !important;
+            color: #86efac !important;
+        }
+        .exp-table tr.r-rec td.r-label {
+            text-align: left !important;
+            padding-left: 8px !important;
+            font-weight: bold !important;
+            color: #4ade80 !important;
+        }
+        .exp-table tr.r-rec td.val-pos {
+            font-weight: bold !important;
+            color: #4ade80 !important;
+            font-size: 11px !important;
+        }
+        .exp-table tr.r-rec td.val-nil {
+            color: #274837 !important;
+        }
+        .exp-table tr.r-rec td.val-sum {
+            text-align: right !important;
+            padding-right: 8px !important;
+            font-weight: bold !important;
+            color: #4ade80 !important;
+        }
+
+        /* Table Row 4: Selamat Pulang */
+        .exp-table tr.r-surv,
+        .exp-table tr.r-surv td {
+            background: #092033 !important;
+            color: #7dd3fc !important;
+        }
+        .exp-table tr.r-surv td.r-label {
+            text-align: left !important;
+            padding-left: 8px !important;
+            font-weight: bold !important;
+            color: #38bdf8 !important;
+        }
+        .exp-table tr.r-surv td.val-pos {
+            font-weight: bold !important;
+            color: #38bdf8 !important;
+            font-size: 11px !important;
+        }
+        .exp-table tr.r-surv td.val-nil {
+            color: #264763 !important;
+        }
+        .exp-table tr.r-surv td.val-sum {
+            text-align: right !important;
+            padding-right: 8px !important;
+            font-weight: bold !important;
+            color: #38bdf8 !important;
+        }
+
+        /* Squad Loot Box */
+        .exp-loot-wrap {
+            background: #0b1120 !important;
+            border-radius: 6px !important;
+            padding: 8px 10px !important;
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            flex-wrap: wrap !important;
+            gap: 6px !important;
+            border: 1px solid #24324d !important;
+        }
+        .exp-loot-pills {
+            display: flex !important;
+            flex-wrap: wrap !important;
+            gap: 6px !important;
+            align-items: center !important;
+        }
+        .exp-pill {
+            background: #162035 !important;
+            border: 1px solid #293856 !important;
+            padding: 3px 6px !important;
+            border-radius: 4px !important;
+            font-size: 11px !important;
+            color: #e2e8f0 !important;
+            white-space: nowrap !important;
+        }
+
+        /* Leaderboard Table High Contrast */
+        .exp-lb-wrap {
+            background: #101728 !important;
+            border: 1px solid #24324d !important;
+            border-radius: 8px !important;
+            padding: 12px !important;
+            margin-bottom: 14px !important;
+        }
+        .exp-lb-table {
+            width: 100% !important;
+            min-width: 480px !important;
+            border-collapse: collapse !important;
+            background: #090e1a !important;
+            font-size: 12px !important;
+            margin: 0 !important;
+        }
+        .exp-lb-table th {
+            background: #1e293b !important;
+            color: #94a3b8 !important;
+            padding: 8px !important;
+            border: 1px solid #24324d !important;
+        }
+        .exp-lb-table td {
+            background: #111a2e !important;
+            color: #f1f5f9 !important;
+            padding: 7px 8px !important;
+            border: 1px solid #24324d !important;
+        }
+        .exp-lb-table tr.lb-viewer td {
+            background: #112845 !important;
+            color: #38bdf8 !important;
+        }
+
+        /* Mobile Adjustments (screen <= 600px) */
+        @media (max-width: 600px) {
+            .exp-squad-head {
+                flex-direction: column !important;
+                align-items: flex-start !important;
+                gap: 5px !important;
+            }
+            .exp-squad-stats {
+                flex-direction: column !important;
+                align-items: flex-start !important;
+                gap: 6px !important;
+            }
+            .exp-loot-wrap {
+                flex-direction: column !important;
+                align-items: flex-start !important;
+                gap: 6px !important;
+            }
+        }
+    </style>
+
     <!-- ALLIANCE EXPEDITION REPORT -->
-    <div style="background: linear-gradient(135deg, #090d16, #111827); color: #f8fafc; border: 1px solid #3b82f6; border-radius: 10px; padding: 16px; margin-bottom: 14px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;">
+    <div class="exp-wrap">
         
         <!-- Header Banner -->
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; border-bottom: 1px solid rgba(59, 130, 246, 0.3); padding-bottom: 12px; flex-wrap: wrap; gap: 8px;">
@@ -243,7 +542,7 @@ $conquerorLink = ($conquerorUid > 0)
                     </div>
                 </div>
             </div>
-            <div style="display: flex; align-items: center; gap: 6px;">
+            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
                 <span style="background: rgba(59, 130, 246, 0.2); border: 1px solid #3b82f6; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: bold; color: #93c5fd;">
                     Forward Camp
                 </span>
@@ -256,24 +555,24 @@ $conquerorLink = ($conquerorUid > 0)
         </div>
 
         <!-- Narasi Ringkasan -->
-        <div style="background: rgba(15, 23, 42, 0.75); border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; border-left: 4px solid #3b82f6; font-size: 13px; line-height: 1.6; color: #e2e8f0;">
+        <div style="background: #111a2e; border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; border-left: 4px solid #3b82f6; font-size: 13px; line-height: 1.6; color: #e2e8f0; border-top: 1px solid #24324d; border-right: 1px solid #24324d; border-bottom: 1px solid #24324d;">
             <?php echo nl2br(htmlspecialchars($msgText, ENT_QUOTES, "UTF-8")); ?>
         </div>
 
         <?php if (!empty($synergies["synergies"]) || !empty($synergies["coalition_bonus"])) { ?>
         <!-- Active Sinergi Badges -->
-        <div style="background: rgba(30, 27, 75, 0.5); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 8px; padding: 10px 12px; margin-bottom: 14px;">
+        <div style="background: #11182c; border: 1px solid #3730a3; border-radius: 8px; padding: 10px 12px; margin-bottom: 14px;">
             <div style="font-size: 12px; font-weight: bold; color: #a5b4fc; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
                 <span>✨ Sinergi Suku Aliansi yang Berperan:</span>
             </div>
             <div style="display: flex; flex-wrap: wrap; gap: 6px;">
                 <?php foreach ($synergies["synergies"] as $syn) { ?>
-                    <span style="background: rgba(99, 102, 241, 0.25); border: 1px solid #6366f1; color: #e0e7ff; padding: 3px 8px; border-radius: 6px; font-size: 11px;" title="<?php echo htmlspecialchars($syn["desc"]); ?>">
+                    <span style="background: #1e1b4b; border: 1px solid #6366f1; color: #e0e7ff; padding: 3px 8px; border-radius: 6px; font-size: 11px;" title="<?php echo htmlspecialchars($syn["desc"]); ?>">
                         <?php echo htmlspecialchars($syn["badge"]); ?> (<?php echo htmlspecialchars($syn["tribe_name"]); ?>)
                     </span>
                 <?php } ?>
                 <?php if (!empty($synergies["coalition_bonus"])) { ?>
-                    <span style="background: rgba(245, 158, 11, 0.25); border: 1px solid #f59e0b; color: #fef3c7; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: bold;">
+                    <span style="background: #2b1f14; border: 1px solid #f59e0b; color: #fef3c7; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: bold;">
                         ⭐ <?php echo htmlspecialchars($synergies["coalition_bonus"]["name"]); ?> (+5% Atk/Def)
                     </span>
                 <?php } ?>
@@ -284,7 +583,7 @@ $conquerorLink = ($conquerorUid > 0)
         <?php if (!empty($expMembers)) { ?>
         <!-- SECTION 1: RINCIAN PASUKAN & ASAL DESA MASING-MASING PESERTA -->
         <div style="margin-bottom: 18px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 6px;">
                 <h4 style="margin: 0; color: #38bdf8; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
                     <span>🛡️ Rincian Pasukan &amp; Kontribusi per Anggota (<?php echo count($expMembers); ?> Peserta)</span>
                 </h4>
@@ -304,7 +603,7 @@ $conquerorLink = ($conquerorUid > 0)
                 $fromCoor = $database->getCoor($fromWref);
                 $fromMapCheck = $generator->getMapCheck($fromWref);
                 $fromVilName = !empty($m["village_name"]) ? htmlspecialchars($m["village_name"], ENT_QUOTES, "UTF-8") : "Desa #" . $fromWref;
-                $villageLink = '<a href="karte.php?d=' . $fromWref . '&c=' . $fromMapCheck . '" style="color: #93c5fd; text-decoration: underline;"><b>' . $fromVilName . '</b> (' . ($fromCoor["x"] ?? 0) . '|' . ($fromCoor["y"] ?? 0) . ')</a>';
+                $villageLink = '<a href="karte.php?d=' . $fromWref . '&c=' . $fromMapCheck . '" style="color: #93c5fd; text-decoration: underline; font-weight: bold;">' . $fromVilName . ' (' . ($fromCoor["x"] ?? 0) . '|' . ($fromCoor["y"] ?? 0) . ')</a>';
                 $userLink = '<a href="spieler.php?uid=' . $mUid . '" style="color: #67e8f9; font-weight: bold; text-decoration: none;">' . htmlspecialchars($m["username"] ?? ("Pemain #" . $mUid), ENT_QUOTES, "UTF-8") . '</a>';
 
                 $mAtk = (int)$m["attack_power"];
@@ -346,19 +645,13 @@ $conquerorLink = ($conquerorUid > 0)
                     ];
                 }
 
-                $totalExpSent += $mSentTotal;
-                $totalExpLost += $mLostTotal;
-                $totalExpSurvived += $mSurvTotal;
-
-                $cardBorder = $isCurrentUser ? "2px solid #38bdf8" : "1px solid rgba(51, 65, 85, 0.8)";
-                $cardBg = $isCurrentUser ? "linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95))" : "rgba(15, 23, 42, 0.65)";
-                $cardShadow = $isCurrentUser ? "0 0 12px rgba(56, 189, 248, 0.25)" : "none";
+                $cardClass = "exp-squad-card" . ($isCurrentUser ? " is-viewer" : "");
             ?>
-            <div style="background: <?php echo $cardBg; ?>; border: <?php echo $cardBorder; ?>; box-shadow: <?php echo $cardShadow; ?>; border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+            <div class="<?php echo $cardClass; ?>">
                 
                 <!-- Squad Header Info -->
-                <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(51, 65, 85, 0.6); padding-bottom: 8px; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
-                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <div class="exp-squad-head">
+                    <div class="exp-squad-meta-left">
                         <span style="font-size: 15px;">
                             <?php echo $isLeader ? "👑" : "⚔️"; ?>
                         </span>
@@ -369,144 +662,144 @@ $conquerorLink = ($conquerorUid > 0)
                             <?php echo htmlspecialchars($tribeName); ?>
                         </span>
                         <?php if ($isLeader) { ?>
-                            <span style="background: rgba(245, 158, 11, 0.2); border: 1px solid #f59e0b; color: #fbbf24; font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 4px;">
+                            <span style="background: rgba(245, 158, 11, 0.25); border: 1px solid #f59e0b; color: #fbbf24; font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 4px;">
                                 Rally Leader
                             </span>
                         <?php } ?>
                         <?php if ($m["has_hero"]) { ?>
-                            <span style="background: rgba(168, 85, 247, 0.2); border: 1px solid #a855f7; color: #d8b4fe; font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 4px;">
+                            <span style="background: rgba(168, 85, 247, 0.25); border: 1px solid #a855f7; color: #d8b4fe; font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 4px;">
                                 ⭐ Hero
                             </span>
                         <?php } ?>
                         <?php if ($isCurrentUser) { ?>
-                            <span style="background: rgba(56, 189, 248, 0.2); border: 1px solid #38bdf8; color: #7dd3fc; font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 4px;">
+                            <span style="background: rgba(56, 189, 248, 0.25); border: 1px solid #38bdf8; color: #7dd3fc; font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 4px;">
                                 👤 Regu Anda
                             </span>
                         <?php } ?>
                     </div>
-                    <div style="font-size: 12px; color: #94a3b8;">
+                    <div class="exp-squad-meta-right">
                         Desa Asal: <?php echo $villageLink; ?>
                     </div>
                 </div>
 
                 <!-- Squad Power & Contribution Stat -->
-                <div style="display: flex; align-items: center; justify-content: space-between; font-size: 11px; margin-bottom: 8px; color: #cbd5e1; flex-wrap: wrap; gap: 8px;">
-                    <div style="display: flex; align-items: center; gap: 12px;">
+                <div class="exp-squad-stats">
+                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
                         <span>⚡ Kekuatan Serang: <b style="color: #fbbf24;"><?php echo number_format($mAtk); ?></b></span>
                         <span>🎯 Damage Diberikan: <b style="color: #38bdf8;"><?php echo number_format($mDmg); ?></b></span>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 6px;">
+                    <div class="exp-stat-dmg">
                         <span>Kontribusi Serangan: <b style="color: #4ade80;"><?php echo $dmgPct; ?>%</b></span>
-                        <div style="background: rgba(51, 65, 85, 0.8); border-radius: 999px; height: 6px; width: 70px; overflow: hidden; display: inline-block;">
+                        <div style="background: #1e293b; border: 1px solid #334155; border-radius: 999px; height: 8px; width: 70px; overflow: hidden; display: inline-block;">
                             <div style="background: linear-gradient(90deg, #38bdf8, #4ade80); height: 100%; width: <?php echo min(100, max(0, $dmgPct)); ?>%;"></div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Squad Troop Table (Scrollable on small screens) -->
-                <div style="overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 8px; border-radius: 6px; border: 1px solid #334155;">
-                    <table style="width: 100%; border-collapse: collapse; text-align: center; font-size: 11px; min-width: 520px;">
+                <div class="exp-table-scroll">
+                    <table class="exp-table">
                         <thead>
-                            <tr style="background: rgba(30, 41, 59, 0.95); border-bottom: 1px solid #334155;">
-                                <th style="padding: 6px 8px; text-align: left; color: #94a3b8; font-weight: normal; width: 125px;">Kategori</th>
+                            <tr>
+                                <th class="kategori-th">Kategori</th>
                                 <?php for ($i = 1; $i <= 10; $i++) { ?>
-                                    <th style="padding: 4px; min-width: 36px;">
+                                    <th style="min-width: 36px;">
                                         <img src="img/x.gif" class="unit u<?php echo $unitData[$i]["gid"]; ?>" title="<?php echo htmlspecialchars($unitData[$i]["name"]); ?>" alt="<?php echo htmlspecialchars($unitData[$i]["name"]); ?>" style="vertical-align: middle;" />
                                     </th>
                                 <?php } ?>
                                 <?php if ($m["has_hero"]) { ?>
-                                    <th style="padding: 4px; min-width: 36px;">
+                                    <th style="min-width: 36px;">
                                         <img src="img/x.gif" class="unit uhero" title="Hero" alt="Hero" style="vertical-align: middle;" />
                                     </th>
                                 <?php } ?>
-                                <th style="padding: 6px 8px; text-align: right; color: #94a3b8; font-weight: normal; width: 60px;">Total</th>
+                                <th class="total-th">Total</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <!-- Row: Pasukan Awal Dikirim -->
-                            <tr style="border-bottom: 1px solid rgba(51, 65, 85, 0.4); background: rgba(15, 23, 42, 0.4);">
-                                <td style="padding: 5px 8px; text-align: left; font-weight: bold; color: #f1f5f9;">Pasukan Awal</td>
+                            <!-- Row 1: Pasukan Awal Dikirim -->
+                            <tr class="r-sent">
+                                <td class="r-label">Pasukan Awal</td>
                                 <?php for ($i = 1; $i <= 10; $i++) { 
                                     $cnt = $unitData[$i]["sent"];
                                 ?>
-                                    <td style="padding: 4px; color: <?php echo ($cnt > 0) ? "#f8fafc" : "#475569"; ?>; font-weight: <?php echo ($cnt > 0) ? "bold" : "normal"; ?>;">
-                                        <?php echo number_format($cnt); ?>
+                                    <td class="<?php echo ($cnt > 0) ? "val-pos" : "val-nil"; ?>">
+                                        <?php echo ($cnt > 0) ? number_format($cnt) : "0"; ?>
                                     </td>
                                 <?php } ?>
                                 <?php if ($m["has_hero"]) { ?>
-                                    <td style="padding: 4px; color: #f8fafc; font-weight: bold;">1</td>
+                                    <td class="val-pos">1</td>
                                 <?php } ?>
-                                <td style="padding: 5px 8px; text-align: right; font-weight: bold; color: #f8fafc;">
+                                <td class="val-sum">
                                     <?php echo number_format($mSentTotal + ($m["has_hero"] ? 1 : 0)); ?>
                                 </td>
                             </tr>
 
-                            <!-- Row: Gugur (Losses) -->
-                            <tr style="border-bottom: 1px solid rgba(51, 65, 85, 0.4); background: rgba(239, 68, 68, 0.08);">
-                                <td style="padding: 5px 8px; text-align: left; font-weight: bold; color: #f87171;">
+                            <!-- Row 2: Gugur (Losses) -->
+                            <tr class="r-lost">
+                                <td class="r-label">
                                     Gugur (-<?php echo number_format($lossPctFloat, 1); ?>%)
                                 </td>
                                 <?php for ($i = 1; $i <= 10; $i++) { 
                                     $lst = $unitData[$i]["lost"];
                                 ?>
-                                    <td style="padding: 4px; color: <?php echo ($lst > 0) ? "#f87171" : "#475569"; ?>; font-weight: <?php echo ($lst > 0) ? "bold" : "normal"; ?>;">
+                                    <td class="<?php echo ($lst > 0) ? "val-pos" : "val-nil"; ?>">
                                         <?php echo ($lst > 0) ? ("-" . number_format($lst)) : "0"; ?>
                                     </td>
                                 <?php } ?>
                                 <?php if ($m["has_hero"]) { 
                                     $heroDead = ($lossPctFloat >= 100) ? 1 : 0;
                                 ?>
-                                    <td style="padding: 4px; color: <?php echo ($heroDead > 0) ? "#f87171" : "#475569"; ?>; font-weight: bold;">
+                                    <td class="<?php echo ($heroDead > 0) ? "val-pos" : "val-nil"; ?>">
                                         <?php echo ($heroDead > 0) ? "-1" : "0"; ?>
                                     </td>
                                 <?php } ?>
-                                <td style="padding: 5px 8px; text-align: right; font-weight: bold; color: #f87171;">
+                                <td class="val-sum">
                                     <?php echo ($mLostTotal > 0) ? ("-" . number_format($mLostTotal)) : "0"; ?>
                                 </td>
                             </tr>
 
                             <?php if ($hasGaul) { ?>
-                            <!-- Row: Pemulihan Herbal Galia (+10%) -->
-                            <tr style="border-bottom: 1px solid rgba(51, 65, 85, 0.4); background: rgba(34, 197, 94, 0.08);">
-                                <td style="padding: 5px 8px; text-align: left; font-weight: bold; color: #4ade80;">
+                            <!-- Row 3: Pemulihan Herbal Galia (+10%) -->
+                            <tr class="r-rec">
+                                <td class="r-label">
                                     Sembuh (Galia)
                                 </td>
                                 <?php for ($i = 1; $i <= 10; $i++) { 
                                     $rec = $unitData[$i]["rec"];
                                 ?>
-                                    <td style="padding: 4px; color: <?php echo ($rec > 0) ? "#4ade80" : "#475569"; ?>; font-weight: <?php echo ($rec > 0) ? "bold" : "normal"; ?>;">
+                                    <td class="<?php echo ($rec > 0) ? "val-pos" : "val-nil"; ?>">
                                         <?php echo ($rec > 0) ? ("+" . number_format($rec)) : "0"; ?>
                                     </td>
                                 <?php } ?>
                                 <?php if ($m["has_hero"]) { ?>
-                                    <td style="padding: 4px; color: #475569;">0</td>
+                                    <td class="val-nil">0</td>
                                 <?php } ?>
-                                <td style="padding: 5px 8px; text-align: right; font-weight: bold; color: #4ade80;">
+                                <td class="val-sum">
                                     <?php echo ($mRecTotal > 0) ? ("+" . number_format($mRecTotal)) : "0"; ?>
                                 </td>
                             </tr>
                             <?php } ?>
 
-                            <!-- Row: Selamat Pulang ke Desa -->
-                            <tr style="background: rgba(56, 189, 248, 0.08);">
-                                <td style="padding: 5px 8px; text-align: left; font-weight: bold; color: #38bdf8;">
+                            <!-- Row 4: Selamat Pulang ke Desa -->
+                            <tr class="r-surv">
+                                <td class="r-label">
                                     Selamat Pulang
                                 </td>
                                 <?php for ($i = 1; $i <= 10; $i++) { 
                                     $srv = $unitData[$i]["surv"];
                                 ?>
-                                    <td style="padding: 4px; color: <?php echo ($srv > 0) ? "#38bdf8" : "#475569"; ?>; font-weight: <?php echo ($srv > 0) ? "bold" : "normal"; ?>;">
+                                    <td class="<?php echo ($srv > 0) ? "val-pos" : "val-nil"; ?>">
                                         <?php echo number_format($srv); ?>
                                     </td>
                                 <?php } ?>
                                 <?php if ($m["has_hero"]) { 
                                     $heroSurv = ($lossPctFloat >= 100) ? 0 : 1;
                                 ?>
-                                    <td style="padding: 4px; color: #38bdf8; font-weight: bold;">
+                                    <td class="val-pos">
                                         <?php echo $heroSurv; ?>
                                     </td>
                                 <?php } ?>
-                                <td style="padding: 5px 8px; text-align: right; font-weight: bold; color: #38bdf8;">
+                                <td class="val-sum">
                                     <?php echo number_format($mSurvTotal + (($m["has_hero"] && $lossPctFloat < 100) ? 1 : 0)); ?>
                                 </td>
                             </tr>
@@ -516,20 +809,20 @@ $conquerorLink = ($conquerorUid > 0)
 
                 <!-- Squad Rewards Obtained -->
                 <?php if ($expAction === "victory") { ?>
-                <div style="background: rgba(15, 23, 42, 0.6); border-radius: 6px; padding: 6px 10px; font-size: 11px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;">
-                    <div style="color: #94a3b8;">
+                <div class="exp-loot-wrap">
+                    <div style="color: #94a3b8; font-size: 11px;">
                         🎁 <b>Rampasan Masuk ke Desa <?php echo htmlspecialchars($fromVilName); ?>:</b>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 11px;">
-                        <span>🌲 <b style="color: #4ade80;">+<?php echo number_format((int)$m["reward_wood"]); ?></b></span>
-                        <span>🧱 <b style="color: #fb923c;">+<?php echo number_format((int)$m["reward_clay"]); ?></b></span>
-                        <span>⛏️ <b style="color: #94a3b8;">+<?php echo number_format((int)$m["reward_iron"]); ?></b></span>
-                        <span>🌾 <b style="color: #facc15;">+<?php echo number_format((int)$m["reward_crop"]); ?></b></span>
-                        <span>🪙 <b style="color: #38bdf8;">+<?php echo number_format((int)$m["reward_silver"]); ?></b></span>
-                        <span>🏛️ <b style="color: #c084fc;">+<?php echo number_format((int)$m["reward_cp"]); ?></b></span>
-                        <span>⭐ <b style="color: #e879f9;">+<?php echo number_format((int)$m["reward_exp"]); ?> EXP</b></span>
+                    <div class="exp-loot-pills">
+                        <span class="exp-pill">🌲 <b style="color: #4ade80;">+<?php echo number_format((int)$m["reward_wood"]); ?></b></span>
+                        <span class="exp-pill">🧱 <b style="color: #fb923c;">+<?php echo number_format((int)$m["reward_clay"]); ?></b></span>
+                        <span class="exp-pill">⛏️ <b style="color: #94a3b8;">+<?php echo number_format((int)$m["reward_iron"]); ?></b></span>
+                        <span class="exp-pill">🌾 <b style="color: #facc15;">+<?php echo number_format((int)$m["reward_crop"]); ?></b></span>
+                        <span class="exp-pill">🪙 <b style="color: #38bdf8;">+<?php echo number_format((int)$m["reward_silver"]); ?></b></span>
+                        <span class="exp-pill">🏛️ <b style="color: #c084fc;">+<?php echo number_format((int)$m["reward_cp"]); ?></b></span>
+                        <span class="exp-pill">⭐ <b style="color: #e879f9;">+<?php echo number_format((int)$m["reward_exp"]); ?> EXP</b></span>
                         <?php if (!empty($m["reward_essence"])) { ?>
-                            <span>💎 <b style="color: #f472b6;">+<?php echo number_format((int)$m["reward_essence"]); ?> Essence</b></span>
+                            <span class="exp-pill" style="border-color: #ec4899;">💎 <b style="color: #f472b6;">+<?php echo number_format((int)$m["reward_essence"]); ?> Essence</b></span>
                         <?php } ?>
                     </div>
                 </div>
@@ -542,21 +835,21 @@ $conquerorLink = ($conquerorUid > 0)
 
         <!-- SECTION 2: LEADERBOARD KONTRIBUSI KESELURUHAN ALIANSI -->
         <?php if (!empty($expMembers) && count($expMembers) > 1) { ?>
-        <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; padding: 12px; margin-bottom: 14px;">
-            <div style="font-weight: bold; color: #93c5fd; font-size: 13px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
+        <div class="exp-lb-wrap">
+            <div style="font-weight: bold; color: #93c5fd; font-size: 13px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;">
                 <span>📊 Klasemen Kontribusi Serangan Aliansi</span>
                 <span style="font-size: 11px; color: #64748b; font-weight: normal;">Sistem Bagi Hasil: 50% Rata + 50% Proporsional Damage</span>
             </div>
-            <div style="overflow-x: auto;">
-                <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left;">
+            <div style="overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 6px; border: 1px solid #24324d;">
+                <table class="exp-lb-table">
                     <thead>
-                        <tr style="border-bottom: 1px solid #334155; color: #94a3b8;">
-                            <th style="padding: 6px 8px;">Peserta</th>
-                            <th style="padding: 6px 8px;">Suku</th>
-                            <th style="padding: 6px 8px; text-align: right;">Offense Power</th>
-                            <th style="padding: 6px 8px; text-align: right;">Damage Boss</th>
-                            <th style="padding: 6px 8px; width: 140px;">Porsi Kontribusi</th>
-                            <th style="padding: 6px 8px; text-align: right;">Status Pasukan</th>
+                        <tr>
+                            <th style="text-align: left;">Peserta</th>
+                            <th style="text-align: left;">Suku</th>
+                            <th style="text-align: right;">Offense Power</th>
+                            <th style="text-align: right;">Damage Boss</th>
+                            <th style="width: 140px; text-align: left;">Porsi Kontribusi</th>
+                            <th style="text-align: right;">Status Pasukan</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -571,8 +864,8 @@ $conquerorLink = ($conquerorUid > 0)
                             $rTribeColor = $tribeColors[$rTribe] ?? "#94a3b8";
                             $isViewer = ($rUid === (int)($session->uid ?? 0) || $rUid === $noticeUid);
                         ?>
-                        <tr style="border-bottom: 1px solid rgba(51, 65, 85, 0.4); <?php if ($isViewer) echo "background: rgba(56, 189, 248, 0.08);"; ?>">
-                            <td style="padding: 6px 8px; font-weight: bold;">
+                        <tr class="<?php echo $isViewer ? "lb-viewer" : ""; ?>">
+                            <td style="font-weight: bold;">
                                 <a href="spieler.php?uid=<?php echo $rUid; ?>" style="color: <?php echo $isViewer ? "#38bdf8" : "#f1f5f9"; ?>; text-decoration: none;">
                                     <?php echo htmlspecialchars($mRow["username"] ?? ("User #" . $rUid)); ?>
                                 </a>
@@ -580,20 +873,20 @@ $conquerorLink = ($conquerorUid > 0)
                                     <span style="color: #fbbf24; font-size: 10px;" title="Rally Leader">👑</span>
                                 <?php } ?>
                             </td>
-                            <td style="padding: 6px 8px;">
-                                <span style="color: <?php echo $rTribeColor; ?>; font-size: 11px;">
+                            <td>
+                                <span style="color: <?php echo $rTribeColor; ?>; font-size: 11px; font-weight: bold;">
                                     <?php echo htmlspecialchars($rTribeName); ?>
                                 </span>
                             </td>
-                            <td style="padding: 6px 8px; text-align: right; color: #fbbf24; font-weight: bold;">
+                            <td style="text-align: right; color: #fbbf24; font-weight: bold;">
                                 <?php echo number_format($rAtk); ?>
                             </td>
-                            <td style="padding: 6px 8px; text-align: right; color: #38bdf8; font-weight: bold;">
+                            <td style="text-align: right; color: #38bdf8; font-weight: bold;">
                                 <?php echo number_format($rDmg); ?>
                             </td>
-                            <td style="padding: 6px 8px;">
+                            <td>
                                 <div style="display: flex; align-items: center; gap: 6px;">
-                                    <div style="background: rgba(51, 65, 85, 0.8); border-radius: 999px; height: 6px; flex-grow: 1; overflow: hidden;">
+                                    <div style="background: #1e293b; border: 1px solid #334155; border-radius: 999px; height: 8px; flex-grow: 1; overflow: hidden;">
                                         <div style="background: linear-gradient(90deg, #38bdf8, #4ade80); height: 100%; width: <?php echo min(100, max(0, $rPct)); ?>%;"></div>
                                     </div>
                                     <span style="font-size: 11px; font-weight: bold; color: #4ade80; min-width: 36px; text-align: right;">
@@ -601,7 +894,7 @@ $conquerorLink = ($conquerorUid > 0)
                                     </span>
                                 </div>
                             </td>
-                            <td style="padding: 6px 8px; text-align: right; font-size: 11px; color: #94a3b8;">
+                            <td style="text-align: right; font-size: 11px; color: #94a3b8;">
                                 <span style="color: #38bdf8;" title="Selamat Pulang">🛡️ Pulang Aman</span>
                             </td>
                         </tr>
@@ -614,37 +907,37 @@ $conquerorLink = ($conquerorUid > 0)
 
         <!-- SECTION 3: KARTU TOTAL HADIAH PRIBADI PENERIMA LAPORAN -->
         <?php if ($expAction === "victory") { ?>
-        <div style="background: linear-gradient(135deg, rgba(30, 27, 75, 0.85), rgba(15, 23, 42, 0.95)); border: 1px solid #6366f1; border-radius: 8px; padding: 14px; margin-top: 12px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid rgba(99, 102, 241, 0.3); padding-bottom: 8px;">
+        <div style="background: #111a2e; border: 1px solid #6366f1; border-radius: 8px; padding: 14px; margin-top: 12px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid rgba(99, 102, 241, 0.3); padding-bottom: 8px; flex-wrap: wrap; gap: 6px;">
                 <div style="font-weight: bold; color: #c7d2fe; font-size: 13px; display: flex; align-items: center; gap: 6px;">
                     <span>🎁 Total Bagian Hadiah &amp; Rampasan Anda:</span>
                 </div>
                 <span style="font-size: 11px; color: #a5b4fc;">Langsung ditambahkan ke desa &amp; akun</span>
             </div>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px;">
-                <div style="background: rgba(15, 23, 42, 0.8); padding: 8px; border-radius: 6px; font-size: 12px; font-weight: bold; color: #f1f5f9; border: 1px solid rgba(51, 65, 85, 0.5);">
+                <div style="background: #090e1a; padding: 8px; border-radius: 6px; font-size: 12px; font-weight: bold; color: #f1f5f9; border: 1px solid #24324d;">
                     🌲 Kayu: <span style="color: #4ade80;">+<?php echo number_format($expWood); ?></span>
                 </div>
-                <div style="background: rgba(15, 23, 42, 0.8); padding: 8px; border-radius: 6px; font-size: 12px; font-weight: bold; color: #f1f5f9; border: 1px solid rgba(51, 65, 85, 0.5);">
+                <div style="background: #090e1a; padding: 8px; border-radius: 6px; font-size: 12px; font-weight: bold; color: #f1f5f9; border: 1px solid #24324d;">
                     🧱 Liat: <span style="color: #fb923c;">+<?php echo number_format($expClay); ?></span>
                 </div>
-                <div style="background: rgba(15, 23, 42, 0.8); padding: 8px; border-radius: 6px; font-size: 12px; font-weight: bold; color: #f1f5f9; border: 1px solid rgba(51, 65, 85, 0.5);">
+                <div style="background: #090e1a; padding: 8px; border-radius: 6px; font-size: 12px; font-weight: bold; color: #f1f5f9; border: 1px solid #24324d;">
                     ⛏️ Besi: <span style="color: #94a3b8;">+<?php echo number_format($expIron); ?></span>
                 </div>
-                <div style="background: rgba(15, 23, 42, 0.8); padding: 8px; border-radius: 6px; font-size: 12px; font-weight: bold; color: #f1f5f9; border: 1px solid rgba(51, 65, 85, 0.5);">
+                <div style="background: #090e1a; padding: 8px; border-radius: 6px; font-size: 12px; font-weight: bold; color: #f1f5f9; border: 1px solid #24324d;">
                     🌾 Gandum: <span style="color: #facc15;">+<?php echo number_format($expCrop); ?></span>
                 </div>
-                <div style="background: rgba(15, 23, 42, 0.8); padding: 8px; border-radius: 6px; font-size: 12px; font-weight: bold; color: #f1f5f9; border: 1px solid rgba(51, 65, 85, 0.5);">
+                <div style="background: #090e1a; padding: 8px; border-radius: 6px; font-size: 12px; font-weight: bold; color: #f1f5f9; border: 1px solid #24324d;">
                     🪙 Silver: <span style="color: #38bdf8;">+<?php echo number_format($expSilver); ?></span>
                 </div>
-                <div style="background: rgba(15, 23, 42, 0.8); padding: 8px; border-radius: 6px; font-size: 12px; font-weight: bold; color: #f1f5f9; border: 1px solid rgba(51, 65, 85, 0.5);">
+                <div style="background: #090e1a; padding: 8px; border-radius: 6px; font-size: 12px; font-weight: bold; color: #f1f5f9; border: 1px solid #24324d;">
                     🏛️ CP: <span style="color: #c084fc;">+<?php echo number_format($expCp); ?></span>
                 </div>
-                <div style="background: rgba(15, 23, 42, 0.8); padding: 8px; border-radius: 6px; font-size: 12px; font-weight: bold; color: #f1f5f9; border: 1px solid rgba(51, 65, 85, 0.5);">
+                <div style="background: #090e1a; padding: 8px; border-radius: 6px; font-size: 12px; font-weight: bold; color: #f1f5f9; border: 1px solid #24324d;">
                     ⭐ Hero EXP: <span style="color: #e879f9;">+<?php echo number_format($expExp); ?></span>
                 </div>
                 <?php if ($expEssence > 0) { ?>
-                <div style="background: rgba(15, 23, 42, 0.8); padding: 8px; border-radius: 6px; font-size: 12px; font-weight: bold; color: #f1f5f9; border: 1px solid #ec4899;">
+                <div style="background: #090e1a; padding: 8px; border-radius: 6px; font-size: 12px; font-weight: bold; color: #f1f5f9; border: 1px solid #ec4899;">
                     💎 Essence: <span style="color: #f472b6;">+<?php echo number_format($expEssence); ?></span>
                 </div>
                 <?php } ?>
