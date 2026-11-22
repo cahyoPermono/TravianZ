@@ -95,6 +95,7 @@ else $building->procBuild($_GET);
 <div id="cap" align="left"><?php if($village->capital!='0') { echo "<font color=gray>(".CAPITAL1.")</font>"; } ?></div>
 <?php include("Templates/weather_widget.tpl"); ?>
 <?php include("Templates/ormas_widget.tpl"); ?>
+<?php include("Templates/expedition_widget.tpl"); ?>
 <?php include("Templates/field.tpl");
 $timer = 1;
 ?>

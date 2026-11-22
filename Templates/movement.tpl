@@ -123,6 +123,23 @@ if (!empty($movement20_0) || !empty($movement21_1)) {
 
 /**
  * ---------------------------------------------------------
+ * Preload Alliance Co-op Expedition troop movements
+ * ---------------------------------------------------------
+ */
+$expeditionTroopMovements = [];
+if (!empty($village->wid)) {
+    $expeditionTroopMovements = $database->query_return("
+        SELECT m.*, e.id as exp_id, b.name as camp_name, v.name as camp_vname
+        FROM `" . TB_PREFIX . "expedition_members` m
+        JOIN `" . TB_PREFIX . "expeditions` e ON m.expedition_id = e.id
+        JOIN `" . TB_PREFIX . "bandit_camps` b ON e.camp_id = b.id
+        LEFT JOIN `" . TB_PREFIX . "vdata` v ON e.camp_wref = v.wref
+        WHERE m.from_wref = " . (int)$village->wid . " AND m.status = 0 AND m.arrive_time > " . time() . "
+    ");
+}
+
+/**
+ * ---------------------------------------------------------
  * Tactical Weather Filter: Karhutla (Wildfire Smoke Haze)
  * Low visibility (-90%): incoming hostile attacks only appear
  * when arrival time is <= 10 minutes (600 seconds) away.
@@ -161,7 +178,8 @@ $totalMovements =
     count($movement5_0) +
     count($movement20_0) +
     count($movement21_1) +
-    count($visibleOasisMovements) -
+    count($visibleOasisMovements) +
+    count($expeditionTroopMovements) -
     count($movement8_1) -
     count($movement9_0);
 
@@ -423,6 +441,38 @@ renderMovementRow(
     $generator,
     $session
 );
+
+/**
+ * =========================================================
+ * ALLIANCE EXPEDITION: TROOPS MARCHING TO FORWARD CAMP
+ * =========================================================
+ */
+if (!empty($expeditionTroopMovements)) {
+    foreach ($expeditionTroopMovements as $em) {
+        $remArr = max(0, (int)$em['arrive_time'] - time());
+        $vTargetName = !empty($em['camp_vname']) ? $em['camp_vname'] : 'Virtual Camp';
+        $title = "Pasukan berbaris ke Forward Camp ({$vTargetName}) untuk sasaran {$em['camp_name']}";
+        echo '
+        <tr>
+            <td class="typ">
+                <a href="expedition.php?id=' . (int)$em['exp_id'] . '" title="' . htmlspecialchars($title) . '">
+                    <img src="img/x.gif" class="att1" alt="' . htmlspecialchars($title) . '" title="' . htmlspecialchars($title) . '" />
+                </a>
+                <span class="a1" title="' . htmlspecialchars($title) . '">&raquo;</span>
+            </td>
+            <td>
+                <div class="mov" title="' . htmlspecialchars($title) . '">
+                    <span class="a1">
+                        1&nbsp;Forward Camp (' . htmlspecialchars($vTargetName) . ')
+                    </span>
+                </div>
+                <div class="dur_r">
+                    in&nbsp;<span id="timer' . ++$session->timer . '">' . $generator->getTimeFormat($remArr) . '</span>&nbsp;' . (defined('HOURS') ? HOURS : 'hrs.') . '
+                </div>
+            </td>
+        </tr>';
+    }
+}
 
 /**
  * ---------------------------------------------------------

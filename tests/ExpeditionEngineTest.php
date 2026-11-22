@@ -381,6 +381,74 @@ $database->query("DELETE FROM " . TB_PREFIX . "expedition_members WHERE expediti
 $database->query("DELETE FROM " . TB_PREFIX . "users WHERE id IN ($leaderUid, $memberUid)");
 $database->query("DELETE FROM " . TB_PREFIX . "vdata WHERE wref IN ($leaderVillage, $memberVillage)");
 $database->query("DELETE FROM " . TB_PREFIX . "units WHERE vref IN ($leaderVillage, $memberVillage)");
+
+// 11. Test Front-of-Village Alliance Co-op Lobby Widget
+echo "Test 11: Front-of-Village Alliance Co-op Lobby Widget (Templates/expedition_widget.tpl)...\n";
+
+// Set up fresh test fortress and users
+$widgetCamp = BanditCamp::spawnCamp(BanditCamp::TIER_FORTRESS);
+$widgetCampId = (int)$widgetCamp['id'];
+
+$database->query("INSERT INTO " . TB_PREFIX . "users (id, username, alliance, tribe, access, regtime, timestamp) VALUES ($leaderUid, 'LeaderWidget', $mockAllyId, 1, 2, $time, $time)");
+$database->query("INSERT INTO " . TB_PREFIX . "users (id, username, alliance, tribe, access, regtime, timestamp) VALUES ($memberUid, 'MemberWidget', $mockAllyId, 2, 2, $time, $time)");
+$database->query("INSERT INTO " . TB_PREFIX . "vdata (wref, owner, name, capital, wood, clay, iron, crop) VALUES ($leaderVillage, $leaderUid, 'Leader Vil', 1, 1000, 1000, 1000, 1000)");
+$database->query("INSERT INTO " . TB_PREFIX . "vdata (wref, owner, name, capital, wood, clay, iron, crop) VALUES ($memberVillage, $memberUid, 'Member Vil', 1, 1000, 1000, 1000, 1000)");
+$database->query("INSERT INTO " . TB_PREFIX . "units (vref, u1) VALUES ($leaderVillage, 1000)");
+$database->query("INSERT INTO " . TB_PREFIX . "units (vref, u11) VALUES ($memberVillage, 1000)");
+
+$widgetExpRes = ExpeditionEngine::createExpedition($leaderUid, $widgetCampId, 60, $leaderVillage, ['u1' => 500]);
+assertTrue($widgetExpRes['status'] === 'success', "Lobby should be created for widget test");
+$widgetExpId = (int)$widgetExpRes['expedition_id'];
+
+// Mock session and village objects for template inclusion
+$mockSession = new stdClass();
+$mockSession->uid = $leaderUid;
+$mockSession->alliance = $mockAllyId;
+$mockSession->timer = 0;
+$session = $mockSession;
+
+$mockVillage = new stdClass();
+$mockVillage->wid = $leaderVillage;
+$mockVillage->vname = 'Leader Vil';
+$village = $mockVillage;
+
+// 11a: Test Leader View (has joined)
+ob_start();
+include __DIR__ . '/../Templates/expedition_widget.tpl';
+$outLeader = ob_get_clean();
+
+assertTrue(!empty($outLeader), "Widget output for leader should not be empty");
+assertTrue(strpos($outLeader, 'PANGGILAN PERANG KOALISI ALIANSI') !== false, "Widget should contain coalition call header");
+assertTrue(strpos($outLeader, 'Pasukan Siaga di Camp') !== false, "Leader should see Pasukan Siaga di Camp");
+assertTrue(strpos($outLeader, 'expedition.php?id=' . $widgetExpId) !== false, "Widget must link to expedition lobby");
+
+// 11b: Test Member View (has not joined yet)
+$session->uid = $memberUid;
+$village->wid = $memberVillage;
+$village->vname = 'Member Vil';
+
+ob_start();
+include __DIR__ . '/../Templates/expedition_widget.tpl';
+$outMember = ob_get_clean();
+
+assertTrue(!empty($outMember), "Widget output for member should not be empty");
+assertTrue(strpos($outMember, 'GABUNG SEKARANG') !== false, "Non-joined member should see GABUNG SEKARANG button");
+assertTrue(strpos($outMember, 'Tersisa 4 Slot Pasukan!') !== false, "Member should see remaining slots");
+
+// 11c: Test Non-Alliance View (alliance = 0)
+$session->alliance = 0;
+ob_start();
+include __DIR__ . '/../Templates/expedition_widget.tpl';
+$outNoAlly = ob_get_clean();
+assertEqual('', trim($outNoAlly), "Widget should output nothing if user has no alliance");
+
+// Cleanup
+$database->query("DELETE FROM " . TB_PREFIX . "expeditions WHERE id = $widgetExpId");
+$database->query("DELETE FROM " . TB_PREFIX . "expedition_members WHERE expedition_id = $widgetExpId");
+$database->query("DELETE FROM " . TB_PREFIX . "bandit_camps WHERE id = $widgetCampId");
+$database->query("DELETE FROM " . TB_PREFIX . "users WHERE id IN ($leaderUid, $memberUid)");
+$database->query("DELETE FROM " . TB_PREFIX . "vdata WHERE wref IN ($leaderVillage, $memberVillage)");
+$database->query("DELETE FROM " . TB_PREFIX . "units WHERE vref IN ($leaderVillage, $memberVillage)");
 $database->query("DELETE FROM " . TB_PREFIX . "expedition_daily_usage WHERE uid IN ($leaderUid, $memberUid)");
 $database->query("DELETE FROM " . TB_PREFIX . "expeditions WHERE alliance_id = $mockAllyId");
 
