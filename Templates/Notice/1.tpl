@@ -72,12 +72,20 @@ if ($spyIndex !== null) {
         $heroDeadAtt = (isset($dataarray[$spyIndex + 2]) && is_numeric($dataarray[$spyIndex + 2])) ? (int)$dataarray[$spyIndex + 2] : 0;
     }
 } else {
-    if (isset($dataarray[272]) && is_numeric($dataarray[272]) && (int)$dataarray[272] > 0) {
-        $heroSentAtt = (int)$dataarray[272];
-        $heroDeadAtt = (int)($dataarray[273] ?? 0);
+    // 10-tribe layout has attacker hero sent at index 254, dead at 255.
+    // Legacy / alternate layouts have it at index 178/179 or 270/271.
+    if (isset($dataarray[254]) && is_numeric($dataarray[254]) && (int)$dataarray[254] > 0) {
+        $heroSentAtt = (int)$dataarray[254];
+        $heroDeadAtt = (isset($dataarray[255]) && is_numeric($dataarray[255])) ? (int)$dataarray[255] : 0;
     } elseif (isset($dataarray[270]) && is_numeric($dataarray[270]) && (int)$dataarray[270] > 0) {
         $heroSentAtt = (int)$dataarray[270];
         $heroDeadAtt = (int)($dataarray[271] ?? 0);
+    } elseif (isset($dataarray[272]) && is_numeric($dataarray[272]) && (int)$dataarray[272] > 0) {
+        $heroSentAtt = (int)$dataarray[272];
+        $heroDeadAtt = (int)($dataarray[273] ?? 0);
+    } elseif (isset($dataarray[178]) && is_numeric($dataarray[178]) && (int)$dataarray[178] > 0) {
+        $heroSentAtt = (int)$dataarray[178];
+        $heroDeadAtt = (int)($dataarray[179] ?? 0);
     }
 }
 // An army can only contain at most 1 hero (safeguard against legacy desync/offset reading)
@@ -184,7 +192,7 @@ img.u91, img.u92, img.u93, img.u94, img.u95, img.u96, img.u97, img.u98, img.u99,
 <td>&nbsp;</td>
 
 <?php
-$tribe = !empty($dataarray[2]) ? $dataarray[2] : 5;
+$tribe = (!empty($dataarray[2]) && is_numeric($dataarray[2])) ? (int)$dataarray[2] : 1;
 $start = ($tribe - 1) * 10 + 1;
 
 // UNIT ICONS
@@ -224,21 +232,22 @@ if ($hasHero) {
     echo "<td $tdclass>".$heroDeadAtt."</td>";
 }
 
-// PRISONERS (unchanged logic but safer sum)
-// Cast to int: some reports carry non-numeric text in these slots (e.g. the
-// "Information" line shifts indices), which made array_sum() warn under PHP 8.
-if (!$spy && array_sum(array_map('intval', array_slice($dataarray, 274, 11))) > 0) {
+// PRISONERS (dynamic start offset with safe int cast)
+$trapStart = (count($dataarray) >= 240) ? 258 : ((count($dataarray) >= 200) ? 274 : 182);
+if (!$spy && array_sum(array_map('intval', array_slice($dataarray, $trapStart, 11))) > 0) {
     echo "</tr><tr><th>".PRISONERS."</th>";
 
-    for ($i = 274; $i <= 283; $i++) {
-        echo ($dataarray[$i] == 0)
+    for ($i = $trapStart; $i <= $trapStart + 9; $i++) {
+        $tVal = (int)($dataarray[$i] ?? 0);
+        echo ($tVal == 0)
             ? "<td class=\"none\">0</td>"
-            : "<td>".$dataarray[$i]."</td>";
+            : "<td>".$tVal."</td>";
     }
 
     if ($hasHero) {
-        $tdclass = ($dataarray[284] == 0) ? 'class="none"' : '';
-        echo "<td $tdclass>".$dataarray[284]."</td>";
+        $tHeroVal = (int)($dataarray[$trapStart + 10] ?? 0);
+        $tdclass = ($tHeroVal == 0) ? 'class="none"' : '';
+        echo "<td $tdclass>".$tHeroVal."</td>";
     }
 }
 ?>
@@ -247,8 +256,38 @@ if (!$spy && array_sum(array_map('intval', array_slice($dataarray, 274, 11))) > 
 
 <?php
 // ======================== SPECIAL ACTIONS ========================
-if (!empty($dataarray[263])) {
-    $ramUnit = (!empty($dataarray[262]) && is_numeric($dataarray[262])) ? (int)$dataarray[262] : (($tribe - 1) * 10 + 7);
+// Standard layout index offsets (10 tribes vs legacy 5 tribes)
+if (count($dataarray) >= 240) {
+    $ramUnitIdx   = 246; $ramInfoIdx   = 247;
+    $catpUnitIdx  = 248; $catpInfoIdx  = 249;
+    $chiefUnitIdx = 250; $chiefInfoIdx = 251;
+    $troopInfoIdx = 271;
+} else {
+    $ramUnitIdx   = 170; $ramInfoIdx   = 171;
+    $catpUnitIdx  = 172; $catpInfoIdx  = 173;
+    $chiefUnitIdx = 174; $chiefInfoIdx = 175;
+    $troopInfoIdx = 193;
+}
+
+// 1. Ram Info Resolution (index lookup with dynamic token fallback)
+$ramData = (!empty($dataarray[$ramInfoIdx]) && $dataarray[$ramInfoIdx] !== '?' && $dataarray[$ramInfoIdx] !== '0') ? $dataarray[$ramInfoIdx] : null;
+$ramUnit = (!empty($dataarray[$ramUnitIdx]) && is_numeric($dataarray[$ramUnitIdx])) ? (int)$dataarray[$ramUnitIdx] : null;
+if ($ramData === null) {
+    foreach ($dataarray as $k => $v) {
+        if (is_string($v) && (strpos($v, 'RC_WALL_') !== false || strpos($v, 'RC_NO_WALL') !== false || strpos($v, 'The ram does not work') !== false || (stripos($v, 'wall') !== false && stripos($v, 'damaged') !== false))) {
+            $ramData = $v;
+            if (isset($dataarray[$k - 1]) && is_numeric($dataarray[$k - 1])) {
+                $ramUnit = (int)$dataarray[$k - 1];
+            }
+            break;
+        }
+    }
+}
+if ($ramUnit === null || $ramUnit <= 0) {
+    $ramUnit = ($tribe - 1) * 10 + 7;
+}
+
+if (!empty($ramData)) {
     $ramName = is_numeric($ramUnit) ? $technology->getUnitName($ramUnit) : (defined('U17') ? U17 : 'Ram');
 ?>
 <tbody class="goods">
@@ -256,14 +295,31 @@ if (!empty($dataarray[263])) {
 <th><?php echo INFORMATION; ?></th>
 <td colspan="<?php echo $colspan; ?>">
 <img class="unit u<?php echo $ramUnit; ?>" src="img/x.gif" alt="<?php echo htmlspecialchars($ramName); ?>" title="<?php echo htmlspecialchars($ramName); ?>" />
-<?php echo $dataarray[263]; ?>
+<?php echo $ramData; ?>
 </td>
 </tr>
 </tbody>
 <?php }
 
-if (!empty($dataarray[265])) {
-    $catpUnit = (!empty($dataarray[264]) && is_numeric($dataarray[264])) ? (int)$dataarray[264] : (($tribe - 1) * 10 + 8);
+// 2. Catapult Info Resolution (index lookup with dynamic token fallback)
+$catpData = (!empty($dataarray[$catpInfoIdx]) && $dataarray[$catpInfoIdx] !== '?' && $dataarray[$catpInfoIdx] !== '0') ? $dataarray[$catpInfoIdx] : null;
+$catpUnit = (!empty($dataarray[$catpUnitIdx]) && is_numeric($dataarray[$catpUnitIdx])) ? (int)$dataarray[$catpUnitIdx] : null;
+if ($catpData === null) {
+    foreach ($dataarray as $k => $v) {
+        if (is_string($v) && (strpos($v, 'RC_DESTROYED') !== false || strpos($v, 'RC_NOT_DAMAGED') !== false || strpos($v, 'RC_DAMAGED_FROM_TO') !== false || strpos($v, 'RC_NO_BUILDINGS') !== false || strpos($v, 'RC_VILLAGE_') !== false || (stripos($v, 'damaged') !== false && stripos($v, 'level') !== false))) {
+            $catpData = $v;
+            if (isset($dataarray[$k - 1]) && is_numeric($dataarray[$k - 1])) {
+                $catpUnit = (int)$dataarray[$k - 1];
+            }
+            break;
+        }
+    }
+}
+if ($catpUnit === null || $catpUnit <= 0) {
+    $catpUnit = ($tribe - 1) * 10 + 8;
+}
+
+if (!empty($catpData)) {
     $catpName = is_numeric($catpUnit) ? $technology->getUnitName($catpUnit) : (defined('U18') ? U18 : 'Catapult');
 ?>
 <tbody class="goods">
@@ -271,14 +327,31 @@ if (!empty($dataarray[265])) {
 <th><?php echo INFORMATION; ?></th>
 <td colspan="<?php echo $colspan; ?>">
 <img class="unit u<?php echo $catpUnit; ?>" src="img/x.gif" alt="<?php echo htmlspecialchars($catpName); ?>" title="<?php echo htmlspecialchars($catpName); ?>" />
-<?php echo $dataarray[265]; ?>
+<?php echo $catpData; ?>
 </td>
 </tr>
 </tbody>
 <?php }
 
-if (!empty($dataarray[267])) {
-    $chiefUnit = (!empty($dataarray[266]) && is_numeric($dataarray[266])) ? (int)$dataarray[266] : (($tribe - 1) * 10 + 9);
+// 3. Chief / Senator / Loyalty Info Resolution (index lookup with dynamic token fallback)
+$chiefData = (!empty($dataarray[$chiefInfoIdx]) && $dataarray[$chiefInfoIdx] !== '?' && $dataarray[$chiefInfoIdx] !== '0') ? $dataarray[$chiefInfoIdx] : null;
+$chiefUnit = (!empty($dataarray[$chiefUnitIdx]) && is_numeric($dataarray[$chiefUnitIdx])) ? (int)$dataarray[$chiefUnitIdx] : null;
+if ($chiefData === null) {
+    foreach ($dataarray as $k => $v) {
+        if (is_string($v) && (strpos($v, 'RC_LOYALTY_') !== false || strpos($v, 'RC_NOT_ENOUGH_CP') !== false || strpos($v, 'RC_CANT_TAKEOVER') !== false || strpos($v, 'RC_RESIDENCE_') !== false || strpos($v, 'RC_NO_REDUCE_') !== false || strpos($v, 'RC_INHABITANTS_') !== false || stripos($v, 'loyalty') !== false || stripos($v, 'loialitatea') !== false || stripos($v, 'loyalitas') !== false || stripos($v, 'residence') !== false || stripos($v, 'palace') !== false)) {
+            $chiefData = $v;
+            if (isset($dataarray[$k - 1]) && is_numeric($dataarray[$k - 1])) {
+                $chiefUnit = (int)$dataarray[$k - 1];
+            }
+            break;
+        }
+    }
+}
+if ($chiefUnit === null || $chiefUnit <= 0) {
+    $chiefUnit = ($tribe - 1) * 10 + 9;
+}
+
+if (!empty($chiefData)) {
     $chiefName = is_numeric($chiefUnit) ? $technology->getUnitName($chiefUnit) : (defined('U19') ? U19 : 'Chief');
 ?>
 <tbody class="goods">
@@ -286,7 +359,7 @@ if (!empty($dataarray[267])) {
 <th><?php echo INFORMATION; ?></th>
 <td colspan="<?php echo $colspan; ?>">
 <img class="unit u<?php echo $chiefUnit; ?>" src="img/x.gif" alt="<?php echo htmlspecialchars($chiefName); ?>" title="<?php echo htmlspecialchars($chiefName); ?>" />
-<?php echo $dataarray[267]; ?>
+<?php echo $chiefData; ?>
 </td>
 </tr>
 </tbody>
@@ -317,13 +390,26 @@ if ($spyData !== null) {
 </tbody>
 <?php }
 
-if (!empty($dataarray[285])) {
+// 4. Troop Return Message Resolution
+$troopReturnMsg = (!empty($dataarray[$troopInfoIdx]) && $dataarray[$troopInfoIdx] !== '0' && $dataarray[$troopInfoIdx] !== '?') ? $dataarray[$troopInfoIdx] : null;
+if ($troopReturnMsg === null && !empty($dataarray[285]) && $dataarray[285] !== '0') {
+    $troopReturnMsg = $dataarray[285];
+}
+if ($troopReturnMsg === null) {
+    foreach ($dataarray as $v) {
+        if (is_string($v) && (strpos($v, 'RC_NONE_RETURNED') !== false || stripos($v, 'soldiers returned') !== false)) {
+            $troopReturnMsg = $v;
+            break;
+        }
+    }
+}
+if (!empty($troopReturnMsg)) {
 ?>
 <tbody class="goods">
 <tr>
 <th><?php echo INFORMATION; ?></th>
 <td colspan="<?php echo $colspan; ?>">
-<?php echo $dataarray[285]; ?>
+<?php echo $troopReturnMsg; ?>
 </td>
 </tr>
 </tbody>
@@ -331,7 +417,10 @@ if (!empty($dataarray[285])) {
 
 $heroInfoPic = null;
 $heroInfoMsg = null;
-if (!empty($dataarray[288]) && !empty($dataarray[289])) {
+if (!empty($dataarray[272]) && is_string($dataarray[272]) && strlen($dataarray[272]) > 3 && strpos($dataarray[272], ':') === false) {
+    $heroInfoPic = 'hero';
+    $heroInfoMsg = $dataarray[272];
+} elseif (!empty($dataarray[288]) && !empty($dataarray[289])) {
     $heroInfoPic = $dataarray[288];
     $heroInfoMsg = $dataarray[289];
 } else {

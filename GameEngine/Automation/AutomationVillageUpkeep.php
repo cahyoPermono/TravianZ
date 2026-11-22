@@ -140,6 +140,9 @@ trait AutomationVillageUpkeep {
         $keyholder = [];
 
         $resourcearray = $database->getResourceLevel($vid);
+        if (!is_array($resourcearray)) {
+            return 0;
+        }
         foreach(array_keys($resourcearray, $tid) as $key) {
             if(strpos($key,'t')) {
                 $key = preg_replace("/[^0-9]/", '', $key);

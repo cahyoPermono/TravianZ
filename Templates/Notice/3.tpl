@@ -155,7 +155,7 @@ img.u91, img.u92, img.u93, img.u94, img.u95, img.u96, img.u97, img.u98, img.u99,
 
 <?php
 // UNIT DISPLAY (attacker)
-$tribe = $dataarray[2];
+$tribe = (!empty($dataarray[2]) && is_numeric($dataarray[2])) ? (int)$dataarray[2] : 1;
 $start = ($tribe - 1) * 10 + 1;
 
 for ($i = $start; $i <= ($start + 9); $i++) {
@@ -259,8 +259,25 @@ if ($heroSentIdx === 266) {
     $heroInfoIdx  = 306;
 }
 
-if (!empty($dataarray[$ramInfoIdx]) && $dataarray[$ramInfoIdx] !== '?' && $dataarray[$ramInfoIdx] !== '0') {
-    $ramUnit = (!empty($dataarray[$ramUnitIdx]) && is_numeric($dataarray[$ramUnitIdx])) ? (int)$dataarray[$ramUnitIdx] : (($tribe - 1) * 10 + 7);
+// 1. Ram Info Resolution
+$ramData = (!empty($dataarray[$ramInfoIdx]) && $dataarray[$ramInfoIdx] !== '?' && $dataarray[$ramInfoIdx] !== '0') ? $dataarray[$ramInfoIdx] : null;
+$ramUnit = (!empty($dataarray[$ramUnitIdx]) && is_numeric($dataarray[$ramUnitIdx])) ? (int)$dataarray[$ramUnitIdx] : null;
+if ($ramData === null) {
+    foreach ($dataarray as $k => $v) {
+        if (is_string($v) && (strpos($v, 'RC_WALL_') !== false || strpos($v, 'RC_NO_WALL') !== false || strpos($v, 'The ram does not work') !== false || (stripos($v, 'wall') !== false && stripos($v, 'damaged') !== false))) {
+            $ramData = $v;
+            if (isset($dataarray[$k - 1]) && is_numeric($dataarray[$k - 1])) {
+                $ramUnit = (int)$dataarray[$k - 1];
+            }
+            break;
+        }
+    }
+}
+if ($ramUnit === null || $ramUnit <= 0) {
+    $ramUnit = ($tribe - 1) * 10 + 7;
+}
+
+if (!empty($ramData)) {
     $ramName = is_numeric($ramUnit) ? $technology->getUnitName($ramUnit) : (defined('U17') ? U17 : 'Ram');
 ?>
 <tbody class="goods">
@@ -268,14 +285,31 @@ if (!empty($dataarray[$ramInfoIdx]) && $dataarray[$ramInfoIdx] !== '?' && $dataa
 <th><?php echo INFORMATION; ?></th>
 <td colspan="<?php echo $colspan; ?>">
 <img class="unit u<?php echo $ramUnit; ?>" src="img/x.gif" alt="<?php echo htmlspecialchars($ramName); ?>" title="<?php echo htmlspecialchars($ramName); ?>" />
-<?php echo $dataarray[$ramInfoIdx]; ?>
+<?php echo $ramData; ?>
 </td>
 </tr>
 </tbody>
 <?php }
 
-if (!empty($dataarray[$catpInfoIdx]) && $dataarray[$catpInfoIdx] !== '?' && $dataarray[$catpInfoIdx] !== '0') {
-    $catpUnit = (!empty($dataarray[$catpUnitIdx]) && is_numeric($dataarray[$catpUnitIdx])) ? (int)$dataarray[$catpUnitIdx] : (($tribe - 1) * 10 + 8);
+// 2. Catapult Info Resolution
+$catpData = (!empty($dataarray[$catpInfoIdx]) && $dataarray[$catpInfoIdx] !== '?' && $dataarray[$catpInfoIdx] !== '0') ? $dataarray[$catpInfoIdx] : null;
+$catpUnit = (!empty($dataarray[$catpUnitIdx]) && is_numeric($dataarray[$catpUnitIdx])) ? (int)$dataarray[$catpUnitIdx] : null;
+if ($catpData === null) {
+    foreach ($dataarray as $k => $v) {
+        if (is_string($v) && (strpos($v, 'RC_DESTROYED') !== false || strpos($v, 'RC_NOT_DAMAGED') !== false || strpos($v, 'RC_DAMAGED_FROM_TO') !== false || strpos($v, 'RC_NO_BUILDINGS') !== false || strpos($v, 'RC_VILLAGE_') !== false || (stripos($v, 'damaged') !== false && stripos($v, 'level') !== false))) {
+            $catpData = $v;
+            if (isset($dataarray[$k - 1]) && is_numeric($dataarray[$k - 1])) {
+                $catpUnit = (int)$dataarray[$k - 1];
+            }
+            break;
+        }
+    }
+}
+if ($catpUnit === null || $catpUnit <= 0) {
+    $catpUnit = ($tribe - 1) * 10 + 8;
+}
+
+if (!empty($catpData)) {
     $catpName = is_numeric($catpUnit) ? $technology->getUnitName($catpUnit) : (defined('U18') ? U18 : 'Catapult');
 ?>
 <tbody class="goods">
@@ -283,14 +317,31 @@ if (!empty($dataarray[$catpInfoIdx]) && $dataarray[$catpInfoIdx] !== '?' && $dat
 <th><?php echo INFORMATION; ?></th>
 <td colspan="<?php echo $colspan; ?>">
 <img class="unit u<?php echo $catpUnit; ?>" src="img/x.gif" alt="<?php echo htmlspecialchars($catpName); ?>" title="<?php echo htmlspecialchars($catpName); ?>" />
-<?php echo $dataarray[$catpInfoIdx]; ?>
+<?php echo $catpData; ?>
 </td>
 </tr>
 </tbody>
 <?php }
 
-if (!empty($dataarray[$chiefInfoIdx]) && $dataarray[$chiefInfoIdx] !== '?' && $dataarray[$chiefInfoIdx] !== '0') {
-    $chiefUnit = (!empty($dataarray[$chiefUnitIdx]) && is_numeric($dataarray[$chiefUnitIdx])) ? (int)$dataarray[$chiefUnitIdx] : (($tribe - 1) * 10 + 9);
+// 3. Chief / Senator / Loyalty Info Resolution
+$chiefData = (!empty($dataarray[$chiefInfoIdx]) && $dataarray[$chiefInfoIdx] !== '?' && $dataarray[$chiefInfoIdx] !== '0') ? $dataarray[$chiefInfoIdx] : null;
+$chiefUnit = (!empty($dataarray[$chiefUnitIdx]) && is_numeric($dataarray[$chiefUnitIdx])) ? (int)$dataarray[$chiefUnitIdx] : null;
+if ($chiefData === null) {
+    foreach ($dataarray as $k => $v) {
+        if (is_string($v) && (strpos($v, 'RC_LOYALTY_') !== false || strpos($v, 'RC_NOT_ENOUGH_CP') !== false || strpos($v, 'RC_CANT_TAKEOVER') !== false || strpos($v, 'RC_RESIDENCE_') !== false || strpos($v, 'RC_NO_REDUCE_') !== false || strpos($v, 'RC_INHABITANTS_') !== false || stripos($v, 'loyalty') !== false || stripos($v, 'loialitatea') !== false || stripos($v, 'loyalitas') !== false || stripos($v, 'residence') !== false || stripos($v, 'palace') !== false)) {
+            $chiefData = $v;
+            if (isset($dataarray[$k - 1]) && is_numeric($dataarray[$k - 1])) {
+                $chiefUnit = (int)$dataarray[$k - 1];
+            }
+            break;
+        }
+    }
+}
+if ($chiefUnit === null || $chiefUnit <= 0) {
+    $chiefUnit = ($tribe - 1) * 10 + 9;
+}
+
+if (!empty($chiefData)) {
     $chiefName = is_numeric($chiefUnit) ? $technology->getUnitName($chiefUnit) : (defined('U19') ? U19 : 'Chief');
 ?>
 <tbody class="goods">
@@ -298,19 +349,29 @@ if (!empty($dataarray[$chiefInfoIdx]) && $dataarray[$chiefInfoIdx] !== '?' && $d
 <th><?php echo INFORMATION; ?></th>
 <td colspan="<?php echo $colspan; ?>">
 <img class="unit u<?php echo $chiefUnit; ?>" src="img/x.gif" alt="<?php echo htmlspecialchars($chiefName); ?>" title="<?php echo htmlspecialchars($chiefName); ?>" />
-<?php echo $dataarray[$chiefInfoIdx]; ?>
+<?php echo $chiefData; ?>
 </td>
 </tr>
 </tbody>
 <?php }
 
-if (!empty($dataarray[$troopInfoIdx]) && $dataarray[$troopInfoIdx] !== '?' && $dataarray[$troopInfoIdx] !== '0') {
+// 4. Troop Return Info Resolution
+$troopReturnMsg = (!empty($dataarray[$troopInfoIdx]) && $dataarray[$troopInfoIdx] !== '?' && $dataarray[$troopInfoIdx] !== '0') ? $dataarray[$troopInfoIdx] : null;
+if ($troopReturnMsg === null) {
+    foreach ($dataarray as $v) {
+        if (is_string($v) && (strpos($v, 'RC_NONE_RETURNED') !== false || stripos($v, 'soldiers returned') !== false)) {
+            $troopReturnMsg = $v;
+            break;
+        }
+    }
+}
+if (!empty($troopReturnMsg)) {
 ?>
 <tbody class="goods">
 <tr>
 <th><?php echo INFORMATION; ?></th>
 <td colspan="<?php echo $colspan; ?>">
-<?php echo $dataarray[$troopInfoIdx]; ?>
+<?php echo $troopReturnMsg; ?>
 </td>
 </tr>
 </tbody>

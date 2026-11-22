@@ -755,21 +755,28 @@ trait DatabaseVillageQueries {
         // check if we don't actually have this data cached already in one of the other modes
         for ($i = 0; $i <= 4; $i++) {
             if ($mode !== $i && isset(self::$villageFieldsCache[$vid.$i])) {
-                // loop through cached values
-                foreach (self::$villageFieldsCache[$vid.$i] as $index => $value) {
+                $cached = self::$villageFieldsCache[$vid.$i];
+                if (!is_array($cached)) {
+                    continue;
+                }
+                $rows = isset($cached['wref']) ? [$cached] : $cached;
+                foreach ($rows as $value) {
+                    if (!is_array($value)) {
+                        continue;
+                    }
                     // check for existing record with our requested ID/name/owner...
                     switch ($mode) {
-                        case 0: if ($value['wref'] == $vid) {
+                        case 0: if (($value['wref'] ?? null) == $vid) {
                                     return $value;
                                 }
                                 break;
 
-                        case 1: if ($value['name'] == $vid) {
+                        case 1: if (($value['name'] ?? null) == $vid) {
                                     return $value;
                                 }
                                 break;
 
-                        case 2: if ($value['owner'] == $vid) {
+                        case 2: if (($value['owner'] ?? null) == $vid) {
                                     return $value;
                                 }
                                 break;
@@ -779,7 +786,7 @@ trait DatabaseVillageQueries {
                                 }
                                 break;
 
-                        case 4: if ($value['owner'] == 4) {
+                        case 4: if (($value['owner'] ?? null) == 4) {
                                     return $value;
                                 }
                                 break;

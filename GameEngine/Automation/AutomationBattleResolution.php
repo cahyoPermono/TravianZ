@@ -659,15 +659,33 @@ trait AutomationBattleResolution {
         $info_chief      = ',';
         $chiefing_village = 0;
 
+        if (empty($chief_pic)) {
+            $chief_pic = (($owntribe - 1) * 10 + 9);
+        }
+
         if (!(($data['t9'] - $dead9 - $traped9) > 0 && $isoasis == 0)) {
             return ['info_chief' => $info_chief, 'chiefing_village' => $chiefing_village, 'village_destroyed' => $village_destroyed];
         }
 
         if ($type != 3) {
-            $info_chief = ($chief_pic ?? '') . ',' . rc_tok('RC_NO_REDUCE_CP_RAID');
+            $info_chief = $chief_pic . ',' . rc_tok('RC_NO_REDUCE_CP_RAID');
             return ['info_chief' => $info_chief, 'chiefing_village' => $chiefing_village, 'village_destroyed' => $village_destroyed];
         }
 
+        // Target village validation:
+        // Capital village, player's only village, and WW Buildingplan villages cannot have loyalty reduced or be conquered.
+        if (count($varray) <= 1 || $to['capital'] == 1 || ($to['owner'] == 3 && $to['name'] == 'WW Buildingplan')) {
+            $info_chief = $chief_pic . ',' . rc_tok('RC_CANT_TAKEOVER');
+            return ['info_chief' => $info_chief, 'chiefing_village' => $chiefing_village, 'village_destroyed' => $village_destroyed];
+        }
+
+        // Residence, Palace, or Command Center in target village protects loyalty (bypass cache with use_cache=false for fresh DB state)
+        if ($database->getFieldLevelInVillage($data['to'], '25, 26, 44', false) > 0) {
+            $info_chief = $chief_pic . ',' . rc_tok('RC_RESIDENCE_NOT_DESTROYED');
+            return ['info_chief' => $info_chief, 'chiefing_village' => $chiefing_village, 'village_destroyed' => $village_destroyed];
+        }
+
+        // --- Calculate expansion slots of the attacking village ---
         $palacelevel = $database->getResourceLevel($from['wref']);
         $plevel      = 0;
 
@@ -677,13 +695,9 @@ trait AutomationBattleResolution {
             elseif ($palacelevel['f' . $i . 't'] == 44) $plevel = $i; // Command Center (Huni)
         }
 
-        // Command Center: sloturi de expansiune ca la Palat (10 -> 1, 15 -> 2, 20 -> 3)
-        if ($palacelevel['f' . $plevel . 't'] == 44) {
-            if ($palacelevel['f' . $plevel] < 10)       $canconquer = 0;
-            elseif ($palacelevel['f' . $plevel] < 15)   $canconquer = 1;
-            elseif ($palacelevel['f' . $plevel] < 20)   $canconquer = 2;
-            else                                         $canconquer = 3;
-        } elseif ($palacelevel['f' . $plevel . 't'] == 26) {
+        // Command Center / Palace: expansion slots (10 -> 1, 15 -> 2, 20 -> 3)
+        // Residence: expansion slots (10 -> 1, 20 -> 2)
+        if ($palacelevel['f' . $plevel . 't'] == 44 || $palacelevel['f' . $plevel . 't'] == 26) {
             if ($palacelevel['f' . $plevel] < 10)       $canconquer = 0;
             elseif ($palacelevel['f' . $plevel] < 15)   $canconquer = 1;
             elseif ($palacelevel['f' . $plevel] < 20)   $canconquer = 2;
@@ -699,42 +713,32 @@ trait AutomationBattleResolution {
         $expArray = $database->getVillageFields($from['wref'], 'exp1, exp2, exp3');
         $villexp  = ($expArray['exp1'] == 0) ? 0 : (($expArray['exp2'] == 0) ? 1 : (($expArray['exp3'] == 0) ? 2 : 3));
 
-        // HOTFIX "$cp0 undefined" (acelasi tipar ca FIX U1 din Units.php): tabelele $cp0..$cpN
-        // vin din Data/cp.php, incarcat pana acum doar de Session.php - deci pe traseul de CRON
-        // (fara Session) verificarea de CP la cucerire era OCOLITA silentios. Data/cp.php e
-        // acum inclus si in Automation.php; gardul ?? PHP_INT_MAX ramane fail-closed daca
-        // tabelul lipseste totusi (fara date de CP nu se poate cuceri), identic cu Settlers().
-        $mode     = CP;
+        // Culture points requirement
+        $mode     = defined('CP') ? (int)CP : 1;
         $cp_mode  = $GLOBALS['cp' . $mode] ?? [];
+        if (empty($cp_mode) && file_exists(__DIR__ . '/../Data/cp.php')) {
+            @include_once __DIR__ . '/../Data/cp.php';
+            $cp_mode = $GLOBALS['cp' . $mode] ?? [];
+        }
         $need_cps = $cp_mode[count($varray1) + 1] ?? PHP_INT_MAX;
-        $user_cps = $database->getUserArray($from['owner'], 1)['cp'];
-
-        if ($user_cps < $need_cps) {
-            $info_chief = $chief_pic . ',' . rc_tok('RC_NOT_ENOUGH_CP');
-            return ['info_chief' => $info_chief, 'chiefing_village' => $chiefing_village, 'village_destroyed' => $village_destroyed];
-        }
-
-        if (count($varray) <= 1 || $to['capital'] == 1 || $villexp >= $canconquer) {
-            $info_chief = $chief_pic . ',' . rc_tok('RC_CANT_TAKEOVER');
-            return ['info_chief' => $info_chief, 'chiefing_village' => $chiefing_village, 'village_destroyed' => $village_destroyed];
-        }
-
-        if ($to['owner'] == 3 && $to['name'] == 'WW Buildingplan') {
-            $info_chief = $chief_pic . ',' . rc_tok('RC_CANT_TAKEOVER');
-            return ['info_chief' => $info_chief, 'chiefing_village' => $chiefing_village, 'village_destroyed' => $village_destroyed];
-        }
-
-        if ($database->getFieldLevelInVillage($data['to'], '25, 26, 44')) {
-            $info_chief = $chief_pic . ',' . rc_tok('RC_RESIDENCE_NOT_DESTROYED');
-            return ['info_chief' => $info_chief, 'chiefing_village' => $chiefing_village, 'village_destroyed' => $village_destroyed];
-        }
+        $user_cps = $database->getUserArray($from['owner'], 1)['cp'] ?? 0;
 
         // --- Reduce loyalty ---
         $time               = time();
         $reducedLoyaltyTotal = 0;
 
         for ($i = 0; $i < ($data['t9'] - $dead9 - $traped9); $i++) {
-            $reducedLoyalty = ($owntribe == 1) ? rand(20, 30) : rand(20, 25);
+            // Tribe loyalty reduction rates:
+            // Romans (1): 20-30%
+            // Huns (6) / Vikings (9): 15-30%
+            // All others (Teutons 2, Gauls 3, Egyptians 7, Spartans 8, Nusantara 10): 20-25%
+            if ($owntribe == 1) {
+                $reducedLoyalty = rand(20, 30);
+            } elseif ($owntribe == 6 || $owntribe == 9) {
+                $reducedLoyalty = rand(15, 30);
+            } else {
+                $reducedLoyalty = rand(20, 25);
+            }
 
             if ($from['celebration'] > $time && $from['type'] == 2) $reducedLoyalty += 5;
             if ($to['celebration']   > $time && $to['type']   == 2) $reducedLoyalty -= 5;
@@ -763,6 +767,21 @@ trait AutomationBattleResolution {
         }
 
         if ($village_destroyed) {
+            return ['info_chief' => $info_chief, 'chiefing_village' => $chiefing_village, 'village_destroyed' => $village_destroyed];
+        }
+
+        // --- Loyalty reached 0% or below! Check requirements for conquest ---
+        // 1. Culture Points requirement:
+        if ($user_cps < $need_cps) {
+            $database->setVillageField($data['to'], 'loyalty', 0);
+            $info_chief = $chief_pic . ',' . rc_tok('RC_NOT_ENOUGH_CP');
+            return ['info_chief' => $info_chief, 'chiefing_village' => $chiefing_village, 'village_destroyed' => $village_destroyed];
+        }
+
+        // 2. Expansion slot requirement in attacking village:
+        if ($villexp >= $canconquer) {
+            $database->setVillageField($data['to'], 'loyalty', 0);
+            $info_chief = $chief_pic . ',' . rc_tok('RC_CANT_TAKEOVER');
             return ['info_chief' => $info_chief, 'chiefing_village' => $chiefing_village, 'village_destroyed' => $village_destroyed];
         }
 
