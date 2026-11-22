@@ -192,9 +192,27 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
         <div class="portal-container hero-grid">
             <!-- Left Column: Manifesto & Action -->
             <div class="hero-dispatch">
-                <div class="imperial-seal-pill">
-                    <span class="seal-gem"></span>
-                    <span class="seal-text">DOKTRIN EXPANSION 2026: NUSANTARA &amp; JAGAT TERLARANG</span>
+                <div class="hero-header-row">
+                    <div class="imperial-seal-pill">
+                        <span class="seal-gem"></span>
+                        <span class="seal-text">DOKTRIN EXPANSION 2026: NUSANTARA &amp; JAGAT TERLARANG</span>
+                    </div>
+                    <button id="warAudioToggle" class="war-audio-pill" onclick="toggleWarAudio()" type="button" title="Aktifkan Suasana Musik Perang">
+                        <span class="audio-icon">🎵</span>
+                        <span id="audioText">Musik Suasana Perang</span>
+                        <span class="audio-bars">
+                            <span class="bar"></span>
+                            <span class="bar"></span>
+                            <span class="bar"></span>
+                        </span>
+                    </button>
+                </div>
+                <div class="realm-live-badge-strip">
+                    <span class="realm-status-dot"></span>
+                    <span>Dunia 1 Aktif</span> &bull; 
+                    <span class="realm-stat-highlight">Speed 10x</span> &bull; 
+                    <span class="realm-stat-weather">Musim: Kemarau (Panen +15%)</span> &bull; 
+                    <span>Ekspedisi: Siaga</span>
                 </div>
 
                 <h1 class="hero-headline">
@@ -268,10 +286,15 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
             <!-- Right Column: Interactive 3D Hero Centerpiece Stage -->
             <div class="hero-centerpiece-stage">
                 <div class="hero-floating-island" id="heroFloatingIsland">
-                    <!-- Floating Runic Cards -->
+                    <!-- Rotating Celestial Astrolabe Halo -->
+                    <div class="hero-astrolabe-ring"></div>
+
+                    <!-- Floating Ancient Runic Monoliths -->
                     <div class="floating-runic-card card-pos-1" title="Cetbang Artileri">&#9876;</div>
                     <div class="floating-runic-card card-pos-2" title="Lumbung Nusantara">&#127806;</div>
                     <div class="floating-runic-card card-pos-3" title="Takhta Peradaban">&#128081;</div>
+                    <div class="floating-amber-shard shard-1"></div>
+                    <div class="floating-amber-shard shard-2"></div>
 
                     <img src="img/landing_v3/hero_commander.png" alt="Panglima Nusantara Raden Wijaya" class="hero-figure-img" id="heroCommanderImg" />
                     <div class="hero-stone-slab"></div>
@@ -345,97 +368,151 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
 
                 <!-- 2-Column Split Cards for Features 2-6 -->
                 <div class="codex-dual-grid">
-                    <!-- Feature 2: Bandit Camps PvE -->
+                    <!-- Feature 2: Bandit Camps PvE with Interactive Tier Selector -->
                     <div class="codex-card codex-card-bandit">
                         <div class="codex-card-top">
-                            <div class="codex-icon-plate" style="color:#ef4444;">🎯</div>
-                            <span class="codex-tag tag-bandit">Ekspedisi PvE & World Boss</span>
+                            <div class="codex-icon-plate" style="color:#b91c1c;">🎯</div>
+                            <span class="codex-tag tag-bandit">Ekspedisi PvE &amp; World Boss</span>
                         </div>
-                        <h3 class="codex-card-title">Radar Sarang Bandit & World Boss</h3>
+                        <h3 class="codex-card-title">Radar Sarang Bandit &amp; World Boss</h3>
                         <p class="codex-card-body">
-                            Petakan dunia kuno dan hancurkan persembunyian komplotan penyamun liar! Mulai dari <strong>Penyamun Rimba Tier 1</strong> hingga <strong>World Boss Sarang Naga & Gembong Tier 4</strong>. Hancurkan sarang mereka untuk meraup jarahan sumber daya berimbang, EXP Hero masif, Poin Budaya (CP), dan Koin Silver!
+                            Petakan dunia kuno dan hancurkan komplotan penyamun liar! Pilih peringkat sarang untuk menguji daya serbu ekspedisi aliansi Anda:
                         </p>
-                        <div class="bandit-preview-row">
-                            <img src="img/bandit/camp_tier_4.png" alt="World Boss Sarang Naga" class="bandit-preview-img" />
-                            <div>
-                                <div style="font-size:12.5px; font-weight:800; color:#1e293b;">World Boss Tier 4: Sarang Naga</div>
-                                <div style="font-size:11.5px; color:#b91c1c; font-weight:600;">Tantangan raid kolosal dengan hadiah Silver berlimpah!</div>
+                        <!-- Interactive Tier Switcher -->
+                        <div class="bandit-tier-switch-bar">
+                            <button class="tier-tab-btn" onclick="selectBanditTier(1)" id="tierBtn1" type="button">Tier 1</button>
+                            <button class="tier-tab-btn" onclick="selectBanditTier(2)" id="tierBtn2" type="button">Tier 2</button>
+                            <button class="tier-tab-btn" onclick="selectBanditTier(3)" id="tierBtn3" type="button">Tier 3</button>
+                            <button class="tier-tab-btn active" onclick="selectBanditTier(4)" id="tierBtn4" type="button">Tier 4 Boss</button>
+                        </div>
+                        <div class="bandit-preview-row" id="banditPreviewBox">
+                            <img src="img/bandit/camp_tier_4.png" alt="World Boss Sarang Naga" class="bandit-preview-img" id="banditCampImg" />
+                            <div style="flex:1;">
+                                <div id="banditTierTitle" style="font-size:13.5px; font-weight:800; color:#1e293b;">World Boss Tier 4: Sarang Naga</div>
+                                <div id="banditTierSub" style="font-size:12px; color:#b91c1c; font-weight:600;">Tantangan raid kolosal dengan hadiah Silver berlimpah!</div>
+                                <div id="banditTierRewards" class="bandit-tier-rewards">⚔️ Pasukan Minimal: 15,000 &bull; Hadiah: 12,000 Silver, 5,000 EXP, 2,500 CP</div>
                             </div>
                         </div>
                         <div class="bullet-traits-list">
-                            <div class="bullet-item"><span class="bullet-dot" style="background:#ef4444;"></span> 4 Peringkat Sarang Bandit berimbang (Tier 1 s/d Tier 4)</div>
-                            <div class="bullet-item"><span class="bullet-dot" style="background:#ef4444;"></span> Reward Hero EXP, Poin Budaya (CP), dan Koin Silver</div>
+                            <div class="bullet-item"><span class="bullet-dot" style="background:#b91c1c;"></span> 4 Peringkat Sarang Bandit berimbang (Tier 1 s/d Tier 4)</div>
+                            <div class="bullet-item"><span class="bullet-dot" style="background:#b91c1c;"></span> Reward Hero EXP, Poin Budaya (CP), dan Koin Silver</div>
                         </div>
                     </div>
 
-                    <!-- Feature 3: Dynamic Weather Engine -->
+                    <!-- Feature 3: Dynamic Weather Engine with Interactive Simulator -->
                     <div class="codex-card codex-card-weather">
                         <div class="codex-card-top">
-                            <div class="codex-icon-plate" style="color:#0ea5e9;">🌧️</div>
+                            <div class="codex-icon-plate" style="color:#0369a1;">🌧️</div>
                             <span class="codex-tag tag-weather">Mesin Iklim Real-Time</span>
                         </div>
-                        <h3 class="codex-card-title">Dinamika Cuaca & Bencana Alam</h3>
+                        <h3 class="codex-card-title">Dinamika Cuaca &amp; Bencana Alam</h3>
                         <p class="codex-card-body">
-                            Medan pertempuran kini tidak pernah statis! 5 sistem iklim memengaruhi kerajaan Anda: <strong>Musim Kemarau</strong> (panen melimpah, gerak lambat), <strong>Hujan Badai</strong> (lumpur memperlambat gerak pasukan), <strong>Kabut Tebal</strong> (intai gagal), <strong>Badai Salju</strong> (konsumsi gandum melonjak), dan <strong>Angin Kering</strong>.
+                            Medan tempur dipengaruhi atmosfer alam nyata. Uji simulasi cuaca untuk melihat efek pergerakan pasukan secara langsung:
                         </p>
+                        <!-- Interactive Weather Simulator -->
                         <div class="weather-chips-cluster">
-                            <div class="weather-chip active">☀️ Kemarau</div>
-                            <div class="weather-chip active">🌧️ Hujan Badai</div>
-                            <div class="weather-chip active">🌫️ Kabut Tebal</div>
-                            <div class="weather-chip active">❄️ Badai Salju</div>
+                            <button class="weather-chip active" id="wChipKemarau" onclick="selectWeather('kemarau')" type="button">☀️ Kemarau</button>
+                            <button class="weather-chip" id="wChipHujan" onclick="selectWeather('hujan')" type="button">🌧️ Hujan Badai</button>
+                            <button class="weather-chip" id="wChipKabut" onclick="selectWeather('kabut')" type="button">🌫️ Kabut Tebal</button>
+                            <button class="weather-chip" id="wChipSalju" onclick="selectWeather('salju')" type="button">❄️ Badai Salju</button>
+                        </div>
+                        <div class="weather-tactical-display" id="weatherDisplay">
+                            <div class="w-status-name" id="wStatusName">☀️ Musim Kemarau Berkelanjutan</div>
+                            <div class="w-status-desc" id="wStatusDesc">Panen gandum melimpah (+20%), cadangan air berkurang, kecepatan kavaleri normal.</div>
                         </div>
                         <div class="bullet-traits-list">
-                            <div class="bullet-item"><span class="bullet-dot" style="background:#0ea5e9;"></span> Mempengaruhi kecepatan infanteri, kavaleri, dan senjata kepung</div>
-                            <div class="bullet-item"><span class="bullet-dot" style="background:#0ea5e9;"></span> Menuntut fleksibilitas taktik penyerangan berdasarkan ramalan cuaca</div>
+                            <div class="bullet-item"><span class="bullet-dot" style="background:#0369a1;"></span> Mempengaruhi kecepatan infanteri, kavaleri, dan artileri</div>
+                            <div class="bullet-item"><span class="bullet-dot" style="background:#0369a1;"></span> Fleksibilitas taktik penyerangan berdasarkan ramalan cuaca</div>
                         </div>
                     </div>
 
-                    <!-- Feature 4: Plague & Quarantine -->
+                    <!-- Feature 4: Plague & Interactive Quarantine Gate Switch -->
                     <div class="codex-card codex-card-plague">
                         <div class="codex-card-top">
-                            <div class="codex-icon-plate" style="color:#a855f7;">☣️</div>
-                            <span class="codex-tag tag-plague">Sanitasi & Karantina Desa</span>
+                            <div class="codex-icon-plate" style="color:#7e22ce;">☣️</div>
+                            <span class="codex-tag tag-plague">Sanitasi &amp; Karantina Desa</span>
                         </div>
-                        <h3 class="codex-card-title">Epidemi Sampar & Karantina Gerbang</h3>
+                        <h3 class="codex-card-title">Epidemi Sampar &amp; Karantina Gerbang</h3>
                         <p class="codex-card-body">
-                            Ancaman biologis yang sanggup meruntuhkan kekaisaran dalam hitungan hari! Penyakit <strong>Kolera</strong>, <strong>Demam Rawa</strong>, dan <strong>Sampar Hitam</strong> dapat menjangkiti desa dan menular ke desa sekitar. Karantina gerbang perbatasan untuk memutus transmisi, racik obat bersama Tabib herbal, atau tebus ramuan penawar langka!
+                            Ancaman biologis yang sanggup meruntuhkan kekaisaran dalam hitungan hari! Uji coba kunci gerbang untuk memutus rantai transmisi:
                         </p>
+                        <!-- Interactive Quarantine Switch -->
+                        <div class="quarantine-interactive-box">
+                            <div class="quarantine-bar-head">
+                                <span class="q-label" id="qLabel">Pintu Gerbang: <strong style="color:#047857;">TERBUKA</strong></span>
+                                <span class="q-risk-meter" id="qRisk">Risiko Sampar: 85% Bahaya</span>
+                            </div>
+                            <button class="quarantine-switch-btn" id="qSwitchBtn" onclick="toggleVillageQuarantine()" type="button">
+                                🔒 Kunci Karantina Gerbang Desa
+                            </button>
+                            <div class="quarantine-note" id="qNote">Gerbang terbuka memicu penyebaran sampar dari desa tetangga dalam radius 7 kotak.</div>
+                        </div>
                         <div class="bullet-traits-list">
-                            <div class="bullet-item"><span class="bullet-dot" style="background:#a855f7;"></span> Transmisi infeksi dinamis antar desa tetangga</div>
-                            <div class="bullet-item"><span class="bullet-dot" style="background:#a855f7;"></span> Gerbang Karantina Desa, Tabib Tradisional, dan Penawar Selundupan</div>
+                            <div class="bullet-item"><span class="bullet-dot" style="background:#7e22ce;"></span> Transmisi infeksi dinamis antar desa tetangga</div>
+                            <div class="bullet-item"><span class="bullet-dot" style="background:#7e22ce;"></span> Gerbang Karantina Desa, Tabib Tradisional, dan Penawar Selundupan</div>
                         </div>
                     </div>
 
-                    <!-- Feature 5: The Black Market -->
+                    <!-- Feature 5: The Black Market with Interactive Calculator -->
                     <div class="codex-card codex-card-market">
                         <div class="codex-card-top">
-                            <div class="codex-icon-plate" style="color:#f59e0b;">🏴‍☠️</div>
+                            <div class="codex-icon-plate" style="color:#b45309;">🏴‍☠️</div>
                             <span class="codex-tag tag-market">Bebas Emas (Tab 5 Pasar)</span>
                         </div>
                         <h3 class="codex-card-title">Pasar Gelap Para Penyelundup</h3>
                         <p class="codex-card-body">
-                            Saudagar misterius kini menggelar lapak rahasia di Pasar desa! <strong>Cuci & Tukar Sumber Daya</strong> surplus tanpa memerlukan koin Emas (hanya potongan komisi wajar 15%), tebus <strong>Peti Kargo Suplai Instan</strong> menggunakan koin Silver dari membasmi bandit, dan beli obat penawar wabah selundupan.
+                            Tukar sumber daya berlebih tanpa sepeser pun koin Emas! Geser jumlah sumber daya untuk menghitung hasil penukaran instan:
                         </p>
+                        <!-- Interactive Resource Laundering Calculator -->
+                        <div class="market-laundering-widget">
+                            <div class="m-calc-top">
+                                <span>Simulasi Cuci Sumber Daya:</span>
+                                <strong id="mInputAmountText">10,000 Kayu</strong>
+                            </div>
+                            <input type="range" min="1000" max="50000" step="1000" value="10000" class="market-range-slider" id="mRangeSlider" oninput="updateMarketCalc(this.value)" />
+                            <div class="m-calc-bottom">
+                                <div class="m-res-badge">Diterima: <strong id="mResultAmount">8,500 Gandum</strong></div>
+                                <div class="m-fee-badge">Komisi Saudagar: 15% (0 Gold)</div>
+                            </div>
+                        </div>
                         <div class="bullet-traits-list">
-                            <div class="bullet-item"><span class="bullet-dot" style="background:#f59e0b;"></span> 100% Bebas Gold: cuci sumber daya dengan komisi 15% pedagang gelap</div>
-                            <div class="bullet-item"><span class="bullet-dot" style="background:#f59e0b;"></span> Tebus peti perbekalan instan (Kayu, Tanah, Besi, Gandum) via Silver</div>
+                            <div class="bullet-item"><span class="bullet-dot" style="background:#b45309;"></span> 100% Bebas Gold: cuci sumber daya dengan komisi 15% pedagang gelap</div>
+                            <div class="bullet-item"><span class="bullet-dot" style="background:#b45309;"></span> Tebus peti perbekalan instan (Kayu, Tanah, Besi, Gandum) via Silver</div>
                         </div>
                     </div>
 
-                    <!-- Feature 6: Mercenary Enclaves -->
+                    <!-- Feature 6: Mercenary Enclaves with Contract Roster -->
                     <div class="codex-card codex-card-mercenary" style="grid-column: 1 / -1;">
                         <div class="codex-card-top">
-                            <div class="codex-icon-plate" style="color:#3b82f6;">🛡️</div>
+                            <div class="codex-icon-plate" style="color:#1d4ed8;">🛡️</div>
                             <span class="codex-tag tag-mercenary">Garnisun Instan (Tab 6 Pasar)</span>
                         </div>
                         <h3 class="codex-card-title">Tentara Bayaran Netral (Mercenary Enclaves)</h3>
                         <p class="codex-card-body">
-                            Butuh bala bantuan garnisun instan tanpa menunggu antrean barak atau riset teknologi di akademi? Sewa serdadu bayaran berpengalaman di Tab 6 Pasar menggunakan koin Silver: <strong>Garda Zirah Besi</strong> (perisai infantri seimbang), <strong>Pemanah Tembok Aegis</strong> (anti-infanteri benteng), <strong>Ksatria Perisai Templar</strong> (kavaleri anti-kuda), dan <strong>Penjaga Gerbang Praetorian</strong> (serdadu elit benteng). Otomatis memperkuat pertahanan desa dari serbuan musuh dengan sistem desersi otomatis saat kelaparan gandum!
+                            Sewa serdadu bayaran veteran seketika menggunakan koin Silver dari membasmi bandit untuk membentengi desa dari serbuan musuh:
                         </p>
-                        <div class="bullet-traits-list mercenary-traits-grid">
-                            <div class="bullet-item"><span class="bullet-dot" style="background:#3b82f6;"></span> Kontrak bayaran menggunakan koin Silver hasil berburu</div>
-                            <div class="bullet-item"><span class="bullet-dot" style="background:#3b82f6;"></span> Menjaga garnisun desa dari serangan & serbuan lawan</div>
-                            <div class="bullet-item"><span class="bullet-dot" style="background:#3b82f6;"></span> Desersi logis saat lumbung gandum desa mengalami kelaparan</div>
+                        <!-- Interactive Mercenary Cards -->
+                        <div class="mercenary-interactive-cards">
+                            <div class="merc-contract-card">
+                                <div class="merc-title">🛡️ Garda Zirah Besi</div>
+                                <div class="merc-desc">Infanteri lapis baja penahan serangan frontal.</div>
+                                <button class="merc-hire-btn" onclick="hireMercenaryFx('Garda Zirah Besi')" type="button">Sewa &bull; 500 Silver</button>
+                            </div>
+                            <div class="merc-contract-card">
+                                <div class="merc-title">🏹 Pemanah Tembok Aegis</div>
+                                <div class="merc-desc">Penembak jitu tembok benteng anti-infanteri.</div>
+                                <button class="merc-hire-btn" onclick="hireMercenaryFx('Pemanah Aegis')" type="button">Sewa &bull; 750 Silver</button>
+                            </div>
+                            <div class="merc-contract-card">
+                                <div class="merc-title">🐎 Ksatria Templar</div>
+                                <div class="merc-desc">Kavaleri penyerang cepat anti-senjata kepung.</div>
+                                <button class="merc-hire-btn" onclick="hireMercenaryFx('Ksatria Templar')" type="button">Sewa &bull; 1,200 Silver</button>
+                            </div>
+                        </div>
+                        <div class="bullet-traits-list mercenary-traits-grid" style="margin-top:12px;">
+                            <div class="bullet-item"><span class="bullet-dot" style="background:#1d4ed8;"></span> Kontrak bayaran menggunakan koin Silver hasil berburu</div>
+                            <div class="bullet-item"><span class="bullet-dot" style="background:#1d4ed8;"></span> Menjaga garnisun desa dari serangan &amp; serbuan lawan</div>
+                            <div class="bullet-item"><span class="bullet-dot" style="background:#1d4ed8;"></span> Desersi logis saat lumbung gandum desa mengalami kelaparan</div>
                         </div>
                     </div>
                 </div>
@@ -444,10 +521,11 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
     </section>
 
     <!-- 3D Figurine Characters & Civilizations Showcase -->
+        <!-- Character & Civilization Figurine Showcase (3D Turntable Style) -->
     <section class="characters-stage" id="characters">
         <div class="portal-container">
             <div class="section-heraldry-header">
-                <span class="heraldry-seal-tag">👑 DEWAN PERADABAN &amp; 8 SUKU BESAR</span>
+                <span class="heraldry-seal-tag">👑 DEWAN PERADABAN &amp; 9 BANGSA BESAR</span>
                 <h2 class="heraldry-title">Pilih Panglima &amp; Tentukan Takdir Kerajaan Anda</h2>
                 <p class="heraldry-subtitle">
                     Setiap suku memiliki karakteristik doktrin perang, keunggulan pasukan militer, dan efek sinergi ekspedisi aliansi yang unik.
@@ -455,7 +533,7 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
             </div>
 
             <!-- Faction Selector Tabs -->
-            <div class="faction-tabs-bar" style="margin-bottom: 24px;">
+            <div class="faction-tabs-bar" style="margin-bottom: 28px;">
                 <button class="faction-tab-btn active" data-faction="nusantara" onclick="switchFigurine('nusantara')">🇮🇩 Nusantara</button>
                 <button class="faction-tab-btn" data-faction="vikings" onclick="switchFigurine('vikings')">🪓 Viking</button>
                 <button class="faction-tab-btn" data-faction="natars" onclick="switchFigurine('natars')">🔮 Natars (The Queen)</button>
@@ -472,13 +550,14 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
                 <!-- Left: 3D Figurine on Pedestal Spotlight -->
                 <div class="figurine-stage-col">
                     <div class="figurine-spotlight"></div>
+                    <div class="pedestal-runic-ring" id="pedestalRunicRing"></div>
                     <div class="figurine-card-active" id="figurineDisplayCard">
                         <img src="img/landing_v3/fig_nusantara.png" alt="Figurine Karakter" class="figurine-main-img" id="figurineImg" />
                         <div class="figurine-shadow-base"></div>
                     </div>
                 </div>
 
-                <!-- Center: Lore, Traits, Military Lineup -->
+                <!-- Center: Lore, Doctrine Hexagon Radar, Traits, Military Lineup -->
                 <div class="figurine-lore-col">
                     <div class="figurine-kicker">
                         <span id="figurineBadge">Eksklusif: Kemaharajaan Maritim</span>
@@ -486,7 +565,7 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
                     <h3 class="figurine-name-title" id="figurineName">RADEN WIJAYA</h3>
                     <div class="figurine-sub-title" id="figurineSub">Panglima Tertinggi Kerajaan Maritim Nusantara</div>
 
-                    <div class="vintage-flourish" style="margin: 8px 0 16px;">
+                    <div class="vintage-flourish" style="margin: 8px 0 14px;">
                         <span class="flourish-line"></span>
                         <span class="flourish-diamond">&#9671;</span>
                         <span class="flourish-line"></span>
@@ -496,6 +575,66 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
                         Kerajaan Maritim Nusantara berdiri megah di atas gugusan kepulauan khatulistiwa yang kaya rempah. Dengan perpaduan armada kapal Jung raksasa, lumbung pangan yang melimpah, artileri meriam Cetbang, serta barisan Gajah Bhayangkara yang disegani, Nusantara adalah peradaban adidaya maritim yang tangguh dalam pertahanan dan mematikan dalam serbuan amfibi.
                     </p>
 
+                    <!-- Hexagonal Combat Doctrine Radar Chart -->
+                    <div class="doctrine-radar-box">
+                        <div class="radar-header">
+                            <span class="radar-label">⚡ DOKTRIN TEMPUR PERADABAN</span>
+                            <span class="radar-score" id="radarTotalScore">Rating: 92/100</span>
+                        </div>
+                        <div class="radar-chart-container">
+                            <div class="radar-svg-wrap">
+                                <svg class="radar-svg" viewBox="0 0 200 200">
+                                    <!-- Background Web Guidelines -->
+                                    <polygon points="100,20 169.3,60 169.3,140 100,180 30.7,140 30.7,60" class="radar-grid-web" />
+                                    <polygon points="100,45 152,75 152,125 100,155 48,125 48,75" class="radar-grid-web sub" />
+                                    <polygon points="100,70 134.6,90 134.6,110 100,130 65.4,110 65.4,90" class="radar-grid-web inner" />
+                                    <!-- Dynamic Polyline Polygon -->
+                                    <polygon id="radarPolygon" points="100,26.4 161,64.8 154,131.2 100,178.4 36.3,136.8 34.2,62" class="radar-dynamic-poly" />
+                                    <!-- Corner Labels -->
+                                    <text x="100" y="14" class="radar-axis-text top">Serang</text>
+                                    <text x="175" y="62" class="radar-axis-text">Tahan</text>
+                                    <text x="175" y="146" class="radar-axis-text">Mobilitas</text>
+                                    <text x="100" y="196" class="radar-axis-text bottom">Ekonomi</text>
+                                    <text x="25" y="146" class="radar-axis-text">Ekspedisi</text>
+                                    <text x="25" y="62" class="radar-axis-text">Sinergi</text>
+                                </svg>
+                            </div>
+                            <div class="radar-bars-col">
+                                <div class="radar-bar-row">
+                                    <span class="stat-name">⚔️ Serang</span>
+                                    <div class="stat-bar-track"><div class="stat-bar-fill" id="statAtk" style="width: 92%;"></div></div>
+                                    <span class="stat-val" id="valAtk">92</span>
+                                </div>
+                                <div class="radar-bar-row">
+                                    <span class="stat-name">🛡️ Pertahanan</span>
+                                    <div class="stat-bar-track"><div class="stat-bar-fill" id="statDef" style="width: 88%;"></div></div>
+                                    <span class="stat-val" id="valDef">88</span>
+                                </div>
+                                <div class="radar-bar-row">
+                                    <span class="stat-name">🐎 Mobilitas</span>
+                                    <div class="stat-bar-track"><div class="stat-bar-fill" id="statSpd" style="width: 78%;"></div></div>
+                                    <span class="stat-val" id="valSpd">78</span>
+                                </div>
+                                <div class="radar-bar-row">
+                                    <span class="stat-name">🌾 Ekonomi</span>
+                                    <div class="stat-bar-track"><div class="stat-bar-fill" id="statEco" style="width: 98%;"></div></div>
+                                    <span class="stat-val" id="valEco">98</span>
+                                </div>
+                                <div class="radar-bar-row">
+                                    <span class="stat-name">🎯 Ekspedisi</span>
+                                    <div class="stat-bar-track"><div class="stat-bar-fill" id="statRaid" style="width: 92%;"></div></div>
+                                    <span class="stat-val" id="valRaid">92</span>
+                                </div>
+                                <div class="radar-bar-row">
+                                    <span class="stat-name">✨ Sinergi</span>
+                                    <div class="stat-bar-track"><div class="stat-bar-fill" id="statSyn" style="width: 95%;"></div></div>
+                                    <span class="stat-val" id="valSyn">95</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Faction Traits -->
                     <div class="figurine-traits-row" id="figurineTraits">
                         <div class="figurine-trait-pill">
                             <div class="figurine-trait-label">🌾 Lumbung Kemakmuran</div>
@@ -529,7 +668,7 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
                             <img src="img/un/u/99.gif" alt="Jung" class="sprite-trooper" title="Jung Maritim" />
                             <img src="img/un/u/100.gif" alt="Resi" class="sprite-trooper" title="Tetua Adat / Resi" />
                         </div>
-                        <a href="anmelden.php" class="war-btn-pill-crimson" style="margin-left:auto; padding: 10px 20px; font-size: 13px;">⚔️ Pilih Suku Ini</a>
+                        <a href="anmelden.php" class="war-btn-pill-crimson" style="margin-left:auto; padding: 10px 22px; font-size: 13.5px;">⚔️ Rekrut Panglima Ini</a>
                     </div>
                 </div>
 
@@ -641,17 +780,57 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
     </section>
 
     <!-- Battlefield Scout Gallery -->
+        <!-- Battlefield Scout Gallery & Interactive Realm Radar -->
     <section class="battlefield-gallery-section" id="gallery">
         <div class="portal-container">
             <div class="section-heraldry-header">
-                <span class="heraldry-seal-tag">🗺️ LEMBAR PETA & REKOGNISI</span>
-                <h2 class="heraldry-title">Dokumentasi Medan Tempur & Wilayah Kerajaan</h2>
+                <span class="heraldry-seal-tag">🗺️ LEMBAR PETA &amp; RADAR TEMPUR INTERAKTIF</span>
+                <h2 class="heraldry-title">Kartografi Medan Perang &amp; Intelijen Wilayah</h2>
                 <p class="heraldry-subtitle">
-                    Pratinjau otentik dari citra satelit perang: markas bandit liar, tata letak desa, dan peta penjelajahan dunia.
+                    Peta kuadran navigasi perang real-time. Klik titik radar pada peta kuno untuk melihat status ancaman, kondisi iklim, dan potensi jarahan sumber daya:
                 </p>
             </div>
 
-            <div class="gallery-scout-grid">
+            <!-- Interactive Realm Map Radar Explorer -->
+            <div class="interactive-realm-map-wrapper">
+                <div class="realm-map-container">
+                    <img src="img/reg/map.png" alt="Peta Dunia Travian" class="realm-map-base" />
+                    <!-- Map Pins -->
+                    <div class="realm-pin pin-capital" onclick="showMapBrief(1)" style="top: 50%; left: 50%;" title="Ibu Kota Kerajaan (0|0)">
+                        <div class="pin-ring green"></div>
+                        <div class="pin-marker">🏛️</div>
+                        <span class="pin-label">Ibu Kota (0|0)</span>
+                    </div>
+                    <div class="realm-pin pin-boss" onclick="showMapBrief(2)" style="top: 36%; left: 32%;" title="Sarang Naga World Boss (-14|28)">
+                        <div class="pin-ring red"></div>
+                        <div class="pin-marker">🐉</div>
+                        <span class="pin-label">World Boss (-14|28)</span>
+                    </div>
+                    <div class="realm-pin pin-market" onclick="showMapBrief(3)" style="top: 65%; left: 68%;" title="Pasar Gelap (42|-15)">
+                        <div class="pin-ring gold"></div>
+                        <div class="pin-marker">🏴‍☠️</div>
+                        <span class="pin-label">Pasar Gelap (42|-15)</span>
+                    </div>
+                    <div class="realm-pin pin-wonder" onclick="showMapBrief(4)" style="top: 24%; left: 76%;" title="Wonder of the World (100|100)">
+                        <div class="pin-ring purple"></div>
+                        <div class="pin-marker">✨</div>
+                        <span class="pin-label">Kuil Keajaiban (100|100)</span>
+                    </div>
+                </div>
+                <div class="realm-brief-card" id="realmBriefCard">
+                    <div class="brief-kicker" id="briefKicker">📍 REKOGNISI WILAYAH KUADRAN</div>
+                    <h4 class="brief-title" id="briefTitle">Ibu Kota Kerajaan Pusat (0|0)</h4>
+                    <p class="brief-desc" id="briefDesc">Jantung peradaban kuno, pusat keajaiban arsitektur dan lumbung logistik pertahanan aliansi agung.</p>
+                    <div class="brief-tags-row" id="briefTags">
+                        <span class="brief-tag">Kuadran: Pusat (0|0)</span>
+                        <span class="brief-tag">Status: Siaga Tempur</span>
+                        <span class="brief-tag">Oasis: Gandum 150%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Scout Gallery Cards -->
+            <div class="gallery-scout-grid" style="margin-top: 32px;">
                 <div class="scout-shot-card" onclick="triggerLightbox('img/bandit/camp_tier_4.png', 'World Boss Tier 4: Sarang Naga', 'Markas monster legenda kolosal yang menuntut serangan terkoordinasi gabungan aliansi agung.')">
                     <img src="img/bandit/camp_tier_4.png" alt="World Boss Sarang Naga" class="scout-shot-img" />
                     <div class="scout-shot-caption">
@@ -676,7 +855,7 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
                     </div>
                 </div>
 
-                <div class="scout-shot-card" onclick="triggerLightbox('img/en/s/s1.png', 'Pusat Pemerintahan & Tata Kota', 'Pengelolaan gedung utama, barak prajurit, pasar perdagangan, dan lumbung peradaban.')">
+                <div class="scout-shot-card" onclick="triggerLightbox('img/en/s/s1.png', 'Pusat Pemerintahan &amp; Tata Kota', 'Pengelolaan gedung utama, barak prajurit, pasar perdagangan, dan lumbung peradaban.')">
                     <img src="img/en/s/s1.png" alt="Tata Kota Desa" class="scout-shot-img" />
                     <div class="scout-shot-caption">
                         <div class="caption-title">Tata Kelola Desa</div>
@@ -778,7 +957,9 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
 
     <!-- Client-side Interactive Logic -->
     <script>
-        // Faction & 3D Figurine dataset
+        // =========================================================
+        // 1. FACTION & 3D FIGURINE REGISTRY WITH DOCTRINE RADAR STATS
+        // =========================================================
         const figurineKeys = ['nusantara', 'vikings', 'natars', 'romans', 'teutons', 'gauls', 'egyptians', 'huns', 'spartans'];
         let currentFigurineIndex = 0;
 
@@ -790,11 +971,15 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
                 figurine: "img/landing_v3/fig_nusantara.png",
                 badge: "Eksklusif: Kemaharajaan Maritim",
                 commanderSub: "Panglima Tertinggi Kerajaan Maritim Nusantara",
+                color: "#047857",
+                glow: "rgba(4, 120, 87, 0.4)",
+                stats: { atk: 92, def: 88, spd: 78, eco: 98, raid: 92, syn: 95 },
+                score: "92/100",
                 lore: "Kerajaan Maritim Nusantara berdiri megah di atas gugusan kepulauan khatulistiwa yang kaya rempah. Dengan perpaduan armada kapal Jung raksasa, lumbung pangan yang melimpah, artileri meriam Cetbang, serta barisan Gajah Bhayangkara yang disegani, Nusantara adalah peradaban adidaya maritim yang tangguh dalam pertahanan dan mematikan dalam serbuan amfibi.",
                 traits: [
-                    { title: "🌾 Lumbung Kemakmuran", desc: "Kapasitas penyimpanan lumbung pangan dan perlindungan komoditas pangan lebih unggul." },
-                    { title: "💥 Artileri Cetbang", desc: "Meriam perunggu putar yang sanggup meremukkan dinding benteng lawan dengan presisi tinggi." },
-                    { title: "🐘 Gajah Bhayangkara", desc: "Monster lapis baja pengobrak-abrik barisan infanteri musuh dalam pertempuran frontal." },
+                    { title: "🌾 Lumbung Kemakmuran", desc: "Kapasitas penyimpanan logistik lumbung & perlindungan pangan superior." },
+                    { title: "💥 Artileri Cetbang", desc: "Meriam perunggu putar dengan daya tembak tinggi penembus dinding benteng." },
+                    { title: "🐘 Gajah Bhayangkara", desc: "Monster lapis baja penghancur formasi frontal musuh di garis depan." },
                     { title: "⛵ Jung & Kuda Laut", desc: "Kekuatan mobilitas armada cepat untuk ekspedisi dan pengintaian pesisir." }
                 ],
                 units: [
@@ -812,48 +997,56 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
             },
             vikings: {
                 name: "Bangsa Viking",
-                title: "BERGYR THE BERSERKER",
-                type: "Penjelajah Laut & Berserker Buas",
+                title: "RAGNAR LOTHBROK",
+                type: "Prajurit Serbu Laut Es",
                 figurine: "img/landing_v3/fig_viking.png",
-                badge: "Teror Samudra Es",
-                commanderSub: "Panglima Perang Barbarik & Armada Viking",
-                lore: "Para penakluk samudra es utara yang mengarungi badai laut dengan kapal naga Drakkar. Keberanian Viking melegenda di seluruh penjuru dunia karena para Berserker yang mengamuk tanpa takut mati, melancarkan serbuan penghancur armor benteng seketika.",
+                badge: "Agresor: Penakluk Pesisir Dingin",
+                commanderSub: "Jarl Tertinggi Armada Drakkar Es",
+                color: "#0284c7",
+                glow: "rgba(2, 132, 199, 0.4)",
+                stats: { atk: 96, def: 74, spd: 82, eco: 80, raid: 94, syn: 85 },
+                score: "88/100",
+                lore: "Bangsa Viking menjelajahi samudera ganas dari utara yang beku. Dikenal dengan daya rusak serangan yang buas, drakkar kapal naga yang lincah mengarungi sungai dan pesisir, serta barisan Berserker berkapak ganda yang tak kenal rasa takut.",
                 traits: [
-                    { title: "🪓 Berserker Sunder", desc: "Menghancurkan 15% armor pertahanan musuh pada ronde benturan pertama." },
-                    { title: "🐺 War Cry Demoralize", desc: "Teriakan perang melumpuhkan moral dan menurunkan serangan lawan." },
-                    { title: "💰 Silver Hoard", desc: "Bonus perolehan Koin Perak ekstra dari setiap jarahan sarang bandit." },
-                    { title: "🍺 Balai Mead", desc: "Meningkatkan moral bertarung pasukan dalam pertempuran akbar." }
+                    { title: "🪓 Serbuan Berserker", desc: "Bonus serangan frontal masif pada gelombang pembuka pertempuran." },
+                    { title: "🛡️ Formasi Skjaldborg", desc: "Dinding perisai kayu kokoh penahan panah musuh saat mendarat di pantai." },
+                    { title: "⚡ Kapal Drakkar Naga", desc: "Penyergapan pesisir kilat dengan jarahan rampasan sumber daya maksimal." },
+                    { title: "❄️ Ketahanan Salju", desc: "Kebal terhadap pinalti cuaca dingin dan badai salju ekstrem di peta tempur." }
                 ],
                 units: [
                     { id: 81, name: "Thrall" },
-                    { id: 82, name: "Shieldmaiden" },
+                    { id: 82, name: "Huskarl" },
                     { id: 83, name: "Berserker" },
-                    { id: 84, name: "Raider Scout" },
-                    { id: 85, name: "Hirdman" },
-                    { id: 86, name: "Jarl Raider" },
-                    { id: 87, name: "Log Battering Ram" },
-                    { id: 88, name: "War Catapult" },
-                    { id: 89, name: "Jarl" },
+                    { id: 84, name: "Archer" },
+                    { id: 85, name: "Raider" },
+                    { id: 86, name: "Valkyrie" },
+                    { id: 87, name: "Ram" },
+                    { id: 88, name: "Catapult" },
+                    { id: 89, name: "Chief" },
                     { id: 90, name: "Settler" }
                 ]
             },
             natars: {
-                name: "Kekaisaran Natars",
-                title: "THE QUEEN OF NATARS",
-                type: "Penguasa Takhta Kuno & Wonder of the World",
+                name: "Bangsa Natars",
+                title: "THE DARK QUEEN",
+                type: "Penguasa Kuno & Misteri Gaib",
                 figurine: "img/landing_v3/fig_queen.png",
-                badge: "Arsitek Keajaiban Dunia",
-                commanderSub: "Ratu Kuno Penguasa Jagat Terlarang",
-                lore: "Kekaisaran Natars adalah peradaban purba yang tertidur ribuan tahun di balik kabut dunia terlarang. Di bawah titah The Queen dengan orb kegelapan dan pedang kutukannya, pasukan Natars mengawal cetak biru Keajaiban Dunia (Wonder of the World) dengan barisan titan mistis.",
+                badge: "Penjaga Kuil: Keajaiban Dunia",
+                commanderSub: "Ratu Abadi Takhta Keajaiban Dunia",
+                color: "#7e22ce",
+                glow: "rgba(126, 34, 206, 0.45)",
+                stats: { atk: 98, def: 95, spd: 80, eco: 85, raid: 96, syn: 90 },
+                score: "96/100",
+                lore: "Natars adalah peradaban tertua yang bangkit dari tidur panjangnya di jantung peta dunia. Menguasai teknologi misterius pendirian Keajaiban Dunia (Wonder of the World) dan mengerahkan legiun elit berkekuatan gaib kuno.",
                 traits: [
-                    { title: "🏛️ Wonder of the World", desc: "Pemegang kunci pembangunan Keajaiban Dunia penentu kemenangan akhir server." },
-                    { title: "🔮 Dark Orb Supremacy", desc: "Sihir kuno yang membatalkan perisai pertahanan garis depan penyerang." },
-                    { title: "👹 Pasukan Titan Kuno", desc: "Garnisun gajah raksasa dan monster penjaga yang kebal intimidasi." },
-                    { title: "🛡️ Benteng Abadi", desc: "Tembok raksasa Natars dengan bonus pertahanan tertinggi di jagat Travian." }
+                    { title: "🏛️ Takhta Keajaiban", desc: "Mampu mendirikan mahakarya Wonder of the World penentu akhir zaman." },
+                    { title: "🔮 Sihir Pertahanan", desc: "Aura perlindungan dinding tebal yang melipatgandakan pertahanan desa pusat." },
+                    { title: "💀 Pasukan Abadi", desc: "Garnisun penjaga kuil dengan ketahanan tempur legendaris tak tertandingi." },
+                    { title: "📜 Cetak Biru Kuno", desc: "Menjaga relik arsitektur dan artefak rahasia yang diperebutkan aliansi besar." }
                 ],
                 units: [
                     { id: 41, name: "Pikeman" },
-                    { id: 42, name: "Thorneyed" },
+                    { id: 42, name: "Thorned Warrior" },
                     { id: 43, name: "Guardsman" },
                     { id: 44, name: "Birds of Prey" },
                     { id: 45, name: "Axerider" },
@@ -861,176 +1054,199 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
                     { id: 47, name: "War Elephant" },
                     { id: 48, name: "Ballista" },
                     { id: 49, name: "Natarian Emperor" },
-                    { id: 50, name: "Natarian Settler" }
+                    { id: 50, name: "Settler" }
                 ]
             },
             romans: {
                 name: "Kekaisaran Romawi",
-                title: "JULIUS CAESAR",
-                type: "Infanteri Elit & Arsitektur Canggih",
+                title: "LEGATUS CAESAR",
+                type: "Disiplin Taktis & Teknologi Tinggi",
                 figurine: "img/reg/portrait_v1.png",
-                badge: "Kekaisaran Klasik",
-                commanderSub: "Kaisar Tertinggi Legiun Romawi",
-                lore: "Kekaisaran Romawi terkenal dengan kedisiplinan militer tinggi dan kemajuan teknologi arsitektur mereka. Prajurit Romawi memiliki kemampuan tempur infanteri terbaik di dunia kuno, didukung sistem pembangunan ganda yang memungkinkan desa berkembang dengan sangat pesat.",
+                badge: "Klasik: Elit Disiplin Tinggi",
+                commanderSub: "Panglima Legiun Elit Romawi",
+                color: "#b45309",
+                glow: "rgba(180, 83, 9, 0.4)",
+                stats: { atk: 88, def: 92, spd: 80, eco: 90, raid: 86, syn: 92 },
+                score: "90/100",
+                lore: "Kekaisaran Romawi adalah maestro pembangunan dan keteraturan militer. Kemampuan mendirikan gedung dan ladang sumber daya secara bersamaan serta barisan Legionnaire berperisai baja menjadikannya peradaban paling berimbang.",
                 traits: [
-                    { title: "🏛️ Pembangunan Ganda", desc: "Mampu membangun gedung dan ladang sumber daya secara serentak." },
-                    { title: "🛡️ Praetorian Tangguh", desc: "Infanteri pertahanan terbaik di dunia kuno penangkal infantri musuh." },
-                    { title: "⚔️ Equites Caesaris", desc: "Kavaleri berat perkasa dengan daya serang paling mematikan." },
-                    { title: "🧱 Tembok Kota Kokoh", desc: "Memberikan bonus pertahanan tertinggi bagi seluruh garnisun benteng." }
+                    { title: "🏛️ Konstruksi Ganda", desc: "Dapat mengupgrade gedung kota dan ladang sumber daya secara simultan." },
+                    { title: "🛡️ Praetorian Anti-Infanteri", desc: "Pasukan penjaga benteng terbaik dalam meredam gelombang serangan lawan." },
+                    { title: "⚔️ Kaisar Kavaleri", desc: "Kavaleri Equites Caesaris berdaya hancur tinggi pembalik keadaan pertempuran." },
+                    { title: "🧱 Tembok Batu Kokoh", desc: "Tembok kota memberikan bonus pertahanan tertinggi di antara seluruh suku." }
                 ],
                 units: [
-                    { id: 1, name: "Legionnaire" },
-                    { id: 2, name: "Praetorian" },
-                    { id: 3, name: "Imperian" },
-                    { id: 4, name: "Equites Legati" },
-                    { id: 5, name: "Equites Imperatoris" },
-                    { id: 6, name: "Equites Caesaris" },
-                    { id: 7, name: "Battering Ram" },
-                    { id: 8, name: "Fire Catapult" },
-                    { id: 9, name: "Senator" },
-                    { id: 10, name: "Settler" }
+                    { id: 1, name: "Legionnaire" }, { id: 2, name: "Praetorian" }, { id: 3, name: "Imperian" },
+                    { id: 4, name: "Equites Legati" }, { id: 5, name: "Equites Imperatoris" }, { id: 6, name: "Equites Caesaris" },
+                    { id: 7, name: "Battering Ram" }, { id: 8, name: "Fire Catapult" }, { id: 9, name: "Senator" }, { id: 10, name: "Settler" }
                 ]
             },
             teutons: {
-                name: "Bangsa Teuton",
-                title: "ARMINIUS",
-                type: "Raja Penjarahan & Serbuan Agresif",
+                name: "Suku Teuton",
+                title: "WARLORD ARMINIUS",
+                type: "Agresor Perang & Penjarah Brutal",
                 figurine: "img/reg/portrait_v2.png",
-                badge: "Penakluk Liar",
-                commanderSub: "Panglima Perang Rimba Germania",
-                lore: "Bangsa Teuton adalah para petarung liar yang haus kemenangan dan penjarahan. Mereka melancarkan serangan kilat dengan biaya pelatihan prajurit yang sangat murah, menjadikannya momok menakutkan bagi desa-desa tetangga sejak fajar peradaban.",
+                badge: "Klasik: Penjarah Terganas",
+                commanderSub: "Panglima Serbuan Badai Teuton",
+                color: "#b91c1c",
+                glow: "rgba(185, 28, 28, 0.4)",
+                stats: { atk: 98, def: 70, spd: 85, eco: 78, raid: 90, syn: 84 },
+                score: "87/100",
+                lore: "Teuton adalah teror bagi peradaban tetangga. Dibina untuk peperangan ofensif tanpa henti, pasukan pentung Clubswinger murah dan cepat diproduksi, serta sanggup menjarah cadangan persembunyian lawan.",
                 traits: [
-                    { title: "🪓 Raja Penjarah", desc: "Mampu menjarah sebagian isi gua persembunyian musuh." },
-                    { title: "⚡ Clubswinger Murah", desc: "Pasukan penyerbu dengan biaya sangat ekonomis dan pelatihan kilat." },
-                    { title: "🛡️ Paladin Pelindung", desc: "Kavaleri bertameng baja dengan pertahanan hebat melawan infantri." },
-                    { title: "🧱 Tembok Tanah Ulet", desc: "Sangat sulit dihancurkan oleh senjata pengepung lawan." }
+                    { title: "💀 Penjarah Persembunyian", desc: "Mampu merampas hingga 20% isi gua persembunyian desa musuh." },
+                    { title: "⚡ Biaya Pasukan Murah", desc: "Waktu dan biaya pelatihan prajurit infantri paling ekonomis." },
+                    { title: "🪓 Pasukan Paladin Gesit", desc: "Kavaleri penjarah berkapasitas muatan tinggi dan pertahanan tangguh." },
+                    { title: "🏰 Tembok Tanah Kebal", desc: "Tembok tanah sulit dihancurkan oleh senjata pendobrak ram lawan." }
                 ],
                 units: [
-                    { id: 11, name: "Clubswinger" },
-                    { id: 12, name: "Spearman" },
-                    { id: 13, name: "Axeman" },
-                    { id: 14, name: "Scout" },
-                    { id: 15, name: "Paladin" },
-                    { id: 16, name: "Teutonic Knight" },
-                    { id: 17, name: "Ram" },
-                    { id: 18, name: "Catapult" },
-                    { id: 19, name: "Chief" },
-                    { id: 20, name: "Settler" }
+                    { id: 11, name: "Clubswinger" }, { id: 12, name: "Spearman" }, { id: 13, name: "Axeman" },
+                    { id: 14, name: "Scout" }, { id: 15, name: "Paladin" }, { id: 16, name: "Teutonic Knight" },
+                    { id: 17, name: "Ram" }, { id: 18, name: "Catapult" }, { id: 19, name: "Chief" }, { id: 20, name: "Settler" }
                 ]
             },
             gauls: {
-                name: "Bangsa Galia",
-                title: "VERCINGETORIX",
-                type: "Pertahanan Perangkap & Kavaleri Kilat",
+                name: "Suku Galia",
+                title: "CHIEFTAIN VERCINGETORIX",
+                type: "Pertahanan Alam & Kavaleri Kilat",
                 figurine: "img/reg/portrait_v3.png",
-                badge: "Pelindung Damai",
-                commanderSub: "Pemimpin Agung Suku-Suku Galia",
-                lore: "Bangsa Galia menjunjung tinggi kebebasan dan perdamaian, namun jangan pernah meremehkan pertahanan mereka. Dipersenjatai perangkap pemburu yang mampu menawan penyerang hidup-hidup dan kavaleri tercepat di dunia, Galia adalah pilihan sempurna bagi jenderal ahli strategi.",
+                badge: "Klasik: Perisai Terkokoh",
+                commanderSub: "Panglima Perang Penjaga Hutan Kuno",
+                color: "#0f766e",
+                glow: "rgba(15, 118, 110, 0.4)",
+                stats: { atk: 76, def: 98, spd: 94, eco: 86, raid: 82, syn: 90 },
+                score: "91/100",
+                lore: "Galia adalah suku yang hidup selaras dengan alam dan sangat dicintai oleh pemain bertahan. Memiliki perangkap rahasia yang menjebak serbuan musuh dan kavaleri Theutates Thunder tercepat di dunia Travian.",
                 traits: [
-                    { title: "🪤 Perangkap Rahasia", desc: "Menjebak dan mengurung prajurit musuh yang menyerang desa." },
-                    { title: "⚡ Theutates Thunder", desc: "Kavaleri tercepat di Travian untuk penyerangan kilat." },
-                    { title: "🌾 Gua Kapasitas 2x", desc: "Menyembunyikan sumber daya dua kali lipat lebih banyak." },
-                    { title: "🛡️ Phalanx Serba Bisa", desc: "Pasukan pertahanan awal yang murah dan tangguh." }
+                    { title: "🪤 Perangkap Rahasia", desc: "Bangunan Trapper mampu mengurung ratusan tentara penyerbu musuh." },
+                    { title: "📦 Gua Berkapasitas 2x", desc: "Perlindungan lumbung sumber daya gua dua kali lebih besar dari suku lain." },
+                    { title: "⚡ Kavaleri Kilat TT", desc: "Theutates Thunder adalah pasukan berkuda tercepat untuk serangan kilat." },
+                    { title: "🛡️ Druidrider Tangguh", desc: "Dukungan pertahanan kavaleri anti-infanteri yang sangat fleksibel." }
                 ],
                 units: [
-                    { id: 21, name: "Phalanx" },
-                    { id: 22, name: "Swordsman" },
-                    { id: 23, name: "Pathfinder" },
-                    { id: 24, name: "Theutates Thunder" },
-                    { id: 25, name: "Druidrider" },
-                    { id: 26, name: "Haeduan" },
-                    { id: 27, name: "Ram" },
-                    { id: 28, name: "Trebuchet" },
-                    { id: 29, name: "Chieftain" },
-                    { id: 30, name: "Settler" }
+                    { id: 21, name: "Phalanx" }, { id: 22, name: "Swordsman" }, { id: 23, name: "Pathfinder" },
+                    { id: 24, name: "Theutates Thunder" }, { id: 25, name: "Druidrider" }, { id: 26, name: "Haeduan" },
+                    { id: 27, name: "Ram" }, { id: 28, name: "Trebuchet" }, { id: 29, name: "Chieftain" }, { id: 30, name: "Settler" }
                 ]
             },
             egyptians: {
                 name: "Kerajaan Mesir",
-                title: "RAMSES II",
-                type: "Raksasa Ekonomi & Pertahanan Benteng",
+                title: "PHARAOH RAMSES",
+                type: "Arsitektur Oase & Ekonomi Emas",
                 figurine: "img/reg/portrait_v6.png",
-                badge: "Kekayaan Nil",
-                commanderSub: "Firaun Penakluk Dinasti Sungai Nil",
-                lore: "Peradaban Sungai Nil yang agung memiliki kekayaan sumber daya melimpah dan tradisi pembangunan benteng yang kokoh. Mesir adalah raksasa ekonomi yang mampu menyuplai perang jangka panjang dengan sistem pasokan air dan irigasi mereka.",
+                badge: "Eksklusif: Raja Ekonomi Gurun",
+                commanderSub: "Firaun Penguasa Sungai Nil Kuno",
+                color: "#d97706",
+                glow: "rgba(217, 119, 6, 0.4)",
+                stats: { atk: 72, def: 90, spd: 75, eco: 98, raid: 84, syn: 94 },
+                score: "89/100",
+                lore: "Mesir adalah pusat kemakmuran dan peradaban oase. Mampu membangun sistem pengairan Waterworks yang melipatgandakan produksi oase, serta barisan pertahanan Ash Warden yang murah dan ulet.",
                 traits: [
-                    { title: "💧 Pusat Air Nil", desc: "Meningkatkan produksi gandum desa oasis secara masif." },
-                    { title: "🛡️ Ash Warden", desc: "Prajurit penjaga berdisiplin tinggi penangkal kavaleri serbu." },
-                    { title: "🏹 Resheph Chariot", desc: "Kereta perang beroda cepat dengan kapasitas angkut besar." },
-                    { title: "🧱 Dinding Batu Kokoh", desc: "Pertahanan desa tahan banting dari kepungan musuh." }
+                    { title: "💧 Pengairan Waterworks", desc: "Melipatgandakan bonus produksi sumber daya dari oasis oase aliansi." },
+                    { title: "🛡️ Ash Warden Murah", desc: "Pasukan pertahanan infantri berbiaya gandum sangat rendah." },
+                    { title: "🌾 Kapasitas Kereta Dagang", desc: "Pedagang pasar Mesir sanggup mengangkut logistik dalam volume raksasa." },
+                    { title: "☀️ Pertahanan Tembok Pasir", desc: "Tembok batu pasir memberikan kestabilan pertahanan perimeter benteng." }
                 ],
                 units: [
-                    { id: 51, name: "Slave Militia" },
-                    { id: 52, name: "Ash Warden" },
-                    { id: 53, name: "Khopesh Warrior" },
-                    { id: 54, name: "Sopdu Explorer" },
-                    { id: 55, name: "Anhur Guard" },
-                    { id: 56, name: "Resheph Chariot" },
-                    { id: 57, name: "Ram" },
-                    { id: 58, name: "Stone Catapult" },
-                    { id: 59, name: "Nomarch" },
-                    { id: 60, name: "Settler" }
+                    { id: 51, name: "Slave Militia" }, { id: 52, name: "Ash Warden" }, { id: 53, name: "Khopesh Warrior" },
+                    { id: 54, name: "Sopdu Explorer" }, { id: 55, name: "Anhur Guard" }, { id: 56, name: "Resheph Chariot" },
+                    { id: 57, name: "Ram" }, { id: 58, name: "Catapult" }, { id: 59, name: "Nomarch" }, { id: 60, name: "Settler" }
                 ]
             },
             huns: {
-                name: "Bangsa Hun",
+                name: "Kekaisaran Hun",
                 title: "ATTILA THE HUN",
-                type: "Nomaden Kavaleri Pembantai",
+                type: "Kavaleri Pemanah Padang Rumput",
                 figurine: "img/reg/portrait_v7.png",
-                badge: "Teror Stepa",
-                commanderSub: "Cambuk Para Dewa di Padang Stepa",
-                lore: "Kaum nomaden dari padang rumput tak berujung yang ditakuti seluruh benua. Pasukan berkuda Hun bergerak laksana badai gurun, meluluhlantakkan garis pertahanan musuh sebelum mereka sempat menyadari apa yang terjadi.",
+                badge: "Eksklusif: Badai Kavaleri Panah",
+                commanderSub: "Khan Penguasa Kavaleri Padang Rumput",
+                color: "#c2410c",
+                glow: "rgba(194, 65, 12, 0.4)",
+                stats: { atk: 95, def: 68, spd: 98, eco: 72, raid: 92, syn: 80 },
+                score: "88/100",
+                lore: "Hun lahir di atas pelana kuda. Tak ada yang sanggup menandingi kecepatan dan kegesitan gerak kavaleri panah Hun di medan padang terbuka, mampu menyerang dan mundur tanpa sempat disentuh lawan.",
                 traits: [
-                    { title: "🐎 Kavaleri Stepa", desc: "Steppe Rider dan Marauder adalah teror bergerak di medan terbuka." },
-                    { title: "🏹 Pemanah Berkuda", desc: "Menembakkan hujan anak panah sambil bermanuver lincah." },
-                    { title: "🏕️ Kemah Komando", desc: "Mengurangi moral dan efisiensi pertahanan benteng lawan." },
-                    { title: "💨 Mobilitas Tertinggi", desc: "Pasukan penyerbu dengan efisiensi penjarahan kilat." }
+                    { title: "🏹 Pemanah Kuda Mematikan", desc: "Kavaleri panah mampu menembus formasi musuh dengan daya rusak tinggi." },
+                    { title: "⚡ Kecepatan Jelajah Maksimal", desc: "Kecepatan gerak pasukan di peta tempur paling tinggi di dunia kuno." },
+                    { title: "🏕️ Kamp Lapangan Praktis", desc: "Struktur bangunan sederhana yang menunjang mobilitas perkemahan perang." },
+                    { title: "🎯 Serbuan Tak Terduga", desc: "Menyerang sasaran dari jarak jauh tanpa terdeteksi oleh pos intai standar." }
                 ],
                 units: [
-                    { id: 61, name: "Mercenary" },
-                    { id: 62, name: "Bowman" },
-                    { id: 63, name: "Spotter" },
-                    { id: 64, name: "Steppe Rider" },
-                    { id: 65, name: "Marksman" },
-                    { id: 66, name: "Marauder" },
-                    { id: 67, name: "Ram" },
-                    { id: 68, name: "Catapult" },
-                    { id: 69, name: "Logades" },
-                    { id: 70, name: "Settler" }
+                    { id: 61, name: "Mercenary" }, { id: 62, name: "Bowman" }, { id: 63, name: "Spotter" },
+                    { id: 64, name: "Steppe Rider" }, { id: 65, name: "Marksman" }, { id: 66, name: "Marauder" },
+                    { id: 67, name: "Ram" }, { id: 68, name: "Catapult" }, { id: 69, name: "Logades" }, { id: 70, name: "Settler" }
                 ]
             },
             spartans: {
-                name: "Bangsa Sparta",
-                title: "LEONIDAS",
-                type: "Ksatria Perisai Baja Tak Tergoyahkan",
+                name: "Negara Kota Sparta",
+                title: "KING LEONIDAS",
+                type: "Phalanx Disiplin Besi & Perisai Perunggu",
                 figurine: "img/reg/portrait_v8.png",
-                badge: "Prajurit Sejati",
-                commanderSub: "Raja Pertahanan Abadi Thermopylae",
-                lore: "Lahir dan ditempa hanya untuk satu tujuan: kemenangan di medan tempur. Setiap pejuang Sparta adalah benteng berjalan yang tidak mengenal kata mundur, dipersenjatai perisai perunggu rapat dan tombak panjang penembus baju zirah.",
+                badge: "Eksklusif: Tembok Manusia Perunggu",
+                commanderSub: "Raja Pejuang Gerbang Thermopylae",
+                color: "#9a3412",
+                glow: "rgba(154, 52, 18, 0.4)",
+                stats: { atk: 90, def: 96, spd: 76, eco: 80, raid: 90, syn: 92 },
+                score: "91/100",
+                lore: "Sparta tidak membutuhkan tembok batu karena prajuritnya adalah tembok itu sendiri! Dilatih sejak belia dalam doktrin Agoge, Hoplite Sparta membentuk formasi perisai perunggu yang tak tergoyahkan.",
                 traits: [
-                    { title: "🛡️ Phalanx Perisai Baja", desc: "Formasi pertahanan rapat yang kebal hantaman kavaleri." },
-                    { title: "⚔️ Spartan Champion", desc: "Pendekar elit dengan daya tempur individual tertinggi." },
-                    { title: "🗡️ Shield Breaker", desc: "Menghancurkan formasi pertahanan musuh dengan tebasan bertenaga." },
-                    { title: "🏛️ Akademi Agoge", desc: "Menempa prajurit dengan moral baja pantang menyerah." }
+                    { title: "🛡️ Tembok Perisai Phalanx", desc: "Bonus pertahanan kolosal saat barisan infantri berdiri bahu-membahu." },
+                    { title: "💪 Doktrin Militer Agoge", desc: "Moral tempur prajurit kebal terhadap efek rasa takut atau desersi." },
+                    { title: "🗡️ Tombak Dory Penusuk", desc: "Tombak panjang penembus zirah besi lawan sebelum musuh mendekat." },
+                    { title: "🔥 Disiplin Tempur Mutlak", desc: "Kerugian pasukan berkurang signifikan saat menghadapi serbuan musuh." }
                 ],
                 units: [
-                    { id: 71, name: "Hoplite" },
-                    { id: 72, name: "Sentinel" },
-                    { id: 73, name: "Shield Breaker" },
-                    { id: 74, name: "Hippeus" },
-                    { id: 75, name: "Theban Lancer" },
-                    { id: 76, name: "Spartan Champion" },
-                    { id: 77, name: "Battering Ram" },
-                    { id: 78, name: "Ballista" },
-                    { id: 79, name: "Ephor" },
-                    { id: 80, name: "Settler" }
+                    { id: 71, name: "Hoplite" }, { id: 72, name: "Shield Biter" }, { id: 73, name: "Twin Blades" },
+                    { id: 74, name: "Elpida Rider" }, { id: 75, name: "Corinthian" }, { id: 76, name: "Spartiate" },
+                    { id: 77, name: "Ram" }, { id: 78, name: "Catapult" }, { id: 79, name: "Ephor" }, { id: 80, name: "Settler" }
                 ]
             }
         };
 
+        // =========================================================
+        // 2. RADAR & FIGURINE SWITCHER
+        // =========================================================
+        function updateRadarPolygon(stats, color) {
+            const keys = ['atk', 'def', 'spd', 'eco', 'raid', 'syn'];
+            const center = 100;
+            const radius = 78;
+            const points = [];
+            for (let i = 0; i < keys.length; i++) {
+                const angle = (i * 60 - 90) * Math.PI / 180;
+                const r = (stats[keys[i]] / 100) * radius;
+                const x = center + r * Math.cos(angle);
+                const y = center + r * Math.sin(angle);
+                points.push(x.toFixed(1) + ',' + y.toFixed(1));
+            }
+            const poly = document.getElementById('radarPolygon');
+            if (poly) {
+                poly.setAttribute('points', points.join(' '));
+                if (color) {
+                    poly.style.stroke = color;
+                    poly.style.fill = color + '33';
+                }
+            }
+            // Update individual bars
+            const atkFill = document.getElementById('statAtk'); if (atkFill) atkFill.style.width = stats.atk + '%';
+            const defFill = document.getElementById('statDef'); if (defFill) defFill.style.width = stats.def + '%';
+            const spdFill = document.getElementById('statSpd'); if (spdFill) spdFill.style.width = stats.spd + '%';
+            const ecoFill = document.getElementById('statEco'); if (ecoFill) ecoFill.style.width = stats.eco + '%';
+            const raidFill = document.getElementById('statRaid'); if (raidFill) raidFill.style.width = stats.raid + '%';
+            const synFill = document.getElementById('statSyn'); if (synFill) synFill.style.width = stats.syn + '%';
+
+            const valAtk = document.getElementById('valAtk'); if (valAtk) valAtk.textContent = stats.atk;
+            const valDef = document.getElementById('valDef'); if (valDef) valDef.textContent = stats.def;
+            const valSpd = document.getElementById('valSpd'); if (valSpd) valSpd.textContent = stats.spd;
+            const valEco = document.getElementById('valEco'); if (valEco) valEco.textContent = stats.eco;
+            const valRaid = document.getElementById('valRaid'); if (valRaid) valRaid.textContent = stats.raid;
+            const valSyn = document.getElementById('valSyn'); if (valSyn) valSyn.textContent = stats.syn;
+        }
+
         function switchFigurine(key) {
             const data = factionRegistry[key];
             if (!data) return;
+
+            playClickFx(580, 'sine');
 
             const idx = figurineKeys.indexOf(key);
             if (idx !== -1) currentFigurineIndex = idx;
@@ -1052,6 +1268,14 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
                 railFill.style.height = pct + '%';
             }
 
+            // Update Pedestal Runic Ring color
+            const ring = document.getElementById('pedestalRunicRing');
+            if (ring) {
+                ring.style.borderColor = data.color;
+                ring.style.boxShadow = '0 0 25px ' + data.glow + ', inset 0 0 15px ' + data.glow;
+                ring.style.background = 'radial-gradient(ellipse at 50% 50%, ' + data.glow + ' 0%, transparent 70%)';
+            }
+
             // Animate Figurine Card
             const card = document.getElementById('figurineDisplayCard');
             const img = document.getElementById('figurineImg');
@@ -1063,7 +1287,7 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
                     card.style.transition = 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
                     card.style.opacity = '1';
                     card.style.transform = 'translateY(0) scale(1)';
-                }, 150);
+                }, 140);
             }
 
             // Update Text Elements
@@ -1071,11 +1295,18 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
             const subEl = document.getElementById('figurineSub');
             const badgeEl = document.getElementById('figurineBadge');
             const loreEl = document.getElementById('figurineLore');
+            const scoreEl = document.getElementById('radarTotalScore');
 
             if (nameEl) nameEl.textContent = data.title || data.name;
             if (subEl) subEl.textContent = data.commanderSub || data.type;
             if (badgeEl) badgeEl.textContent = data.badge;
             if (loreEl) loreEl.textContent = data.lore;
+            if (scoreEl && data.score) scoreEl.textContent = 'Rating: ' + data.score;
+
+            // Update Radar Polygon & Bars
+            if (data.stats) {
+                updateRadarPolygon(data.stats, data.color);
+            }
 
             // Update Traits
             const traitsGrid = document.getElementById('figurineTraits');
@@ -1103,7 +1334,197 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
             }
         }
 
-        // 3D Mouse Parallax Tilt for Hero Island
+        // =========================================================
+        // 3. INTERACTIVE CODEX ENHANCEMENTS
+        // =========================================================
+        // 3A. Bandit Camp Tier Selector
+        const banditData = {
+            1: { title: "Tier 1: Penyamun Rimba", sub: "Patroli liar di perbatasan hutan dengan penjagaan ringan.", req: "⚔️ Pasukan Minimal: 500 &bull; Hadiah: 800 Silver, 600 EXP, 200 CP", img: "img/bandit/camp_tier_1.png" },
+            2: { title: "Tier 2: Pasukan Pembelot", sub: "Garnisun pembelot bersenjata di bentang lembah berbatu.", req: "⚔️ Pasukan Minimal: 2,500 &bull; Hadiah: 2,400 Silver, 1,500 EXP, 600 CP", img: "img/bandit/camp_tier_2.png" },
+            3: { title: "Tier 3: Benteng Penyamun", sub: "Benteng pertahanan kokoh komplotan begal bersenjata kepung.", req: "⚔️ Pasukan Minimal: 6,000 &bull; Hadiah: 5,500 Silver, 2,800 EXP, 1,200 CP", img: "img/bandit/camp_tier_3.png" },
+            4: { title: "World Boss Tier 4: Sarang Naga", sub: "Tantangan raid kolosal aliansi dengan hadiah Silver berlimpah!", req: "⚔️ Pasukan Minimal: 15,000 &bull; Hadiah: 12,000 Silver, 5,000 EXP, 2,500 CP", img: "img/bandit/camp_tier_4.png" }
+        };
+
+        function selectBanditTier(tier) {
+            playClickFx(620, 'sine');
+            document.querySelectorAll('.tier-tab-btn').forEach((btn, idx) => {
+                btn.classList.toggle('active', (idx + 1) === tier);
+            });
+            const d = banditData[tier];
+            if (!d) return;
+            const img = document.getElementById('banditCampImg'); if (img) img.src = d.img;
+            const title = document.getElementById('banditTierTitle'); if (title) title.textContent = d.title;
+            const sub = document.getElementById('banditTierSub'); if (sub) sub.textContent = d.sub;
+            const req = document.getElementById('banditTierRewards'); if (req) req.innerHTML = d.req;
+        }
+
+        // 3B. Weather Climate Simulator
+        const weatherPresets = {
+            kemarau: { name: "☀️ Musim Kemarau Berkelanjutan", desc: "Panen gandum melimpah (+20%), cadangan air berkurang, kecepatan kavaleri normal." },
+            hujan: { name: "🌧️ Hujan Badai & Lumpur Cadas", desc: "Kavaleri melambat (-25%), ketepatan artileri berkurang, konsumsi pangan normal." },
+            kabut: { name: "🌫️ Kabut Tebal Lembah Kuno", desc: "Pos intai scout gagal mendeteksi formasi musuh dalam radius 5 kotak." },
+            salju: { name: "❄️ Badai Salju Dataran Es", desc: "Konsumsi gandum pasukan meningkat (+15%), pergerakan infantri terhambat." }
+        };
+
+        function selectWeather(type) {
+            playClickFx(520, 'sine');
+            document.querySelectorAll('.weather-chip').forEach(chip => {
+                chip.classList.toggle('active', chip.id.toLowerCase().includes(type));
+            });
+            const d = weatherPresets[type];
+            if (!d) return;
+            const nameEl = document.getElementById('wStatusName'); if (nameEl) nameEl.textContent = d.name;
+            const descEl = document.getElementById('wStatusDesc'); if (descEl) descEl.textContent = d.desc;
+        }
+
+        // 3C. Village Quarantine Toggle
+        let isQuarantined = false;
+        function toggleVillageQuarantine() {
+            playClickFx(740, 'triangle');
+            isQuarantined = !isQuarantined;
+            const label = document.getElementById('qLabel');
+            const meter = document.getElementById('qRisk');
+            const btn = document.getElementById('qSwitchBtn');
+            const note = document.getElementById('qNote');
+
+            if (isQuarantined) {
+                if (label) label.innerHTML = 'Pintu Gerbang: <strong style="color:#b91c1c;">DIKARANTINA</strong>';
+                if (meter) { meter.textContent = 'Risiko Sampar: 0% Steril'; meter.style.color = '#047857'; meter.style.background = '#ecfdf5'; }
+                if (btn) btn.innerHTML = '🔓 Buka Gerbang Desa (Pulihkan Perdagangan)';
+                if (note) note.textContent = 'Gerbang desa terkunci rapat. Bebas dari penularan wabah namun kafilah dagang tertahan.';
+            } else {
+                if (label) label.innerHTML = 'Pintu Gerbang: <strong style="color:#047857;">TERBUKA</strong>';
+                if (meter) { meter.textContent = 'Risiko Sampar: 85% Bahaya'; meter.style.color = '#991b1b'; meter.style.background = '#fee2e2'; }
+                if (btn) btn.innerHTML = '🔒 Kunci Karantina Gerbang Desa';
+                if (note) note.textContent = 'Gerbang terbuka memicu penyebaran sampar dari desa tetangga dalam radius 7 kotak.';
+            }
+        }
+
+        // 3D. Black Market Laundering Calculator
+        function updateMarketCalc(val) {
+            const v = parseInt(val, 10);
+            const received = Math.round(v * 0.85);
+            const inputTxt = document.getElementById('mInputAmountText');
+            const resTxt = document.getElementById('mResultAmount');
+            if (inputTxt) inputTxt.textContent = Number(v).toLocaleString() + ' Kayu';
+            if (resTxt) resTxt.textContent = Number(received).toLocaleString() + ' Gandum';
+        }
+
+        // 3E. Mercenary Hire Sound / Toast
+        function hireMercenaryFx(unitName) {
+            playClickFx(880, 'sine');
+            alert('⚔️ [KONTRAK TENTARA BAYARAN]\n' + unitName + ' berhasil disewa dan langsung bersiaga menjaga garnisun benteng desa Anda!');
+        }
+
+        // =========================================================
+        // 4. INTERACTIVE REALM MAP RADAR BRIEFINGS
+        // =========================================================
+        const realmPins = {
+            1: { kicker: "📍 IBU KOTA PUSAT (0|0)", title: "Ibu Kota Kerajaan Pusat (0|0)", desc: "Jantung peradaban kuno, pusat diplomasi aliansi besar dan benteng keajaiban tata kota logistik.", tags: ["Kuadran: Pusat (0|0)", "Status: Siaga Tempur", "Oasis: Gandum 150%"] },
+            2: { kicker: "🎯 SARANG WORLD BOSS", title: "Sarang Naga Kolosal (-14|28)", desc: "Markas naga purba berkulit sisik baja. Membutuhkan minimal 3 aliansi dalam ekspedisi Forward Camp.", tags: ["Koordinat: (-14|28)", "Tingkat Bahaya: Tier 4", "Hadiah: 12,000 Silver"] },
+            3: { kicker: "🏴‍☠️ PASAR PENYELUNDUP", title: "Pasar Gelap Rahasia (42|-15)", desc: "Lapak tersembunyi saudagar hitam di tepi jurang gurun. Tempat cuci sumber daya bebas koin Emas.", tags: ["Koordinat: (42|-15)", "Komisi: 15% Bersih", "Bebas Gold: Aktif"] },
+            4: { kicker: "✨ KEAJAIBAN DUNIA", title: "Kuil Keajaiban Dunia (100|100)", desc: "Pusat mahakarya Wonder of the World. Aliansi pertama yang membangun kuil hingga level 100 memenangkan perang dunia!", tags: ["Koordinat: (100|100)", "Status: Natars Guard", "Tujuan Akhir Perang"] }
+        };
+
+        function showMapBrief(id) {
+            playClickFx(650, 'sine');
+            const d = realmPins[id];
+            if (!d) return;
+            const k = document.getElementById('briefKicker'); if (k) k.textContent = d.kicker;
+            const t = document.getElementById('briefTitle'); if (t) t.textContent = d.title;
+            const desc = document.getElementById('briefDesc'); if (desc) desc.textContent = d.desc;
+            const tags = document.getElementById('briefTags');
+            if (tags && d.tags) {
+                tags.innerHTML = d.tags.map(tag => `<span class="brief-tag">${tag}</span>`).join('');
+            }
+        }
+
+        // =========================================================
+        // 5. WEB AUDIO API SOUNDSCAPE & SYNTHESIZER
+        // =========================================================
+        let audioCtx = null;
+        let isAudioPlaying = false;
+        let ambientTimer = null;
+
+        function getAudioContext() {
+            if (!audioCtx) {
+                const AudioClass = window.AudioContext || window.webkitAudioContext;
+                if (AudioClass) audioCtx = new AudioClass();
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            return audioCtx;
+        }
+
+        function playClickFx(freq = 520, type = 'sine') {
+            const ctx = getAudioContext();
+            if (!ctx) return;
+            try {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(freq * 0.5, ctx.currentTime + 0.12);
+                gain.gain.setValueAtTime(0.08, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.12);
+            } catch(e) {}
+        }
+
+        function startAmbientChimes() {
+            const notes = [220, 261.63, 293.66, 329.63, 392, 440, 523.25];
+            ambientTimer = setInterval(() => {
+                if (!isAudioPlaying) return;
+                const ctx = getAudioContext();
+                if (!ctx) return;
+                try {
+                    const freq = notes[Math.floor(Math.random() * notes.length)];
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+                    gain.gain.setValueAtTime(0.001, ctx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.04, ctx.currentTime + 0.8);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 2.5);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start();
+                    osc.stop(ctx.currentTime + 2.5);
+                } catch(e) {}
+            }, 1400);
+        }
+
+        function stopAmbientChimes() {
+            if (ambientTimer) {
+                clearInterval(ambientTimer);
+                ambientTimer = null;
+            }
+        }
+
+        function toggleWarAudio() {
+            const ctx = getAudioContext();
+            isAudioPlaying = !isAudioPlaying;
+            const txt = document.getElementById('audioText');
+            const bars = document.querySelector('.audio-bars');
+            if (isAudioPlaying) {
+                if (txt) txt.textContent = 'Musik: Nyala (Majestic)';
+                if (bars) bars.classList.add('playing');
+                startAmbientChimes();
+                playClickFx(660, 'sine');
+            } else {
+                if (txt) txt.textContent = 'Musik Suasana Perang';
+                if (bars) bars.classList.remove('playing');
+                stopAmbientChimes();
+            }
+        }
+
+        // =========================================================
+        // 6. 3D HERO MOUSE PARALLAX TILT
+        // =========================================================
         (function initHeroTilt() {
             const stage = document.getElementById('heroStage');
             const island = document.getElementById('heroFloatingIsland');
@@ -1115,9 +1536,14 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
                 if (!ticking) {
                     window.requestAnimationFrame(() => {
                         const rect = stage.getBoundingClientRect();
-                        const x = (e.clientX - rect.left) / rect.width - 0.5;
-                        const y = (e.clientY - rect.top) / rect.height - 0.5;
-                        island.style.transform = `perspective(1000px) rotateY(${x * 16}deg) rotateX(${-y * 14}deg) translateY(-8px)`;
+                        const x = e.clientX - rect.left;
+                        const y = e.clientY - rect.top;
+                        const centerX = rect.width / 2;
+                        const centerY = rect.height / 2;
+                        const rotateX = ((y - centerY) / centerY) * -8;
+                        const rotateY = ((x - centerX) / centerX) * 8;
+
+                        island.style.transform = `perspective(1000px) rotateX(${rotateX.toFixed(2)}deg) rotateY(${rotateY.toFixed(2)}deg) translateY(-8px)`;
                         ticking = false;
                     });
                     ticking = true;
@@ -1125,160 +1551,89 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
             }, { passive: true });
 
             stage.addEventListener('mouseleave', () => {
-                island.style.transform = 'perspective(1000px) rotateY(0deg) rotateX(0deg) translateY(0px)';
+                island.style.transform = '';
             });
         })();
 
-        // 1. Sticky Nav Scroll State
-        const warNav = document.querySelector('.war-nav');
-        if (warNav) {
-            window.addEventListener('scroll', () => {
-                if (window.scrollY > 30) {
-                    warNav.classList.add('scrolled');
-                } else {
-                    warNav.classList.remove('scrolled');
-                }
-            }, { passive: true });
-        }
-
-        // 3. Mobile Nav Drawer Logic
+        // =========================================================
+        // 7. MOBILE NAVIGATION DRAWER
+        // =========================================================
         function openMobileMenu() {
-            const drawer = document.getElementById('mobileMenuPanel');
+            const panel = document.getElementById('mobileMenuPanel');
             const backdrop = document.getElementById('mobileDrawerBackdrop');
-            if (drawer && backdrop) {
-                drawer.classList.add('open');
-                backdrop.classList.add('open');
+            if (panel && backdrop) {
+                panel.classList.add('active');
+                backdrop.classList.add('active');
                 document.body.style.overflow = 'hidden';
             }
         }
 
         function closeMobileMenu() {
-            const drawer = document.getElementById('mobileMenuPanel');
+            const panel = document.getElementById('mobileMenuPanel');
             const backdrop = document.getElementById('mobileDrawerBackdrop');
-            if (drawer && backdrop) {
-                drawer.classList.remove('open');
-                backdrop.classList.remove('open');
+            if (panel && backdrop) {
+                panel.classList.remove('active');
+                backdrop.classList.remove('active');
                 document.body.style.overflow = '';
             }
         }
 
-        const mobileBtn = document.getElementById('mobileMenuBtn');
-        if (mobileBtn) {
-            mobileBtn.addEventListener('click', function(e) {
-                e.stopPropagation();
-                const drawer = document.getElementById('mobileMenuPanel');
-                if (drawer && drawer.classList.contains('open')) {
-                    closeMobileMenu();
-                } else {
-                    openMobileMenu();
-                }
-            });
+        const menuToggleBtn = document.getElementById('mobileMenuBtn');
+        if (menuToggleBtn) {
+            menuToggleBtn.addEventListener('click', openMobileMenu);
         }
 
-        // 4. Lightbox Functions
+        // =========================================================
+        // 8. LIGHTBOX PREVIEWS
+        // =========================================================
         function triggerLightbox(imgSrc, title, desc) {
+            playClickFx(600, 'sine');
             const modal = document.getElementById('warLightboxModal');
-            document.getElementById('lightboxModalImg').src = imgSrc;
-            document.getElementById('lightboxModalTitle').textContent = title;
-            document.getElementById('lightboxModalDesc').textContent = desc;
-            modal.classList.add('active');
-            document.body.style.overflow = 'hidden';
+            const img = document.getElementById('lightboxModalImg');
+            const t = document.getElementById('lightboxTitle');
+            const d = document.getElementById('lightboxDesc');
+            if (img) img.src = imgSrc;
+            if (t) t.textContent = title;
+            if (d) d.textContent = desc;
+            if (modal) modal.classList.add('active');
         }
 
-        function closeLightbox(e) {
+        function closeLightbox(event) {
             const modal = document.getElementById('warLightboxModal');
-            if (modal) {
-                modal.classList.remove('active');
-            }
-            document.body.style.overflow = '';
+            if (modal) modal.classList.remove('active');
         }
 
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                closeLightbox();
-                closeMobileMenu();
-            }
-        });
+        // =========================================================
+        // 9. ANIMATE COUNTERS & GOLD SUN DUST EMBER ENGINE
+        // =========================================================
+        (function initCounters() {
+            const metrics = document.querySelectorAll('.intel-metric');
+            if (!metrics.length) return;
 
-        // 5. Smooth scroll for anchors with sticky nav offset
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function(e) {
-                const targetId = this.getAttribute('href');
-                if (targetId && targetId.length > 1) {
-                    const targetEl = document.querySelector(targetId);
-                    if (targetEl) {
-                        e.preventDefault();
-                        const headerOffset = 80;
-                        const elementPosition = targetEl.getBoundingClientRect().top;
-                        const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
-                        window.scrollTo({
-                            top: offsetPosition,
-                            behavior: 'smooth'
-                        });
-                    }
-                }
-            });
-        });
-
-        // 6. Real-Time Intel Ribbon CountUp Animation
-        function animateCounters() {
-            const counters = document.querySelectorAll('.intel-metric[data-target]');
-            counters.forEach(counter => {
-                const target = parseInt(counter.getAttribute('data-target'), 10) || 0;
-                if (target <= 0) return;
-                const duration = 1800; // ms
-                const startTime = performance.now();
-                const updateNumber = (now) => {
-                    const elapsed = now - startTime;
-                    const progress = Math.min(elapsed / duration, 1);
-                    // Ease-out Quad
-                    const easeProgress = 1 - (1 - progress) * (1 - progress);
-                    const currentVal = Math.floor(easeProgress * target);
-                    counter.textContent = currentVal.toLocaleString();
-                    if (progress < 1) {
-                        requestAnimationFrame(updateNumber);
-                    } else {
-                        counter.textContent = target.toLocaleString();
-                    }
-                };
-                requestAnimationFrame(updateNumber);
-            });
-        }
-
-        const intelRibbon = document.getElementById('intelRibbon');
-        if (intelRibbon && 'IntersectionObserver' in window) {
-            const observer = new IntersectionObserver((entries, obs) => {
+            const observer = new IntersectionObserver((entries) => {
                 entries.forEach(entry => {
                     if (entry.isIntersecting) {
-                        animateCounters();
-                        obs.disconnect();
+                        const target = parseInt(entry.target.getAttribute('data-target') || '0', 10);
+                        let count = 0;
+                        const duration = 1500;
+                        const step = Math.max(1, Math.floor(target / (duration / 16)));
+                        const timer = setInterval(() => {
+                            count += step;
+                            if (count >= target) {
+                                count = target;
+                                clearInterval(timer);
+                            }
+                            entry.target.textContent = count.toLocaleString();
+                        }, 16);
+                        observer.unobserve(entry.target);
                     }
                 });
-            }, { threshold: 0.3 });
-            observer.observe(intelRibbon);
-        } else {
-            animateCounters();
-        }
+            }, { threshold: 0.2 });
 
-        // 7. Interactive 3D Card Tilt (Subtle)
-        const tiltCards = document.querySelectorAll('.codex-card, .grand-feature-card');
-        tiltCards.forEach(card => {
-            card.addEventListener('mousemove', e => {
-                const rect = card.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
-                const centerX = rect.width / 2;
-                const centerY = rect.height / 2;
-                const rotateX = ((y - centerY) / centerY) * -4;
-                const rotateY = ((x - centerX) / centerX) * 4;
-                card.style.transform = `perspective(1000px) rotateX(${rotateX.toFixed(2)}deg) rotateY(${rotateY.toFixed(2)}deg) translateY(-4px)`;
-            });
-            card.addEventListener('mouseleave', () => {
-                card.style.transform = '';
-            });
-        });
+            metrics.forEach(m => observer.observe(m));
+        })();
 
-        // 8. Canvas Particle Embers Engine
+        // Canvas Particle Embers (Shimmering Golden Sun Motes)
         (function initEmbers() {
             const canvas = document.getElementById('warEmbersCanvas');
             if (!canvas || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
@@ -1296,61 +1651,50 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
             }, { passive: true });
 
             const colors = ['#d4af37', '#f59e0b', '#d97706', '#b45309', '#fcd34d'];
-            const particleCount = 42;
             const particles = [];
+            const count = Math.min(45, Math.floor(width / 30));
 
-            for (let i = 0; i < particleCount; i++) {
+            for (let i = 0; i < count; i++) {
                 particles.push({
                     x: Math.random() * width,
                     y: Math.random() * height,
-                    radius: Math.random() * 1.8 + 0.6,
+                    radius: Math.random() * 2.2 + 0.8,
                     color: colors[Math.floor(Math.random() * colors.length)],
                     vx: (Math.random() - 0.5) * 0.4,
-                    vy: -(Math.random() * 0.8 + 0.3),
-                    alpha: Math.random() * 0.7 + 0.2,
-                    fade: Math.random() * 0.006 + 0.003
+                    vy: -(Math.random() * 0.7 + 0.3),
+                    alpha: Math.random() * 0.6 + 0.2,
+                    pulse: Math.random() * 0.02
                 });
             }
 
-            let animationFrameId;
-            let isTabActive = true;
-
-            document.addEventListener('visibilitychange', () => {
-                isTabActive = !document.hidden;
-                if (isTabActive) render();
-            });
-
             function render() {
-                if (!isTabActive) return;
                 ctx.clearRect(0, 0, width, height);
-
                 for (let i = 0; i < particles.length; i++) {
                     const p = particles[i];
-                    p.x += p.vx + Math.sin(p.y * 0.015) * 0.2;
+                    p.x += p.vx;
                     p.y += p.vy;
-                    p.alpha -= p.fade;
+                    p.alpha += p.pulse;
+                    if (p.alpha > 0.8 || p.alpha < 0.2) p.pulse = -p.pulse;
 
-                    if (p.alpha <= 0 || p.y < -10) {
-                        p.x = Math.random() * width;
+                    if (p.y < 0) {
                         p.y = height + 10;
-                        p.alpha = Math.random() * 0.7 + 0.2;
-                        p.vy = -(Math.random() * 0.8 + 0.3);
+                        p.x = Math.random() * width;
                     }
+                    if (p.x < 0) p.x = width;
+                    if (p.x > width) p.x = 0;
 
                     ctx.save();
-                    ctx.globalAlpha = Math.max(0, p.alpha);
-                    ctx.fillStyle = p.color;
-                    ctx.shadowBlur = 6;
-                    ctx.shadowColor = p.color;
                     ctx.beginPath();
                     ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = p.color;
+                    ctx.globalAlpha = p.alpha;
+                    ctx.shadowBlur = 8;
+                    ctx.shadowColor = p.color;
                     ctx.fill();
                     ctx.restore();
                 }
-
-                animationFrameId = requestAnimationFrame(render);
+                requestAnimationFrame(render);
             }
-
             render();
         })();
     </script>

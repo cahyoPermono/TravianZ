@@ -2004,3 +2004,680 @@ body {
   font-size: 14px;
   color: var(--text-secondary);
 }
+
+/* ==========================================================================
+   16. MASTERPIECE AAA ENHANCEMENTS: ASTROLABE, RADAR, SOUND & INTERACTIVES
+   ========================================================================== */
+
+/* Hero Header Row & Audio Toggle Pill */
+.hero-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.war-audio-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #ffffff;
+  border: 1.5px solid var(--gold-primary);
+  border-radius: var(--radius-pill);
+  padding: 6px 14px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--gold-bronze);
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(184, 134, 11, 0.15);
+  transition: all var(--transition-fast);
+}
+
+.war-audio-pill:hover {
+  background: #fef3c7;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(184, 134, 11, 0.25);
+}
+
+.audio-bars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2.5px;
+  height: 12px;
+}
+
+.audio-bars .bar {
+  width: 2.5px;
+  height: 4px;
+  background: var(--gold-primary);
+  border-radius: 1px;
+  transition: height 0.2s ease;
+}
+
+.audio-bars.playing .bar:nth-child(1) { animation: barDance 0.8s ease-in-out infinite alternate; }
+.audio-bars.playing .bar:nth-child(2) { animation: barDance 0.8s ease-in-out infinite alternate 0.2s; }
+.audio-bars.playing .bar:nth-child(3) { animation: barDance 0.8s ease-in-out infinite alternate 0.4s; }
+
+@keyframes barDance {
+  0% { height: 3px; }
+  100% { height: 13px; background: var(--blood-accent); }
+}
+
+/* Realm Live Status Badge Strip */
+.realm-live-badge-strip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: #ffffff;
+  border: 1px solid var(--frame-border);
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+  width: fit-content;
+}
+
+.realm-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #059669;
+  box-shadow: 0 0 8px #059669;
+  animation: sealPulse 2s infinite ease-in-out;
+}
+
+.realm-stat-highlight {
+  color: #b45309;
+  font-weight: 800;
+}
+
+.realm-stat-weather {
+  color: #0369a1;
+  font-weight: 700;
+}
+
+/* Celestial Astrolabe Ring & Levitating Crystals */
+.hero-astrolabe-ring {
+  position: absolute;
+  top: 48%;
+  left: 50%;
+  width: 440px;
+  height: 440px;
+  border-radius: 50%;
+  border: 1.5px dashed rgba(212, 175, 55, 0.45);
+  box-shadow: 0 0 40px rgba(254, 240, 138, 0.45), inset 0 0 35px rgba(212, 175, 55, 0.2);
+  animation: rotateAstrolabe 75s linear infinite;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.hero-astrolabe-ring::before {
+  content: '';
+  position: absolute;
+  inset: 16px;
+  border-radius: 50%;
+  border: 1px solid rgba(212, 175, 55, 0.35);
+}
+
+@keyframes rotateAstrolabe {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+.floating-amber-shard {
+  position: absolute;
+  width: 14px;
+  height: 24px;
+  background: linear-gradient(135deg, #fef08a 0%, #f59e0b 60%, #b45309 100%);
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  box-shadow: 0 0 15px rgba(245, 158, 11, 0.6);
+  z-index: 4;
+}
+
+.shard-1 { top: 28%; left: 8%; animation: floatRune1 3.8s ease-in-out infinite alternate; }
+.shard-2 { bottom: 32%; right: 6%; animation: floatRune2 4.2s ease-in-out infinite alternate; }
+
+/* 3D Turntable Pedestal Runic Ring */
+.pedestal-runic-ring {
+  position: absolute;
+  bottom: 12px;
+  width: 250px;
+  height: 60px;
+  border-radius: 50%;
+  border: 2px solid var(--gold-primary);
+  box-shadow: 0 0 25px rgba(212, 175, 55, 0.5), inset 0 0 15px rgba(212, 175, 55, 0.3);
+  background: radial-gradient(ellipse at 50% 50%, rgba(212, 175, 55, 0.25) 0%, transparent 70%);
+  transition: all 0.5s ease;
+  z-index: 1;
+}
+
+/* Combat Doctrine Hexagonal Radar Box */
+.doctrine-radar-box {
+  background: #faf8f5;
+  border: 1.5px solid rgba(212, 175, 55, 0.4);
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  box-shadow: 0 4px 15px rgba(120, 80, 20, 0.05);
+}
+
+.radar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.radar-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  color: var(--gold-bronze);
+  text-transform: uppercase;
+}
+
+.radar-score {
+  font-size: 12px;
+  font-weight: 800;
+  color: #92400e;
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+}
+
+.radar-chart-container {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  align-items: center;
+  gap: 20px;
+}
+
+.radar-svg-wrap {
+  width: 140px;
+  height: 140px;
+}
+
+.radar-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.radar-grid-web {
+  fill: none;
+  stroke: rgba(203, 213, 225, 0.8);
+  stroke-width: 1;
+}
+
+.radar-grid-web.sub {
+  stroke: rgba(203, 213, 225, 0.5);
+}
+
+.radar-grid-web.inner {
+  stroke: rgba(203, 213, 225, 0.3);
+}
+
+.radar-dynamic-poly {
+  fill: rgba(4, 120, 87, 0.2);
+  stroke: #047857;
+  stroke-width: 2.2;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  filter: drop-shadow(0 2px 6px rgba(4, 120, 87, 0.25));
+}
+
+.radar-axis-text {
+  font-size: 9.5px;
+  font-weight: 700;
+  fill: var(--text-muted);
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+.radar-bars-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.radar-bar-row {
+  display: grid;
+  grid-template-columns: 85px 1fr 28px;
+  align-items: center;
+  gap: 8px;
+}
+
+.stat-name {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.stat-bar-track {
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.stat-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #d4af37 0%, #b45309 100%);
+  border-radius: var(--radius-pill);
+  transition: width 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.stat-val {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--text-primary);
+  text-align: right;
+}
+
+/* Codex Interactive: Bandit Tier Selector */
+.bandit-tier-switch-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.tier-tab-btn {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.tier-tab-btn:hover {
+  background: #fee2e2;
+  border-color: #f87171;
+  color: #991b1b;
+}
+
+.tier-tab-btn.active {
+  background: #b91c1c;
+  border-color: #991b1b;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(185, 28, 28, 0.25);
+}
+
+.bandit-tier-rewards {
+  font-size: 11px;
+  font-weight: 700;
+  color: #047857;
+  margin-top: 4px;
+}
+
+/* Codex Interactive: Dynamic Weather Simulator */
+.weather-tactical-display {
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  margin-top: 6px;
+  transition: all var(--transition-fast);
+}
+
+.w-status-name {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #0369a1;
+  margin-bottom: 2px;
+}
+
+.w-status-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+/* Codex Interactive: Plague Quarantine Switch */
+.quarantine-interactive-box {
+  background: #faf5ff;
+  border: 1px solid #e9d5ff;
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.quarantine-bar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.q-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.q-risk-meter {
+  font-size: 11px;
+  font-weight: 800;
+  color: #991b1b;
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+}
+
+.quarantine-switch-btn {
+  background: #ffffff;
+  border: 1.5px solid #a855f7;
+  color: #7e22ce;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 800;
+  padding: 7px 14px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(168, 85, 247, 0.15);
+  transition: all var(--transition-fast);
+}
+
+.quarantine-switch-btn:hover {
+  background: #f3e8ff;
+  transform: translateY(-1px);
+}
+
+.quarantine-note {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* Codex Interactive: Black Market Laundering Calculator */
+.market-laundering-widget {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.m-calc-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.m-calc-top strong {
+  color: #92400e;
+  font-weight: 800;
+}
+
+.market-range-slider {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: #fcd34d;
+  outline: none;
+  cursor: pointer;
+  -webkit-appearance: none;
+}
+
+.market-range-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #b45309;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+}
+
+.m-calc-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11.5px;
+}
+
+.m-res-badge strong {
+  color: #047857;
+  font-weight: 800;
+}
+
+.m-fee-badge {
+  font-size: 10.5px;
+  color: #b45309;
+  font-weight: 700;
+}
+
+/* Codex Interactive: Mercenary Contracts */
+.mercenary-interactive-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.merc-contract-card {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: var(--radius-md);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.merc-title {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #1e40af;
+}
+
+.merc-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.merc-hire-btn {
+  background: #ffffff;
+  border: 1px solid #93c5fd;
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 8px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  margin-top: auto;
+  transition: all var(--transition-fast);
+}
+
+.merc-hire-btn:hover {
+  background: #dbeafe;
+  border-color: #3b82f6;
+  transform: translateY(-1px);
+}
+
+/* Interactive Realm Map Explorer */
+.interactive-realm-map-wrapper {
+  background: #ffffff;
+  border: 2px solid rgba(212, 175, 55, 0.45);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  box-shadow: 0 16px 40px rgba(140, 100, 40, 0.1);
+  display: grid;
+  grid-template-columns: 1.3fr 0.7fr;
+  align-items: center;
+}
+
+.realm-map-container {
+  position: relative;
+  width: 100%;
+  height: 380px;
+  overflow: hidden;
+  background: #e2d9c8;
+}
+
+.realm-map-base {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.realm-pin {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 5;
+  transition: transform var(--transition-spring);
+}
+
+.realm-pin:hover {
+  transform: translate(-50%, -50%) scale(1.25);
+  z-index: 10;
+}
+
+.pin-ring {
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid #059669;
+  animation: pinPulse 2s infinite ease-out;
+}
+
+.pin-ring.red { border-color: #dc2626; }
+.pin-ring.gold { border-color: #d97706; }
+.pin-ring.purple { border-color: #9333ea; }
+
+@keyframes pinPulse {
+  0% { transform: scale(0.6); opacity: 1; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+
+.pin-marker {
+  width: 30px;
+  height: 30px;
+  background: #ffffff;
+  border: 2px solid var(--gold-primary);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.pin-label {
+  font-size: 10px;
+  font-weight: 800;
+  color: #1e293b;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #cbd5e1;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+  margin-top: 3px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.realm-brief-card {
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #faf8f5;
+  border-left: 1.5px solid rgba(212, 175, 55, 0.35);
+  height: 100%;
+  justify-content: center;
+}
+
+.brief-kicker {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  color: var(--gold-primary);
+  text-transform: uppercase;
+}
+
+.brief-title {
+  font-family: var(--font-title);
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--text-primary);
+}
+
+.brief-desc {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.65;
+}
+
+.brief-tags-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.brief-tag {
+  background: #ffffff;
+  border: 1px solid var(--frame-border);
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+@media (max-width: 900px) {
+  .interactive-realm-map-wrapper {
+    grid-template-columns: 1fr;
+  }
+  .realm-brief-card {
+    border-left: none;
+    border-top: 1.5px solid rgba(212, 175, 55, 0.35);
+  }
+  .radar-chart-container {
+    grid-template-columns: 1fr;
+  }
+  .radar-svg-wrap {
+    margin: 0 auto;
+  }
+  .mercenary-interactive-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Pin and Map Modifiers */
+.audio-icon {
+  font-size: 14px;
+}
+
+.pin-ring.green {
+  border-color: #059669;
+}
+
+.pin-capital { z-index: 6; }
+.pin-boss { z-index: 6; }
+.pin-market { z-index: 6; }
+.pin-wonder { z-index: 6; }
+
+.radar-axis-text.top { dominant-baseline: auto; }
+.radar-axis-text.bottom { dominant-baseline: hanging; }
