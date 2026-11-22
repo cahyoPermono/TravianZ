@@ -251,7 +251,7 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
                         <div class="intel-label">Total Jenderal</div>
                     </div>
                     <div class="intel-card">
-                        <div class="intel-metric" data-target="<?php echo (int)$onlineUsers; ?>" style="color:#34d399;"><?php echo number_format($onlineUsers); ?></div>
+                        <div class="intel-metric" data-target="<?php echo (int)$onlineUsers; ?>" style="color:#047857;"><?php echo number_format($onlineUsers); ?></div>
                         <div class="intel-label">Pasukan Siaga</div>
                     </div>
                     <div class="intel-card">
@@ -259,7 +259,7 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
                         <div class="intel-label">Benteng &amp; Desa</div>
                     </div>
                     <div class="intel-card">
-                        <div class="intel-metric" data-target="<?php echo (int)$activeBandits; ?>" style="color:#f87171;"><?php echo number_format($activeBandits); ?></div>
+                        <div class="intel-metric" data-target="<?php echo (int)$activeBandits; ?>" style="color:#b91c1c;"><?php echo number_format($activeBandits); ?></div>
                         <div class="intel-label">Sarang Bandit Aktif</div>
                     </div>
                 </div>
@@ -358,8 +358,8 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
                         <div class="bandit-preview-row">
                             <img src="img/bandit/camp_tier_4.png" alt="World Boss Sarang Naga" class="bandit-preview-img" />
                             <div>
-                                <div style="font-size:12.5px; font-weight:800; color:#fff;">World Boss Tier 4: Sarang Naga</div>
-                                <div style="font-size:11.5px; color:#f87171;">Tantangan raid kolosal dengan hadiah Silver berlimpah!</div>
+                                <div style="font-size:12.5px; font-weight:800; color:#1e293b;">World Boss Tier 4: Sarang Naga</div>
+                                <div style="font-size:11.5px; color:#b91c1c; font-weight:600;">Tantangan raid kolosal dengan hadiah Silver berlimpah!</div>
                             </div>
                         </div>
                         <div class="bullet-traits-list">
@@ -582,7 +582,7 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
                     </div>
                     <div class="ledger-row">
                         <span class="ledger-key">Sarang Bandit Beroperasi</span>
-                        <span class="ledger-val" style="color:#f87171;"><?php echo number_format($activeBandits); ?> Sarang Terbuka</span>
+                        <span class="ledger-val" style="color:#b91c1c;"><?php echo number_format($activeBandits); ?> Sarang Terbuka</span>
                     </div>
                     <div class="ledger-row">
                         <span class="ledger-key">Kompi Bayaran Bertugas</span>
@@ -1295,7 +1295,7 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
                 }
             }, { passive: true });
 
-            const colors = ['#f59e0b', '#fb923c', '#d97706', '#fcd34d', '#ea580c'];
+            const colors = ['#d4af37', '#f59e0b', '#d97706', '#b45309', '#fcd34d'];
             const particleCount = 42;
             const particles = [];
 
