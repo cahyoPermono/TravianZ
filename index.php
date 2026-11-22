@@ -99,7 +99,9 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
     <title><?php echo htmlspecialchars(SERVER_NAME); ?> &bull; Dewan Perang Nusantara & Jagat Terlarang</title>
     <link rel="shortcut icon" href="favicon.ico" />
     <meta name="description" content="Portal perang strategi kuno TravianZ dengan Suku Maritim Nusantara, Dinamika Cuaca Ekstrem, Sampar Wabah Desa, Ekspedisi PvE Sarang Bandit, Pasar Gelap Bebas Emas, dan Tentara Bayaran Netral!" />
-    <link rel="stylesheet" type="text/css" href="gpack/travian/landing_modern.css?v=20261009_mobile" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" type="text/css" href="gpack/travian/landing_v2.css?v=20261122_v2" />
 </head>
 
 <body class="war-portal">
@@ -184,6 +186,7 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
 
     <!-- Hero Stage: Asymmetric War Room -->
     <section class="hero-stage">
+        <canvas id="warEmbersCanvas" class="hero-embers-canvas"></canvas>
         <div class="hero-backdrop-glow"></div>
         <div class="portal-container hero-grid">
             <!-- Left Column: Manifesto & Action -->
@@ -204,30 +207,30 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
 
                 <div class="hero-cta-cluster">
                     <?php if ($isLoggedIn): ?>
-                        <a href="dorf1.php" class="war-btn war-btn-gold war-btn-lg">🏰 Kembali Memimpin Desa (<?php echo $loggedUser; ?>)</a>
+                        <a href="dorf1.php" class="war-btn war-btn-gold war-btn-lg pulse-glow">🏰 Kembali Memimpin Desa (<?php echo $loggedUser; ?>)</a>
                         <a href="#codex" class="war-btn war-btn-iron war-btn-lg">📜 Buka Buku Ekspansi</a>
                     <?php else: ?>
-                        <a href="anmelden.php" class="war-btn war-btn-gold war-btn-lg">⚔️ Bangun Kekaisaran Anda (Daftar Sekarang)</a>
+                        <a href="anmelden.php" class="war-btn war-btn-gold war-btn-lg pulse-glow">⚔️ Bangun Kekaisaran Anda (Daftar Sekarang)</a>
                         <a href="login.php" class="war-btn war-btn-iron war-btn-lg">🛡️ Masuk ke Medan Tempur</a>
                     <?php endif; ?>
                 </div>
 
                 <!-- War Intel Live Counters -->
-                <div class="intel-ribbon">
+                <div class="intel-ribbon" id="intelRibbon">
                     <div class="intel-card">
-                        <div class="intel-metric"><?php echo number_format($totalUsers); ?></div>
+                        <div class="intel-metric" data-target="<?php echo (int)$totalUsers; ?>"><?php echo number_format($totalUsers); ?></div>
                         <div class="intel-label">Total Jenderal</div>
                     </div>
                     <div class="intel-card">
-                        <div class="intel-metric" style="color:#34d399;"><?php echo number_format($onlineUsers); ?></div>
+                        <div class="intel-metric" data-target="<?php echo (int)$onlineUsers; ?>" style="color:#34d399;"><?php echo number_format($onlineUsers); ?></div>
                         <div class="intel-label">Pasukan Siaga</div>
                     </div>
                     <div class="intel-card">
-                        <div class="intel-metric"><?php echo number_format($totalVillages); ?></div>
+                        <div class="intel-metric" data-target="<?php echo (int)$totalVillages; ?>"><?php echo number_format($totalVillages); ?></div>
                         <div class="intel-label">Benteng & Desa</div>
                     </div>
                     <div class="intel-card">
-                        <div class="intel-metric" style="color:#f87171;"><?php echo number_format($activeBandits); ?></div>
+                        <div class="intel-metric" data-target="<?php echo (int)$activeBandits; ?>" style="color:#f87171;"><?php echo number_format($activeBandits); ?></div>
                         <div class="intel-label">Sarang Bandit Siap Diserbu</div>
                     </div>
                 </div>
@@ -957,7 +960,19 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
             }
         };
 
-        // Faction Switching Logic
+        // 1. Sticky Nav Scroll State
+        const warNav = document.querySelector('.war-nav');
+        if (warNav) {
+            window.addEventListener('scroll', () => {
+                if (window.scrollY > 30) {
+                    warNav.classList.add('scrolled');
+                } else {
+                    warNav.classList.remove('scrolled');
+                }
+            }, { passive: true });
+        }
+
+        // 2. Faction Switching Logic with Smooth Cross-fade
         document.querySelectorAll('.faction-tab-btn').forEach(btn => {
             btn.addEventListener('click', function() {
                 const key = this.getAttribute('data-faction');
@@ -967,9 +982,30 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
                 this.classList.add('active');
 
                 const data = factionRegistry[key];
-                
-                // Update Hero Stage Preview
-                document.getElementById('heroCommanderImg').src = data.portrait;
+                const heroImg = document.getElementById('heroCommanderImg');
+                const councilImg = document.getElementById('councilPortraitImg');
+
+                // Cross-fade portrait
+                if (heroImg) {
+                    heroImg.style.opacity = '0';
+                    heroImg.style.transform = 'scale(0.95)';
+                    setTimeout(() => {
+                        heroImg.src = data.portrait;
+                        heroImg.style.opacity = '1';
+                        heroImg.style.transform = 'scale(1)';
+                    }, 200);
+                }
+
+                if (councilImg) {
+                    councilImg.style.opacity = '0';
+                    councilImg.style.transform = 'translateY(8px)';
+                    setTimeout(() => {
+                        councilImg.src = data.portrait;
+                        councilImg.style.opacity = '1';
+                        councilImg.style.transform = 'translateY(0)';
+                    }, 200);
+                }
+
                 document.getElementById('heroBannerImg').src = data.banner;
                 document.getElementById('heroCommanderTitle').textContent = data.commander;
                 document.getElementById('heroCommanderSub').textContent = data.commanderSub;
@@ -977,7 +1013,6 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
                 // Update War Council Arena
                 document.getElementById('councilTribeName').textContent = data.name;
                 document.getElementById('councilTribeType').textContent = data.type;
-                document.getElementById('councilPortraitImg').src = data.portrait;
                 document.getElementById('councilBannerImg').src = data.banner;
                 document.getElementById('councilFactionBadge').textContent = data.badge;
                 document.getElementById('councilTribeLore').textContent = data.lore;
@@ -1006,7 +1041,7 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
             });
         });
 
-        // Mobile Nav Drawer Logic
+        // 3. Mobile Nav Drawer Logic
         function openMobileMenu() {
             const drawer = document.getElementById('mobileMenuPanel');
             const backdrop = document.getElementById('mobileDrawerBackdrop');
@@ -1040,7 +1075,7 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
             });
         }
 
-        // Lightbox Functions
+        // 4. Lightbox Functions
         function triggerLightbox(imgSrc, title, desc) {
             const modal = document.getElementById('warLightboxModal');
             document.getElementById('lightboxModalImg').src = imgSrc;
@@ -1065,7 +1100,7 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
             }
         });
 
-        // Smooth scroll for anchors
+        // 5. Smooth scroll for anchors with sticky nav offset
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
             anchor.addEventListener('click', function(e) {
                 const targetId = this.getAttribute('href');
@@ -1073,11 +1108,151 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
                     const targetEl = document.querySelector(targetId);
                     if (targetEl) {
                         e.preventDefault();
-                        targetEl.scrollIntoView({ behavior: 'smooth' });
+                        const headerOffset = 80;
+                        const elementPosition = targetEl.getBoundingClientRect().top;
+                        const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+                        window.scrollTo({
+                            top: offsetPosition,
+                            behavior: 'smooth'
+                        });
                     }
                 }
             });
         });
+
+        // 6. Real-Time Intel Ribbon CountUp Animation
+        function animateCounters() {
+            const counters = document.querySelectorAll('.intel-metric[data-target]');
+            counters.forEach(counter => {
+                const target = parseInt(counter.getAttribute('data-target'), 10) || 0;
+                if (target <= 0) return;
+                const duration = 1800; // ms
+                const startTime = performance.now();
+                const updateNumber = (now) => {
+                    const elapsed = now - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+                    // Ease-out Quad
+                    const easeProgress = 1 - (1 - progress) * (1 - progress);
+                    const currentVal = Math.floor(easeProgress * target);
+                    counter.textContent = currentVal.toLocaleString();
+                    if (progress < 1) {
+                        requestAnimationFrame(updateNumber);
+                    } else {
+                        counter.textContent = target.toLocaleString();
+                    }
+                };
+                requestAnimationFrame(updateNumber);
+            });
+        }
+
+        const intelRibbon = document.getElementById('intelRibbon');
+        if (intelRibbon && 'IntersectionObserver' in window) {
+            const observer = new IntersectionObserver((entries, obs) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        animateCounters();
+                        obs.disconnect();
+                    }
+                });
+            }, { threshold: 0.3 });
+            observer.observe(intelRibbon);
+        } else {
+            animateCounters();
+        }
+
+        // 7. Interactive 3D Card Tilt (Subtle)
+        const tiltCards = document.querySelectorAll('.codex-card, .grand-feature-card');
+        tiltCards.forEach(card => {
+            card.addEventListener('mousemove', e => {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+                const rotateX = ((y - centerY) / centerY) * -4;
+                const rotateY = ((x - centerX) / centerX) * 4;
+                card.style.transform = `perspective(1000px) rotateX(${rotateX.toFixed(2)}deg) rotateY(${rotateY.toFixed(2)}deg) translateY(-4px)`;
+            });
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = '';
+            });
+        });
+
+        // 8. Canvas Particle Embers Engine
+        (function initEmbers() {
+            const canvas = document.getElementById('warEmbersCanvas');
+            if (!canvas || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+
+            let width = (canvas.width = canvas.parentElement.offsetWidth);
+            let height = (canvas.height = canvas.parentElement.offsetHeight);
+
+            window.addEventListener('resize', () => {
+                if (canvas && canvas.parentElement) {
+                    width = canvas.width = canvas.parentElement.offsetWidth;
+                    height = canvas.height = canvas.parentElement.offsetHeight;
+                }
+            }, { passive: true });
+
+            const colors = ['#f59e0b', '#fb923c', '#d97706', '#fcd34d', '#ea580c'];
+            const particleCount = 42;
+            const particles = [];
+
+            for (let i = 0; i < particleCount; i++) {
+                particles.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    radius: Math.random() * 1.8 + 0.6,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    vx: (Math.random() - 0.5) * 0.4,
+                    vy: -(Math.random() * 0.8 + 0.3),
+                    alpha: Math.random() * 0.7 + 0.2,
+                    fade: Math.random() * 0.006 + 0.003
+                });
+            }
+
+            let animationFrameId;
+            let isTabActive = true;
+
+            document.addEventListener('visibilitychange', () => {
+                isTabActive = !document.hidden;
+                if (isTabActive) render();
+            });
+
+            function render() {
+                if (!isTabActive) return;
+                ctx.clearRect(0, 0, width, height);
+
+                for (let i = 0; i < particles.length; i++) {
+                    const p = particles[i];
+                    p.x += p.vx + Math.sin(p.y * 0.015) * 0.2;
+                    p.y += p.vy;
+                    p.alpha -= p.fade;
+
+                    if (p.alpha <= 0 || p.y < -10) {
+                        p.x = Math.random() * width;
+                        p.y = height + 10;
+                        p.alpha = Math.random() * 0.7 + 0.2;
+                        p.vy = -(Math.random() * 0.8 + 0.3);
+                    }
+
+                    ctx.save();
+                    ctx.globalAlpha = Math.max(0, p.alpha);
+                    ctx.fillStyle = p.color;
+                    ctx.shadowBlur = 6;
+                    ctx.shadowColor = p.color;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                }
+
+                animationFrameId = requestAnimationFrame(render);
+            }
+
+            render();
+        })();
     </script>
 </body>
 </html>
