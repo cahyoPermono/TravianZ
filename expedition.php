@@ -261,6 +261,32 @@ for ($i = 1; $i <= 10; $i++) {
 				}
 			}
 		}
+
+		// Live Expedition Countdown Timers
+		(function() {
+			function tickExpTimers() {
+				var timers = document.querySelectorAll('.exp-live-timer');
+				for (var i = 0; i < timers.length; i++) {
+					var el = timers[i];
+					var s = parseInt(el.getAttribute('data-seconds'), 10);
+					if (isNaN(s)) continue;
+					if (s > 0) {
+						s--;
+						el.setAttribute('data-seconds', s);
+						var h = Math.floor(s / 3600);
+						var m = Math.floor((s % 3600) / 60);
+						var sec = s % 60;
+						var str = (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m + ':' + (sec < 10 ? '0' : '') + sec;
+						el.innerHTML = str;
+					} else if (s === 0) {
+						el.innerHTML = '00:00:00';
+						el.setAttribute('data-seconds', -1);
+						setTimeout(function() { window.location.reload(); }, 2500);
+					}
+				}
+			}
+			setInterval(tickExpTimers, 1000);
+		})();
 	</script>
 	<style type="text/css">
 		html, body {
@@ -523,8 +549,12 @@ for ($i = 1; $i <= 10; $i++) {
 						<span style="color: #64748b; font-size: 11px;">(<?php echo $campData['x']; ?>|<?php echo $campData['y']; ?>)</span>
 					</div>
 					<div>
-						<span style="background: #e0e7ff; color: #4338ca; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 11px;">
-							⏱️ Benturan: <span id="exp_timer"><?php echo gmdate("i:s", $timeLeft); ?></span>
+						<?php
+						$timerNum = ++$session->timer;
+						$fmtTime = sprintf('%02d:%02d:%02d', intdiv($timeLeft, 3600), intdiv($timeLeft % 3600, 60), $timeLeft % 60);
+						?>
+						<span style="background: #e0e7ff; color: #4338ca; padding: 3px 10px; border-radius: 4px; font-weight: bold; font-size: 12px; border: 1px solid #c7d2fe; display: inline-flex; align-items: center; gap: 4px;">
+							⏱️ Benturan: <span id="timer<?php echo $timerNum; ?>" class="exp-live-timer" data-seconds="<?php echo $timeLeft; ?>"><?php echo $fmtTime; ?></span>
 						</span>
 					</div>
 				</div>
@@ -558,6 +588,40 @@ for ($i = 1; $i <= 10; $i++) {
 					<?php } ?>
 				</div>
 
+				<!-- Party Readiness & Launch Status Banner -->
+				<?php if (count($members) < 2) { ?>
+					<div style="margin: 10px 0 6px 0; background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 9px 12px; font-size: 11px; color: #92400e; display: flex; align-items: center; gap: 8px;">
+						<span style="font-size: 16px;">⏳</span>
+						<div>
+							<b>Menunggu Anggota Aliansi (1/5):</b> Ekspedisi butuh minimal <b>2 pemain</b> untuk bertempur. Bagikan target ini ke chat aliansi agar anggota lain bergabung! Serangan otomatis meluncur jika minimal 2 orang sudah siap saat timer benturan habis.
+						</div>
+					</div>
+				<?php } elseif (count($members) < 5) { ?>
+					<div style="margin: 10px 0 6px 0; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 9px 12px; font-size: 11px; color: #166534; display: flex; align-items: center; gap: 8px;">
+						<span style="font-size: 16px;">⚔️</span>
+						<div>
+							<b>Siap Tempur (<?php echo count($members); ?>/5):</b> Syarat minimal 2 pemain <b>sudah terpenuhi</b>! Tidak wajib menunggu 5 orang.
+							<?php if ($isLeader) { ?>
+								Anda dapat menunggu anggota lain bergabung hingga timer habis, atau klik tombol <b>⚡ Luncurkan Sekarang</b> di bawah untuk serbu instan!
+							<?php } else { ?>
+								Menunggu Leader meluncurkan serangan, atau otomatis berangkat saat timer benturan di atas habis.
+							<?php } ?>
+						</div>
+					</div>
+				<?php } else { ?>
+					<div style="margin: 10px 0 6px 0; background: #fdf2f8; border: 1px solid #fbcfe8; border-radius: 6px; padding: 9px 12px; font-size: 11px; color: #831843; display: flex; align-items: center; gap: 8px;">
+						<span style="font-size: 16px;">🔥</span>
+						<div>
+							<b>Forward Camp Penuh (5/5)!</b> Seluruh slot pasukan aliansi telah terisi lengkap.
+							<?php if ($isLeader) { ?>
+								Silakan klik tombol <b>⚡ Luncurkan Sekarang</b> di bawah untuk melancarkan serangan gabungan sekarang!
+							<?php } else { ?>
+								Menunggu Leader meluncurkan serangan atau otomatis berangkat saat timer habis.
+							<?php } ?>
+						</div>
+					</div>
+				<?php } ?>
+
 				<!-- Active Tribe Synergies -->
 				<div class="synergy-box">
 					<div style="font-weight: bold; font-size: 11px; color: #6b21a8; margin-bottom: 4px;">
@@ -584,7 +648,7 @@ for ($i = 1; $i <= 10; $i++) {
 					<div>
 						<a href="bandit.php" style="color: #64748b; font-size: 11px; text-decoration: underline;">&laquo; Kembali ke Radar</a>
 					</div>
-					<div style="display: flex; gap: 6px;">
+					<div style="display: flex; gap: 6px; align-items: center;">
 						<?php if ($isLeader) { ?>
 							<form method="post" action="expedition.php" style="display: inline;">
 								<input type="hidden" name="action" value="cancel" />
@@ -597,10 +661,20 @@ for ($i = 1; $i <= 10; $i++) {
 								<form method="post" action="expedition.php" style="display: inline;">
 									<input type="hidden" name="action" value="launch_now" />
 									<input type="hidden" name="expedition_id" value="<?php echo $exp['id']; ?>" />
-									<button type="submit" class="btn-exp-action btn-exp-launch" onclick="return confirm('Luncurkan serangan Forward Camp sekarang bersama seluruh anggota yang sudah siap?');">
-										⚡ Luncurkan Sekarang
+									<button type="submit" class="btn-exp-action btn-exp-launch" style="font-weight: bold; box-shadow: 0 2px 8px rgba(217, 119, 6, 0.4);" onclick="return confirm('Luncurkan serangan Forward Camp sekarang bersama seluruh anggota yang sudah siap?');">
+										⚡ Luncurkan Sekarang (<?php echo count($members); ?>/5)
 									</button>
 								</form>
+							<?php } ?>
+						<?php } else { ?>
+							<?php if (count($members) >= 2) { ?>
+								<span style="color: #166534; font-size: 11px; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 4px 10px; border-radius: 4px; font-weight: bold;">
+									⚔️ Siap Tempur &bull; Menunggu Leader meluncurkan serangan
+								</span>
+							<?php } else { ?>
+								<span style="color: #64748b; font-size: 11px; background: #f8fafc; border: 1px solid #cbd5e1; padding: 4px 10px; border-radius: 4px;">
+									⏳ Menunggu anggota lain bergabung (Min. 2 pemain)
+								</span>
 							<?php } ?>
 						<?php } ?>
 					</div>
@@ -779,13 +853,17 @@ for ($i = 1; $i <= 10; $i++) {
 							$aExp = $ae['expedition'];
 							$aTimeLeft = max(0, (int)$aExp['impact_time'] - time());
 						?>
+							<?php 
+								$aTimerNum = ++$session->timer;
+								$aFmtTime = sprintf('%02d:%02d:%02d', intdiv($aTimeLeft, 3600), intdiv($aTimeLeft % 3600, 60), $aTimeLeft % 60);
+							?>
 							<div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center;">
 								<div>
 									<div style="font-weight: bold; color: #1e1b4b; font-size: 12px;">
 										🎯 <?php echo htmlspecialchars($aExp['camp_name']); ?>
 									</div>
 									<div style="font-size: 10px; color: #64748b; margin-top: 2px;">
-										Peserta: <?php echo $ae['member_count']; ?>/5 &bull; ⏱️ Benturan dalam <?php echo gmdate("i:s", $aTimeLeft); ?>
+										Peserta: <?php echo $ae['member_count']; ?>/5 &bull; ⏱️ Benturan dalam <span id="timer<?php echo $aTimerNum; ?>" class="exp-live-timer" data-seconds="<?php echo $aTimeLeft; ?>"><?php echo $aFmtTime; ?></span>
 									</div>
 								</div>
 								<div>
