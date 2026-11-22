@@ -637,7 +637,10 @@ if ($oasisBountyData === null && file_exists(dirname(__DIR__, 2) . '/GameEngine/
 <?php endif; ?>
 
 <?php
-if (empty($dataarray[268]) && empty($dataarray[269])) { ?>
+// Bounty / Plunder is shown for all non-scout combat attacks, including when sending Chiefs / Rams / Catapults.
+// In legacy 5-tribe reports, indices 176/177 held spy info. In 10-tribe reports, index 268/269 held Chief data,
+// which previously caused bounty to be hidden whenever a Chief was present in the attack.
+if (!$spy && !$isScoutNotice && isset($dataarray[23])) { ?>
 <tbody class="goods">
 <tr>
 <th><?php echo BOUNTY; ?></th>

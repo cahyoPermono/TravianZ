@@ -213,9 +213,19 @@ $reportData[29] = $vidB1; // Defender Village ID
 $reportData[30] = 'Defender Colony'; // Defender Village Name
 $reportData[35] = 2; // Defender Tribe
 
-// Chief result:
+// Stolen resources & bounty
+$reportData[23] = '500';
+$reportData[24] = '600';
+$reportData[25] = '700';
+$reportData[26] = '800';
+$reportData[27] = '24000';
+
+// Chief result (indices 250/251 or 268/269)
 $reportData[250] = '19'; // Unit 19
 $reportData[251] = rc_tok('RC_LOYALTY_LOWERED', 100, 78);
+// Also simulate 268/269 carrying chief data in 10-tribe layout
+$reportData[268] = '19';
+$reportData[269] = rc_tok('RC_LOYALTY_LOWERED', 100, 78);
 
 $message = new stdClass();
 $message->readingNotice = [
@@ -238,6 +248,7 @@ $htmlOutput = ob_get_clean();
 
 assert_true(strpos($htmlOutput, 'unit u19') !== false, "Test 6: Notice/1.tpl displays Chief unit 19 icon");
 assert_true(strpos($htmlOutput, '78') !== false || strpos($htmlOutput, 'RC_LOYALTY_LOWERED') !== false || stripos($htmlOutput, 'loyalty') !== false || stripos($htmlOutput, 'loyalitas') !== false, "Test 6: Notice/1.tpl displays loyalty reduction message");
+assert_true(strpos($htmlOutput, 'class="r1"') !== false && strpos($htmlOutput, 'class="carry"') !== false, "Test 6: Notice/1.tpl displays Bounty / Plunder even when Chief is in attack");
 
 // Test 6b: Template rendering with RC_NO_REDUCE_CP_RAID
 $reportData[251] = rc_tok('RC_NO_REDUCE_CP_RAID');
