@@ -221,6 +221,8 @@ tz_def('RC_DESTROYED', 'détruit');
 tz_def('RC_NOT_DAMAGED', "n'a pas été endommagé.");
 tz_def('RC_DAMAGED_FROM_TO', 'endommagé du niveau <b>%s</b> au niveau <b>%s</b>.');
 tz_def('RC_NO_BUILDINGS', 'Il ne reste aucun bâtiment à détruire');
+tz_def('RC_TARGET_NOT_FOUND', '(La cible %s est introuvable dans le village - redirigée aléatoirement)');
+tz_def('RC_TARGET_RANDOM_CONFUSION', '(Visée aléatoire suite à la fête de la bière ou effet de confusion)');
 tz_def('RC_VILLAGE_ALREADY_DESTROYED', 'Village déjà détruit.');
 tz_def('RC_VILLAGE_CANT_DESTROY', 'Le village ne peut pas être détruit.');
 tz_def('RC_VILLAGE_CANT_BE', 'Le village ne peut pas être');

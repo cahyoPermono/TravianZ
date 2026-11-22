@@ -214,6 +214,8 @@ tz_def('RC_DESTROYED', 'destruido');
 tz_def('RC_NOT_DAMAGED', 'no fue dañado.');
 tz_def('RC_DAMAGED_FROM_TO', 'dañado del nivel <b>%s</b> al nivel <b>%s</b>.');
 tz_def('RC_NO_BUILDINGS', 'No quedan edificios por destruir');
+tz_def('RC_TARGET_NOT_FOUND', '(El objetivo %s no se encontró en la aldea - redirigido al azar)');
+tz_def('RC_TARGET_RANDOM_CONFUSION', '(Objetivo aleatorio por Fiesta de la Cerveza o efecto Confusión)');
 tz_def('RC_VILLAGE_ALREADY_DESTROYED', 'La aldea ya está destruida.');
 tz_def('RC_VILLAGE_CANT_DESTROY', "Village can't be destroyed.");
 tz_def('RC_VILLAGE_CANT_BE', "Village can't be");

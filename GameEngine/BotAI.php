@@ -7226,8 +7226,8 @@ class BotAI {
             1 => 31, // Roman City Wall
             2 => 32, // Teuton Earth Wall
             3 => 33, // Gaul Palisade
-            6 => 42, // Hun Makeshift Wall
-            7 => 43, // Egyptian Stone Wall
+            6 => 43, // Hun Makeshift Wall (43)
+            7 => 42, // Egyptian Stone Wall (42)
             8 => 47, // Spartan Wall
             9 => 50, // Viking Wooden Wall
             10 => 32, // Nusantara Benteng Kedaton

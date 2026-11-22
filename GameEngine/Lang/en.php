@@ -216,6 +216,8 @@ tz_def('RC_DESTROYED', 'destroyed');
 tz_def('RC_NOT_DAMAGED', 'was not damaged.');
 tz_def('RC_DAMAGED_FROM_TO', 'damaged from level <b>%s</b> to level <b>%s</b>.');
 tz_def('RC_NO_BUILDINGS', 'There are no buildings left to destroy');
+tz_def('RC_TARGET_NOT_FOUND', '(Target %s not found in village - redirected randomly)');
+tz_def('RC_TARGET_RANDOM_CONFUSION', '(Targeted randomly due to Mead Festival or Confusion effect)');
 tz_def('RC_VILLAGE_ALREADY_DESTROYED', 'Village already destroyed.');
 tz_def('RC_VILLAGE_CANT_DESTROY', "Village can't be destroyed.");
 tz_def('RC_VILLAGE_CANT_BE', "Village can't be");

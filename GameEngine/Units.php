@@ -1041,7 +1041,10 @@ class Units {
         $to_owner = $database->getVillageField($data['to_vid'], "owner");
         $rivalsGreatConfusion = $database->getArtifactsSumByKind($to_owner, $data['to_vid'], 7);
 
-        $rallyPointLevel = ($village->resarray)['f39'];
+        $rallyPointLevel = (int)($village->resarray['f39'] ?? 0);
+        if ($rallyPointLevel <= 0 && isset($GLOBALS['building']) && is_object($GLOBALS['building'])) {
+            $rallyPointLevel = (int)$GLOBALS['building']->getTypeLevel(16);
+        }
         $invalidBuildings = $this->catapultInvalidBuildings($rallyPointLevel);
 
         // UM-W1: validarea per-tinta extrasa in catapultTargetAllowed(); comportament

@@ -134,10 +134,24 @@ $kata = !empty($process['t8']);
 
         <?php if ($kata && $process['c'] != 2): ?>
             <?php if ($process['c'] == 3): ?>
+            <?php
+            $hasActiveBrewery = false;
+            if ($villageTribe == 2) {
+                $senderCapital = $database->getVillage($session->uid, 3);
+                $hasActiveBrewery = $senderCapital
+                    && (int)$senderCapital['festival'] > time()
+                    && $database->getFieldLevelInVillage($senderCapital['wref'], 35) > 0;
+            }
+            ?>
             <tbody class="cata">
                 <tr>
                     <th><?php echo TZ_DESTINATION; ?></th>
                     <td colspan="<?php echo $colspan; ?>">
+                        <?php if ($hasActiveBrewery): ?>
+                        <div style="margin: 4px 0 8px; padding: 7px 11px; background: #fef3c7; border: 1.5px solid #f59e0b; border-radius: 5px; color: #92400e; font-size: 11.5px; line-height: 1.4;">
+                            🍺 <b>Peringatan Festival Bir (Mead-Festival):</b> Perayaan bir sedang aktif di Ibukota Anda! Seluruh bidikan Catapult akan <b>menembak secara ACAK (Random)</b> selama perayaan berlangsung.
+                        </div>
+                        <?php endif; ?>
                         <select name="ctar1" class="dropdown">
                             <option value="0"><?php echo RANDOM; ?></option>
                             <?php if ($building->getTypeLevel(16) >= 5): ?>

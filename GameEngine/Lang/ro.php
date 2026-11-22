@@ -217,6 +217,8 @@ tz_def('RC_DESTROYED', 'distrus');
 tz_def('RC_NOT_DAMAGED', 'nu a fost avariat.');
 tz_def('RC_DAMAGED_FROM_TO', 'avariat de la nivelul <b>%s</b> la nivelul <b>%s</b>.');
 tz_def('RC_NO_BUILDINGS', 'Nu mai sunt clădiri de distrus');
+tz_def('RC_TARGET_NOT_FOUND', '(Ținta %s nu a fost găsită în sat - redirecționată la întâmplare)');
+tz_def('RC_TARGET_RANDOM_CONFUSION', '(Țintă aleatorie din cauza Festivalului Berii sau Confuzie)');
 tz_def('RC_VILLAGE_ALREADY_DESTROYED', 'Sat deja distrus.');
 tz_def('RC_VILLAGE_CANT_DESTROY', 'Satul nu poate fi distrus.');
 tz_def('RC_VILLAGE_CANT_BE', 'Satul nu poate fi');

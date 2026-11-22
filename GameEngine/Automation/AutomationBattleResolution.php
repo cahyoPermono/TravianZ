@@ -21,7 +21,7 @@
 trait AutomationBattleResolution {
 
 
-    private function resolveCatapultsDestruction(&$bdo, &$battlepart, &$info_cat, &$data, $catapultTarget, $twoRowsCatapultSetup, $isSecondRow, $catp_pic, $can_destroy, $isoasis, &$village_destroyed, $tribe) {
+    private function resolveCatapultsDestruction(&$bdo, &$battlepart, &$info_cat, &$data, $catapultTarget, $twoRowsCatapultSetup, $isSecondRow, $catp_pic, $can_destroy, $isoasis, &$village_destroyed, $tribe, $fallbackNote = '') {
         global $battle, $database, $bid34;
 
         if(isset($catapultTarget))
@@ -106,7 +106,7 @@ trait AutomationBattleResolution {
                 if ($isSecondRow) {
                     if ($tbid > 0) {
                         $info_cat .= "<tbody class=\"goods\"><tr><th>".(defined('INFORMATION') ? INFORMATION : 'Information')."</th><td colspan=\"11\">
-					<img class=\"unit u".$catp_pic."\" src=\"img/x.gif\" alt=\"".rc_tok('RC_CATAPULT')."\" title=\"".rc_tok('RC_CATAPULT')."\" /> ".rc_bld($tbgid, $can_destroy)." <b>".rc_tok('RC_DESTROYED')."</b>.";
+					<img class=\"unit u".$catp_pic."\" src=\"img/x.gif\" alt=\"".rc_tok('RC_CATAPULT')."\" title=\"".rc_tok('RC_CATAPULT')."\" /> ".rc_bld($tbgid, $can_destroy)." <b>".rc_tok('RC_DESTROYED')."</b>." . $fallbackNote;
                     }
                     
                     // embassy level was changed
@@ -116,7 +116,7 @@ trait AutomationBattleResolution {
                     
                     $info_cat .= "</td></tr></tbody>";
                 } else {
-                    $info_cat = "".$catp_pic.", ".rc_bld($tbgid, $can_destroy)." <b>".rc_tok('RC_DESTROYED')."</b>.";
+                    $info_cat = "".$catp_pic.", ".rc_bld($tbgid, $can_destroy)." <b>".rc_tok('RC_DESTROYED')."</b>." . $fallbackNote;
                     
                     // embassy level was changed
                     if ($tbgid == 18){
@@ -129,10 +129,10 @@ trait AutomationBattleResolution {
                 if($isSecondRow) {
                     if ($tbid > 0) {
                         $info_cat .= "<tbody class=\"goods\"><tr><th>".(defined('INFORMATION') ? INFORMATION : 'Information')."</th><td colspan=\"11\">
-					<img class=\"unit u".$catp_pic."\" src=\"img/x.gif\" alt=\"".rc_tok('RC_CATAPULT')."\" title=\"".rc_tok('RC_CATAPULT')."\" /> ".rc_bld($tbgid, $can_destroy)." ".rc_tok('RC_NOT_DAMAGED')."</td></tr></tbody>";
+					<img class=\"unit u".$catp_pic."\" src=\"img/x.gif\" alt=\"".rc_tok('RC_CATAPULT')."\" title=\"".rc_tok('RC_CATAPULT')."\" /> ".rc_bld($tbgid, $can_destroy)." ".rc_tok('RC_NOT_DAMAGED') . $fallbackNote . "</td></tr></tbody>";
                     }
                 } else {
-                    $info_cat = "".$catp_pic.",".rc_bld($tbgid, $can_destroy)." ".rc_tok('RC_NOT_DAMAGED');
+                    $info_cat = "".$catp_pic.",".rc_bld($tbgid, $can_destroy)." ".rc_tok('RC_NOT_DAMAGED') . $fallbackNote;
                 }
             }
             // building/field was damaged, let's calculate the actual damage
@@ -169,7 +169,7 @@ trait AutomationBattleResolution {
                 
                 if ($isSecondRow) {
                     $info_cat .= "<tbody class=\"goods\"><tr><th>".(defined('INFORMATION') ? INFORMATION : 'Information')."</th><td colspan=\"11\">
-					<img class=\"unit u".$catp_pic."\" src=\"img/x.gif\" alt=\"".rc_tok('RC_CATAPULT')."\" title=\"".rc_tok('RC_CATAPULT')."\" /> ".rc_bld($tbgid, $can_destroy).$info_cata;
+					<img class=\"unit u".$catp_pic."\" src=\"img/x.gif\" alt=\"".rc_tok('RC_CATAPULT')."\" title=\"".rc_tok('RC_CATAPULT')."\" /> ".rc_bld($tbgid, $can_destroy).$info_cata . $fallbackNote;
                     
                     // embassy level was changed
                     if ($tbgid == 18) {
@@ -178,7 +178,7 @@ trait AutomationBattleResolution {
                     
                     $info_cat .= "</td></tr></tbody>";
                 } else {
-                    $info_cat = "" . $catp_pic . "," . rc_bld($tbgid, $can_destroy).$info_cata;
+                    $info_cat = "" . $catp_pic . "," . rc_bld($tbgid, $can_destroy).$info_cata . $fallbackNote;
                     
                     // embassy level was changed
                     if ($tbgid == 18) {
@@ -224,12 +224,17 @@ trait AutomationBattleResolution {
                     				
                     				$basearray = $data['to'];
                     				$bdo = $database->getResourceLevel($basearray, false);
-                    				$catapultTarget = $data['ctar1'];
-                    				$catapultTarget2 = (isset($data['ctar2']) ? $data['ctar2'] : 0);
+                    				$catapultTarget = (int)($data['ctar1'] ?? 0);
+                    				$catapultTarget2 = (int)(isset($data['ctar2']) ? $data['ctar2'] : 0);
                     				
                     				$catapults1TargetRandom = ($catapultTarget == 0);
                     				$catapults2WillNotShoot = ($catapultTarget2 == 0);
                     				$catapults2TargetRandom = ($catapults2WillNotShoot || $catapultTarget2 == 99);
+
+                    				// Government buildings group (Residence, Palace, Command Center)
+                    				$govBuildings = [25, 26, 44];
+                    				$cat1FallbackNotFound = false;
+                    				$origCat1Target = $catapultTarget;
                     				
                     				// we're manually targetting 1st and/or 2nd row of catapults
                     				if (!$catapults1TargetRandom)
@@ -244,11 +249,23 @@ trait AutomationBattleResolution {
                     						if ($i == 41) $i = 99;
                     						
                     						// 1st row of catapults pre-selected target calculations, if needed
-                    						if (!$catapults1TargetRandom && $bdo['f'.$i.'t'] == $catapultTarget && $bdo['f'.$i] > 0 && $i != 40)
+                    						if (!$catapults1TargetRandom && ($bdo['f'.$i.'t'] ?? 0) == $catapultTarget && ($bdo['f'.$i] ?? 0) > 0 && $i != 40)
                     						{
                     							$j++;
-                    							$_catapultsTarget1Levels[$j]=$bdo['f'.$i];
-                    							$__catapultsTarget1AltTargets[$j]=$i;
+                    							$_catapultsTarget1Levels[$j] = $bdo['f'.$i];
+                    							$__catapultsTarget1AltTargets[$j] = $i;
+                    						}
+                    					}
+
+                    					// Fallback to alternative government building if exact one is absent (e.g. targeted Residence but target village has Palace or Command Center)
+                    					if (count($_catapultsTarget1Levels) == 0 && in_array($catapultTarget, $govBuildings, true)) {
+                    						for ($i = 1; $i <= 41; $i++) {
+                    							if ($i == 41) $i = 99;
+                    							if (in_array((int)($bdo['f'.$i.'t'] ?? 0), $govBuildings, true) && ($bdo['f'.$i] ?? 0) > 0 && $i != 40) {
+                    								$j++;
+                    								$_catapultsTarget1Levels[$j] = $bdo['f'.$i];
+                    								$__catapultsTarget1AltTargets[$j] = $i;
+                    							}
                     						}
                     					}
                     					
@@ -258,12 +275,15 @@ trait AutomationBattleResolution {
                     						if ( count( $_catapultsTarget1Levels ) > 0 ) {
                     							if ( max( $_catapultsTarget1Levels ) <= 0 ) {
                     								$catapultTarget = 0;
+                    								$catapults1TargetRandom = true;
+                    								$cat1FallbackNotFound = true;
                     							} else {
                     								$catapultTarget = $__catapultsTarget1AltTargets[rand( 1, $j )];
                     							}
                     						} else {
                     							$catapultTarget = 0;
                     							$catapults1TargetRandom = true;
+                    							$cat1FallbackNotFound = true;
                     						}
                     					}
                     				}
@@ -277,19 +297,26 @@ trait AutomationBattleResolution {
                     						if ($i == 41) $i = 99;
                     						if ($bdo['f'.$i] > 0 && $i != 40) $list[] = $i;
                     					}
-                    					$catapultTarget = $list[rand(0, count($list) - 1)];
+                    					$catapultTarget = !empty($list) ? $list[rand(0, count($list) - 1)] : 0;
+                    				}
+
+                    				$fallbackNote1 = '';
+                    				if ($cat1FallbackNotFound && $origCat1Target > 0) {
+                    					$fallbackNote1 = ' ' . rc_tok('RC_TARGET_NOT_FOUND', rc_bld($origCat1Target));
                     				}
                     				
                     				/**
                     				 * resolve 1st row of catapults
                     				 */
                     				$village_destroyed = 0;
-                    				$this->resolveCatapultsDestruction($bdo, $battlepart, $info_cat, $data, $catapultTarget, !$catapults2WillNotShoot, false, $catp_pic, $can_destroy, $isoasis, $village_destroyed, $targettribe);
+                    				$this->resolveCatapultsDestruction($bdo, $battlepart, $info_cat, $data, $catapultTarget, !$catapults2WillNotShoot, false, $catp_pic, $can_destroy, $isoasis, $village_destroyed, $targettribe, $fallbackNote1);
                     				
                     				/**
                     				 * SECOND CATAPULTS ROW
                     				 */
-                    				
+                    				$cat2FallbackNotFound = false;
+                    				$origCat2Target = $catapultTarget2;
+
                     				// we're manually targetting 2nd row of catapults
                     				if (!$catapults2TargetRandom)
                     				{
@@ -303,11 +330,23 @@ trait AutomationBattleResolution {
                     						if ($i == 41) $i = 99;
                     						
                     						// 2nd row of catapults pre-selected target calculations, if needed
-                    						if (!$catapults2TargetRandom && !$catapults2WillNotShoot && $bdo['f'.$i.'t'] == $catapultTarget2 && $bdo['f'.$i] > 0 && $i != 40)
+                    						if (!$catapults2TargetRandom && !$catapults2WillNotShoot && ($bdo['f'.$i.'t'] ?? 0) == $catapultTarget2 && ($bdo['f'.$i] ?? 0) > 0 && $i != 40)
                     						{
                     							$j++;
                     							$_catapultsTarget2Levels[$j] = $bdo['f'.$i];
                     							$__catapultsTarget2AltTargets[$j] = $i;
+                    						}
+                    					}
+
+                    					// Fallback to alternative government building if exact one is absent
+                    					if (count($_catapultsTarget2Levels) == 0 && in_array($catapultTarget2, $govBuildings, true)) {
+                    						for ($i = 1; $i <= 41; $i++) {
+                    							if ($i == 41) $i = 99;
+                    							if (in_array((int)($bdo['f'.$i.'t'] ?? 0), $govBuildings, true) && ($bdo['f'.$i] ?? 0) > 0 && $i != 40) {
+                    								$j++;
+                    								$_catapultsTarget2Levels[$j] = $bdo['f'.$i];
+                    								$__catapultsTarget2AltTargets[$j] = $i;
+                    							}
                     						}
                     					}
                     					
@@ -317,11 +356,14 @@ trait AutomationBattleResolution {
                     						if (count($_catapultsTarget2Levels) > 0 ) {
                     							if (max($_catapultsTarget2Levels) <= 0 ) {
                     								$catapultTarget2 = 99;
+                    								$catapults2TargetRandom = true;
+                    								$cat2FallbackNotFound = true;
                     							}
                     							else $catapultTarget2 = $__catapultsTarget2AltTargets[rand( 1, $j )];
                     						} else {
                     							$catapultTarget2 = 99;
                     							$catapults2TargetRandom = true;
+                    							$cat2FallbackNotFound = true;
                     						}
                     					}
                     				}
@@ -348,12 +390,17 @@ trait AutomationBattleResolution {
                     						$catapultTarget2 = 99;
                     					}
                     				}
+
+                    				$fallbackNote2 = '';
+                    				if ($cat2FallbackNotFound && $origCat2Target > 0 && $origCat2Target != 99) {
+                    					$fallbackNote2 = ' ' . rc_tok('RC_TARGET_NOT_FOUND', rc_bld($origCat2Target));
+                    				}
                     				
                     				/**
                     				 * resolve 2nd row of catapults
                     				 */
                     				if (!$catapults2WillNotShoot) {
-                    					$this->resolveCatapultsDestruction($bdo, $battlepart, $info_cat, $data, $catapultTarget2, true, true, $catp_pic, $can_destroy, $isoasis, $village_destroyed, $targettribe);
+                    					$this->resolveCatapultsDestruction($bdo, $battlepart, $info_cat, $data, $catapultTarget2, true, true, $catp_pic, $can_destroy, $isoasis, $village_destroyed, $targettribe, $fallbackNote2);
                     				}
                     				
                     				// clear resource levels cache, since we might have destroyed buildings/fields by now

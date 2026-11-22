@@ -237,6 +237,8 @@ class Village {
 		$this->healNusantaraParanormal();
 		// Self-healing: Pulihkan pasukan suku lain yang tertinggal/residu mutasi ke suku desa saat ini
 		$this->healAlienTroops();
+		// Self-healing: Pulihkan tipe tembok (f40t) jika tidak sesuai dengan suku desa saat ini
+		$this->healWallType();
 
 		$this->awood = $this->infoarray['wood'];
 		$this->aclay = $this->infoarray['clay'];
@@ -666,6 +668,44 @@ class Village {
 			if (isset($this->tech) && method_exists($this->tech, 'getAllUnits')) {
 				$this->unitall = $this->tech->getAllUnits($this->wid);
 			}
+		}
+	}
+
+	/**
+	 * Self-healing: Memastikan tipe tembok desa (f40t) sesuai dengan suku pemilik desa.
+	 * Memperbaiki desa yang mengalami inversi tembok (misal Egypt punya Makeshift Wall 43,
+	 * Hun punya Stone Wall 42, dsb akibat bug mutasi suku sebelumnya).
+	 */
+	private function healWallType(): void {
+		if (empty($this->resarray) || !is_array($this->resarray) || empty($this->wid)) {
+			return;
+		}
+
+		$vTribe = (int)($this->tribe ?? 1);
+		$wallMap = [
+			1 => 31, // Romawi: City Wall
+			2 => 32, // Teuton: Earth Wall
+			3 => 33, // Galia: Palisade
+			6 => 43, // Hun: Makeshift Wall
+			7 => 42, // Mesir: Stone Wall
+			8 => 47, // Sparta: Defensive Wall
+			9 => 50, // Viking: Barricade
+			10 => 32, // Nusantara: Benteng Kedaton
+		];
+
+		if (!isset($wallMap[$vTribe])) {
+			return;
+		}
+
+		$expectedWallType = $wallMap[$vTribe];
+		$currentWallType = isset($this->resarray['f40t']) ? (int)$this->resarray['f40t'] : 0;
+		$currentWallLevel = isset($this->resarray['f40']) ? (int)$this->resarray['f40'] : 0;
+
+		// Jika desa memiliki tembok (level > 0 atau f40t sudah terpasang) namun tipe temboknya tidak cocok
+		if (($currentWallLevel > 0 || $currentWallType > 0) && $currentWallType !== $expectedWallType) {
+			$this->resarray['f40t'] = $expectedWallType;
+			$this->db->query("UPDATE " . TB_PREFIX . "fdata SET `f40t` = {$expectedWallType} WHERE vref = " . (int)$this->wid);
+			$this->db->query("UPDATE " . TB_PREFIX . "bdata SET `type` = {$expectedWallType} WHERE wid = " . (int)$this->wid . " AND field = 40");
 		}
 	}
 

@@ -34,6 +34,10 @@ assertCondition(isset($avail[10]), "Tribe 10 (Nusantara) is available");
 assertCondition(BlackMarket::getTribeWallType(1) === 31, "Tribe 1 wall type is 31");
 assertCondition(BlackMarket::getTribeWallType(2) === 32, "Tribe 2 wall type is 32");
 assertCondition(BlackMarket::getTribeWallType(3) === 33, "Tribe 3 wall type is 33");
+assertCondition(BlackMarket::getTribeWallType(6) === 43, "Tribe 6 wall type is 43 (Makeshift Wall)");
+assertCondition(BlackMarket::getTribeWallType(7) === 42, "Tribe 7 wall type is 42 (Stone Wall)");
+assertCondition(BlackMarket::getTribeWallType(8) === 47, "Tribe 8 wall type is 47 (Spartan Wall)");
+assertCondition(BlackMarket::getTribeWallType(9) === 50, "Tribe 9 wall type is 50 (Viking Barricade)");
 assertCondition(BlackMarket::getTribeWallType(10) === 32, "Tribe 10 wall type is 32 (Benteng Kedaton)");
 
 // 2. Setup Test User and Test Village
@@ -120,7 +124,7 @@ $resHun = BlackMarket::changeTribe($testUid, $testWid, 6);
 assertCondition($resHun['success'], "changeTribe to Huns (6) succeeded");
 $fHunCheck = mysqli_fetch_assoc(mysqli_query($db, "SELECT f19, f19t, f40t FROM `" . TB_PREFIX . "fdata` WHERE vref = $testWid"));
 assertCondition((int)$fHunCheck['f19t'] === 44, "Residence (25) converted to Command Center (44) for Huns");
-assertCondition((int)$fHunCheck['f40t'] === 42, "Wall converted to 42 (Makeshift Wall) for Huns");
+assertCondition((int)$fHunCheck['f40t'] === 43, "Wall converted to 43 (Makeshift Wall) for Huns");
 
 // 7. Test: Change from Huns (6) to Sparta (8) -> Command Center converts to Palace (capital=1) & Hospital converts to Big Hospital (48)
 $resSparta = BlackMarket::changeTribe($testUid, $testWid, 8);
