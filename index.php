@@ -101,7 +101,7 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
     <meta name="description" content="Portal perang strategi kuno TravianZ dengan Suku Maritim Nusantara, Dinamika Cuaca Ekstrem, Sampar Wabah Desa, Ekspedisi PvE Sarang Bandit, Pasar Gelap Bebas Emas, dan Tentara Bayaran Netral!" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" type="text/css" href="gpack/travian/landing_v2.css?v=20261122_v2" />
+    <link rel="stylesheet" type="text/css" href="gpack/travian/landing_v3.css?v=20261122_v3" />
 </head>
 
 <body class="war-portal">
@@ -118,7 +118,7 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
 
             <ul class="war-nav-menu">
                 <li><a href="#codex" class="war-nav-link">Buku Ekspansi</a></li>
-                <li><a href="#council" class="war-nav-link">Dewan Peradaban</a></li>
+                <li><a href="#characters" class="war-nav-link">Suku &amp; Panglima</a></li>
                 <li><a href="#chronicles" class="war-nav-link">Warta Server</a></li>
                 <li><a href="#gallery" class="war-nav-link">Peta Tempur</a></li>
                 <li><a href="https://github.com/Shadowss/TravianZ/discussions" target="_blank" rel="noopener noreferrer" class="war-nav-link">Komunitas</a></li>
@@ -176,7 +176,7 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
 
             <ul class="mobile-drawer-nav">
                 <li><a href="#codex" class="mobile-nav-link" onclick="closeMobileMenu()"><span>📜</span> Buku Ekspansi</a></li>
-                <li><a href="#council" class="mobile-nav-link" onclick="closeMobileMenu()"><span>👑</span> Dewan Peradaban</a></li>
+                <li><a href="#characters" class="mobile-nav-link" onclick="closeMobileMenu()"><span>👑</span> Suku &amp; Panglima</a></li>
                 <li><a href="#chronicles" class="mobile-nav-link" onclick="closeMobileMenu()"><span>📢</span> Warta Server</a></li>
                 <li><a href="#gallery" class="mobile-nav-link" onclick="closeMobileMenu()"><span>🗺️</span> Peta Tempur</a></li>
                 <li><a href="https://github.com/Shadowss/TravianZ/discussions" target="_blank" rel="noopener noreferrer" class="mobile-nav-link" onclick="closeMobileMenu()"><span>💬</span> Komunitas Forum ↗</a></li>
@@ -184,8 +184,9 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
         </div>
     </div>
 
-    <!-- Hero Stage: Asymmetric War Room -->
-    <section class="hero-stage">
+    <main class="war-portal-viewport">
+    <!-- Hero Stage: Cinematic Lost in Random Style -->
+    <section class="hero-stage" id="heroStage">
         <canvas id="warEmbersCanvas" class="hero-embers-canvas"></canvas>
         <div class="hero-backdrop-glow"></div>
         <div class="portal-container hero-grid">
@@ -193,30 +194,58 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
             <div class="hero-dispatch">
                 <div class="imperial-seal-pill">
                     <span class="seal-gem"></span>
-                    <span class="seal-text">DOKTRIN EXPANSION 2026: NUSANTARA & JAGAT TERLARANG</span>
+                    <span class="seal-text">DOKTRIN EXPANSION 2026: NUSANTARA &amp; JAGAT TERLARANG</span>
                 </div>
 
                 <h1 class="hero-headline">
-                    PIMPIN PERADABAN AGUNG,<br />
-                    <span class="gold-shimmer">TAKDIRKAN SEJARAH DUNIA.</span>
+                    PIMPIN PERADABAN &mdash;<br />
+                    <span class="crimson-shimmer">TAKDIRKAN SEJARAH DUNIA.</span>
                 </h1>
 
                 <p class="hero-manifesto">
-                    Jelajahi era paling sengit dalam sejarah <strong>Travian</strong>. Pimpin armada bahari adidaya <strong>Suku Nusantara</strong>, bertarung di bawah amukan <strong>Dinamika Cuaca Ekstrem</strong>, bentengi desa dari ancaman <strong>Wabah Sampar</strong>, buru <strong>Sarang Bandit PvE</strong> di peta kuno, dan kendalikan <strong>Pasar Gelap</strong> bersama kompi <strong>Tentara Bayaran Netral</strong>!
+                    Jelajahi era paling sengit dalam sejarah <strong>Travian</strong>. Pimpin armada bahari adidaya <strong>Suku Nusantara</strong>, taklukkan ekspedisi <strong>Forward Camp Aliansi</strong> melawan Sarang Bandit &amp; World Boss, bertarung di bawah amukan <strong>Cuaca Ekstrem</strong>, bentengi desa dari <strong>Wabah Sampar</strong>, dan kuasai <strong>Pasar Gelap</strong> bersama <strong>Tentara Bayaran Netral</strong>!
                 </p>
+
+                <div class="vintage-flourish">
+                    <span class="flourish-line"></span>
+                    <span class="flourish-diamond">&#9671;</span>
+                    <span class="flourish-line"></span>
+                </div>
 
                 <div class="hero-cta-cluster">
                     <?php if ($isLoggedIn): ?>
-                        <a href="dorf1.php" class="war-btn war-btn-gold war-btn-lg pulse-glow">🏰 Kembali Memimpin Desa (<?php echo $loggedUser; ?>)</a>
-                        <a href="#codex" class="war-btn war-btn-iron war-btn-lg">📜 Buka Buku Ekspansi</a>
+                        <a href="dorf1.php" class="war-btn-pill-crimson">🏰 Kembali Memimpin Desa (<?php echo $loggedUser; ?>)</a>
+                        <a href="#characters" class="war-btn-pill-outline">📜 Dewan Suku &amp; Panglima</a>
                     <?php else: ?>
-                        <a href="anmelden.php" class="war-btn war-btn-gold war-btn-lg pulse-glow">⚔️ Bangun Kekaisaran Anda (Daftar Sekarang)</a>
-                        <a href="login.php" class="war-btn war-btn-iron war-btn-lg">🛡️ Masuk ke Medan Tempur</a>
+                        <a href="anmelden.php" class="war-btn-pill-crimson">⚔️ Rekrut Akun (Mulai Main Gratis)</a>
+                        <a href="login.php" class="war-btn-pill-outline">🛡️ Masuk Medan Tempur</a>
                     <?php endif; ?>
                 </div>
 
+                <!-- Laurel Wreath Badges (Indie Game Festival Stamp Style) -->
+                <div class="laurel-stamps-row">
+                    <div class="laurel-stamp-badge">
+                        <svg class="laurel-wreath-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                            <path d="M7 10c-.5-1-1.5-2-3-2s-2.5 1-3 2c.5 1 1.5 2 3 2s2.5-1 3-2zM17 10c.5-1 1.5-2 3-2s2.5 1 3 2-.5 2-2 2-2.5-1-3-2zM9 16c-.5-1-1.5-2-3-2s-2.5 1-3 2c.5 1 1.5 2 3 2s2.5-1 3-2zM15 16c.5-1 1.5-2 3-2s2.5 1 3 2-.5 2-2 2-2.5-1-3-2zM12 2v20M12 22a6 6 0 0 1-6-6M12 22a6 6 0 0 0 6-6" />
+                        </svg>
+                        <div class="laurel-stamp-meta">
+                            <span class="laurel-stamp-title">Edisi Eksklusif 2026</span>
+                            <span class="laurel-stamp-sub">Ekspansi Nusantara</span>
+                        </div>
+                    </div>
+                    <div class="laurel-stamp-badge">
+                        <svg class="laurel-wreath-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                        </svg>
+                        <div class="laurel-stamp-meta">
+                            <span class="laurel-stamp-title">Server Speed 10x</span>
+                            <span class="laurel-stamp-sub">PvE Forward Camp &amp; Bosses</span>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- War Intel Live Counters -->
-                <div class="intel-ribbon" id="intelRibbon">
+                <div class="intel-ribbon" id="intelRibbon" style="margin-top: 24px;">
                     <div class="intel-card">
                         <div class="intel-metric" data-target="<?php echo (int)$totalUsers; ?>"><?php echo number_format($totalUsers); ?></div>
                         <div class="intel-label">Total Jenderal</div>
@@ -227,29 +256,26 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
                     </div>
                     <div class="intel-card">
                         <div class="intel-metric" data-target="<?php echo (int)$totalVillages; ?>"><?php echo number_format($totalVillages); ?></div>
-                        <div class="intel-label">Benteng & Desa</div>
+                        <div class="intel-label">Benteng &amp; Desa</div>
                     </div>
                     <div class="intel-card">
                         <div class="intel-metric" data-target="<?php echo (int)$activeBandits; ?>" style="color:#f87171;"><?php echo number_format($activeBandits); ?></div>
-                        <div class="intel-label">Sarang Bandit Siap Diserbu</div>
+                        <div class="intel-label">Sarang Bandit Aktif</div>
                     </div>
                 </div>
             </div>
 
-            <!-- Right Column: Interactive Hero Commander Stage -->
-            <div class="hero-commander-stage">
-                <div class="commander-aura-ring"></div>
-                <div class="commander-pedestal">
-                    <div class="commander-portrait-frame">
-                        <img src="img/reg/portrait_v10.png" alt="Panglima Nusantara" class="commander-portrait-img" id="heroCommanderImg" />
-                    </div>
-                    <div class="faction-banner-badge">
-                        <img src="img/rpage/Nusantara1.jpg" alt="Panji Nusantara" id="heroBannerImg" />
-                    </div>
-                    <div class="commander-caption-box">
-                        <h3 class="commander-caption-title" id="heroCommanderTitle">Raden Wijaya</h3>
-                        <p class="commander-caption-sub" id="heroCommanderSub">Panglima Tertinggi Kerajaan Maritim Nusantara</p>
-                    </div>
+            <!-- Right Column: Interactive 3D Hero Centerpiece Stage -->
+            <div class="hero-centerpiece-stage">
+                <div class="hero-floating-island" id="heroFloatingIsland">
+                    <!-- Floating Runic Cards -->
+                    <div class="floating-runic-card card-pos-1" title="Cetbang Artileri">&#9876;</div>
+                    <div class="floating-runic-card card-pos-2" title="Lumbung Nusantara">&#127806;</div>
+                    <div class="floating-runic-card card-pos-3" title="Takhta Peradaban">&#128081;</div>
+
+                    <img src="img/landing_v3/hero_commander.png" alt="Panglima Nusantara Raden Wijaya" class="hero-figure-img" id="heroCommanderImg" />
+                    <div class="hero-stone-slab"></div>
+                    <div class="hero-slab-shadow"></div>
                 </div>
             </div>
         </div>
@@ -417,73 +443,81 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
         </div>
     </section>
 
-    <!-- The War Council: 8 Civilizations Arena -->
-    <section class="council-section" id="council">
+    <!-- 3D Figurine Characters & Civilizations Showcase -->
+    <section class="characters-stage" id="characters">
         <div class="portal-container">
             <div class="section-heraldry-header">
-                <span class="heraldry-seal-tag">👑 DEWAN KERAJAAN DUNIA KUNO</span>
-                <h2 class="heraldry-title">Pilih Peradaban & Tentukan Jalur Kejayaan Anda</h2>
+                <span class="heraldry-seal-tag">👑 DEWAN PERADABAN &amp; 8 SUKU BESAR</span>
+                <h2 class="heraldry-title">Pilih Panglima &amp; Tentukan Takdir Kerajaan Anda</h2>
                 <p class="heraldry-subtitle">
-                    Setiap suku memiliki karakteristik kepemimpinan, doktrin tempur, dan keunggulan militer yang unik. Pilih faksi yang mewakili jiwa strategi Anda.
+                    Setiap suku memiliki karakteristik doktrin perang, keunggulan pasukan militer, dan efek sinergi ekspedisi aliansi yang unik.
                 </p>
             </div>
 
             <!-- Faction Selector Tabs -->
-            <div class="faction-tabs-bar">
-                <button class="faction-tab-btn active" data-faction="nusantara">🇮🇩 Nusantara</button>
-                <button class="faction-tab-btn" data-faction="romans">🏛️ Romawi</button>
-                <button class="faction-tab-btn" data-faction="teutons">⚔️ Teuton</button>
-                <button class="faction-tab-btn" data-faction="gauls">🛡️ Galia</button>
-                <button class="faction-tab-btn" data-faction="egyptians">☀️ Mesir</button>
-                <button class="faction-tab-btn" data-faction="huns">🏹 Hun</button>
-                <button class="faction-tab-btn" data-faction="spartans">🛡️ Sparta</button>
-                <button class="faction-tab-btn" data-faction="vikings">🪓 Viking</button>
+            <div class="faction-tabs-bar" style="margin-bottom: 24px;">
+                <button class="faction-tab-btn active" data-faction="nusantara" onclick="switchFigurine('nusantara')">🇮🇩 Nusantara</button>
+                <button class="faction-tab-btn" data-faction="vikings" onclick="switchFigurine('vikings')">🪓 Viking</button>
+                <button class="faction-tab-btn" data-faction="natars" onclick="switchFigurine('natars')">🔮 Natars (The Queen)</button>
+                <button class="faction-tab-btn" data-faction="romans" onclick="switchFigurine('romans')">🏛️ Romawi</button>
+                <button class="faction-tab-btn" data-faction="teutons" onclick="switchFigurine('teutons')">⚔️ Teuton</button>
+                <button class="faction-tab-btn" data-faction="gauls" onclick="switchFigurine('gauls')">🛡️ Galia</button>
+                <button class="faction-tab-btn" data-faction="egyptians" onclick="switchFigurine('egyptians')">☀️ Mesir</button>
+                <button class="faction-tab-btn" data-faction="huns" onclick="switchFigurine('huns')">🏹 Hun</button>
+                <button class="faction-tab-btn" data-faction="spartans" onclick="switchFigurine('spartans')">🛡️ Sparta</button>
             </div>
 
-            <!-- Interactive Council Arena Display Card -->
-            <div class="council-arena-card" id="councilArenaCard">
-                <!-- Left: Life-size Commander Cutout -->
-                <div class="council-portrait-col">
-                    <div class="council-portrait-box">
-                        <img src="img/reg/portrait_v10.png" alt="Panglima Faksi" id="councilPortraitImg" class="council-portrait-img" />
+            <!-- Turntable Carousel Layout -->
+            <div class="characters-carousel-wrap">
+                <!-- Left: 3D Figurine on Pedestal Spotlight -->
+                <div class="figurine-stage-col">
+                    <div class="figurine-spotlight"></div>
+                    <div class="figurine-card-active" id="figurineDisplayCard">
+                        <img src="img/landing_v3/fig_nusantara.png" alt="Figurine Karakter" class="figurine-main-img" id="figurineImg" />
+                        <div class="figurine-shadow-base"></div>
                     </div>
-                    <img src="img/rpage/Nusantara1.jpg" alt="Panji Faksi" id="councilBannerImg" class="council-banner-img" />
-                    <span id="councilFactionBadge" class="council-faction-badge">Eksklusif: Kerajaan Maritim</span>
                 </div>
 
-                <!-- Right: Lore, Traits, Roster -->
-                <div class="council-details-col">
-                    <div class="council-header-bar">
-                        <h3 class="council-tribe-name" id="councilTribeName">Kerajaan Nusantara</h3>
-                        <span class="council-tribe-type" id="councilTribeType">Peradaban Maritim & Agrikultur</span>
+                <!-- Center: Lore, Traits, Military Lineup -->
+                <div class="figurine-lore-col">
+                    <div class="figurine-kicker">
+                        <span id="figurineBadge">Eksklusif: Kemaharajaan Maritim</span>
+                    </div>
+                    <h3 class="figurine-name-title" id="figurineName">RADEN WIJAYA</h3>
+                    <div class="figurine-sub-title" id="figurineSub">Panglima Tertinggi Kerajaan Maritim Nusantara</div>
+
+                    <div class="vintage-flourish" style="margin: 8px 0 16px;">
+                        <span class="flourish-line"></span>
+                        <span class="flourish-diamond">&#9671;</span>
+                        <span class="flourish-line"></span>
                     </div>
 
-                    <p class="council-tribe-lore" id="councilTribeLore">
+                    <p class="figurine-story-p" id="figurineLore">
                         Kerajaan Maritim Nusantara berdiri megah di atas gugusan kepulauan khatulistiwa yang kaya rempah. Dengan perpaduan armada kapal Jung raksasa, lumbung pangan yang melimpah, artileri meriam Cetbang, serta barisan Gajah Bhayangkara yang disegani, Nusantara adalah peradaban adidaya maritim yang tangguh dalam pertahanan dan mematikan dalam serbuan amfibi.
                     </p>
 
-                    <div class="council-traits-grid" id="councilTraitsGrid">
-                        <div class="council-trait-card">
-                            <div class="council-trait-title">🌾 Lumbung Kemakmuran</div>
-                            <div class="council-trait-desc">Kapasitas penyimpanan lumbung pangan dan perlindungan komoditas pangan lebih unggul.</div>
+                    <div class="figurine-traits-row" id="figurineTraits">
+                        <div class="figurine-trait-pill">
+                            <div class="figurine-trait-label">🌾 Lumbung Kemakmuran</div>
+                            <div class="figurine-trait-desc">Kapasitas penyimpanan lumbung pangan dan perlindungan komoditas pangan lebih unggul.</div>
                         </div>
-                        <div class="council-trait-card">
-                            <div class="council-trait-title">💥 Artileri Cetbang</div>
-                            <div class="council-trait-desc">Meriam perunggu putar yang sanggup meremukkan dinding benteng lawan dengan presisi tinggi.</div>
+                        <div class="figurine-trait-pill">
+                            <div class="figurine-trait-label">💥 Artileri Cetbang</div>
+                            <div class="figurine-trait-desc">Meriam perunggu putar yang sanggup meremukkan dinding benteng lawan dengan presisi tinggi.</div>
                         </div>
-                        <div class="council-trait-card">
-                            <div class="council-trait-title">🐘 Gajah Bhayangkara</div>
-                            <div class="council-trait-desc">Monster lapis baja pengobrak-abrik barisan infanteri musuh dalam pertempuran frontal.</div>
+                        <div class="figurine-trait-pill">
+                            <div class="figurine-trait-label">🐘 Gajah Bhayangkara</div>
+                            <div class="figurine-trait-desc">Monster lapis baja pengobrak-abrik barisan infanteri musuh dalam pertempuran frontal.</div>
                         </div>
-                        <div class="council-trait-card">
-                            <div class="council-trait-title">⛵ Jung & Kuda Laut</div>
-                            <div class="council-trait-desc">Kekuatan mobilitas armada cepat untuk ekspedisi dan pengintaian pesisir.</div>
+                        <div class="figurine-trait-pill">
+                            <div class="figurine-trait-label">⛵ Jung &amp; Kuda Laut</div>
+                            <div class="figurine-trait-desc">Kekuatan mobilitas armada cepat untuk ekspedisi dan pengintaian pesisir.</div>
                         </div>
                     </div>
 
                     <div class="council-roster-footer">
-                        <span class="roster-label">Barisan Pasukan:</span>
-                        <div class="council-icons-strip" id="councilTroopStrip">
+                        <span class="roster-label">Barisan Pasukan Militer:</span>
+                        <div class="council-icons-strip" id="figurineTroopStrip">
                             <img src="img/un/u/91.gif" alt="Keris" class="sprite-trooper" title="Pendekar Keris" />
                             <img src="img/un/u/92.gif" alt="Tombak" class="sprite-trooper" title="Pasukan Tombak" />
                             <img src="img/un/u/93.gif" alt="Panah" class="sprite-trooper" title="Pemanah Panah" />
@@ -495,8 +529,18 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
                             <img src="img/un/u/99.gif" alt="Jung" class="sprite-trooper" title="Jung Maritim" />
                             <img src="img/un/u/100.gif" alt="Resi" class="sprite-trooper" title="Tetua Adat / Resi" />
                         </div>
-                        <a href="anmelden.php" class="war-btn war-btn-gold" style="margin-left:auto;">⚔️ Pilih Suku Ini</a>
+                        <a href="anmelden.php" class="war-btn-pill-crimson" style="margin-left:auto; padding: 10px 20px; font-size: 13px;">⚔️ Pilih Suku Ini</a>
                     </div>
+                </div>
+
+                <!-- Right: Vertical Slide Indicator Rail -->
+                <div class="figurine-rail-col">
+                    <div class="rail-track">
+                        <div class="rail-fill" id="railFill" style="height: 33%;"></div>
+                    </div>
+                    <div class="rail-step-dot active" data-step="0" onclick="switchFigurineByIndex(0)" title="Nusantara"></div>
+                    <div class="rail-step-dot" data-step="1" onclick="switchFigurineByIndex(1)" title="Viking"></div>
+                    <div class="rail-step-dot" data-step="2" onclick="switchFigurineByIndex(2)" title="The Queen"></div>
                 </div>
             </div>
         </div>
@@ -718,6 +762,8 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
         </div>
     </footer>
 
+    </main>
+
     <!-- Lightbox Modal -->
     <div class="war-lightbox" id="warLightboxModal" onclick="closeLightbox(event)">
         <div class="war-lightbox-panel" onclick="event.stopPropagation()">
@@ -732,15 +778,17 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
 
     <!-- Client-side Interactive Logic -->
     <script>
-        // Faction dataset with complete commander portraits, banners, lore, traits, and troop sprites
+        // Faction & 3D Figurine dataset
+        const figurineKeys = ['nusantara', 'vikings', 'natars', 'romans', 'teutons', 'gauls', 'egyptians', 'huns', 'spartans'];
+        let currentFigurineIndex = 0;
+
         const factionRegistry = {
             nusantara: {
                 name: "Kerajaan Nusantara",
+                title: "RADEN WIJAYA",
                 type: "Peradaban Maritim & Agrikultur",
-                portrait: "img/reg/portrait_v10.png",
-                banner: "img/rpage/Nusantara1.jpg",
-                badge: "Eksklusif: Kerajaan Maritim",
-                commander: "Raden Wijaya",
+                figurine: "img/landing_v3/fig_nusantara.png",
+                badge: "Eksklusif: Kemaharajaan Maritim",
                 commanderSub: "Panglima Tertinggi Kerajaan Maritim Nusantara",
                 lore: "Kerajaan Maritim Nusantara berdiri megah di atas gugusan kepulauan khatulistiwa yang kaya rempah. Dengan perpaduan armada kapal Jung raksasa, lumbung pangan yang melimpah, artileri meriam Cetbang, serta barisan Gajah Bhayangkara yang disegani, Nusantara adalah peradaban adidaya maritim yang tangguh dalam pertahanan dan mematikan dalam serbuan amfibi.",
                 traits: [
@@ -762,13 +810,66 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
                     { id: 100, name: "Tetua Adat / Resi" }
                 ]
             },
+            vikings: {
+                name: "Bangsa Viking",
+                title: "BERGYR THE BERSERKER",
+                type: "Penjelajah Laut & Berserker Buas",
+                figurine: "img/landing_v3/fig_viking.png",
+                badge: "Teror Samudra Es",
+                commanderSub: "Panglima Perang Barbarik & Armada Viking",
+                lore: "Para penakluk samudra es utara yang mengarungi badai laut dengan kapal naga Drakkar. Keberanian Viking melegenda di seluruh penjuru dunia karena para Berserker yang mengamuk tanpa takut mati, melancarkan serbuan penghancur armor benteng seketika.",
+                traits: [
+                    { title: "🪓 Berserker Sunder", desc: "Menghancurkan 15% armor pertahanan musuh pada ronde benturan pertama." },
+                    { title: "🐺 War Cry Demoralize", desc: "Teriakan perang melumpuhkan moral dan menurunkan serangan lawan." },
+                    { title: "💰 Silver Hoard", desc: "Bonus perolehan Koin Perak ekstra dari setiap jarahan sarang bandit." },
+                    { title: "🍺 Balai Mead", desc: "Meningkatkan moral bertarung pasukan dalam pertempuran akbar." }
+                ],
+                units: [
+                    { id: 81, name: "Thrall" },
+                    { id: 82, name: "Shieldmaiden" },
+                    { id: 83, name: "Berserker" },
+                    { id: 84, name: "Raider Scout" },
+                    { id: 85, name: "Hirdman" },
+                    { id: 86, name: "Jarl Raider" },
+                    { id: 87, name: "Log Battering Ram" },
+                    { id: 88, name: "War Catapult" },
+                    { id: 89, name: "Jarl" },
+                    { id: 90, name: "Settler" }
+                ]
+            },
+            natars: {
+                name: "Kekaisaran Natars",
+                title: "THE QUEEN OF NATARS",
+                type: "Penguasa Takhta Kuno & Wonder of the World",
+                figurine: "img/landing_v3/fig_queen.png",
+                badge: "Arsitek Keajaiban Dunia",
+                commanderSub: "Ratu Kuno Penguasa Jagat Terlarang",
+                lore: "Kekaisaran Natars adalah peradaban purba yang tertidur ribuan tahun di balik kabut dunia terlarang. Di bawah titah The Queen dengan orb kegelapan dan pedang kutukannya, pasukan Natars mengawal cetak biru Keajaiban Dunia (Wonder of the World) dengan barisan titan mistis.",
+                traits: [
+                    { title: "🏛️ Wonder of the World", desc: "Pemegang kunci pembangunan Keajaiban Dunia penentu kemenangan akhir server." },
+                    { title: "🔮 Dark Orb Supremacy", desc: "Sihir kuno yang membatalkan perisai pertahanan garis depan penyerang." },
+                    { title: "👹 Pasukan Titan Kuno", desc: "Garnisun gajah raksasa dan monster penjaga yang kebal intimidasi." },
+                    { title: "🛡️ Benteng Abadi", desc: "Tembok raksasa Natars dengan bonus pertahanan tertinggi di jagat Travian." }
+                ],
+                units: [
+                    { id: 41, name: "Pikeman" },
+                    { id: 42, name: "Thorneyed" },
+                    { id: 43, name: "Guardsman" },
+                    { id: 44, name: "Birds of Prey" },
+                    { id: 45, name: "Axerider" },
+                    { id: 46, name: "Natarian Knight" },
+                    { id: 47, name: "War Elephant" },
+                    { id: 48, name: "Ballista" },
+                    { id: 49, name: "Natarian Emperor" },
+                    { id: 50, name: "Natarian Settler" }
+                ]
+            },
             romans: {
                 name: "Kekaisaran Romawi",
+                title: "JULIUS CAESAR",
                 type: "Infanteri Elit & Arsitektur Canggih",
-                portrait: "img/reg/portrait_v1.png",
-                banner: "img/rpage/Roman1.jpg",
+                figurine: "img/reg/portrait_v1.png",
                 badge: "Kekaisaran Klasik",
-                commander: "Julius Caesar",
                 commanderSub: "Kaisar Tertinggi Legiun Romawi",
                 lore: "Kekaisaran Romawi terkenal dengan kedisiplinan militer tinggi dan kemajuan teknologi arsitektur mereka. Prajurit Romawi memiliki kemampuan tempur infanteri terbaik di dunia kuno, didukung sistem pembangunan ganda yang memungkinkan desa berkembang dengan sangat pesat.",
                 traits: [
@@ -792,11 +893,10 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
             },
             teutons: {
                 name: "Bangsa Teuton",
+                title: "ARMINIUS",
                 type: "Raja Penjarahan & Serbuan Agresif",
-                portrait: "img/reg/portrait_v2.png",
-                banner: "img/rpage/Teuton1.jpg",
+                figurine: "img/reg/portrait_v2.png",
                 badge: "Penakluk Liar",
-                commander: "Arminius",
                 commanderSub: "Panglima Perang Rimba Germania",
                 lore: "Bangsa Teuton adalah para petarung liar yang haus kemenangan dan penjarahan. Mereka melancarkan serangan kilat dengan biaya pelatihan prajurit yang sangat murah, menjadikannya momok menakutkan bagi desa-desa tetangga sejak fajar peradaban.",
                 traits: [
@@ -820,11 +920,10 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
             },
             gauls: {
                 name: "Bangsa Galia",
+                title: "VERCINGETORIX",
                 type: "Pertahanan Perangkap & Kavaleri Kilat",
-                portrait: "img/reg/portrait_v3.png",
-                banner: "img/rpage/Gaul1.jpg",
+                figurine: "img/reg/portrait_v3.png",
                 badge: "Pelindung Damai",
-                commander: "Vercingetorix",
                 commanderSub: "Pemimpin Agung Suku-Suku Galia",
                 lore: "Bangsa Galia menjunjung tinggi kebebasan dan perdamaian, namun jangan pernah meremehkan pertahanan mereka. Dipersenjatai perangkap pemburu yang mampu menawan penyerang hidup-hidup dan kavaleri tercepat di dunia, Galia adalah pilihan sempurna bagi jenderal ahli strategi.",
                 traits: [
@@ -848,11 +947,10 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
             },
             egyptians: {
                 name: "Kerajaan Mesir",
+                title: "RAMSES II",
                 type: "Raksasa Ekonomi & Pertahanan Benteng",
-                portrait: "img/reg/portrait_v6.png",
-                banner: "img/rpage/Egyptians1.jpg",
+                figurine: "img/reg/portrait_v6.png",
                 badge: "Kekayaan Nil",
-                commander: "Ramses II",
                 commanderSub: "Firaun Penakluk Dinasti Sungai Nil",
                 lore: "Peradaban Sungai Nil yang agung memiliki kekayaan sumber daya melimpah dan tradisi pembangunan benteng yang kokoh. Mesir adalah raksasa ekonomi yang mampu menyuplai perang jangka panjang dengan sistem pasokan air dan irigasi mereka.",
                 traits: [
@@ -876,11 +974,10 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
             },
             huns: {
                 name: "Bangsa Hun",
+                title: "ATTILA THE HUN",
                 type: "Nomaden Kavaleri Pembantai",
-                portrait: "img/reg/portrait_v7.png",
-                banner: "img/rpage/Huns1.jpg",
+                figurine: "img/reg/portrait_v7.png",
                 badge: "Teror Stepa",
-                commander: "Attila the Hun",
                 commanderSub: "Cambuk Para Dewa di Padang Stepa",
                 lore: "Kaum nomaden dari padang rumput tak berujung yang ditakuti seluruh benua. Pasukan berkuda Hun bergerak laksana badai gurun, meluluhlantakkan garis pertahanan musuh sebelum mereka sempat menyadari apa yang terjadi.",
                 traits: [
@@ -904,11 +1001,10 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
             },
             spartans: {
                 name: "Bangsa Sparta",
+                title: "LEONIDAS",
                 type: "Ksatria Perisai Baja Tak Tergoyahkan",
-                portrait: "img/reg/portrait_v8.png",
-                banner: "img/rpage/Spartans1.jpg",
+                figurine: "img/reg/portrait_v8.png",
                 badge: "Prajurit Sejati",
-                commander: "Leonidas",
                 commanderSub: "Raja Pertahanan Abadi Thermopylae",
                 lore: "Lahir dan ditempa hanya untuk satu tujuan: kemenangan di medan tempur. Setiap pejuang Sparta adalah benteng berjalan yang tidak mengenal kata mundur, dipersenjatai perisai perunggu rapat dan tombak panjang penembus baju zirah.",
                 traits: [
@@ -929,36 +1025,109 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
                     { id: 79, name: "Ephor" },
                     { id: 80, name: "Settler" }
                 ]
-            },
-            vikings: {
-                name: "Bangsa Viking",
-                type: "Penjelajah Laut & Berserker Buas",
-                portrait: "img/reg/portrait_v9.png",
-                banner: "img/rpage/Vikings1.jpg",
-                badge: "Serbuan Badai Es",
-                commander: "Ragnar Lothbrok",
-                commanderSub: "Raja Penakluk Samudra Es Skandinavia",
-                lore: "Para penakluk samudra es utara yang mengarungi badai laut dengan kapal naga Drakkar. Keberanian Viking melegenda di seluruh penjuru dunia karena para Berserker yang mengamuk tanpa takut mati demi menyambut kejayaan Valhalla.",
-                traits: [
-                    { title: "🪓 Berserker Rage", desc: "Serangan infanteri buas yang sanggup meremukkan formasi apa pun." },
-                    { title: "🛡️ Shieldmaiden", desc: "Barisan perisai wanita perkasa dengan pertahanan seimbang." },
-                    { title: "🌊 Kapal Penjarah", desc: "Perjalanan laut dan ekspedisi pesisir yang sangat cepat." },
-                    { title: "🍺 Balai Mead", desc: "Meningkatkan moral bertarung pasukan dalam pertempuran akbar." }
-                ],
-                units: [
-                    { id: 81, name: "Thrall" },
-                    { id: 82, name: "Shieldmaiden" },
-                    { id: 83, name: "Berserker" },
-                    { id: 84, name: "Raider Scout" },
-                    { id: 85, name: "Hirdman" },
-                    { id: 86, name: "Jarl Raider" },
-                    { id: 87, name: "Log Battering Ram" },
-                    { id: 88, name: "War Catapult" },
-                    { id: 89, name: "Jarl" },
-                    { id: 90, name: "Settler" }
-                ]
             }
         };
+
+        function switchFigurine(key) {
+            const data = factionRegistry[key];
+            if (!data) return;
+
+            const idx = figurineKeys.indexOf(key);
+            if (idx !== -1) currentFigurineIndex = idx;
+
+            // Update Tab buttons
+            document.querySelectorAll('.faction-tab-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.getAttribute('data-faction') === key);
+            });
+
+            // Update Vertical Rail Dots
+            document.querySelectorAll('.rail-step-dot').forEach((dot, dIdx) => {
+                dot.classList.toggle('active', dIdx === currentFigurineIndex);
+            });
+
+            const railFill = document.getElementById('railFill');
+            if (railFill) {
+                const totalVisible = 3;
+                const pct = Math.min(100, Math.max(20, ((Math.min(currentFigurineIndex, 2) + 1) / totalVisible) * 100));
+                railFill.style.height = pct + '%';
+            }
+
+            // Animate Figurine Card
+            const card = document.getElementById('figurineDisplayCard');
+            const img = document.getElementById('figurineImg');
+            if (card && img) {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(15px) scale(0.95)';
+                setTimeout(() => {
+                    img.src = data.figurine;
+                    card.style.transition = 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0) scale(1)';
+                }, 150);
+            }
+
+            // Update Text Elements
+            const nameEl = document.getElementById('figurineName');
+            const subEl = document.getElementById('figurineSub');
+            const badgeEl = document.getElementById('figurineBadge');
+            const loreEl = document.getElementById('figurineLore');
+
+            if (nameEl) nameEl.textContent = data.title || data.name;
+            if (subEl) subEl.textContent = data.commanderSub || data.type;
+            if (badgeEl) badgeEl.textContent = data.badge;
+            if (loreEl) loreEl.textContent = data.lore;
+
+            // Update Traits
+            const traitsGrid = document.getElementById('figurineTraits');
+            if (traitsGrid && data.traits) {
+                traitsGrid.innerHTML = data.traits.map(t => `
+                    <div class="figurine-trait-pill">
+                        <div class="figurine-trait-label">${t.title}</div>
+                        <div class="figurine-trait-desc">${t.desc}</div>
+                    </div>
+                `).join('');
+            }
+
+            // Update Troops Strip
+            const troopStrip = document.getElementById('figurineTroopStrip');
+            if (troopStrip && data.units) {
+                troopStrip.innerHTML = data.units.map(u => `
+                    <img src="img/un/u/${u.id}.gif" alt="${u.name}" class="sprite-trooper" title="${u.name}" />
+                `).join('');
+            }
+        }
+
+        function switchFigurineByIndex(idx) {
+            if (idx >= 0 && idx < figurineKeys.length) {
+                switchFigurine(figurineKeys[idx]);
+            }
+        }
+
+        // 3D Mouse Parallax Tilt for Hero Island
+        (function initHeroTilt() {
+            const stage = document.getElementById('heroStage');
+            const island = document.getElementById('heroFloatingIsland');
+            if (!stage || !island || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+            let ticking = false;
+
+            stage.addEventListener('mousemove', (e) => {
+                if (!ticking) {
+                    window.requestAnimationFrame(() => {
+                        const rect = stage.getBoundingClientRect();
+                        const x = (e.clientX - rect.left) / rect.width - 0.5;
+                        const y = (e.clientY - rect.top) / rect.height - 0.5;
+                        island.style.transform = `perspective(1000px) rotateY(${x * 16}deg) rotateX(${-y * 14}deg) translateY(-8px)`;
+                        ticking = false;
+                    });
+                    ticking = true;
+                }
+            }, { passive: true });
+
+            stage.addEventListener('mouseleave', () => {
+                island.style.transform = 'perspective(1000px) rotateY(0deg) rotateX(0deg) translateY(0px)';
+            });
+        })();
 
         // 1. Sticky Nav Scroll State
         const warNav = document.querySelector('.war-nav');
@@ -971,75 +1140,6 @@ $loggedUser = $isLoggedIn ? htmlspecialchars((string)$_SESSION['username'], ENT_
                 }
             }, { passive: true });
         }
-
-        // 2. Faction Switching Logic with Smooth Cross-fade
-        document.querySelectorAll('.faction-tab-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const key = this.getAttribute('data-faction');
-                if (!factionRegistry[key]) return;
-
-                document.querySelectorAll('.faction-tab-btn').forEach(b => b.classList.remove('active'));
-                this.classList.add('active');
-
-                const data = factionRegistry[key];
-                const heroImg = document.getElementById('heroCommanderImg');
-                const councilImg = document.getElementById('councilPortraitImg');
-
-                // Cross-fade portrait
-                if (heroImg) {
-                    heroImg.style.opacity = '0';
-                    heroImg.style.transform = 'scale(0.95)';
-                    setTimeout(() => {
-                        heroImg.src = data.portrait;
-                        heroImg.style.opacity = '1';
-                        heroImg.style.transform = 'scale(1)';
-                    }, 200);
-                }
-
-                if (councilImg) {
-                    councilImg.style.opacity = '0';
-                    councilImg.style.transform = 'translateY(8px)';
-                    setTimeout(() => {
-                        councilImg.src = data.portrait;
-                        councilImg.style.opacity = '1';
-                        councilImg.style.transform = 'translateY(0)';
-                    }, 200);
-                }
-
-                document.getElementById('heroBannerImg').src = data.banner;
-                document.getElementById('heroCommanderTitle').textContent = data.commander;
-                document.getElementById('heroCommanderSub').textContent = data.commanderSub;
-
-                // Update War Council Arena
-                document.getElementById('councilTribeName').textContent = data.name;
-                document.getElementById('councilTribeType').textContent = data.type;
-                document.getElementById('councilBannerImg').src = data.banner;
-                document.getElementById('councilFactionBadge').textContent = data.badge;
-                document.getElementById('councilTribeLore').textContent = data.lore;
-
-                // Render Traits
-                const traitsGrid = document.getElementById('councilTraitsGrid');
-                traitsGrid.innerHTML = '';
-                data.traits.forEach(t => {
-                    const card = document.createElement('div');
-                    card.className = 'council-trait-card';
-                    card.innerHTML = `<div class="council-trait-title">${t.title}</div><div class="council-trait-desc">${t.desc}</div>`;
-                    traitsGrid.appendChild(card);
-                });
-
-                // Render Units Strip
-                const troopStrip = document.getElementById('councilTroopStrip');
-                troopStrip.innerHTML = '';
-                data.units.forEach(u => {
-                    const img = document.createElement('img');
-                    img.src = `img/un/u/${u.id}.gif`;
-                    img.alt = u.name;
-                    img.title = u.name;
-                    img.className = 'sprite-trooper';
-                    troopStrip.appendChild(img);
-                });
-            });
-        });
 
         // 3. Mobile Nav Drawer Logic
         function openMobileMenu() {
