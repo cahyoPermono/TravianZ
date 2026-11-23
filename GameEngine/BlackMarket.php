@@ -382,10 +382,10 @@ class BlackMarket
                 'name'         => 'Kandang Hewan Liar (Cage)',
                 'desc'         => 'Menjebak & menangkap 1 hewan buas di oasis per kandang saat hero menyerang, langsung menjadi penjaga desa gratis tanpa makan gandum.',
                 'icon_class'   => 'item208',
-                'market_price' => '~8 - 12 Silver / pcs',
-                'silver_price' => 20,
+                'market_price' => '~40 - 60 Silver / pcs',
+                'silver_price' => 80,
                 'min_qty'      => 1,
-                'max_qty'      => 200,
+                'max_qty'      => 50,
                 'badge'        => '🐯 Pertahanan Bebas Gandum',
             ],
             201 => [
@@ -513,7 +513,7 @@ class BlackMarket
                         $unitGross = 200;
                         break;
                     case 208: // Cage / Kandang
-                        $unitGross = 320;
+                        $unitGross = 1600;
                         break;
                     case 207: // Large Bandages
                         $unitGross = 400;
@@ -692,7 +692,7 @@ class BlackMarket
                         $unitSilver = 4;
                         break;
                     case 208: // Cage / Kandang
-                        $unitSilver = 5;
+                        $unitSilver = 20;
                         break;
                     case 201: // Scroll / Gulungan XP
                         $unitSilver = 10;

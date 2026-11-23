@@ -57,7 +57,8 @@ assertEqual(500, $catalog[202]['silver_price'], "Bucket of Water must cost 500 S
 assertEqual(800, $catalog[204]['silver_price'], "Book of Wisdom must cost 800 Silver");
 assertEqual(1200, $catalog[205]['silver_price'], "Artwork must cost 1200 Silver");
 assertEqual(45, $catalog[203]['silver_price'], "Law Tablet must cost 45 Silver");
-assertEqual(20, $catalog[208]['silver_price'], "Cage must cost 20 Silver");
+assertEqual(80, $catalog[208]['silver_price'], "Cage must cost 80 Silver");
+assertEqual(50, $catalog[208]['max_qty'], "Cage max_qty must be 50");
 assertEqual(35, $catalog[201]['silver_price'], "Scroll must cost 35 Silver");
 assertEqual(12, $catalog[200]['silver_price'], "Ointment must cost 12 Silver");
 assertEqual(40, $catalog[207]['silver_price'], "Bandage must cost 40 Silver");
@@ -133,19 +134,19 @@ if (isset($database->dblink) && $database->dblink) {
     }
     assertTrue($foundBucket, "Bucket of Water must be in hero inventory with qty 1");
     
-    // 2. Buy 10x Cages (item 208, cost 20 * 10 = 200)
+    // 2. Buy 10x Cages (item 208, cost 80 * 10 = 800)
     $resBuyCages = BlackMarket::buyHeroConsumable($testUid, $testVref, 208, 10);
     assertTrue($resBuyCages['success'], "Cages purchase must succeed: " . ($resBuyCages['message'] ?? ''));
     
     $silverAfterCages = BlackMarket::getSilver($testUid);
-    assertEqual(4300, $silverAfterCages, "Silver after cages must be 4300 (4500 - 200)");
+    assertEqual(3700, $silverAfterCages, "Silver after cages must be 3700 (4500 - 800)");
     
-    // 3. Buy 5 MORE Cages to verify stack increment
+    // 3. Buy 5 MORE Cages to verify stack increment (cost 80 * 5 = 400)
     $resBuyCages2 = BlackMarket::buyHeroConsumable($testUid, $testVref, 208, 5);
     assertTrue($resBuyCages2['success'], "Second cages purchase must succeed");
     
     $silverAfterCages2 = BlackMarket::getSilver($testUid);
-    assertEqual(4200, $silverAfterCages2, "Silver after 2nd cages must be 4200 (4300 - 100)");
+    assertEqual(3300, $silverAfterCages2, "Silver after 2nd cages must be 3300 (3700 - 400)");
     
     $inv2 = $heroItems->getInventory($testUid);
     $cageQty = 0;
@@ -155,6 +156,14 @@ if (isset($database->dblink) && $database->dblink) {
         }
     }
     assertEqual(15, $cageQty, "Total cages in inventory must be 15 (10 + 5 stacked)");
+    
+    // Test Cage Appraisals (Pawn values)
+    $cageAppraisal = BlackMarket::getItemAppraisal(208, 1);
+    assertEqual(1600, $cageAppraisal['unit_gross'], "Cage unit gross resource appraisal must be 1600");
+    assertEqual(1120, $cageAppraisal['net_total'], "Cage net total resource appraisal (70%) must be 1120");
+    
+    $cageSilverAppraisal = BlackMarket::getItemSilverAppraisal(208, 1);
+    assertEqual(20, $cageSilverAppraisal['unit_silver'], "Cage unit silver appraisal must be 20 Silver");
     
     // 4. Verify transaction log
     $qLog = mysqli_query($db, "SELECT COUNT(*) FROM `" . TB_PREFIX . "blackmarket_log` WHERE uid = $testUid AND action_type = 'hero_consumable'");
