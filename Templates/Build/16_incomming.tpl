@@ -386,11 +386,12 @@ function cycleMarker(moveid, el){
     $totalRes = $u['wood']+$u['clay']+$u['iron']+$u['crop'];
     $carry = 0; for($i=0;$i<10;$i++) { $t = isset($u['t'.($i+1)])? $u['t'.($i+1)] : 0; $carry += $t * ${'u'.($start+$i)}['cap']; }
     $dt = $generator->procMtime($u['endtime']);
+    $fromName = !empty($fromInfo['name']) ? $fromInfo['name'] : (!empty($fromInfo['x']) ? ('(' . $fromInfo['x'] . '|' . $fromInfo['y'] . ')') : (defined('BANDIT_CAMP_TITLE') ? BANDIT_CAMP_TITLE : 'Sarang Boss'));
 ?>
 <table class="troop_details" cellpadding="1" cellspacing="1">
     <thead><tr>
         <td class="role"><a href="karte.php?d=<?= $village->wid?>&c=<?= $generator->getMapCheck($village->wid)?>"><?= $village->vname?></a></td>
-        <td colspan="<?= $colspan?>"><a href="karte.php?d=<?= $fromInfo['wref']?>&c=<?= $generator->getMapCheck($fromInfo['wref'])?>"><?= RETURNFROM?> <?= $fromInfo['name']?></a></td>
+        <td colspan="<?= $colspan?>"><a href="karte.php?d=<?= $fromInfo['wref']?>&c=<?= $generator->getMapCheck($fromInfo['wref'])?>"><?= RETURNFROM?> <?= $fromName?></a></td>
     </tr></thead>
     <tbody class="units">
         <tr><th>&nbsp;</th><?php for($i=$start;$i<$start+10;$i++):?><td><img src="img/x.gif" class="unit u<?= $i?>"></td><?php endfor;?><?php if($u['t11']):?><td><img src="img/x.gif" class="unit uhero"></td><?php endif;?></tr>

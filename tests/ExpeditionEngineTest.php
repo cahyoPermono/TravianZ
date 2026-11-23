@@ -364,16 +364,47 @@ assertEqual(0, (int)$clearedCamp[0]['cur_hp'], "Camp cur_hp should be 0");
 $resolvedExp = $database->query_return("SELECT status FROM " . TB_PREFIX . "expeditions WHERE id = $combatExpId LIMIT 1");
 assertEqual(ExpeditionEngine::STATUS_RESOLVED, (int)$resolvedExp[0]['status'], "Expedition status should be STATUS_RESOLVED");
 
+// Check return march movements (sort_type = 4) created with surviving troops & looted resources
+$leaderMov = $database->query_return("
+    SELECT m.*, a.t3 
+    FROM " . TB_PREFIX . "movement m 
+    JOIN " . TB_PREFIX . "attacks a ON m.ref = a.id 
+    WHERE m.`to` = $leaderVillage AND m.sort_type = 4 AND m.proc = 0
+    LIMIT 1
+");
+assertTrue(!empty($leaderMov[0]), "Leader should have return march movement (sort_type 4) created");
+assertTrue((int)$leaderMov[0]['t3'] > 4000, "Leader return movement should carry >4000 surviving u3 (got: " . ($leaderMov[0]['t3'] ?? 0) . ")");
+assertTrue((int)$leaderMov[0]['wood'] > 1000, "Leader return movement should carry >1000 looted wood");
+
+$memberMov = $database->query_return("
+    SELECT m.*, a.t2 
+    FROM " . TB_PREFIX . "movement m 
+    JOIN " . TB_PREFIX . "attacks a ON m.ref = a.id 
+    WHERE m.`to` = $memberVillage AND m.sort_type = 4 AND m.proc = 0
+    LIMIT 1
+");
+assertTrue(!empty($memberMov[0]), "Member should have return march movement (sort_type 4) created");
+assertTrue((int)$memberMov[0]['t2'] > 2500, "Member return movement should carry >2500 surviving u2/u22");
+
+// Fast-forward return movement arrival to verify returnunitsComplete delivers troops & resources
+$nowTime = time();
+$database->query("UPDATE " . TB_PREFIX . "movement SET endtime = " . ($nowTime - 5) . " WHERE `to` IN ($leaderVillage, $memberVillage) AND sort_type = 4");
+require_once dirname(__DIR__) . '/GameEngine/Automation.php';
+$auto = new Automation();
+$refl = new ReflectionMethod('Automation', 'returnunitsComplete');
+$refl->setAccessible(true);
+$refl->invoke($auto);
+
 // Check surviving troops returned to village
 $vUnitsLeaderCombat = $database->getUnit($leaderVillage, false);
-assertTrue((int)$vUnitsLeaderCombat['u3'] > 4000, "Leader should have majority of u3 surviving and back in village");
+assertTrue((int)$vUnitsLeaderCombat['u3'] > 4000, "Leader should have majority of u3 back in village after arrival");
 
 $vUnitsMemberCombat = $database->getUnit($memberVillage, false);
-assertTrue((int)$vUnitsMemberCombat['u22'] > 2500, "Member should have majority of u22 surviving and back in village");
+assertTrue((int)$vUnitsMemberCombat['u22'] > 2500, "Member should have majority of u22 back in village after arrival");
 
 // Check resources gained
 $vDataLeaderAfter = $database->query_return("SELECT wood FROM " . TB_PREFIX . "vdata WHERE wref = $leaderVillage LIMIT 1");
-assertTrue((int)$vDataLeaderAfter[0]['wood'] > 1000, "Leader village should have gained looted wood");
+assertTrue((int)$vDataLeaderAfter[0]['wood'] > 1000, "Leader village should have gained looted wood upon arrival");
 
 // Clean up test data
 $database->query("DELETE FROM " . TB_PREFIX . "expeditions WHERE id = $combatExpId");
@@ -451,5 +482,36 @@ $database->query("DELETE FROM " . TB_PREFIX . "vdata WHERE wref IN ($leaderVilla
 $database->query("DELETE FROM " . TB_PREFIX . "units WHERE vref IN ($leaderVillage, $memberVillage)");
 $database->query("DELETE FROM " . TB_PREFIX . "expedition_daily_usage WHERE uid IN ($leaderUid, $memberUid)");
 $database->query("DELETE FROM " . TB_PREFIX . "expeditions WHERE alliance_id = $mockAllyId");
+
+// 12. Test Hospital Integration in Expedition (processHospitalWounded)
+echo "Test 12: Hospital Integration for Wounded Expedition Troops...\n";
+$hospVil = 79999;
+$database->query("DELETE FROM " . TB_PREFIX . "fdata WHERE vref = $hospVil");
+$database->query("DELETE FROM " . TB_PREFIX . "hospital WHERE vref = $hospVil");
+
+// 12a: Without hospital building -> 0 wounded hospitalized
+$noHospRes = ExpeditionEngine::processHospitalWounded($hospVil, 1, ['u1' => 100]);
+assertEqual(0, $noHospRes['total_wounded'], "Without hospital building, 0 wounded should be processed");
+
+// 12b: With standard Hospital (gid 46 level 5, cap = 5 * 30 = 150) -> 40% share
+$database->query("INSERT INTO " . TB_PREFIX . "fdata (vref, f19t, f19) VALUES ($hospVil, 46, 5) ON DUPLICATE KEY UPDATE f19t = 46, f19 = 5");
+$hospRes = ExpeditionEngine::processHospitalWounded($hospVil, 1, ['u1' => 100]); // 100 Legionnaires dead -> 40% = 40 wounded
+assertEqual(40, $hospRes['total_wounded'], "Hospital level 5 should admit 40 wounded troops (40% of 100)");
+
+$wRow = $database->getWounded($hospVil);
+assertEqual(40, (int)($wRow['u1'] ?? 0), "Database hospital table should record 40 u1 wounded");
+
+// 12c: With Big Hospital (gid 48 level 5, cap = 5 * 60 = 300) -> 50% share
+$database->query("DELETE FROM " . TB_PREFIX . "hospital WHERE vref = $hospVil");
+$database->query("UPDATE " . TB_PREFIX . "fdata SET f19t = 48, f19 = 5 WHERE vref = $hospVil");
+$bigHospRes = ExpeditionEngine::processHospitalWounded($hospVil, 1, ['u2' => 80]); // 80 Praetorians dead -> 50% = 40 wounded
+assertEqual(40, $bigHospRes['total_wounded'], "Big Hospital level 5 should admit 40 wounded troops (50% of 80)");
+
+$wRowBig = $database->getWounded($hospVil);
+assertEqual(40, (int)($wRowBig['u2'] ?? 0), "Database hospital table should record 40 u2 wounded");
+
+// Cleanup test hospital data
+$database->query("DELETE FROM " . TB_PREFIX . "fdata WHERE vref = $hospVil");
+$database->query("DELETE FROM " . TB_PREFIX . "hospital WHERE vref = $hospVil");
 
 echo "All Alliance Expedition Unit & Lifecycle Tests Passed Successfully!\n";

@@ -828,6 +828,12 @@ $conquerorLink = ($conquerorUid > 0)
                 </div>
                 <?php } ?>
 
+                <?php if (!empty($m["wounded_count"])) { ?>
+                <div style="margin-top: 8px; padding: 6px 10px; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 6px; font-size: 11px; color: #38bdf8; display: flex; align-items: center; gap: 6px;">
+                    <span>🏥 <b>Rumah Sakit:</b> Sebanyak <b><?php echo number_format((int)$m["wounded_count"]); ?> prajurit terluka</b> berhasil dievakuasi dan dirawat di Rumah Sakit desa <?php echo htmlspecialchars($fromVilName); ?>.</span>
+                </div>
+                <?php } ?>
+
             </div>
             <?php } ?>
         </div>
@@ -912,7 +918,7 @@ $conquerorLink = ($conquerorUid > 0)
                 <div style="font-weight: bold; color: #c7d2fe; font-size: 13px; display: flex; align-items: center; gap: 6px;">
                     <span>🎁 Total Bagian Hadiah &amp; Rampasan Anda:</span>
                 </div>
-                <span style="font-size: 11px; color: #a5b4fc;">Langsung ditambahkan ke desa &amp; akun</span>
+                <span style="font-size: 11px; color: #a5b4fc;">Sumber daya dibawa pulang oleh pasukan (Tiba sesuai waktu tempuh)</span>
             </div>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px;">
                 <div style="background: #090e1a; padding: 8px; border-radius: 6px; font-size: 12px; font-weight: bold; color: #f1f5f9; border: 1px solid #24324d;">

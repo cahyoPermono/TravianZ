@@ -95,6 +95,8 @@ class ExpeditionEngine {
             `travel_time` int(11) NOT NULL DEFAULT 0,
             `arrive_time` int(11) NOT NULL DEFAULT 0,
             `status` tinyint(2) NOT NULL DEFAULT 1,
+            `wounded_count` int(11) NOT NULL DEFAULT 0,
+            `return_time` int(11) NOT NULL DEFAULT 0,
             `reward_wood` int(11) NOT NULL DEFAULT 0,
             `reward_clay` int(11) NOT NULL DEFAULT 0,
             `reward_iron` int(11) NOT NULL DEFAULT 0,
@@ -117,6 +119,12 @@ class ExpeditionEngine {
             mysqli_query($database->dblink, "ALTER TABLE `" . TB_PREFIX . "expedition_members` ADD COLUMN `travel_time` int(11) NOT NULL DEFAULT 0 AFTER `losses_pct`");
             mysqli_query($database->dblink, "ALTER TABLE `" . TB_PREFIX . "expedition_members` ADD COLUMN `arrive_time` int(11) NOT NULL DEFAULT 0 AFTER `travel_time`");
             mysqli_query($database->dblink, "ALTER TABLE `" . TB_PREFIX . "expedition_members` ADD COLUMN `status` tinyint(2) NOT NULL DEFAULT 1 AFTER `arrive_time`");
+        }
+
+        $colWounded = $database->query_return("SHOW COLUMNS FROM `" . TB_PREFIX . "expedition_members` LIKE 'wounded_count'");
+        if (empty($colWounded)) {
+            mysqli_query($database->dblink, "ALTER TABLE `" . TB_PREFIX . "expedition_members` ADD COLUMN `wounded_count` int(11) NOT NULL DEFAULT 0 AFTER `status`");
+            mysqli_query($database->dblink, "ALTER TABLE `" . TB_PREFIX . "expedition_members` ADD COLUMN `return_time` int(11) NOT NULL DEFAULT 0 AFTER `wounded_count`");
         }
 
         // 3. Tabel Batas Harian Partisipasi (Daily Usage)
@@ -1058,6 +1066,71 @@ class ExpeditionEngine {
     }
 
     /**
+     * Kirim prajurit tempur (u1-u8) yang gugur ke Hospital / Big Hospital jika ada di desa asal.
+     * Sesuai aturan Travian: Hospital (gid 46: 40% pemulihan, cap level * 30), Big Hospital (gid 48: 50% pemulihan, cap level * 60).
+     */
+    public static function processHospitalWounded(int $vref, int $tribe, array $netDeadCombatTroops): array {
+        global $database;
+        if ($vref <= 0 || empty($netDeadCombatTroops) || !isset($database->dblink)) {
+            return ['total_wounded' => 0, 'units' => []];
+        }
+
+        $hospital = (int)$database->getFieldLevelInVillage($vref, '46', false);
+        $bighospital = (int)$database->getFieldLevelInVillage($vref, '48', false);
+        if ($hospital <= 0 && $bighospital <= 0) {
+            return ['total_wounded' => 0, 'units' => []];
+        }
+
+        $share = $bighospital > 0 ? 0.50 : 0.40;
+        $capacity = $bighospital > 0 ? $bighospital * 60 : $hospital * 30;
+
+        $stored = 0;
+        $current = $database->getWounded($vref);
+        if (!empty($current)) {
+            for ($i = 1; $i <= 100; $i++) {
+                $stored += isset($current['u' . $i]) ? (int)$current['u' . $i] : 0;
+            }
+        }
+        $free = max(0, $capacity - $stored);
+        if ($free <= 0) {
+            return ['total_wounded' => 0, 'units' => []];
+        }
+
+        $units = [];
+        $amounts = [];
+        $totalWounded = 0;
+        $woundedByUnit = [];
+
+        // Hanya unit tempur 1-8 (unit 9 = chief/senator, unit 10 = settler tidak masuk rumah sakit)
+        for ($i = 1; $i <= 8; $i++) {
+            $deadAmt = (int)($netDeadCombatTroops['u' . $i] ?? 0);
+            if ($deadAmt <= 0) continue;
+
+            $wCount = (int)round($deadAmt * $share);
+            if ($wCount <= 0) continue;
+            if ($wCount > $free) $wCount = $free;
+
+            $globalUnitId = ($tribe - 1) * 10 + $i;
+            $units[] = $globalUnitId;
+            $amounts[] = $wCount;
+            $totalWounded += $wCount;
+            $woundedByUnit['u' . $i] = $wCount;
+            $free -= $wCount;
+
+            if ($free <= 0) break;
+        }
+
+        if (!empty($units)) {
+            $database->addWounded($vref, $units, $amounts);
+        }
+
+        return [
+            'total_wounded' => $totalWounded,
+            'units' => $woundedByUnit
+        ];
+    }
+
+    /**
      * Eksekusi benturan pertempuran gabungan (Unified Battlegroup Assault).
      */
     public static function resolveAssault(int $expeditionId): array {
@@ -1176,56 +1249,6 @@ class ExpeditionEngine {
         $casualtyData = self::calculateSharedCasualties($memberTroopsMap, $rawLossRatio, $tribes);
         $effectiveLossRatio = $casualtyData['effective_loss_ratio'];
 
-        // Pulangkan sisa pasukan yang selamat ke desa asal masing-masing
-        foreach ($casualtyData['members'] as $mUid => $cMember) {
-            $mWref = 0;
-            $mTribe = 1;
-            foreach ($members as $mRow) {
-                if ((int)$mRow['uid'] === $mUid) {
-                    $mWref = (int)$mRow['from_wref'];
-                    $mTribe = (int)$mRow['tribe'];
-                    break;
-                }
-            }
-
-            $survivedUpdates = [];
-            foreach ($cMember['troops_survived'] as $uKey => $sCount) {
-                $sCount = (int)$sCount;
-                if ($sCount > 0) {
-                    $uIdx = (int)substr($uKey, 1);
-                    $globalCol = 'u' . (($mTribe - 1) * 10 + $uIdx);
-                    $survivedUpdates[] = "`$globalCol` = `$globalCol` + $sCount";
-                }
-            }
-
-            if (!empty($survivedUpdates) && $mWref > 0) {
-                // Pastikan baris di tabel units ada
-                $qEnsure = "INSERT INTO `" . TB_PREFIX . "units` (`vref`) VALUES ($mWref) ON DUPLICATE KEY UPDATE `vref` = `vref`";
-                mysqli_query($database->dblink, $qEnsure);
-
-                $sqlSurv = "UPDATE `" . TB_PREFIX . "units` SET " . implode(', ', $survivedUpdates) . " WHERE vref = $mWref";
-                mysqli_query($database->dblink, $sqlSurv);
-
-                // Sinkronkan starvupdate ke waktu sekarang agar tidak terkena akumulasi timedif kelaparan retroaktif
-                $database->setVillageFields($mWref, ['starvupdate'], [$now]);
-                $database->addStarvationData($mWref);
-            }
-
-            // Update catatan persentase kerugian di s1_expedition_members
-            $database->query("
-                UPDATE `" . TB_PREFIX . "expedition_members`
-                SET `losses_pct` = " . round($effectiveLossRatio * 100, 2) . ",
-                    `damage_dealt` = " . (int)($memberDamageMap[$mUid] ?? 0) . "
-                WHERE `expedition_id` = $expeditionId AND `uid` = $mUid
-            ");
-        }
-
-        if (method_exists($database, 'clearUnitsCache')) {
-            $database->clearUnitsCache();
-        }
-
-        $now = time();
-
         if ($isVictory) {
             // Habisi semua penjaga di desa bandit
             $database->query("UPDATE `" . TB_PREFIX . "units` SET u31=0,u32=0,u33=0,u34=0,u35=0,u36=0,u37=0,u38=0,u39=0,u40=0 WHERE vref = $targetWref");
@@ -1251,75 +1274,167 @@ class ExpeditionEngine {
 
             // Hitung pembagian reward (50% Flat + 50% Damage)
             $rewards = self::calculateRewardDistribution($memberDamageMap, $poolTotal, $tribes);
+        } else {
+            $rewards = [];
+        }
 
-            // Berikan hadiah ke masing-masing anggota
-            if (!class_exists('BlackMarket')) {
-                require_once dirname(__DIR__) . '/BlackMarket.php';
-            }
-            if (!class_exists('HeroItems')) {
-                require_once dirname(__DIR__) . '/HeroItems.php';
-            }
-            $heroItems = new HeroItems();
+        if (!class_exists('BlackMarket')) {
+            require_once dirname(__DIR__) . '/BlackMarket.php';
+        }
+        if (!class_exists('HeroItems')) {
+            require_once dirname(__DIR__) . '/HeroItems.php';
+        }
+        $heroItems = new HeroItems();
 
-            foreach ($rewards as $rUid => $r) {
-                $mWref = 0;
-                foreach ($members as $mRow) {
-                    if ((int)$mRow['uid'] === $rUid) {
-                        $mWref = (int)$mRow['from_wref'];
-                        break;
+        // Proses prajurit terluka (Hospital) dan mars kepulangan pasukan (Return March) per anggota
+        foreach ($casualtyData['members'] as $mUid => $cMember) {
+            $mWref = 0;
+            $mTribe = 1;
+            $mHasHero = false;
+            foreach ($members as $mRow) {
+                if ((int)$mRow['uid'] === $mUid) {
+                    $mWref = (int)$mRow['from_wref'];
+                    $mTribe = (int)$mRow['tribe'];
+                    $mHasHero = (bool)$mRow['has_hero'];
+                    break;
+                }
+            }
+            if ($mWref <= 0) {
+                $mWref = (int)$database->getVillageID($mUid);
+            }
+
+            // 1. HOSPITAL: Kirim prajurit tempur u1..u8 yang gugur ke Hospital desa jika tersedia
+            $netDeadCombat = [];
+            for ($i = 1; $i <= 8; $i++) {
+                $lost = (int)($cMember['troops_lost']['u' . $i] ?? 0);
+                $rec = (int)($cMember['troops_recovered']['u' . $i] ?? 0);
+                $net = max(0, $lost - $rec);
+                if ($net > 0) {
+                    $netDeadCombat['u' . $i] = $net;
+                }
+            }
+            $hospRes = self::processHospitalWounded($mWref, $mTribe, $netDeadCombat);
+            $woundedCount = (int)($hospRes['total_wounded'] ?? 0);
+
+            // 2. RETURN MARCH: Pasukan yang selamat pulang membawa jarahan sumber daya
+            $r = $rewards[$mUid] ?? [
+                'wood' => 0, 'clay' => 0, 'iron' => 0, 'crop' => 0,
+                'silver' => 0, 'cp' => 0, 'exp' => 0, 'essence' => 0,
+                'damage' => 0, 'pct' => 0
+            ];
+            $rWood = (int)($r['wood'] ?? 0);
+            $rClay = (int)($r['clay'] ?? 0);
+            $rIron = (int)($r['iron'] ?? 0);
+            $rCrop = (int)($r['crop'] ?? 0);
+
+            $totalSurv = (int)($cMember['total_survived'] ?? 0);
+            $returnDuration = 0;
+            $returnEndTime = $now;
+
+            if ($totalSurv > 0) {
+                $returnDuration = self::calculateTravelTime($targetWref, $mWref, $mTribe, $cMember['troops_survived'], $mHasHero, $mUid);
+                $returnDuration = max(1, $returnDuration);
+                $returnEndTime = $now + $returnDuration;
+
+                $t = [];
+                for ($i = 1; $i <= 10; $i++) {
+                    $t[$i] = (int)($cMember['troops_survived']['u' . $i] ?? 0);
+                }
+
+                $attackId = $database->addAttack(
+                    $mWref,
+                    $t[1], $t[2], $t[3], $t[4], $t[5], $t[6], $t[7], $t[8], $t[9], $t[10], 0,
+                    4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+                );
+
+                if ($attackId > 0) {
+                    $database->addMovement(
+                        4,
+                        $targetWref,
+                        $mWref,
+                        $attackId,
+                        $now,
+                        $returnEndTime,
+                        1,
+                        $rWood, $rClay, $rIron, $rCrop
+                    );
+                } else {
+                    // Fallback jika pembuatan record attack gagal
+                    $survivedUpdates = [];
+                    for ($i = 1; $i <= 10; $i++) {
+                        if ($t[$i] > 0) {
+                            $globalCol = 'u' . (($mTribe - 1) * 10 + $i);
+                            $survivedUpdates[] = "`$globalCol` = `$globalCol` + {$t[$i]}";
+                        }
+                    }
+                    if (!empty($survivedUpdates) && $mWref > 0) {
+                        $database->query("INSERT INTO `" . TB_PREFIX . "units` (`vref`) VALUES ($mWref) ON DUPLICATE KEY UPDATE `vref` = `vref`");
+                        $database->query("UPDATE `" . TB_PREFIX . "units` SET " . implode(', ', $survivedUpdates) . " WHERE vref = $mWref");
+                    }
+                    if ($rWood > 0 || $rClay > 0 || $rIron > 0 || $rCrop > 0) {
+                        $database->query("
+                            UPDATE `" . TB_PREFIX . "vdata`
+                            SET `wood` = `wood` + $rWood, `clay` = `clay` + $rClay, `iron` = `iron` + $rIron, `crop` = `crop` + $rCrop
+                            WHERE `wref` = $mWref
+                        ");
                     }
                 }
-                if ($mWref <= 0) {
-                    $mWref = (int)$database->getVillageID($rUid);
-                }
 
-                // Tambahkan Silver
+                if ($mWref > 0) {
+                    $database->setVillageFields($mWref, ['starvupdate'], [$now]);
+                    $database->addStarvationData($mWref);
+                }
+            }
+
+            // 3. HADIAH AKUN & HERO (Koin Silver, Hero EXP, CP, World Essence) - langsung aktif
+            if ($isVictory) {
                 if (!empty($r['silver'])) {
-                    BlackMarket::addSilver($rUid, (int)$r['silver']);
+                    BlackMarket::addSilver($mUid, (int)$r['silver']);
                 }
-
-                // Tambahkan Hero EXP
                 if (!empty($r['exp'])) {
-                    $database->query("UPDATE `" . TB_PREFIX . "hero` SET `experience` = IFNULL(experience, 0) + " . (int)$r['exp'] . " WHERE `uid` = $rUid");
+                    $database->query("UPDATE `" . TB_PREFIX . "hero` SET `experience` = IFNULL(experience, 0) + " . (int)$r['exp'] . " WHERE `uid` = $mUid");
                 }
-
-                // Tambahkan CP
                 if (!empty($r['cp'])) {
-                    $database->query("UPDATE `" . TB_PREFIX . "users` SET `cp` = IFNULL(cp, 0) + " . (int)$r['cp'] . " WHERE `id` = $rUid");
+                    $database->query("UPDATE `" . TB_PREFIX . "users` SET `cp` = IFNULL(cp, 0) + " . (int)$r['cp'] . " WHERE `id` = $mUid");
                 }
-
-                // Kirim Sumber Daya ke desa
-                if ($mWref > 0 && ($r['wood'] > 0 || $r['clay'] > 0 || $r['iron'] > 0 || $r['crop'] > 0)) {
-                    $database->query("
-                        UPDATE `" . TB_PREFIX . "vdata`
-                        SET `wood` = `wood` + " . (int)$r['wood'] . ",
-                            `clay` = `clay` + " . (int)$r['clay'] . ",
-                            `iron` = `iron` + " . (int)$r['iron'] . ",
-                            `crop` = `crop` + " . (int)$r['crop'] . "
-                        WHERE `wref` = $mWref
-                    ");
-                }
-
-                // Berikan World Essence jika ada
                 if (!empty($r['essence'])) {
-                    $heroItems->addItem($rUid, 210, (int)$r['essence']);
+                    $heroItems->addItem($mUid, 210, (int)$r['essence']);
                 }
+            }
 
-                // Update data reward di s1_expedition_members
-                $database->query("
-                    UPDATE `" . TB_PREFIX . "expedition_members`
-                    SET `reward_wood` = " . (int)$r['wood'] . ",
-                        `reward_clay` = " . (int)$r['clay'] . ",
-                        `reward_iron` = " . (int)$r['iron'] . ",
-                        `reward_crop` = " . (int)$r['crop'] . ",
-                        `reward_exp` = " . (int)$r['exp'] . ",
-                        `reward_cp` = " . (int)$r['cp'] . ",
-                        `reward_silver` = " . (int)$r['silver'] . ",
-                        `reward_essence` = " . (int)$r['essence'] . "
-                    WHERE `expedition_id` = $expeditionId AND `uid` = $rUid
-                ");
+            // 4. Update data anggota di s1_expedition_members
+            $database->query("
+                UPDATE `" . TB_PREFIX . "expedition_members`
+                SET `losses_pct` = " . round($effectiveLossRatio * 100, 2) . ",
+                    `damage_dealt` = " . (int)($memberDamageMap[$mUid] ?? 0) . ",
+                    `travel_time` = $returnDuration,
+                    `arrive_time` = $returnEndTime,
+                    `status` = 2,
+                    `wounded_count` = $woundedCount,
+                    `return_time` = $returnEndTime,
+                    `reward_wood` = $rWood,
+                    `reward_clay` = $rClay,
+                    `reward_iron` = $rIron,
+                    `reward_crop` = $rCrop,
+                    `reward_exp` = " . (int)($r['exp'] ?? 0) . ",
+                    `reward_cp` = " . (int)($r['cp'] ?? 0) . ",
+                    `reward_silver` = " . (int)($r['silver'] ?? 0) . ",
+                    `reward_essence` = " . (int)($r['essence'] ?? 0) . "
+                WHERE `expedition_id` = $expeditionId AND `uid` = $mUid
+            ");
 
-                // Kirim laporan kemenangan Notice 28
+            // 5. Kirim Laporan Notice 28
+            $retMin = ceil($returnDuration / 60);
+            $retTimeFmt = date('H:i:s', $returnEndTime);
+            $hospitalNoticeMsg = ($woundedCount > 0)
+                ? ("\n🏥 Rumah Sakit: {$woundedCount} prajurit terluka telah dirawat di Rumah Sakit desa Anda dan siap disembuhkan.")
+                : "";
+
+            $returnNoticeMsg = ($totalSurv > 0)
+                ? ("\n🎺 Pergerakan Pulang: Pasukan yang selamat" . ($isVictory && ($rWood + $rClay + $rIron + $rCrop > 0) ? " beserta jarahan sumber daya" : "") . " sedang bergerak pulang menuju desa Anda (Tiba dalam {$retMin} menit pada jam {$retTimeFmt}). Pantau di Titik Temu!")
+                : "\n💀 Seluruh pasukan Anda gugur dalam pertempuran sengit ini.";
+
+            if ($isVictory) {
                 $synergyBadges = [];
                 foreach ($synergies['synergies'] as $syn) {
                     $synergyBadges[] = "• " . $syn['name'] . " (" . $syn['tribe_name'] . "): " . $syn['desc'];
@@ -1330,24 +1445,45 @@ class ExpeditionEngine {
 
                 $noticeTopic = "👑 [EKSPEDISI ALIANSI: MENANG] {$camp['name']} Berhasil Ditaklukkan!";
                 $noticeText = "type=expedition_report&action=victory&camp_name=" . urlencode($camp['name']) . "&losses_pct=" . round($effectiveLossRatio * 100, 2) .
-                              "&wood=" . $r['wood'] . "&clay=" . $r['clay'] . "&iron=" . $r['iron'] . "&crop=" . $r['crop'] .
+                              "&wood=" . $rWood . "&clay=" . $rClay . "&iron=" . $rIron . "&crop=" . $rCrop .
                               "&silver=" . $r['silver'] . "&cp=" . $r['cp'] . "&exp=" . $r['exp'] . "&essence=" . $r['essence'] .
+                              "&return_duration=" . $returnDuration . "&return_time=" . $returnEndTime . "&wounded=" . $woundedCount .
                               "&expedition_id=" . $expeditionId .
                               "&message=" . urlencode(
                                   "Serangan gabungan Forward Camp berhasil menumbangkan {$camp['name']}!\n\n" .
                                   "🛡️ Sinergi Suku Aktif:\n" . implode("\n", $synergyBadges) . "\n\n" .
                                   "📊 Statistik Pasukan Bersama:\n" .
                                   "• Rata-rata Kerugian Gugur (Shared Casualty): " . round($effectiveLossRatio * 100, 2) . "%\n" .
-                                  "• Kontribusi Kerusakan Anda: " . number_format($r['damage']) . " (" . $r['pct'] . "%)\n\n" .
+                                  "• Kontribusi Kerusakan Anda: " . number_format($r['damage']) . " (" . $r['pct'] . "%)\n" .
+                                  $hospitalNoticeMsg .
+                                  $returnNoticeMsg . "\n\n" .
                                   "🎁 Hadiah Ekspedisi Anda (50% Flat + 50% Kontribusi):\n" .
-                                  "🌲 Kayu: +" . number_format($r['wood']) . " | 🧱 Liat: +" . number_format($r['clay']) . " | ⛏️ Besi: +" . number_format($r['iron']) . " | 🌾 Gandum: +" . number_format($r['crop']) . "\n" .
+                                  "🌲 Kayu: +" . number_format($rWood) . " | 🧱 Liat: +" . number_format($rClay) . " | ⛏️ Besi: +" . number_format($rIron) . " | 🌾 Gandum: +" . number_format($rCrop) . "\n" .
                                   "🪙 Koin Silver: +" . number_format($r['silver']) . " | 🏛️ CP: +" . number_format($r['cp']) . " | ⭐ Hero EXP: +" . number_format($r['exp']) .
                                   ($r['essence'] > 0 ? ("\n💎 World Essence: +" . number_format($r['essence']) . " pcs") : "")
                               );
 
-                $database->addNotice($rUid, $targetWref, 0, 28, $noticeTopic, $noticeText, $now);
+                $database->addNotice($mUid, $targetWref, 0, 28, $noticeTopic, $noticeText, $now);
+            } else {
+                $noticeTopic = "💀 [EKSPEDISI ALIANSI: TERPUKUL MUNDUR] Pertahanan {$camp['name']} Terlalu Kuat!";
+                $noticeText = "type=expedition_report&action=defeat&camp_name=" . urlencode($camp['name']) . "&losses_pct=" . round($effectiveLossRatio * 100, 2) .
+                              "&return_duration=" . $returnDuration . "&return_time=" . $returnEndTime . "&wounded=" . $woundedCount .
+                              "&expedition_id=" . $expeditionId .
+                              "&message=" . urlencode(
+                                  "Serangan gabungan Forward Camp ke {$camp['name']} tidak berhasil menembus pertahanan lawan.\n" .
+                                  "Pasukan ekspedisi menanggung kerugian bersama sebesar " . round($effectiveLossRatio * 100, 2) . "%." .
+                                  $hospitalNoticeMsg .
+                                  $returnNoticeMsg
+                              );
+                $database->addNotice($mUid, $targetWref, 0, 28, $noticeTopic, $noticeText, $now);
             }
+        }
 
+        if (method_exists($database, 'clearUnitsCache')) {
+            $database->clearUnitsCache();
+        }
+
+        if ($isVictory) {
             // Hapus atau kosongkan camp
             $database->query("
                 UPDATE `" . TB_PREFIX . "bandit_camps`
@@ -1373,18 +1509,6 @@ class ExpeditionEngine {
         } else {
             // Ekspedisi gagal / terpukul mundur
             $database->query("UPDATE `" . TB_PREFIX . "expeditions` SET `status` = " . self::STATUS_FAILED . " WHERE id = $expeditionId");
-
-            foreach ($members as $mRow) {
-                $mUid = (int)$mRow['uid'];
-                $noticeTopic = "💀 [EKSPEDISI ALIANSI: TERPUKUL MUNDUR] Pertahanan {$camp['name']} Terlalu Kuat!";
-                $noticeText = "type=expedition_report&action=defeat&camp_name=" . urlencode($camp['name']) . "&losses_pct=" . round($effectiveLossRatio * 100, 2) .
-                              "&expedition_id=" . $expeditionId .
-                              "&message=" . urlencode(
-                                  "Serangan gabungan Forward Camp ke {$camp['name']} tidak berhasil menembus pertahanan lawan.\n" .
-                                  "Pasukan ekspedisi menanggung kerugian bersama sebesar " . round($effectiveLossRatio * 100, 2) . "%."
-                              );
-                $database->addNotice($mUid, $targetWref, 0, 28, $noticeTopic, $noticeText, $now);
-            }
 
             return [
                 'status' => 'failed',
