@@ -384,6 +384,7 @@ $heroAdventureConfig = array(
     'offer_lifetime'   => 24 * 3600,
     'max_offers'       => 3,
     'refresh_interval' => 8 * 3600,
+    'refresh_gold_cost'=> 3,
 
     // Tier weights for equipment drops (percent, must sum to 100).
     'equip_tier_weights' => array(1 => 70, 2 => 25, 3 => 5),
@@ -407,6 +408,17 @@ $heroAdventureConfig = array(
         'equip_chance' => 10,
         'item_chance'  => 20,
         'consumable'   => array(200, 201, 203, 206, 208), // + Law Tablet, Small Bandage
+    ),
+    2 => array( // WNI (EXTREME / LEBIH SUSAH DARI HARD)
+        'label'        => 'HERO_ADV_WNI',
+        'exp'          => array(40, 75),
+        'silver'       => array(100, 350),
+        'hp_loss'      => array(35, 75),                   // Sangat mematikan bagi hero
+        'resources'    => array(800, 3500),
+        'equip_chance' => 30,                              // Peluang gear drop lebih tinggi
+        'item_chance'  => 40,                              // Peluang consumable drop
+        'consumable'   => array(200, 201, 202, 203, 204, 205, 206, 207, 208), // Full pool termasuk Bucket, Book of Wisdom, Artwork, Bandage
+        'equip_tier_weights' => array(1 => 40, 2 => 45, 3 => 15), // Bobot tier peralatan lebih tinggi
     ),
 );
 

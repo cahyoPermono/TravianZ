@@ -43,6 +43,15 @@ if (isset($_POST['t4action'], $_POST['advid']) && $_POST['t4action'] === 'starta
     } else {
         $t4Msg = HERO_ADV_START_FAIL;
     }
+} elseif (isset($_POST['t4action'], $_POST['advid']) && $_POST['t4action'] === 'refreshadv') {
+    $t4Result = $t4Adventures->refreshAdventure($session->uid, (int) $_POST['advid']);
+    if ($t4Result === HeroAdventure::REFRESH_OK) {
+        $t4Msg = defined('HERO_ADV_REFRESH_OK') ? HERO_ADV_REFRESH_OK : 'Adventure refreshed successfully!';
+    } elseif ($t4Result === HeroAdventure::REFRESH_NO_GOLD) {
+        $t4Msg = defined('HERO_ADV_REFRESH_NOGOLD') ? HERO_ADV_REFRESH_NOGOLD : 'Not enough gold to refresh adventure (costs 3 gold).';
+    } else {
+        $t4Msg = defined('HERO_ADV_REFRESH_FAIL') ? HERO_ADV_REFRESH_FAIL : 'Failed to refresh adventure.';
+    }
 }
 
 // Top up the list opportunistically (respects max/refresh limits internally).
@@ -100,13 +109,13 @@ table.t4adv tr.t4cols th {
 
 table.t4adv td { padding: 5px 4px; vertical-align: middle; font-size: 11px; }
 
-/* Latimile, intr-un singur loc: 76+58+74+90 = 298px ficsi, restul ramane
+/* Latimile, intr-un singur loc: 66+62+68+150 = 346px ficsi, restul ramane
    coloanei cu locul (care contine si coordonatele). */
 table.t4adv th.c-place { width: auto; }
-table.t4adv th.c-dur   { width: 76px; }
-table.t4adv th.c-dan   { width: 58px; }
-table.t4adv th.c-exp   { width: 74px; }
-table.t4adv th.c-act   { width: 90px; }
+table.t4adv th.c-dur   { width: 66px; }
+table.t4adv th.c-dan   { width: 62px; }
+table.t4adv th.c-exp   { width: 68px; }
+table.t4adv th.c-act   { width: 150px; }
 
 /* Locul: numele pe primul rand, coordonatele dedesubt, palide */
 table.t4adv td.t4place { text-align: left; }
@@ -156,6 +165,53 @@ table.t4adv .t4btn:hover {
 table.t4adv .t4btn:active {
     background: linear-gradient(#d5e6b8, #e9f3da);
     border-color: #8bab61;
+}
+
+table.t4adv .t4btnRefresh {
+    display: inline-block;
+    padding: 4px 8px;
+    font-size: 11px;
+    font-weight: bold;
+    color: #7d5400;
+    cursor: pointer;
+    white-space: nowrap;
+    background: #fdf3d8;
+    background: linear-gradient(#fffdf6, #fae6b2);
+    border: 1px solid #d4a942;
+    border-radius: 4px;
+}
+
+table.t4adv .t4btnRefresh:hover {
+    background: linear-gradient(#ffffff, #f7d88e);
+    border-color: #b58b29;
+}
+
+table.t4adv .t4btnRefresh:active {
+    background: linear-gradient(#f0d285, #fcebc2);
+    border-color: #b58b29;
+}
+
+table.t4adv .t4goldIco {
+    width: 12px;
+    height: 12px;
+    vertical-align: -1px;
+    margin-right: 2px;
+}
+
+.t4badgeWni {
+    display: inline-block;
+    padding: 1px 4px;
+    font-size: 9px;
+    font-weight: 800;
+    color: #ffffff;
+    background: #b80000;
+    background: linear-gradient(135deg, #cc0000, #880000);
+    border: 1px solid #5a0000;
+    border-radius: 3px;
+    margin-left: 2px;
+    vertical-align: middle;
+    letter-spacing: 0.5px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.25);
 }
 
 table.t4adv .t4none  { color: #a5a19a; }
@@ -216,8 +272,18 @@ table.t4adv td.t4empty { color: #a5a19a; text-align: center; }
     <?php if (count($t4Offers)) { ?>
         <?php foreach ($t4Offers as $t4Offer) { ?>
             <?php
-                $t4Place = $t4PlaceInfo($t4Offer['wref']);
-                $t4Hard  = ((int) $t4Offer['difficulty'] === 1);
+                $t4Place   = $t4PlaceInfo($t4Offer['wref']);
+                $t4AdvDiff = (int) $t4Offer['difficulty'];
+                if ($t4AdvDiff === 2) {
+                    $t4DiffLabel = defined('HERO_ADV_DIFF_WNI') ? HERO_ADV_DIFF_WNI : 'WNI';
+                    $t4DiffImg   = 'img/hero/dangerWni.gif';
+                } elseif ($t4AdvDiff === 1) {
+                    $t4DiffLabel = defined('HERO_ADV_DIFF_HARD') ? HERO_ADV_DIFF_HARD : 'Hard';
+                    $t4DiffImg   = 'img/hero/dangerGreat.gif';
+                } else {
+                    $t4DiffLabel = defined('HERO_ADV_DIFF_NORMAL') ? HERO_ADV_DIFF_NORMAL : 'Normal';
+                    $t4DiffImg   = 'img/hero/danger.gif';
+                }
             ?>
         <tr>
             <td class="t4place">
@@ -232,23 +298,32 @@ table.t4adv td.t4empty { color: #a5a19a; text-align: center; }
             <td class="t4dur"><?php echo $generator->getTimeFormat((int) $t4Offer['duration']); ?></td>
 
             <td class="t4dan">
-                <img class="t4danIco" src="img/hero/<?php echo $t4Hard ? 'dangerGreat.gif' : 'danger.gif'; ?>"
-                     alt="<?php echo $t4Hard ? HERO_ADV_DIFF_HARD : HERO_ADV_DIFF_NORMAL; ?>"
-                     title="<?php echo $t4Hard ? HERO_ADV_DIFF_HARD : HERO_ADV_DIFF_NORMAL; ?>">
+                <img class="t4danIco" src="<?php echo $t4DiffImg; ?>"
+                     alt="<?php echo $t4DiffLabel; ?>"
+                     title="<?php echo $t4DiffLabel; ?>">
+                <?php if ($t4AdvDiff === 2) { ?>
+                    <span class="t4badgeWni" title="<?php echo $t4DiffLabel; ?> (Extreme)">WNI</span>
+                <?php } ?>
             </td>
 
             <td class="t4exp"><span id="timer<?php echo ++$session->timer; ?>"><?php echo $generator->getTimeFormat(max(0, $t4Offer['expire'] - $t4Now)); ?></span></td>
 
             <td class="t4act">
                 <?php if (!$t4Running) { ?>
-                <form action="" method="POST" class="t4form">
+                <form action="" method="POST" class="t4form" style="display:inline-block; margin-right:3px;">
                     <input type="hidden" name="t4action" value="startadv">
                     <input type="hidden" name="advid" value="<?php echo (int) $t4Offer['id']; ?>">
                     <button type="submit" class="t4btn"><?php echo HERO_ADV_GO; ?></button>
                 </form>
-                <?php } else { ?>
-                <span class="t4none">&mdash;</span>
                 <?php } ?>
+                <form action="" method="POST" class="t4form" style="display:inline-block;">
+                    <input type="hidden" name="t4action" value="refreshadv">
+                    <input type="hidden" name="advid" value="<?php echo (int) $t4Offer['id']; ?>">
+                    <button type="submit" class="t4btn t4btnRefresh" title="Refresh adventure (3 Gold)"
+                            onclick="return confirm('Refresh petualangan ini dengan biaya 3 Gold?');">
+                        <img src="img/admin/gold.gif" class="t4goldIco" alt="Gold">3 <?php echo defined('HERO_ADV_REFRESH') ? HERO_ADV_REFRESH : 'Refresh'; ?>
+                    </button>
+                </form>
             </td>
         </tr>
         <?php } ?>

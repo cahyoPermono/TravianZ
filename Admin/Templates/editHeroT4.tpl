@@ -161,7 +161,7 @@ $t4SlotNames = [1=>'Helmet',2=>'Body',3=>'Right hand',4=>'Left hand',5=>'Shoes',
     <div class="body">
         <?php if ($t4Running) { ?>
             <p><b><?php echo ADM_RUNNING; ?></b> adventure #<?php echo (int) $t4Running['id']; ?>,
-               difficulty <?php echo (int) $t4Running['difficulty'] === 1 ? 'hard' : 'normal'; ?>,
+               difficulty <?php echo (int) $t4Running['difficulty'] === 2 ? 'WNI' : ((int) $t4Running['difficulty'] === 1 ? 'hard' : 'normal'); ?>,
                arrives <?php echo date('d.m H:i:s', (int) $t4Running['endtime']); ?> (do not delete running adventures).</p>
         <?php } ?>
         <?php if (count($t4Offers)) { ?>
@@ -170,7 +170,7 @@ $t4SlotNames = [1=>'Helmet',2=>'Body',3=>'Right hand',4=>'Left hand',5=>'Shoes',
             <?php foreach ($t4Offers as $t4O) { ?>
             <tr>
                 <td>#<?php echo (int) $t4O['id']; ?></td>
-                <td><?php echo (int) $t4O['difficulty'] === 1 ? 'hard' : 'normal'; ?></td>
+                <td><?php echo (int) $t4O['difficulty'] === 2 ? 'WNI' : ((int) $t4O['difficulty'] === 1 ? 'hard' : 'normal'); ?></td>
                 <td><?php echo gmdate('H:i:s', (int) $t4O['duration']); ?></td>
                 <td><?php echo date('d.m H:i', (int) $t4O['expire']); ?></td>
                 <td>

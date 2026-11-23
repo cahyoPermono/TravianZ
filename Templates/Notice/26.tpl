@@ -45,9 +45,11 @@ if ($itemId > 0 && !function_exists('heroItemName')) {
     include_once 'GameEngine/Data/hero_items.php';
 }
 
-$diffLabel = $difficulty === 1
-    ? tz_hero_adv('HERO_ADV_HARD',   'a hard adventure')
-    : tz_hero_adv('HERO_ADV_NORMAL', 'a normal adventure');
+$diffLabel = $difficulty === 2
+    ? tz_hero_adv('HERO_ADV_WNI',    'an extreme (WNI) adventure')
+    : ($difficulty === 1
+        ? tz_hero_adv('HERO_ADV_HARD',   'a hard adventure')
+        : tz_hero_adv('HERO_ADV_NORMAL', 'a normal adventure'));
 ?>
 
 <table cellpadding="1" cellspacing="1" id="report_surround">

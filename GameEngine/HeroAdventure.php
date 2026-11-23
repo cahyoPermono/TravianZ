@@ -49,11 +49,24 @@ class HeroAdventure
     /** Max users to top-up with fresh offers per automation tick (bounded work). */
     const BATCH_LIMIT = 50;
 
+    /** Difficulty levels */
+    const DIFF_NORMAL = 0;
+    const DIFF_HARD   = 1;
+    const DIFF_WNI    = 2;
+
+    /** Gold cost to refresh an adventure offer */
+    const REFRESH_GOLD_COST = 3;
+
     /** startAdventure() result codes */
     const START_OK            = 1;
     const START_INVALID       = 0;  // offer missing/expired/not yours/already running
     const START_NO_HERO       = -1; // no living hero
     const START_HERO_AWAY     = -2; // hero not at home village
+
+    /** refreshAdventure() result codes */
+    const REFRESH_OK          = 1;
+    const REFRESH_INVALID     = 0;  // offer missing/expired/not yours/already running
+    const REFRESH_NO_GOLD     = -1; // insufficient gold
 
     /** @var mysqli */
     private $db;
@@ -110,6 +123,31 @@ class HeroAdventure
         $row = $res->fetch_assoc();
         $stmt->close();
         return $row ?: null;
+    }
+
+    /**
+     * Roll adventure difficulty.
+     * Natural roll: 12% WNI, 28% Hard, 60% Normal.
+     * Gold refresh roll: 25% WNI, 45% Hard, 30% Normal (boosted chance for Hard and WNI).
+     */
+    public function rollDifficulty($isRefresh = false)
+    {
+        $roll = mt_rand(1, 100);
+        if ($isRefresh) {
+            if ($roll <= 25) {
+                return self::DIFF_WNI;
+            } elseif ($roll <= 70) {
+                return self::DIFF_HARD;
+            }
+            return self::DIFF_NORMAL;
+        }
+
+        if ($roll <= 12) {
+            return self::DIFF_WNI;
+        } elseif ($roll <= 40) {
+            return self::DIFF_HARD;
+        }
+        return self::DIFF_NORMAL;
     }
 
     /**
@@ -192,8 +230,8 @@ class HeroAdventure
         $created = 0;
         foreach ($tiles as $tile) {
             $dist = $database->getDistance($x, $y, $tile['x'], $tile['y']);
-            // Hard adventures ~30% of offers.
-            $difficulty = (mt_rand(1, 100) <= 30) ? 1 : 0;
+            // Difficulties: Normal, Hard, WNI
+            $difficulty = $this->rollDifficulty(false);
             $duration   = $this->travelSeconds($uid, $dist);
             $expire     = $now + (int) $heroAdventureConfig['offer_lifetime'];
 
@@ -248,6 +286,119 @@ class HeroAdventure
             $this->generateOffers($uid);
         }
         return count($uids);
+    }
+
+    /* =========================================================================
+     *  REFRESH (3 GOLD)
+     * ===================================================================== */
+
+    /**
+     * Refresh an available adventure offer using gold (costs 3 gold).
+     * Re-rolls target tile, recomputes travel duration, rolls new difficulty
+     * (with boosted chance of Hard and WNI), and renews expiration.
+     *
+     * Returns one of the REFRESH_* constants.
+     */
+    public function refreshAdventure($uid, $advid)
+    {
+        global $database, $heroAdventureConfig, $session;
+        $uid   = (int) $uid;
+        $advid = (int) $advid;
+        $now   = time();
+
+        $hero = $this->getLivingHero($uid);
+        if (!$hero) {
+            return self::REFRESH_INVALID;
+        }
+
+        // Offer must exist, belong to user, have status = 0, and not be expired
+        $stmt = $this->db->prepare(
+            "SELECT id, wref, difficulty, duration FROM " . TB_PREFIX . "hero_adventure
+              WHERE id = ? AND uid = ? AND status = 0 AND expire > ? LIMIT 1"
+        );
+        $stmt->bind_param('iii', $advid, $uid, $now);
+        $stmt->execute();
+        $res   = $stmt->get_result();
+        $offer = $res->fetch_assoc();
+        $stmt->close();
+
+        if (!$offer) {
+            return self::REFRESH_INVALID;
+        }
+
+        $cost = isset($heroAdventureConfig['refresh_gold_cost'])
+            ? (int) $heroAdventureConfig['refresh_gold_cost']
+            : self::REFRESH_GOLD_COST;
+
+        // Race-safe atomic gold deduction
+        $stmt = $this->db->prepare(
+            "UPDATE " . TB_PREFIX . "users SET gold = gold - ? WHERE id = ? AND gold >= ? LIMIT 1"
+        );
+        $stmt->bind_param('iii', $cost, $uid, $cost);
+        $stmt->execute();
+        $paid = ($stmt->affected_rows > 0);
+        $stmt->close();
+
+        if (!$paid) {
+            return self::REFRESH_NO_GOLD;
+        }
+
+        // Invalidate session cache if present
+        if (isset($_SESSION['username'])) {
+            unset($_SESSION['cache_user_' . $_SESSION['username']]);
+        }
+        if (isset($session) && isset($session->gold) && (int) $session->uid === $uid) {
+            $session->gold = max(0, (int) $session->gold - $cost);
+        }
+
+        // Pick a new unoccupied tile around hero's home village
+        $homeWref = (int) $hero['wref'];
+        $coor     = $database->getCoor($homeWref);
+        $x        = (int) ($coor['x'] ?? 0);
+        $y        = (int) ($coor['y'] ?? 0);
+        $r        = self::SITE_MAX_RADIUS;
+        $oldWref  = (int) $offer['wref'];
+        $minSq    = self::SITE_MIN_RADIUS * self::SITE_MIN_RADIUS;
+
+        $stmt = $this->db->prepare(
+            "SELECT id, x, y FROM " . TB_PREFIX . "wdata
+              WHERE occupied = 0 AND id <> ? AND id <> ?
+                AND x BETWEEN ? AND ? AND y BETWEEN ? AND ?
+                AND (POW(x - ?, 2) + POW(y - ?, 2)) >= ?
+              ORDER BY RAND() LIMIT 1"
+        );
+        $x1 = $x - $r; $x2 = $x + $r; $y1 = $y - $r; $y2 = $y + $r;
+        $stmt->bind_param('iiiiiiiii', $homeWref, $oldWref, $x1, $x2, $y1, $y2, $x, $y, $minSq);
+        $stmt->execute();
+        $tileRes = $stmt->get_result();
+        $newTile = $tileRes->fetch_assoc();
+        $stmt->close();
+
+        if ($newTile) {
+            $targetWref = (int) $newTile['id'];
+            $dist       = $database->getDistance($x, $y, (int) $newTile['x'], (int) $newTile['y']);
+        } else {
+            $targetWref = $oldWref;
+            $coorSite   = $database->getCoor($oldWref);
+            $dist       = $database->getDistance($x, $y, (int) ($coorSite['x'] ?? 0), (int) ($coorSite['y'] ?? 0));
+        }
+
+        // Roll new difficulty with refresh bonus (boosted chance for Hard/WNI)
+        $newDifficulty = $this->rollDifficulty(true);
+        $newDuration   = $this->travelSeconds($uid, $dist);
+        $newExpire     = $now + (int) ($heroAdventureConfig['offer_lifetime'] ?? (24 * 3600));
+
+        $stmt = $this->db->prepare(
+            "UPDATE " . TB_PREFIX . "hero_adventure
+                SET wref = ?, difficulty = ?, duration = ?, created = ?, expire = ?
+              WHERE id = ? AND uid = ? AND status = 0
+              LIMIT 1"
+        );
+        $stmt->bind_param('iiiiiii', $targetWref, $newDifficulty, $newDuration, $now, $newExpire, $advid, $uid);
+        $stmt->execute();
+        $stmt->close();
+
+        return self::REFRESH_OK;
     }
 
     /* =========================================================================
@@ -322,7 +473,7 @@ class HeroAdventure
         global $database;
         $coorHome = $database->getCoor($homeWref);
         $coorSite = $database->getCoor((int) $offer['wref']);
-        $dist     = $database->getDistance($coorHome['x'], $coorHome['y'], $coorSite['x'], $coorSite['y']);
+        $dist     = $database->getDistance((int) ($coorHome['x'] ?? 0), (int) ($coorHome['y'] ?? 0), (int) ($coorSite['x'] ?? 0), (int) ($coorSite['y'] ?? 0));
         $duration = $this->travelSeconds($uid, $dist);
         $endtime  = $now + $duration;
 
@@ -378,9 +529,10 @@ class HeroAdventure
                 continue;
             }
 
-            $uid  = (int) $data['uid'];
-            $hero = $this->getLivingHero($uid);
-            $cfg  = $heroAdventureConfig[(int) $data['difficulty']];
+            $uid     = (int) $data['uid'];
+            $hero    = $this->getLivingHero($uid);
+            $diffKey = (int) $data['difficulty'];
+            $cfg     = $heroAdventureConfig[$diffKey] ?? $heroAdventureConfig[0];
 
             // Auto-rescue: Jika hero sempat salah dinyatakan mati oleh desync sesi/query saat petualangan aktif
             if (!$hero) {
@@ -420,7 +572,7 @@ class HeroAdventure
             // if no gear dropped, roll the consumable pool. One item max.
             $itemId = 0; $itemQty = 0;
             if (mt_rand(1, 100) <= (int) ($cfg['equip_chance'] ?? 0)) {
-                $itemId  = $this->rollEquipment($uid);
+                $itemId  = $this->rollEquipment($uid, $diffKey);
                 $itemQty = ($itemId > 0) ? 1 : 0;
             }
             if ($itemId === 0 && mt_rand(1, 100) <= (int) $cfg['item_chance']) {
@@ -625,13 +777,16 @@ class HeroAdventure
      * if the rolled tier happens to be empty (defensive; never true with
      * the shipped catalog).
      */
-    public function rollEquipment($uid = 0)
+    public function rollEquipment($uid = 0, $difficulty = 0)
     {
         global $database, $heroItemCatalog, $heroAdventureConfig;
 
         $tribe = ((int) $uid > 0) ? (int) $database->getUserField((int) $uid, 'tribe', 0) : 0;
 
         $weights = $heroAdventureConfig['equip_tier_weights'];
+        if ($difficulty === 2 && isset($heroAdventureConfig[2]['equip_tier_weights'])) {
+            $weights = $heroAdventureConfig[2]['equip_tier_weights'];
+        }
         $roll = mt_rand(1, 100); $acc = 0; $tier = 1;
         foreach ($weights as $t => $w) {
             $acc += (int) $w;
