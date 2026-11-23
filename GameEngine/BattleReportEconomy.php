@@ -111,7 +111,12 @@ class BattleReportEconomy
                 break;
             }
         }
-        if (!$isSpy && !empty($dataarray[268]) && !empty($dataarray[269])) {
+        if (!$isSpy && !empty($dataarray[269]) && is_string($dataarray[269]) && (
+            strpos($dataarray[269], '<div class="res">') !== false ||
+            strpos($dataarray[269], 'class="r1"') !== false ||
+            strpos($dataarray[269], 'RC_CRANNY_CAPACITY') !== false ||
+            strpos($dataarray[269], 'RC_WALL_LEVEL') !== false
+        )) {
             $isSpy = true;
         }
 

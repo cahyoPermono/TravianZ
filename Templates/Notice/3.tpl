@@ -230,15 +230,28 @@ if (array_sum(array_map('intval', array_slice($dataarray, $trappedStart, 11))) >
 
 <?php
 // ======================== SPECIAL ACTIONS ========================
+$catpUnits = [8, 18, 28, 38, 48, 58, 68, 78, 88, 98];
+$ramUnits  = [7, 17, 27, 37, 47, 57, 67, 77, 87, 97];
+$chiefUnits = [9, 19, 29, 39, 49, 59, 69, 79, 89, 99];
+
 if ($heroSentIdx === 266) {
-    $ramUnitIdx   = 0;
+    $ramUnitIdx   = 279;
     $ramInfoIdx   = 280;
-    $catpUnitIdx  = 0;
-    $catpInfoIdx  = 281;
-    $chiefUnitIdx = 0;
-    $chiefInfoIdx = 282;
-    $troopInfoIdx = 283;
-    $heroInfoIdx  = 284;
+    $catpUnitIdx  = 281;
+    $catpInfoIdx  = 282;
+    $chiefUnitIdx = 283;
+    $chiefInfoIdx = 284;
+    $troopInfoIdx = 285;
+    $heroInfoIdx  = 286;
+} elseif ($heroSentIdx === 272 || count($dataarray) >= 270) {
+    $ramUnitIdx   = 264;
+    $ramInfoIdx   = 265;
+    $catpUnitIdx  = 266;
+    $catpInfoIdx  = 267;
+    $chiefUnitIdx = 268;
+    $chiefInfoIdx = 269;
+    $troopInfoIdx = 288;
+    $heroInfoIdx  = 289;
 } elseif ($heroSentIdx === 239) {
     $ramUnitIdx   = 253;
     $ramInfoIdx   = 254;
@@ -264,11 +277,15 @@ $ramData = (!empty($dataarray[$ramInfoIdx]) && $dataarray[$ramInfoIdx] !== '?' &
 $ramUnit = (!empty($dataarray[$ramUnitIdx]) && is_numeric($dataarray[$ramUnitIdx])) ? (int)$dataarray[$ramUnitIdx] : null;
 if ($ramData === null) {
     foreach ($dataarray as $k => $v) {
-        if (is_string($v) && (strpos($v, 'RC_WALL_') !== false || strpos($v, 'RC_NO_WALL') !== false || strpos($v, 'The ram does not work') !== false || (stripos($v, 'wall') !== false && stripos($v, 'damaged') !== false))) {
+        if (!is_string($v) || $v === '' || $v === '?' || $v === '0' || is_numeric($v)) continue;
+        $prev = isset($dataarray[$k - 1]) && is_numeric($dataarray[$k - 1]) ? (int)$dataarray[$k - 1] : 0;
+        if (in_array($prev, $ramUnits, true) ||
+            (strpos($v, 'RC_WALL_') !== false || strpos($v, 'RC_NO_WALL') !== false || strpos($v, 'The ram does not work') !== false || stripos($v, 'berbek') !== false || stripos($v, 'ram does not work') !== false) ||
+            ((stripos($v, 'wall') !== false || stripos($v, 'tembok') !== false || stripos($v, 'zidul') !== false || stripos($v, 'muralla') !== false || stripos($v, 'mauer') !== false) &&
+             (stripos($v, 'damaged') !== false || stripos($v, 'rusak') !== false || stripos($v, 'destroyed') !== false || stripos($v, 'hancur') !== false || stripos($v, 'not damaged') !== false || stripos($v, 'tidak') !== false || stripos($v, 'avariat') !== false))
+        ) {
             $ramData = $v;
-            if (isset($dataarray[$k - 1]) && is_numeric($dataarray[$k - 1])) {
-                $ramUnit = (int)$dataarray[$k - 1];
-            }
+            if ($prev > 0) $ramUnit = $prev;
             break;
         }
     }
@@ -296,11 +313,18 @@ $catpData = (!empty($dataarray[$catpInfoIdx]) && $dataarray[$catpInfoIdx] !== '?
 $catpUnit = (!empty($dataarray[$catpUnitIdx]) && is_numeric($dataarray[$catpUnitIdx])) ? (int)$dataarray[$catpUnitIdx] : null;
 if ($catpData === null) {
     foreach ($dataarray as $k => $v) {
-        if (is_string($v) && (strpos($v, 'RC_DESTROYED') !== false || strpos($v, 'RC_NOT_DAMAGED') !== false || strpos($v, 'RC_DAMAGED_FROM_TO') !== false || strpos($v, 'RC_NO_BUILDINGS') !== false || strpos($v, 'RC_VILLAGE_') !== false || (stripos($v, 'damaged') !== false && stripos($v, 'level') !== false))) {
-            $catpData = $v;
-            if (isset($dataarray[$k - 1]) && is_numeric($dataarray[$k - 1])) {
-                $catpUnit = (int)$dataarray[$k - 1];
+        if (!is_string($v) || $v === '' || $v === '?' || $v === '0' || is_numeric($v)) continue;
+        $prev = isset($dataarray[$k - 1]) && is_numeric($dataarray[$k - 1]) ? (int)$dataarray[$k - 1] : 0;
+        if (in_array($prev, $catpUnits, true) ||
+            (strpos($v, 'RC_DESTROYED') !== false || strpos($v, 'RC_NOT_DAMAGED') !== false || strpos($v, 'RC_DAMAGED_FROM_TO') !== false || strpos($v, 'RC_NO_BUILDINGS') !== false || strpos($v, 'RC_VILLAGE_') !== false) ||
+            ((strpos($v, '<b>') !== false || stripos($v, 'level') !== false || stripos($v, 'tingkat') !== false) &&
+             (stripos($v, 'destroyed') !== false || stripos($v, 'hancur') !== false || stripos($v, 'damaged') !== false || stripos($v, 'rusak') !== false || stripos($v, 'zerstört') !== false || stripos($v, 'distrus') !== false || stripos($v, 'détruit') !== false || stripos($v, 'destruid') !== false))
+        ) {
+            if (in_array($prev, $ramUnits, true) || in_array($prev, $chiefUnits, true) || stripos($v, 'wall') !== false || stripos($v, 'tembok') !== false || stripos($v, 'zidul') !== false || stripos($v, 'muralla') !== false || stripos($v, 'loyalty') !== false || stripos($v, 'loyalitas') !== false) {
+                continue;
             }
+            $catpData = $v;
+            if ($prev > 0) $catpUnit = $prev;
             break;
         }
     }
@@ -328,11 +352,14 @@ $chiefData = (!empty($dataarray[$chiefInfoIdx]) && $dataarray[$chiefInfoIdx] !==
 $chiefUnit = (!empty($dataarray[$chiefUnitIdx]) && is_numeric($dataarray[$chiefUnitIdx])) ? (int)$dataarray[$chiefUnitIdx] : null;
 if ($chiefData === null) {
     foreach ($dataarray as $k => $v) {
-        if (is_string($v) && (strpos($v, 'RC_LOYALTY_') !== false || strpos($v, 'RC_NOT_ENOUGH_CP') !== false || strpos($v, 'RC_CANT_TAKEOVER') !== false || strpos($v, 'RC_RESIDENCE_') !== false || strpos($v, 'RC_NO_REDUCE_') !== false || strpos($v, 'RC_INHABITANTS_') !== false || stripos($v, 'loyalty') !== false || stripos($v, 'loialitatea') !== false || stripos($v, 'loyalitas') !== false || stripos($v, 'residence') !== false || stripos($v, 'palace') !== false)) {
+        if (!is_string($v) || $v === '' || $v === '?' || $v === '0' || is_numeric($v)) continue;
+        $prev = isset($dataarray[$k - 1]) && is_numeric($dataarray[$k - 1]) ? (int)$dataarray[$k - 1] : 0;
+        if (in_array($prev, $chiefUnits, true) ||
+            (strpos($v, 'RC_LOYALTY_') !== false || strpos($v, 'RC_NOT_ENOUGH_CP') !== false || strpos($v, 'RC_CANT_TAKEOVER') !== false || strpos($v, 'RC_RESIDENCE_') !== false || strpos($v, 'RC_NO_REDUCE_') !== false || strpos($v, 'RC_INHABITANTS_') !== false) ||
+            (stripos($v, 'loyalty') !== false || stripos($v, 'loyalitas') !== false || stripos($v, 'loialitatea') !== false || stripos($v, 'lealtad') !== false)
+        ) {
             $chiefData = $v;
-            if (isset($dataarray[$k - 1]) && is_numeric($dataarray[$k - 1])) {
-                $chiefUnit = (int)$dataarray[$k - 1];
-            }
+            if ($prev > 0) $chiefUnit = $prev;
             break;
         }
     }
