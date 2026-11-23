@@ -419,6 +419,8 @@ $heroAdventureConfig = array(
         'item_chance'  => 40,                              // Peluang consumable drop
         'consumable'   => array(200, 201, 202, 203, 204, 205, 206, 207, 208), // Full pool termasuk Bucket, Book of Wisdom, Artwork, Bandage
         'equip_tier_weights' => array(1 => 40, 2 => 45, 3 => 15), // Bobot tier peralatan lebih tinggi
+        'essence_chance' => 8,                             // Peluang kecil (8%) mendapatkan World Essence
+        'essence_qty'    => array(1, 1),                   // Jumlah World Essence (1 pcs)
     ),
 );
 

@@ -302,7 +302,7 @@ table.t4adv td.t4empty { color: #a5a19a; text-align: center; }
                      alt="<?php echo $t4DiffLabel; ?>"
                      title="<?php echo $t4DiffLabel; ?>">
                 <?php if ($t4AdvDiff === 2) { ?>
-                    <span class="t4badgeWni" title="<?php echo $t4DiffLabel; ?> (Extreme)">WNI</span>
+                    <span class="t4badgeWni" title="<?php echo $t4DiffLabel; ?> (Extreme) - Peluang mendapatkan World Essence!">WNI</span>
                 <?php } ?>
             </td>
 

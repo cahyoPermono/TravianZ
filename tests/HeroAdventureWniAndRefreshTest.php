@@ -28,6 +28,7 @@ assertTest(isset($heroAdventureConfig[2]), "WNI level (difficulty 2) exists in c
 assertTest($heroAdventureConfig[2]['label'] === 'HERO_ADV_WNI', "WNI label is HERO_ADV_WNI");
 assertTest($heroAdventureConfig[2]['hp_loss'][1] >= 70, "WNI maximum HP loss is >= 70% (harder than hard)");
 assertTest($heroAdventureConfig[2]['exp'][1] > $heroAdventureConfig[1]['exp'][1], "WNI EXP reward exceeds Hard EXP reward");
+assertTest(isset($heroAdventureConfig[2]['essence_chance']) && $heroAdventureConfig[2]['essence_chance'] > 0, "WNI has essence_chance configured");
 assertTest($heroAdventureConfig['refresh_gold_cost'] === 3, "Refresh gold cost is 3");
 assertTest(HeroAdventure::DIFF_WNI === 2, "HeroAdventure::DIFF_WNI constant equals 2");
 assertTest(HeroAdventure::REFRESH_GOLD_COST === 3, "HeroAdventure::REFRESH_GOLD_COST constant equals 3");
@@ -138,6 +139,43 @@ $diffLabel = $difficulty === 2
     : ($difficulty === 1 ? 'a hard adventure' : 'a normal adventure');
 
 assertTest(strpos($diffLabel, 'WNI') !== false, "Report diffLabel correctly identifies WNI: '$diffLabel'");
+
+// -------------------------------------------------------------
+// Test 7: Verify World Essence Drop mechanism from WNI adventure
+// -------------------------------------------------------------
+if (!class_exists('HeroForge')) {
+    require_once __DIR__ . '/../GameEngine/HeroForge.php';
+}
+
+$origEssenceChance = $heroAdventureConfig[2]['essence_chance'];
+$heroAdventureConfig[2]['essence_chance'] = 100; // Force 100% chance for test
+
+// Ensure hero is alive at home village
+$database->query("UPDATE " . TB_PREFIX . "hero SET dead = 0, health = 100 WHERE heroid = $heroid");
+$database->query("UPDATE " . TB_PREFIX . "units SET hero = 1 WHERE vref = $v1");
+
+$initEssence = HeroForge::getEssenceCount($uid);
+
+$database->query("INSERT INTO " . TB_PREFIX . "hero_adventure (uid, wref, difficulty, duration, created, expire, status) VALUES ($uid, $site2, 2, 10, " . time() . ", " . (time() + 3600) . ", 0)");
+$advIdEss = (int) mysqli_insert_id($database->dblink);
+
+$startRes2 = $advObj->startAdventure($uid, $advIdEss);
+assertTest($startRes2 === HeroAdventure::START_OK, "Hero embarked on WNI adventure for essence test");
+
+$moveRow2 = mysqli_fetch_assoc($database->query("SELECT moveid FROM " . TB_PREFIX . "movement WHERE ref = $advIdEss AND sort_type = " . MOVEMENT_ADVENTURE_OUT));
+$database->query("UPDATE " . TB_PREFIX . "movement SET endtime = " . (time() - 10) . " WHERE moveid = " . (int)$moveRow2['moveid']);
+
+$advObj->processArrivals();
+
+$afterEssence = HeroForge::getEssenceCount($uid);
+assertTest($afterEssence === ($initEssence + 1), "Hero received exactly 1 World Essence in bag from WNI adventure (before: $initEssence, after: $afterEssence)");
+
+$essNotice = mysqli_fetch_assoc($database->query("SELECT data FROM " . TB_PREFIX . "ndata WHERE uid = $uid ORDER BY id DESC LIMIT 1"));
+assertTest(strpos($essNotice['data'], 'essence=1') !== false, "Notice report data contains 'essence=1'");
+
+// Restore original essence chance
+$heroAdventureConfig[2]['essence_chance'] = $origEssenceChance;
+$database->query("DELETE FROM " . TB_PREFIX . "movement WHERE ref = $advIdEss");
 
 // -------------------------------------------------------------
 // Cleanup

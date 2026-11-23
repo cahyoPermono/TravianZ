@@ -38,6 +38,7 @@ $iron       = (int)($adv['iron']   ?? 0);
 $crop       = (int)($adv['crop']   ?? 0);
 $itemId     = (int)($adv['itemid'] ?? 0);
 $itemQty    = (int)($adv['itemqty'] ?? 0);
+$essence    = (int)($adv['essence'] ?? 0);
 
 // Resolve the item name from the catalog (heroItemName falls back safely).
 // berichte.php runs from the web root, so the relative path is stable.
@@ -111,6 +112,12 @@ $diffLabel = $difficulty === 2
         <tr>
             <td><?php echo tz_hero_adv('HERO_ADV_ITEM_FOUND', 'Item found'); ?></td>
             <td style="text-align:right;"><?php echo $itemQty; ?>&times; <?php echo heroItemName($itemId); ?></td>
+        </tr>
+        <?php } ?>
+        <?php if ($essence > 0) { ?>
+        <tr>
+            <td><span style="color:#c026d3;font-weight:bold;">💎 <?php echo tz_hero_adv('HERO_ESSENCE', 'World Essence'); ?></span></td>
+            <td style="text-align:right;color:#c026d3;font-weight:bold;">+<?php echo $essence; ?></td>
         </tr>
         <?php } ?>
         <?php if ($hp > 0) { ?>

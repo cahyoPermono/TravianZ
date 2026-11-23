@@ -2970,6 +2970,7 @@ tz_def('HERO_ADV_RETURNED',      'Your hero has returned from');
 tz_def('HERO_ADV_REWARD',        'Reward');
 tz_def('HERO_ADV_AMOUNT',        'Amount');
 tz_def('HERO_ADV_ITEM_FOUND',    'Item found');
+tz_def('HERO_ESSENCE',           'World Essence');
 tz_def('HERO_ADV_HP_LOST',       'Health lost');
 tz_def('HERO_ADV_DIED',          'Your hero fell on');
 tz_def('HERO_ADV_DIED_INFO',     "All loot was lost. The hero can be revived at the Hero's Mansion.");

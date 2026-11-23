@@ -581,6 +581,12 @@ class HeroAdventure
                 $itemQty = 1;
             }
 
+            // World Essence: small percentage chance on WNI adventures
+            $essence = 0;
+            if (!empty($cfg['essence_chance']) && mt_rand(1, 100) <= (int) $cfg['essence_chance']) {
+                $essence = mt_rand($cfg['essence_qty'][0] ?? 1, $cfg['essence_qty'][1] ?? 1);
+            }
+
             $health    = (float) $hero['health'];
             $newHealth = $health - $hpLoss;
 
@@ -662,12 +668,15 @@ class HeroAdventure
             $stmt->execute();
             $stmt->close();
 
-            // Silver + item drop.
+            // Silver + item drop + World Essence.
             if ($silver > 0) {
                 $heroItems->addSilver($uid, $silver);
             }
             if ($itemId > 0) {
                 $heroItems->addItem($uid, $itemId, $itemQty);
+            }
+            if ($essence > 0) {
+                $heroItems->addItem($uid, 210, $essence);
             }
 
             /* ---- Return movement carries the resource loot home ---- */
@@ -692,6 +701,9 @@ class HeroAdventure
                      . '&wood=' . $wood . '&clay=' . $clay . '&iron=' . $iron . '&crop=' . $crop;
             if ($itemId > 0) {
                 $payload .= '&itemid=' . $itemId . '&itemqty=' . $itemQty;
+            }
+            if ($essence > 0) {
+                $payload .= '&essence=' . $essence;
             }
             $database->addNotice($uid, $toHome, 0, NTYPE_ADVENTURE_REPORT,
                 'Hero returned from an adventure', $payload, $now);
