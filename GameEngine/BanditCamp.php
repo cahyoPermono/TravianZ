@@ -136,7 +136,7 @@ class BanditCamp {
             wref int(11) NOT NULL,
             tier tinyint(2) NOT NULL DEFAULT 1,
             level int(11) NOT NULL DEFAULT 1,
-            name varchar(64) NOT NULL,
+            name varchar(128) NOT NULL,
             max_hp int(11) NOT NULL DEFAULT 100,
             cur_hp int(11) NOT NULL DEFAULT 100,
             bounty_wood int(11) NOT NULL DEFAULT 5000,
@@ -161,6 +161,12 @@ class BanditCamp {
         $colsLevel = $database->query_return("SHOW COLUMNS FROM " . TB_PREFIX . "bandit_camps LIKE 'level'");
         if (empty($colsLevel)) {
             mysqli_query($database->dblink, "ALTER TABLE " . TB_PREFIX . "bandit_camps ADD COLUMN `level` int(11) NOT NULL DEFAULT 1 AFTER `tier`");
+        }
+
+        // Auto-expand name column to varchar(128) if needed
+        $colName = $database->query_return("SHOW COLUMNS FROM " . TB_PREFIX . "bandit_camps LIKE 'name'");
+        if (!empty($colName) && strpos($colName[0]['Type'], '64') !== false) {
+            mysqli_query($database->dblink, "ALTER TABLE " . TB_PREFIX . "bandit_camps MODIFY COLUMN `name` varchar(128) NOT NULL");
         }
 
         $qAttacks = "CREATE TABLE IF NOT EXISTS " . TB_PREFIX . "bandit_camp_attacks (
@@ -327,10 +333,10 @@ class BanditCamp {
             self::TIER_OUTPOST   => ['bounty' => 2500,  'exp' => 600,   'cp' => 100,  'silver' => 60],
             self::TIER_HIDEOUT   => ['bounty' => 10000, 'exp' => 2200,  'cp' => 350,  'silver' => 250],
             self::TIER_FORTRESS  => ['bounty' => 32000, 'exp' => 7500,  'cp' => 900,  'silver' => 950],
-            self::TIER_WORLDBOSS => ['bounty' => 100000,'exp' => 28000, 'cp' => 2800, 'silver' => 4000],
+            self::TIER_WORLDBOSS => ['bounty' => 120000,'exp' => 28000, 'cp' => 2800, 'silver' => 4000],
         ];
 
-        $active = $database->query_return("SELECT id, wref, tier, bounty_wood, reward_exp, reward_silver FROM " . TB_PREFIX . "bandit_camps WHERE status = 1");
+        $active = $database->query_return("SELECT id, wref, tier, level, name, bounty_wood, reward_exp, reward_cp, reward_silver FROM " . TB_PREFIX . "bandit_camps WHERE status = 1");
         if (empty($active)) return;
 
         foreach ($active as $c) {
@@ -342,16 +348,65 @@ class BanditCamp {
             if ($t === self::TIER_WORLDBOSS) {
                 $currDefeats = self::getWorldBossDefeatCount();
                 $expectedLvl = max(1, $currDefeats + 1);
-                $database->query("UPDATE " . TB_PREFIX . "bandit_camps SET `level` = $expectedLvl WHERE id = $campId AND `level` < $expectedLvl");
+                $campLvl = max($expectedLvl, (int)($c['level'] ?? 1));
+                if ((int)($c['level'] ?? 1) < $expectedLvl) {
+                    $database->query("UPDATE " . TB_PREFIX . "bandit_camps SET `level` = $expectedLvl WHERE id = $campId");
+                }
+
+                // Dynamic baseline according to World Boss level
+                $bossMult = 1.0 + (($campLvl - 1) * 0.25);
+                $req = [
+                    'bounty' => (int)round(120000 * $bossMult),
+                    'exp'    => (int)round(28000 * (1.0 + (($campLvl - 1) * 0.20))),
+                    'cp'     => (int)round(2800 * (1.0 + (($campLvl - 1) * 0.20))),
+                    'silver' => (int)round(4000 * (1.0 + (($campLvl - 1) * 0.25))),
+                ];
+
+                // Fix duplicate or truncated [WORLD BOSS] tag in name if present
+                $campName = $c['name'] ?? '';
+                if (preg_match('/(\[WORLD BOSS - LV\.\s*\d+\])\s*\[WORLD BOSS?\]?\s*/i', $campName)) {
+                    $fixedName = preg_replace('/(\[WORLD BOSS - LV\.\s*\d+\])\s*\[WORLD BOSS?\]?\s*/i', '$1 ', $campName);
+                    $nameEsc = mysqli_real_escape_string($database->dblink, $fixedName);
+                    $database->query("UPDATE " . TB_PREFIX . "bandit_camps SET name = '$nameEsc' WHERE id = $campId");
+                    $database->query("UPDATE " . TB_PREFIX . "vdata SET name = '$nameEsc' WHERE wref = $wref");
+                }
+
+                // If boss hasn't taken damage yet, calibrate guard counts to ensure monotonic progression
+                $dmgRes = $database->query_return("SELECT SUM(damage_dealt) as total_dmg FROM " . TB_PREFIX . "bandit_camp_attacks WHERE camp_id = $campId");
+                $hasDamage = !empty($dmgRes[0]['total_dmg']) && (int)$dmgRes[0]['total_dmg'] > 0;
+                if (!$hasDamage) {
+                    $wbExpectedTroops = [
+                        35 => (int)round(550 * $bossMult),
+                        36 => (int)round(400 * $bossMult),
+                        37 => (int)round(700 * $bossMult),
+                        38 => (int)round(450 * $bossMult),
+                        39 => (int)round(650 * $bossMult),
+                        40 => (int)round(400 * $bossMult),
+                    ];
+                    // Check if current troops are significantly off (e.g. elephant under minimum)
+                    $uCurr = $database->getUnit($wref, false);
+                    $currentElephant = (int)($uCurr['u40'] ?? 0);
+                    if ($currentElephant < $wbExpectedTroops[40]) {
+                        $setWbUnits = [];
+                        $totGuards = 0;
+                        foreach ($wbExpectedTroops as $uNum => $amt) {
+                            $setWbUnits[] = "u{$uNum} = {$amt}";
+                            $totGuards += $amt;
+                        }
+                        $wbSql = implode(', ', $setWbUnits);
+                        $database->query("UPDATE " . TB_PREFIX . "units SET {$wbSql} WHERE vref = $wref");
+                        $database->query("UPDATE " . TB_PREFIX . "bandit_camps SET cur_hp = $totGuards, max_hp = $totGuards WHERE id = $campId");
+                    }
+                }
             }
 
             // Check if this camp has outdated rewards
             if ((int)$c['reward_exp'] < $req['exp'] || (int)$c['reward_silver'] < $req['silver'] || (int)$c['bounty_wood'] < $req['bounty']) {
-                $bounty = $req['bounty'];
+                $bounty = max((int)$c['bounty_wood'], $req['bounty']);
                 $storage = max(40000, (int)round($bounty * 1.5));
-                $exp = $req['exp'];
-                $cp = $req['cp'];
-                $silver = $req['silver'];
+                $exp = max((int)$c['reward_exp'], $req['exp']);
+                $cp = max((int)($c['reward_cp'] ?? 0), $req['cp']);
+                $silver = max((int)$c['reward_silver'], $req['silver']);
 
                 // Update camp table
                 $database->query("
@@ -587,21 +642,21 @@ class BanditCamp {
             ],
             self::TIER_WORLDBOSS => [
                 'names' => [
-                    '[WORLD BOSS] Naga Siluman Rawa Pening',
-                    '[WORLD BOSS] Raja Gajah Purba Mpu Bharada',
-                    '[WORLD BOSS] Panglima Siluman Alas Ketangga',
-                    '[WORLD BOSS] Raja Siluman Sanghyang Kenambang'
+                    'Naga Siluman Rawa Pening',
+                    'Raja Gajah Purba Mpu Bharada',
+                    'Panglima Siluman Alas Ketangga',
+                    'Raja Siluman Sanghyang Kenambang'
                 ],
                 'pop' => 280,
                 'troops' => [
-                    35 => rand(400, 700),   // Babi Hutan
-                    36 => rand(300, 500),   // Srigala
-                    37 => rand(500, 900),   // Beruang
-                    38 => rand(300, 600),   // Buaya
-                    39 => rand(450, 800),   // Harimau Siluman
-                    40 => rand(250, 500),   // Gajah Purba Raksasa
+                    35 => 550,   // Babi Hutan
+                    36 => 400,   // Srigala
+                    37 => 700,   // Beruang
+                    38 => 450,   // Buaya
+                    39 => 650,   // Harimau Siluman
+                    40 => 400,   // Gajah Purba Raksasa
                 ],
-                'bounty' => rand(90000, 150000),
+                'bounty' => 120000,
                 'exp' => 28000,
                 'cp' => 2800,
                 'silver' => 4000,
@@ -643,14 +698,15 @@ class BanditCamp {
         if ($tier === self::TIER_WORLDBOSS) {
             $bossLevel = self::getWorldBossDefeatCount() + 1;
             $scaleMultiplier = 1.0 + (($bossLevel - 1) * 0.25);
-            $campName = "[WORLD BOSS - LV. {$bossLevel}] " . $baseName;
+            $cleanBaseName = preg_replace('/^\[WORLD BOSS\]\s*/i', '', $baseName);
+            $campName = "[WORLD BOSS - LV. {$bossLevel}] " . $cleanBaseName;
             $bounty = (int)round($bounty * $scaleMultiplier);
-            $exp = (int)round($exp * (1.0 + (($bossLevel - 1) * 0.15)));
-            $cp = (int)round($cp * (1.0 + (($bossLevel - 1) * 0.15)));
-            $silver = (int)round($silver * (1.0 + (($bossLevel - 1) * 0.20)));
+            $exp = (int)round($exp * (1.0 + (($bossLevel - 1) * 0.20)));
+            $cp = (int)round($cp * (1.0 + (($bossLevel - 1) * 0.20)));
+            $silver = (int)round($silver * (1.0 + (($bossLevel - 1) * 0.25)));
             $pop = (int)round($pop * (1.0 + (($bossLevel - 1) * 0.10)));
 
-            // Perkuat prajurit penjaga Boss
+            // Perkuat prajurit penjaga Boss secara deterministik (dijamin selalu bertambah kuat tiap level)
             foreach ($p['troops'] as $uNum => $amt) {
                 $p['troops'][$uNum] = (int)round($amt * $scaleMultiplier);
             }
@@ -691,9 +747,6 @@ class BanditCamp {
 
         // 6. Record in bandit_camps table
         $nameEsc = mysqli_real_escape_string($database->dblink, $campName);
-        $exp = (int)$p['exp'];
-        $cp = (int)$p['cp'];
-        $silver = (int)$p['silver'];
 
         $database->query("
             INSERT INTO " . TB_PREFIX . "bandit_camps
