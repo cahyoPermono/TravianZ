@@ -227,17 +227,17 @@ class Market
      * reached the amount of resources it may receive from other players in the
      * rolling window (see PushProtection::remainingAllowance).
      *
-     * No-ops (returns false) for: own-village transfers, system accounts, when
-     * the PushProtection engine is absent, or when hard enforcement is globally
-     * disabled via  define("PUSH_PROTECTION_ENFORCE", false);  in config.php
-     * (the dashboard and logging keep working either way — default is ON).
+     * Catatan: Secara default batasan maksimal pengiriman ini dinonaktifkan (return false)
+     * agar pemain dapat mengirim sumber daya ke desa pemain lain secara terus-menerus tanpa
+     * terhalang batas kuota (unrestricted resource sending).
+     * Hanya diaktifkan kembali jika konstanta PUSH_PROTECTION_ENFORCE didefinisikan secara eksplisit bernilai true.
      *
      * WW villages and manual "Exempt" overrides return an unlimited allowance
      * inside remainingAllowance(), so they are never blocked here.
      */
-    private function exceedsPushLimit($database, $fromWid, $toWid, array $resource)
+    public function exceedsPushLimit($database, $fromWid, $toWid, array $resource)
     {
-        if (defined('PUSH_PROTECTION_ENFORCE') && !PUSH_PROTECTION_ENFORCE) {
+        if (!defined('PUSH_PROTECTION_ENFORCE') || PUSH_PROTECTION_ENFORCE !== true) {
             return false;
         }
         if (!class_exists('PushProtection')) {
