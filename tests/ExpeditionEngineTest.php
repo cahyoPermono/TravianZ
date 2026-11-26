@@ -187,11 +187,11 @@ assertEqual(0.45, $spartanApplied['effective_loss_ratio'], "Spartan Iron Will mu
 assertEqual(450, $spartanApplied['members'][103]['troops_lost']['u71'], "Spartan loss capped at 450 (45%)");
 assertEqual(550, $spartanApplied['members'][103]['troops_survived']['u71'], "Spartan survived 550 (55%)");
 
-// 7. Test Reward Distribution (50% Flat + 50% Damage Proportion)
-echo "Test 7: Reward Distribution (50% Flat + 50% Damage Proportional)...\n";
+// 7. Test Reward Distribution (15% Conditional Synergy + 85% Damage Proportion)
+echo "Test 7: Reward Distribution (15% Conditional Synergy + 85% Damage Proportional)...\n";
 $membersDamage = [
-    101 => 6000, // 60% of damage
-    102 => 4000  // 40% of damage
+    101 => 6000, // 60% of damage (eligible for 15% synergy)
+    102 => 4000  // 40% of damage (eligible for 15% synergy)
 ];
 $poolTotal = [
     'wood' => 10000,
@@ -207,19 +207,22 @@ $poolTotal = [
 $distributed = ExpeditionEngine::calculateRewardDistribution($membersDamage, $poolTotal, [7, 9]);
 
 // Total wood with Egyptian +10% bonus = 11,000
-// Flat pool (50%) = 5,500 -> 2,750 per person
-// Damage pool (50%) = 5,500:
-// Member 101 (60%): 2,750 + (0.60 * 5,500 = 3,300) = 6,050
-// Member 102 (40%): 2,750 + (0.40 * 5,500 = 2,200) = 4,950
-assertEqual(6050, $distributed[101]['wood'], "Member 101 wood matches 50-50 formula + Egyptian buff");
-assertEqual(4950, $distributed[102]['wood'], "Member 102 wood matches 50-50 formula + Egyptian buff");
+// Synergy pool (15%) = 1,650 -> 825 per eligible member
+// Damage pool (85%) = 9,350:
+// Member 101 (60%): 825 + (0.60 * 9,350 = 5,610) = 6,435
+// Member 102 (40%): 825 + (0.40 * 9,350 = 3,740) = 4,565
+assertEqual(6435, $distributed[101]['wood'], "Member 101 wood matches 15-85 formula + Egyptian buff");
+assertEqual(4565, $distributed[102]['wood'], "Member 102 wood matches 15-85 formula + Egyptian buff");
 
 // Total silver with Viking +20% bonus = 1,200
-// Flat pool = 600 -> 300 per person
-// Member 101 (60%): 300 + (0.60 * 600 = 360) = 660
-// Member 102 (40%): 300 + (0.40 * 600 = 240) = 540
-assertEqual(660, $distributed[101]['silver'], "Member 101 silver matches 50-50 formula + Viking buff");
-assertEqual(540, $distributed[102]['silver'], "Member 102 silver matches 50-50 formula + Viking buff");
+// Synergy pool (15%) = 180 -> 90 per eligible member
+// Damage pool (85%) = 1,020:
+// Member 101 (60%): 90 + (0.60 * 1,020 = 612) = 702
+// Member 102 (40%): 90 + (0.40 * 1,020 = 408) = 498
+assertEqual(702, $distributed[101]['silver'], "Member 101 silver matches 15-85 formula + Viking buff");
+assertEqual(498, $distributed[102]['silver'], "Member 102 silver matches 15-85 formula + Viking buff");
+assertEqual(2, $distributed[101]['essence'], "Member 101 essence matches Largest Remainder");
+assertEqual(2, $distributed[102]['essence'], "Member 102 essence matches Largest Remainder");
 
 // 8. Test Database Expedition Lifecycle (Create, Join, Cancel/Refund)
 echo "Test 8: Full Expedition Database Lifecycle...\n";
@@ -287,13 +290,14 @@ $database->query("UPDATE " . TB_PREFIX . "expeditions SET impact_time = " . (tim
 $vUnitsLeader = $database->getUnit($leaderVillage, false);
 assertEqual(400, (int)$vUnitsLeader['u1'], "Leader village should have 400 u1 remaining");
 
-// Test Member Join
-$joinRes = ExpeditionEngine::joinExpedition($testExpId, $memberUid, $memberVillage, ['u1' => 300]); // 300 u21 for Gauls
+// Test Member Join (300 u22 Swordsmen for Gauls = 300 * 65 = 19,500 atk >= 10% fortress defense)
+$database->query("UPDATE " . TB_PREFIX . "units SET u22 = 500 WHERE vref = $memberVillage");
+$joinRes = ExpeditionEngine::joinExpedition($testExpId, $memberUid, $memberVillage, ['u2' => 300]); // 300 u22 for Gauls
 assertTrue($joinRes['status'] === 'success', "Member should successfully join expedition: " . ($joinRes['message'] ?? ''));
 
 // Verify troops deducted from member village (500 - 300 = 200 remaining)
 $vUnitsMember = $database->getUnit($memberVillage, false);
-assertEqual(200, (int)$vUnitsMember['u21'], "Member village should have 200 u21 remaining");
+assertEqual(200, (int)$vUnitsMember['u22'], "Member village should have 200 u22 remaining");
 
 // Verify Expedition Details
 $details = ExpeditionEngine::getExpeditionDetails($testExpId);
@@ -313,7 +317,7 @@ assertEqual(1000, (int)$vUnitsLeaderAfter['u1'], "Leader village should have ful
 
 // Verify troops restored to member (200 + 300 = 500)
 $vUnitsMemberAfter = $database->getUnit($memberVillage, false);
-assertEqual(500, (int)$vUnitsMemberAfter['u21'], "Member village should have full 500 u21 restored");
+assertEqual(500, (int)$vUnitsMemberAfter['u22'], "Member village should have full 500 u22 restored");
 
 // Verify daily limits refunded
 assertEqual(0, ExpeditionEngine::getDailyUsage($leaderUid), "Leader daily usage should be restored to 0");

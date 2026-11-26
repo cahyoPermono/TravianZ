@@ -844,7 +844,7 @@ $conquerorLink = ($conquerorUid > 0)
         <div class="exp-lb-wrap">
             <div style="font-weight: bold; color: #93c5fd; font-size: 13px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;">
                 <span>📊 Klasemen Kontribusi Serangan Aliansi</span>
-                <span style="font-size: 11px; color: #64748b; font-weight: normal;">Sistem Bagi Hasil: 50% Rata + 50% Proporsional Damage</span>
+                <span style="font-size: 11px; color: #64748b; font-weight: normal;">Sistem Bagi Hasil: 85% Kontribusi Damage + 15% Bonus Sinergi (Min. 10% Kontribusi)</span>
             </div>
             <div style="overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 6px; border: 1px solid #24324d;">
                 <table class="exp-lb-table">

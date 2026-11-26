@@ -1156,7 +1156,8 @@ for ($i = 1; $i <= 10; $i++) {
 
 			<!-- Form Deploy Pasukan Jika Anggota Belum Bergabung -->
 			<?php if (!$isLeader && !$hasJoined && count($members) < 5 && $dailyRemaining > 0) { 
-				$reqPower = max(50, (int)round((int)$campData['cur_hp'] * ExpeditionEngine::MIN_POWER_RATIO));
+				$campTargetWref = (int)($campData['target_wref'] ?? ($campData['wref'] ?? 0));
+				$reqPower = ExpeditionEngine::getRequiredMinimumPower($campTargetWref, (int)$campData['cur_hp']);
 				$campWref = (int)($exp['camp_wref'] ?? 0);
 				if ($campWref <= 0) {
 					$campWref = (int)$database->getVillageID((int)$exp['leader_uid']);
@@ -1193,7 +1194,7 @@ for ($i = 1; $i <= 10; $i++) {
 				</div>
 
 				<p style="color: #64748b; font-size: 11px; margin: 0 0 10px 0;">
-					Minimal kekuatan yang dibutuhkan: <b><?php echo number_format($reqPower); ?></b> Attack Power.
+					Minimal kekuatan yang dibutuhkan: <b><?php echo number_format($reqPower); ?></b> Attack Power (10% Defense Penjaga Camp; Pasukan + Hero).
 				</p>
 
 				<form method="post" action="expedition.php" id="expJoinForm">
@@ -1258,7 +1259,8 @@ for ($i = 1; $i <= 10; $i++) {
 
 		<!-- JIKA BELUM ADA LOBBY DAN MEMBUKA LOBBY BARU DARI CAMP -->
 		<?php } elseif (!empty($campData)) { 
-			$reqPower = max(50, (int)round((int)$campData['cur_hp'] * ExpeditionEngine::MIN_POWER_RATIO));
+			$campTargetWref = (int)($campData['target_wref'] ?? ($campData['wref'] ?? 0));
+			$reqPower = ExpeditionEngine::getRequiredMinimumPower($campTargetWref, (int)$campData['cur_hp']);
 		?>
 			<div class="exp-card">
 				<div style="border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 12px;">

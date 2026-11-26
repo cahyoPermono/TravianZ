@@ -22,10 +22,13 @@ class ExpeditionEngine {
     const STATUS_CANCELLED = 3; // Ekspedisi dibatalkan (auto-refund karena kuota kurang / dibatalkan leader)
     const STATUS_MARCHING  = 4; // Pasukan gabungan sedang bergerak bersama dari Virtual Camp menuju Sarang Boss
 
-    const DAILY_LIMIT = 3;       // Maksimal 3x ekspedisi per hari per pemain (Anti-Abuse)
-    const MIN_MEMBERS = 2;       // Minimal 2 pemain untuk meluncurkan serangan bersama
-    const MAX_MEMBERS = 5;       // Maksimal 5 pemain dalam 1 Forward Camp party
-    const MIN_POWER_RATIO = 0.05;// Minimal 5% kekuatan relatif terhadap total HP/penjaga Boss (Anti-Tuyul)
+    const DAILY_LIMIT = 3;                 // Maksimal 3x ekspedisi per hari per pemain (Anti-Abuse)
+    const MIN_MEMBERS = 2;                 // Minimal 2 pemain untuk meluncurkan serangan bersama
+    const MAX_MEMBERS = 5;                 // Maksimal 5 pemain dalam 1 Forward Camp party
+    const MIN_POWER_RATIO = 0.10;          // Minimal 10% dari total Defense Power penjaga camp (Anti-Tuyul)
+    const SYNERGY_POOL_RATIO = 0.15;       // 15% Bonus Sinergi bersyarat (bagi yang kontribusi >= 10%)
+    const CONTRIBUTION_POOL_RATIO = 0.85;  // 85% Proporsional Kontribusi Damage
+    const SYNERGY_MIN_DAMAGE_RATIO = 0.10; // Minimal 10% damage koalisi untuk berhak atas 15% Bonus Sinergi & sisa Essence
 
     /**
      * Pastikan tabel-tabel database untuk Alliance Expedition tersedia.
@@ -188,20 +191,15 @@ class ExpeditionEngine {
     }
 
     /**
-     * Hitung total Attack Power dari daftar pasukan yang disetor.
+     * Muat peta statistik unit (u1..u100) dari Data/unitdata.php sekali saja.
      */
-    public static function calculateTroopsAttackPower(int $tribe, array $troops, bool $hasHero = false, int $heroUid = 0): int {
-        global $database;
-        $tribe = max(1, (int)$tribe);
-        $totalAtk = 0;
-
-        // Muat unit data
+    private static function getUnitDataMap(): array {
         static $unitDataCache = null;
         if ($unitDataCache === null) {
+            $unitDataCache = [];
             $unitDataFile = dirname(__DIR__) . '/Data/unitdata.php';
             if (file_exists($unitDataFile)) {
                 require $unitDataFile;
-                $unitDataCache = [];
                 for ($i = 1; $i <= 100; $i++) {
                     $varName = 'u' . $i;
                     if (isset($$varName) && is_array($$varName)) {
@@ -210,6 +208,18 @@ class ExpeditionEngine {
                 }
             }
         }
+        return $unitDataCache;
+    }
+
+    /**
+     * Hitung total Attack Power dari daftar pasukan yang disetor.
+     */
+    public static function calculateTroopsAttackPower(int $tribe, array $troops, bool $hasHero = false, int $heroUid = 0): int {
+        global $database;
+        $tribe = max(1, (int)$tribe);
+        $totalAtk = 0;
+
+        $unitDataCache = self::getUnitDataMap();
 
         // Hitung kekuatan dari prajurit u1..u10 suku tersebut
         for ($i = 1; $i <= 10; $i++) {
@@ -247,20 +257,7 @@ class ExpeditionEngine {
      * Hitung kecepatan bergerak (tiles/hour) unit paling lambat dari kelompok pasukan.
      */
     public static function calculateSlowestSpeed(int $tribe, array $troops, bool $hasHero = false, int $uid = 0): int {
-        static $unitDataCache = null;
-        if ($unitDataCache === null) {
-            $unitDataFile = dirname(__DIR__) . '/Data/unitdata.php';
-            if (file_exists($unitDataFile)) {
-                require $unitDataFile;
-                $unitDataCache = [];
-                for ($i = 1; $i <= 100; $i++) {
-                    $varName = 'u' . $i;
-                    if (isset($$varName) && is_array($$varName)) {
-                        $unitDataCache[$i] = $$varName;
-                    }
-                }
-            }
-        }
+        $unitDataCache = self::getUnitDataMap();
 
         $minSpeed = 999;
         for ($i = 1; $i <= 10; $i++) {
@@ -352,16 +349,55 @@ class ExpeditionEngine {
     }
 
     /**
+     * Hitung total Defense Power penjaga camp dari tabel units desa target.
+     * Jika tabel units belum tersedia/kosong (misal mock unit test), pakai $fallbackDefPower.
+     */
+    public static function calculateCampDefensePower(int $targetWref, int $fallbackDefPower = 0): int {
+        global $database;
+        $totalDefPower = 0.0;
+
+        if ($targetWref > 0 && isset($database) && method_exists($database, 'getUnit')) {
+            $campUnits = $database->getUnit($targetWref, false);
+            if (!empty($campUnits) && is_array($campUnits)) {
+                $unitDataMap = self::getUnitDataMap();
+                for ($i = 1; $i <= 100; $i++) {
+                    $uCnt = (int)($campUnits['u' . $i] ?? 0);
+                    if ($uCnt > 0) {
+                        $uStat = $unitDataMap[$i] ?? ['di' => 40, 'dc' => 40];
+                        $avgDef = (($uStat['di'] ?? 40) + ($uStat['dc'] ?? 40)) / 2;
+                        $totalDefPower += ($uCnt * $avgDef);
+                    }
+                }
+            }
+        }
+
+        if ($totalDefPower > 0) {
+            return (int)round($totalDefPower);
+        }
+
+        return max(0, $fallbackDefPower);
+    }
+
+    /**
+     * Ambil batas minimum Attack Power (Pasukan + Hero) untuk masuk lobi ekspedisi:
+     * 10% dari total Defense Power penjaga camp.
+     */
+    public static function getRequiredMinimumPower(int $targetWref, int $fallbackDefPower = 0): int {
+        $campDefPower = self::calculateCampDefensePower($targetWref, $fallbackDefPower);
+        return max(50, (int)round($campDefPower * self::MIN_POWER_RATIO));
+    }
+
+    /**
      * Validasi apakah kontribusi pasukan memenuhi syarat batas minimal (Anti-Tuyul).
      */
-    public static function validateMinimumPower(int $attackPower, int $campHp): array {
-        $requiredMin = max(50, (int)round($campHp * self::MIN_POWER_RATIO));
+    public static function validateMinimumPower(int $attackPower, int $campDefPower): array {
+        $requiredMin = max(50, (int)round($campDefPower * self::MIN_POWER_RATIO));
         if ($attackPower < $requiredMin) {
             return [
                 'valid' => false,
                 'current' => $attackPower,
                 'required' => $requiredMin,
-                'message' => "Pasukan tidak memenuhi syarat kekuatan minimum ekspedisi! Minimal butuh " . number_format($requiredMin) . " Attack Power (Pasukan Anda: " . number_format($attackPower) . ")."
+                'message' => "Pasukan tidak memenuhi syarat kekuatan minimum ekspedisi! Minimal butuh " . number_format($requiredMin) . " Attack Power (10% Defense Boss; Pasukan + Hero Anda: " . number_format($attackPower) . ")."
             ];
         }
         return [
@@ -583,7 +619,11 @@ class ExpeditionEngine {
     }
 
     /**
-     * Hitung pembagian reward: 50% Flat Share + 50% Damage Proportional Share.
+     * Hitung pembagian reward:
+     * - 85% Proporsional Kontribusi Damage
+     * - 15% Bonus Sinergi bersyarat (dibagi rata HANYA ke anggota dengan kontribusi >= 10% total damage;
+     *   kontributor < 10% tidak mendapat porsi sinergi rata agar tidak terjadi penumpang gratis)
+     * - World Essence: pembagian proporsional Largest Remainder (tanpa jaminan minimal 1 pcs untuk kontributor < 10%).
      */
     public static function calculateRewardDistribution(array $membersDamage, array $poolTotal, array $tribes): array {
         $synergies = self::computeSynergiesFromTribes($tribes);
@@ -606,44 +646,103 @@ class ExpeditionEngine {
             $essencePool = (int)round($essencePool * (1.0 + $synergies['rare_drop_buff']));
         }
 
+        // Hitung rasio damage dan tentukan peserta yang lolos ambang minimal 10% untuk Bonus Sinergi
+        $dmgRatios = [];
+        $eligibleLookup = [];
+        foreach ($membersDamage as $uid => $dmg) {
+            $ratio = ($totalDamage > 0) ? ($dmg / $totalDamage) : (1.0 / $memberCount);
+            $dmgRatios[$uid] = $ratio;
+            if ($ratio >= self::SYNERGY_MIN_DAMAGE_RATIO) {
+                $eligibleLookup[$uid] = true;
+            }
+        }
+        // Fallback pengaman hanya jika semua rasio < 10% (misal totalDamage == 0 dan >10 anggota)
+        if (empty($eligibleLookup)) {
+            foreach ($membersDamage as $uid => $_) {
+                $eligibleLookup[$uid] = true;
+            }
+        }
+        $eligibleCount = max(1, count($eligibleLookup));
+
+        // Alokasi World Essence memakai metode Largest Remainder (prioritas sisa ke kontributor >= 10%)
+        $essenceAlloc = array_fill_keys(array_keys($membersDamage), 0);
+        if ($essencePool > 0) {
+            $remainders = [];
+            $allocatedBase = 0;
+            foreach ($membersDamage as $uid => $dmg) {
+                $exact = $dmgRatios[$uid] * $essencePool;
+                $base = (int)floor($exact);
+                $essenceAlloc[$uid] = $base;
+                $allocatedBase += $base;
+                $remainders[] = [
+                    'uid' => $uid,
+                    'eligible' => isset($eligibleLookup[$uid]) ? 1 : 0,
+                    'frac' => $exact - $base,
+                    'dmg' => $dmg,
+                ];
+            }
+
+            $leftover = max(0, $essencePool - $allocatedBase);
+            if ($leftover > 0) {
+                usort($remainders, function ($a, $b) {
+                    if ($a['eligible'] !== $b['eligible']) {
+                        return $b['eligible'] <=> $a['eligible'];
+                    }
+                    if (abs($a['frac'] - $b['frac']) > 1e-9) {
+                        return ($b['frac'] > $a['frac']) ? 1 : -1;
+                    }
+                    if ($a['dmg'] !== $b['dmg']) {
+                        return $b['dmg'] <=> $a['dmg'];
+                    }
+                    return $a['uid'] <=> $b['uid'];
+                });
+                foreach ($remainders as $remItem) {
+                    if ($leftover <= 0) {
+                        break;
+                    }
+                    $essenceAlloc[$remItem['uid']]++;
+                    $leftover--;
+                }
+            }
+        }
+
         $distribution = [];
 
         foreach ($membersDamage as $uid => $dmg) {
-            $dmgRatio = ($totalDamage > 0) ? ($dmg / $totalDamage) : (1.0 / $memberCount);
+            $dmgRatio = $dmgRatios[$uid];
+            $isSynergyEligible = isset($eligibleLookup[$uid]);
 
-            // 50% Flat Pool
-            $flatWood = floor(($woodPool * 0.50) / $memberCount);
-            $flatClay = floor(($clayPool * 0.50) / $memberCount);
-            $flatIron = floor(($ironPool * 0.50) / $memberCount);
-            $flatCrop = floor(($cropPool * 0.50) / $memberCount);
-            $flatSilver = floor(($silverPool * 0.50) / $memberCount);
-            $flatCp = floor(($cpPool * 0.50) / $memberCount);
-            $flatExp = floor(($expPool * 0.50) / $memberCount);
+            // 15% Bonus Sinergi (dibagi rata hanya ke anggota dengan kontribusi >= 10%)
+            $synWood   = $isSynergyEligible ? floor(($woodPool * self::SYNERGY_POOL_RATIO) / $eligibleCount) : 0;
+            $synClay   = $isSynergyEligible ? floor(($clayPool * self::SYNERGY_POOL_RATIO) / $eligibleCount) : 0;
+            $synIron   = $isSynergyEligible ? floor(($ironPool * self::SYNERGY_POOL_RATIO) / $eligibleCount) : 0;
+            $synCrop   = $isSynergyEligible ? floor(($cropPool * self::SYNERGY_POOL_RATIO) / $eligibleCount) : 0;
+            $synSilver = $isSynergyEligible ? floor(($silverPool * self::SYNERGY_POOL_RATIO) / $eligibleCount) : 0;
+            $synCp     = $isSynergyEligible ? floor(($cpPool * self::SYNERGY_POOL_RATIO) / $eligibleCount) : 0;
+            $synExp    = $isSynergyEligible ? floor(($expPool * self::SYNERGY_POOL_RATIO) / $eligibleCount) : 0;
 
-            // 50% Damage Pool
-            $dmgWood = floor(($woodPool * 0.50) * $dmgRatio);
-            $dmgClay = floor(($clayPool * 0.50) * $dmgRatio);
-            $dmgIron = floor(($ironPool * 0.50) * $dmgRatio);
-            $dmgCrop = floor(($cropPool * 0.50) * $dmgRatio);
-            $dmgSilver = floor(($silverPool * 0.50) * $dmgRatio);
-            $dmgCp = floor(($cpPool * 0.50) * $dmgRatio);
-            $dmgExp = floor(($expPool * 0.50) * $dmgRatio);
-
-            // World Essence: minimal 1 per anggota jika pool cukup
-            $shareEssence = ($essencePool > 0) ? max(1, (int)round($dmgRatio * $essencePool)) : 0;
+            // 85% Proporsional Kontribusi Damage
+            $dmgWood   = floor(($woodPool * self::CONTRIBUTION_POOL_RATIO) * $dmgRatio);
+            $dmgClay   = floor(($clayPool * self::CONTRIBUTION_POOL_RATIO) * $dmgRatio);
+            $dmgIron   = floor(($ironPool * self::CONTRIBUTION_POOL_RATIO) * $dmgRatio);
+            $dmgCrop   = floor(($cropPool * self::CONTRIBUTION_POOL_RATIO) * $dmgRatio);
+            $dmgSilver = floor(($silverPool * self::CONTRIBUTION_POOL_RATIO) * $dmgRatio);
+            $dmgCp     = floor(($cpPool * self::CONTRIBUTION_POOL_RATIO) * $dmgRatio);
+            $dmgExp    = floor(($expPool * self::CONTRIBUTION_POOL_RATIO) * $dmgRatio);
 
             $distribution[$uid] = [
                 'uid' => $uid,
                 'damage' => $dmg,
                 'pct' => ($totalDamage > 0) ? round($dmgRatio * 100, 2) : round(100 / $memberCount, 2),
-                'wood' => (int)($flatWood + $dmgWood),
-                'clay' => (int)($flatClay + $dmgClay),
-                'iron' => (int)($flatIron + $dmgIron),
-                'crop' => (int)($flatCrop + $dmgCrop),
-                'silver' => (int)($flatSilver + $dmgSilver),
-                'cp' => (int)($flatCp + $dmgCp),
-                'exp' => (int)($flatExp + $dmgExp),
-                'essence' => $shareEssence,
+                'synergy_eligible' => $isSynergyEligible,
+                'wood' => (int)($synWood + $dmgWood),
+                'clay' => (int)($synClay + $dmgClay),
+                'iron' => (int)($synIron + $dmgIron),
+                'crop' => (int)($synCrop + $dmgCrop),
+                'silver' => (int)($synSilver + $dmgSilver),
+                'cp' => (int)($synCp + $dmgCp),
+                'exp' => (int)($synExp + $dmgExp),
+                'essence' => (int)($essenceAlloc[$uid] ?? 0),
             ];
         }
 
@@ -732,7 +831,8 @@ class ExpeditionEngine {
         }
 
         $atkPower = self::calculateTroopsAttackPower($leaderTribe, $troops, $hasHero, $leaderUid);
-        $minCheck = self::validateMinimumPower($atkPower, (int)$camp['cur_hp']);
+        $campDefPower = self::calculateCampDefensePower((int)$camp['wref'], (int)$camp['cur_hp']);
+        $minCheck = self::validateMinimumPower($atkPower, $campDefPower);
         if (!$minCheck['valid']) {
             return ['status' => 'error', 'message' => $minCheck['message']];
         }
@@ -867,11 +967,13 @@ class ExpeditionEngine {
             }
         }
 
-        $camp = $database->query_return("SELECT cur_hp FROM `" . TB_PREFIX . "bandit_camps` WHERE id = " . (int)$exp['camp_id'] . " LIMIT 1");
+        $camp = $database->query_return("SELECT wref, cur_hp FROM `" . TB_PREFIX . "bandit_camps` WHERE id = " . (int)$exp['camp_id'] . " LIMIT 1");
+        $campWrefTarget = !empty($camp[0]['wref']) ? (int)$camp[0]['wref'] : (int)($exp['target_wref'] ?? 0);
         $campHp = !empty($camp[0]['cur_hp']) ? (int)$camp[0]['cur_hp'] : 1000;
 
         $atkPower = self::calculateTroopsAttackPower($userTribe, $troops, $hasHero, $uid);
-        $minCheck = self::validateMinimumPower($atkPower, $campHp);
+        $campDefPower = self::calculateCampDefensePower($campWrefTarget, $campHp);
+        $minCheck = self::validateMinimumPower($atkPower, $campDefPower);
         if (!$minCheck['valid']) {
             return ['status' => 'error', 'message' => $minCheck['message']];
         }
@@ -1201,24 +1303,8 @@ class ExpeditionEngine {
             $totalAttack = (int)round($totalAttack * (1.0 + $synergies['crit_strike']));
         }
 
-        // Ambil data penjaga camp di units target
-        $campUnits = $database->getUnit($targetWref, false);
-        $totalDefPower = 0;
-        $totalDefTroops = 0;
-
-        // Muat unitdata untuk hitung defense penjaga
-        require_once dirname(__DIR__) . '/Data/unitdata.php';
-        for ($i = 1; $i <= 50; $i++) {
-            $uCnt = (int)($campUnits['u' . $i] ?? 0);
-            if ($uCnt > 0) {
-                $totalDefTroops += $uCnt;
-                // Estimasi power penjaga alam/bandit
-                $uVar = 'u' . $i;
-                $uStat = isset($$uVar) ? $$uVar : ['di' => 40, 'dc' => 40];
-                $avgDef = (($uStat['di'] ?? 40) + ($uStat['dc'] ?? 40)) / 2;
-                $totalDefPower += ($uCnt * $avgDef);
-            }
-        }
+        // Ambil total defense power penjaga camp di units target
+        $totalDefPower = self::calculateCampDefensePower($targetWref, 10);
 
         // Terapkan Pelemahan Armor Teuton (-15% defense musuh)
         if ($synergies['enemy_def_reduction'] > 0) {
@@ -1272,7 +1358,7 @@ class ExpeditionEngine {
                 'essence' => ($camp['tier'] == 4) ? $bossEssencePool : (($camp['tier'] == 3) ? 2 : 0)
             ];
 
-            // Hitung pembagian reward (50% Flat + 50% Damage)
+            // Hitung pembagian reward (85% Kontribusi Damage + 15% Bonus Sinergi bersyarat)
             $rewards = self::calculateRewardDistribution($memberDamageMap, $poolTotal, $tribes);
         } else {
             $rewards = [];
@@ -1457,7 +1543,7 @@ class ExpeditionEngine {
                                   "• Kontribusi Kerusakan Anda: " . number_format($r['damage']) . " (" . $r['pct'] . "%)\n" .
                                   $hospitalNoticeMsg .
                                   $returnNoticeMsg . "\n\n" .
-                                  "🎁 Hadiah Ekspedisi Anda (50% Flat + 50% Kontribusi):\n" .
+                                  "🎁 Hadiah Ekspedisi Anda (85% Kontribusi + 15% Bonus Sinergi [Min. 10% Kontribusi]):\n" .
                                   "🌲 Kayu: +" . number_format($rWood) . " | 🧱 Liat: +" . number_format($rClay) . " | ⛏️ Besi: +" . number_format($rIron) . " | 🌾 Gandum: +" . number_format($rCrop) . "\n" .
                                   "🪙 Koin Silver: +" . number_format($r['silver']) . " | 🏛️ CP: +" . number_format($r['cp']) . " | ⭐ Hero EXP: +" . number_format($r['exp']) .
                                   ($r['essence'] > 0 ? ("\n💎 World Essence: +" . number_format($r['essence']) . " pcs") : "")

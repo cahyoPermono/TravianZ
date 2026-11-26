@@ -929,6 +929,10 @@ class Battle {
 
             $fromVillage = (int)$defenders['from'];
 
+            if ($fromVillage <= 0) {
+                continue;
+            }
+
             if (!isset($villageOwnerCache[$fromVillage])) {
                 $villageOwnerCache[$fromVillage] = (int)$database->getVillageField($fromVillage, "owner");
             }
@@ -1094,37 +1098,44 @@ class Battle {
         foreach ($DefendersAll as $defenders) {
 
             $fromvillage = (int)$defenders['from'];
+            $owner = 0;
+            $rowDefAb = $def_ab;
 
-            if ($fromvillage <= 0) {
-                continue;
-            }
+            if ($fromvillage > 0) {
+                if (!isset($ownerCache[$fromvillage])) {
+                    $ownerCache[$fromvillage] = (int)$database->getVillageField($fromvillage, "owner");
+                }
 
-            if (!isset($ownerCache[$fromvillage])) {
-                $ownerCache[$fromvillage] = (int)$database->getVillageField($fromvillage, "owner");
-            }
+                $owner = $ownerCache[$fromvillage];
 
-            $owner = $ownerCache[$fromvillage];
+                if (!isset($userCache[$owner])) {
+                    $userCache[$owner] = $database->getUserArray($owner, 1);
+                }
 
-            if (!isset($userCache[$owner])) {
-                $userCache[$owner] = $database->getUserArray($owner, 1);
-            }
+                $enforcetribe = (int)($userCache[$owner]["tribe"] ?? 0);
+                if ($enforcetribe > 0) {
+                    $ud = ($enforcetribe - 1) * 10;
 
-            $enforcetribe = (int)$userCache[$owner]["tribe"];
-            $ud = ($enforcetribe - 1) * 10;
+                    if (!isset($abCache[$fromvillage])) {
+                        $abCache[$fromvillage] = $database->getABTech($fromvillage);
+                    }
 
-            if (!isset($abCache[$fromvillage])) {
-                $abCache[$fromvillage] = $database->getABTech($fromvillage);
-            }
+                    $armory = $abCache[$fromvillage];
 
-            $armory = $abCache[$fromvillage];
-
-            for ($i = 1; $i <= 8; $i++) {
-                $def_ab[$ud + $i] = isset($armory['a'.$i]) ? $armory['a'.$i] : 0;
+                    for ($i = 1; $i <= 8; $i++) {
+                        $def_ab[$ud + $i] = isset($armory['a'.$i]) ? $armory['a'.$i] : 0;
+                    }
+                }
+                $rowDefAb = $def_ab;
+            } else {
+                // Nature reinforcements (from = 0, e.g. caged oasis animals) have no
+                // source village, owner, or armory upgrades, yet still defend the village.
+                $rowDefAb = [];
             }
 
             if ($type == 1) {
 
-                $datadefScout = $this->getDataDefScout($defenders, $def_ab, $defender_artefact);
+                $datadefScout = $this->getDataDefScout($defenders, $rowDefAb, $defender_artefact);
 
                 $dp  += $datadefScout['dp'];
                 $cdp += $datadefScout['cdp'];
@@ -1141,14 +1152,14 @@ class Battle {
 
             } else {
 
-                $datadef = $this->getDataDef($defenders, $def_ab);
+                $datadef = $this->getDataDef($defenders, $rowDefAb);
 
                 $reinf_dp  = $datadef['dp'];
                 $reinf_cdp = $datadef['cdp'];
 
                 $involve += $datadef['involve'];
 
-                if (!empty($defenders['hero'])) {
+                if (!empty($defenders['hero']) && $owner > 0) {
 
                     if (!isset($heroCache[$owner])) {
                         $heroCache[$owner] = $this->getBattleHero($owner);
