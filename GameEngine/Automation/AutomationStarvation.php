@@ -99,6 +99,12 @@ trait AutomationStarvation {
             return;
         }
 
+        // Assassin Sanctuary is exempt from starvation
+        if (class_exists('Assassin') && Assassin::isSanctuary((int)$starv['wref'])) {
+            $database->setVillageFields($starv['wref'], ['starv', 'starvupdate'], [0, 0]);
+            return;
+        }
+
         // Bandit Camps and World Bosses have zero crop starvation immunity
         if (!class_exists('BanditCamp') && file_exists(dirname(__DIR__) . '/BanditCamp.php')) {
             require_once dirname(__DIR__) . '/BanditCamp.php';

@@ -33,11 +33,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         exit;
     }
 
-    $contractType = $_POST['contract_type'] ?? '';
+    $contractType = $_POST['contract_type'] ?? Assassin::CONTRACT_ARMY_ATTACK;
     $currency     = $_POST['currency'] ?? 'silver';
     $targetInput  = $_POST['target_input'] ?? '';
+    $hiredUnits   = isset($_POST['units']) && is_array($_POST['units']) ? $_POST['units'] : [];
 
-    $result = Assassin::hireContract((int)$session->uid, (int)$village->wid, $targetInput, $contractType, $currency);
+    $result = Assassin::hireContract((int)$session->uid, (int)$village->wid, $targetInput, $contractType, $currency, $hiredUnits);
 
     if ($result['status'] === 'success') {
         $_SESSION['assassin_flash'] = [
@@ -331,7 +332,7 @@ $bannerImg = file_exists(__DIR__ . '/../../img/assassin/sanctuary_banner.jpg') ?
             </div>
         </div>
         <div style="font-size: 11px; color: #999;">
-            Kecepatan Assassin: <b>40 petak/jam</b> &bull; Anonymity: <b>100% Tersembunyi</b>
+            Pasukan Nyata Natar &bull; Bisa Dihadang/Bertahan &bull; Anonymity: <b>100% Tersembunyi</b>
         </div>
     </div>
 
@@ -345,24 +346,66 @@ $bannerImg = file_exists(__DIR__ . '/../../img/assassin/sanctuary_banner.jpg') ?
     <!-- Contract Hiring Form -->
     <form method="POST" action="karte.php?d=<?php echo (int)$d; ?>&c=<?php echo $generator->getMapCheck($d); ?>" id="assassinForm">
         <input type="hidden" name="action" value="hire_assassin" />
-        <input type="hidden" name="contract_type" id="selectedContractType" value="<?php echo Assassin::CONTRACT_SHADOW_RAID; ?>" />
+        <input type="hidden" name="contract_type" id="selectedContractType" value="<?php echo Assassin::CONTRACT_ARMY_ATTACK; ?>" />
 
-        <!-- Contract Options Grid -->
-        <div class="assassin-contract-grid">
+        <!-- Attack Type Options -->
+        <div class="assassin-contract-grid" style="grid-template-columns: repeat(2, 1fr);">
             <?php foreach (Assassin::PRICES as $cType => $info) { 
-                $isSelected = ($cType === Assassin::CONTRACT_SHADOW_RAID);
+                $isSelected = ($cType === Assassin::CONTRACT_ARMY_ATTACK);
             ?>
                 <div class="assassin-card <?php echo $isSelected ? 'selected' : ''; ?>" onclick="selectContract('<?php echo $cType; ?>', this)">
                     <div class="assassin-card-header">
                         <span class="assassin-card-title"><?php echo $info['icon'] . ' ' . $info['title']; ?></span>
                     </div>
                     <div class="assassin-card-desc"><?php echo $info['desc']; ?></div>
-                    <div class="assassin-price-tags">
-                        <span class="price-silver">🪙 <?php echo $info['silver']; ?> Silver</span>
-                        <span class="price-gold">👑 <?php echo $info['gold']; ?> Gold</span>
-                    </div>
                 </div>
             <?php } ?>
+        </div>
+
+        <!-- Natar Unit Hiring Table -->
+        <div class="assassin-form-box" style="margin-bottom: 16px;">
+            <h3 class="assassin-form-title" style="justify-content: space-between; flex-wrap: wrap;">
+                <span>⚔️ Sewa Pasukan Bayangan (Unit Natar)</span>
+                <span style="font-size: 11px; color: #c5b9a8; font-weight: normal;">Maks. <?php echo number_format(Assassin::MAX_UNITS_PER_CONTRACT); ?> pasukan / kontrak &bull; 1 Gold = <?php echo Assassin::SILVER_PER_GOLD; ?> Silver</span>
+            </h3>
+            <table class="assassin-table" style="margin-bottom: 10px;">
+                <thead>
+                    <tr>
+                        <th>Unit</th>
+                        <th>Peran</th>
+                        <th style="text-align:center;">ATK</th>
+                        <th style="text-align:center;">Speed</th>
+                        <th style="text-align:right;">Harga / Unit</th>
+                        <th style="text-align:right;">Jumlah</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach (Assassin::UNIT_CATALOG as $uId => $uInfo) { ?>
+                    <tr>
+                        <td>
+                            <img class="unit u<?php echo (int)$uId; ?>" src="img/x.gif" alt="<?php echo htmlspecialchars($uInfo['name']); ?>" style="vertical-align:middle;margin-right:6px;" />
+                            <b><?php echo htmlspecialchars($uInfo['name']); ?></b>
+                        </td>
+                        <td style="color:#aaa;font-size:11px;"><?php echo htmlspecialchars($uInfo['role']); ?></td>
+                        <td style="text-align:center;"><?php echo (int)$uInfo['atk']; ?></td>
+                        <td style="text-align:center;"><?php echo (int)$uInfo['speed']; ?>/jam</td>
+                        <td style="text-align:right;color:#e5e7eb;"><b><?php echo (int)$uInfo['silver']; ?></b> Silver</td>
+                        <td style="text-align:right;">
+                            <input type="number" min="0" max="<?php echo Assassin::MAX_UNITS_PER_CONTRACT; ?>" value="0"
+                                   name="units[<?php echo (int)$uId; ?>]"
+                                   class="assassin-input assassin-unit-qty"
+                                   data-silver="<?php echo (int)$uInfo['silver']; ?>"
+                                   data-speed="<?php echo (int)$uInfo['speed']; ?>"
+                                   style="width:90px;text-align:right;padding:4px 8px;" />
+                        </td>
+                    </tr>
+                    <?php } ?>
+                </tbody>
+            </table>
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;font-size:12px;background:#0c0d11;padding:8px 12px;border-radius:4px;border:1px solid #332626;">
+                <div>Total Pasukan: <b id="assTotalUnits" style="color:#fff;">0</b> | Kecepatan Terlambat: <b id="assMinSpeed" style="color:#38bdf8;">-</b></div>
+                <div>Total Biaya: <b id="assTotalSilver" style="color:#fff;">0</b> Silver <span style="color:#888;">(atau <b id="assTotalGold" style="color:#f1c40f;">0</b> Gold)</span></div>
+            </div>
         </div>
 
         <!-- Target and Execution Box -->
@@ -512,6 +555,30 @@ function selectContract(type, elem) {
     });
     elem.classList.add('selected');
 }
+
+(function() {
+    var inputs = document.querySelectorAll('.assassin-unit-qty');
+    if (!inputs.length) return;
+    var silverPerGold = <?php echo (int)Assassin::SILVER_PER_GOLD; ?>;
+    function recalcAssassin() {
+        var totalUnits = 0, totalSilver = 0, minSpeed = Infinity;
+        inputs.forEach(function(inp) {
+            var q = Math.max(0, parseInt(inp.value || '0', 10) || 0);
+            if (q > 0) {
+                totalUnits += q;
+                totalSilver += q * (parseInt(inp.getAttribute('data-silver'), 10) || 0);
+                var spd = parseInt(inp.getAttribute('data-speed'), 10) || 0;
+                if (spd > 0 && spd < minSpeed) minSpeed = spd;
+            }
+        });
+        document.getElementById('assTotalUnits').textContent = totalUnits.toLocaleString();
+        document.getElementById('assTotalSilver').textContent = totalSilver.toLocaleString();
+        document.getElementById('assTotalGold').textContent = (totalSilver > 0 ? Math.ceil(totalSilver / silverPerGold) : 0).toLocaleString();
+        document.getElementById('assMinSpeed').textContent = (minSpeed < Infinity ? minSpeed + ' petak/jam' : '-');
+    }
+    inputs.forEach(function(inp) { inp.addEventListener('input', recalcAssassin); });
+    recalcAssassin();
+})();
 
 // Live Countdown Timers
 (function() {

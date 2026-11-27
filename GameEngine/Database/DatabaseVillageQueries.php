@@ -2539,6 +2539,9 @@ trait DatabaseVillageQueries {
             if (class_exists('Bastion') && Bastion::isBastionVillage($wref)) {
                 return;
             }
+            if (class_exists('Assassin') && Assassin::isSanctuary((int)$wref)) {
+                return;
+            }
             if (!isset($technology) || !is_object($technology)) {
                 global $autoprefix;
                 include_once((defined('ROOT') ? ROOT : '') . "GameEngine/Technology.php");

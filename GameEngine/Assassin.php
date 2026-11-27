@@ -21,34 +21,46 @@ class Assassin {
     const CONTRACT_SHADOW_RAID      = 'shadow_raid';
     const CONTRACT_HERO_ASSASSINATE = 'hero_assassinate';
     const CONTRACT_NIGHT_SABOTAGE   = 'night_sabotage';
+    const CONTRACT_ARMY_ATTACK      = 'army_attack';
+    const CONTRACT_ARMY_RAID        = 'army_raid';
 
     const STATUS_IN_PROGRESS = 0;
     const STATUS_COMPLETED   = 1;
     const STATUS_FAILED      = 2;
 
-    const SPEED = 40; // Base speed: 40 fields per hour
+    const SPEED = 40; // Fallback speed
+    const SILVER_PER_GOLD = 20; // 1 Gold = 20 Silver equivalent
+    const MAX_UNITS_PER_CONTRACT = 5000;
+
+    /**
+     * Balanced Natar mercenary/assassin unit catalog (u41..u48).
+     * Dispatched as real troops from the Sanctuary with real travel time and real combat.
+     */
+    const UNIT_CATALOG = [
+        41 => ['slot' => 1, 'name' => 'Pikeman',          'silver' => 15,  'atk' => 20,  'speed' => 6,  'role' => 'Infanteri Ringan'],
+        42 => ['slot' => 2, 'name' => 'Thorned Warrior',  'silver' => 20,  'atk' => 65,  'speed' => 7,  'role' => 'Penyerbu Bayangan'],
+        43 => ['slot' => 3, 'name' => 'Guardsman',        'silver' => 35,  'atk' => 100, 'speed' => 6,  'role' => 'Infanteri Berat'],
+        44 => ['slot' => 4, 'name' => 'Birds Of Prey',    'silver' => 15,  'atk' => 0,   'speed' => 25, 'role' => 'Pengintai (Scout)'],
+        45 => ['slot' => 5, 'name' => 'Axerider',         'silver' => 45,  'atk' => 155, 'speed' => 14, 'role' => 'Kavaleri Cepat'],
+        46 => ['slot' => 6, 'name' => 'Natarian Knight',  'silver' => 60,  'atk' => 170, 'speed' => 12, 'role' => 'Kavaleri Berat'],
+        47 => ['slot' => 7, 'name' => 'War Elephant',     'silver' => 80,  'atk' => 250, 'speed' => 5,  'role' => 'Gajah Perang (Pendobrak)'],
+        48 => ['slot' => 8, 'name' => 'Ballista',         'silver' => 100, 'atk' => 60,  'speed' => 3,  'role' => 'Ketapel Pengepungan'],
+    ];
 
     const PRICES = [
-        self::CONTRACT_SHADOW_RAID => [
-            'silver' => 300,
-            'gold'   => 15,
-            'title'  => 'Serbuan Bayangan (Shadow Raid)',
-            'desc'   => 'Serbu & jarah desa target dengan 250 Assassin tanpa membuka identitas pengirim. Hasil jarahan dikirim ke desa Anda.',
+        self::CONTRACT_ARMY_ATTACK => [
+            'silver' => 0,
+            'gold'   => 0,
+            'title'  => 'Serangan Penuh (Attack)',
+            'desc'   => 'Pasukan Natar sewaan bergerak nyata dari Kuil Bayangan. Target mendapat peringatan serangan dan dapat bertahan.',
             'icon'   => '⚔️'
         ],
-        self::CONTRACT_HERO_ASSASSINATE => [
-            'silver' => 600,
-            'gold'   => 30,
-            'title'  => 'Eksekusi Hero (Hero Assassination)',
-            'desc'   => 'Racun dan bunuh Hero musuh seketika saat terlelap. Identitas penyewa dirahasiakan sepenuhnya.',
-            'icon'   => '☠️'
-        ],
-        self::CONTRACT_NIGHT_SABOTAGE => [
-            'silver' => 500,
-            'gold'   => 25,
-            'title'  => 'Sabotase Malam (Night Sabotage)',
-            'desc'   => 'Susup dan turunkan 1 level gedung di desa musuh tanpa meninggalkan jejak.',
-            'icon'   => '🔥'
+        self::CONTRACT_ARMY_RAID => [
+            'silver' => 0,
+            'gold'   => 0,
+            'title'  => 'Serbuan Jarah (Raid)',
+            'desc'   => 'Serbuan cepat menggunakan pasukan Natar sewaan dengan aturan pertempuran normal.',
+            'icon'   => '🏴'
         ],
     ];
 
@@ -135,20 +147,24 @@ class Assassin {
         $res = $database->query_return($sql);
 
         if (!empty($res[0])) {
+            if ((int)$res[0]['tribe'] !== 5) {
+                @mysqli_query($db, "UPDATE " . TB_PREFIX . "users SET tribe = 5 WHERE id = " . (int)$res[0]['id']);
+                $res[0]['tribe'] = 5;
+            }
             return $res[0];
         }
 
         $time = time();
         $q = "INSERT INTO " . TB_PREFIX . "users 
               (username, password, email, tribe, access, gold, act, timestamp, regtime, protect) 
-              VALUES ('Klan Assassin', '" . md5(uniqid('assassin_', true)) . "', 'assassin@syndicate.travianz', 4, 2, 0, '', $time, $time, 0)";
+              VALUES ('Klan Assassin', '" . md5(uniqid('assassin_', true)) . "', 'assassin@syndicate.travianz', 5, 2, 0, '', $time, $time, 0)";
         mysqli_query($db, $q);
         $uid = mysqli_insert_id($db);
 
         return [
             'id' => $uid,
             'username' => 'Klan Assassin',
-            'tribe' => 4,
+            'tribe' => 5,
             'access' => 2
         ];
     }
@@ -356,9 +372,9 @@ class Assassin {
     }
 
     /**
-     * Calculate contract duration in seconds based on distance.
+     * Calculate contract duration in seconds based on distance and slowest hired Natar unit.
      */
-    public static function calculateDuration(int $sanctuaryWref, int $targetWref): int {
+    public static function calculateDuration(int $sanctuaryWref, int $targetWref, array $hiredUnits = []): int {
         global $database;
         $sCoors = $database->getCoor($sanctuaryWref);
         $tCoors = $database->getCoor($targetWref);
@@ -367,12 +383,26 @@ class Assassin {
             return 300;
         }
 
+        $slowestSpeed = self::SPEED;
+        if (!empty($hiredUnits)) {
+            $minSpd = PHP_INT_MAX;
+            foreach ($hiredUnits as $uId => $qty) {
+                $uId = (int)$uId;
+                $qty = (int)$qty;
+                if ($qty > 0 && isset(self::UNIT_CATALOG[$uId])) {
+                    $minSpd = min($minSpd, (int)self::UNIT_CATALOG[$uId]['speed']);
+                }
+            }
+            if ($minSpd !== PHP_INT_MAX && $minSpd > 0) {
+                $slowestSpeed = $minSpd;
+            }
+        }
+
         $dist = self::getDistance((float)$sCoors['x'], (float)$sCoors['y'], (float)$tCoors['x'], (float)$tCoors['y']);
         $speedMult = (defined('SPEED') && SPEED > 0) ? (float)SPEED : 1;
-        
-        // Base travel speed = 40 fields/hr
-        $durationSeconds = round(($dist / (self::SPEED * $speedMult)) * 3600);
-        return max(180, (int)$durationSeconds); // Minimum 3 minutes for suspense
+
+        $durationSeconds = round(($dist / ($slowestSpeed * $speedMult)) * 3600);
+        return max(180, (int)$durationSeconds); // Minimum 3 minutes so target can defend/react
     }
 
     /**
@@ -408,9 +438,11 @@ class Assassin {
     }
 
     /**
-     * Hire an assassin contract.
+     * Hire a balanced Natar mercenary/assassin squad contract.
+     * Dispatches real Natarian troops (u41..u48) via standard movement (sort_type = 3)
+     * from the Sanctuary so the defender receives an incoming warning and can defend.
      */
-    public static function hireContract(int $uid, int $clientWid, $targetInput, string $contractType, string $currency): array {
+    public static function hireContract(int $uid, int $clientWid, $targetInput, string $contractType, string $currency, array $hiredUnits = []): array {
         global $database, $generator;
         self::ensureTables();
         $db = self::db();
@@ -420,9 +452,9 @@ class Assassin {
         $contractType = trim($contractType);
         $currency = strtolower(trim($currency));
 
-        // 1. Validate contract type
-        if (!isset(self::PRICES[$contractType])) {
-            return ['status' => 'error', 'message' => 'Pilihan jenis kontrak assassin tidak valid.'];
+        // 1. Validate contract type (only real-army attack/raid allowed)
+        if ($contractType !== self::CONTRACT_ARMY_ATTACK && $contractType !== self::CONTRACT_ARMY_RAID) {
+            return ['status' => 'error', 'message' => 'Pilihan jenis kontrak assassin tidak valid. Gunakan Serangan Penuh atau Serbuan Jarah.'];
         }
 
         // 2. Validate currency
@@ -430,7 +462,38 @@ class Assassin {
             return ['status' => 'error', 'message' => 'Mata uang pembayaran harus berupa Silver atau Gold.'];
         }
 
-        $cost = (int)self::PRICES[$contractType][$currency];
+        // 3. Validate hired Natar units & compute exact cost
+        $cleanUnits = [];
+        $totalUnits = 0;
+        $totalSilverCost = 0;
+        $hasNonScout = false;
+        $unitSummaryParts = [];
+
+        foreach ($hiredUnits as $uIdRaw => $qtyRaw) {
+            $uId = (int)$uIdRaw;
+            $qty = max(0, (int)$qtyRaw);
+            if ($qty <= 0 || !isset(self::UNIT_CATALOG[$uId])) {
+                continue;
+            }
+            $cleanUnits[$uId] = $qty;
+            $totalUnits += $qty;
+            $totalSilverCost += $qty * (int)self::UNIT_CATALOG[$uId]['silver'];
+            if ($uId !== 44) {
+                $hasNonScout = true;
+            }
+            $unitSummaryParts[] = number_format($qty) . ' ' . self::UNIT_CATALOG[$uId]['name'];
+        }
+
+        if ($totalUnits <= 0) {
+            return ['status' => 'error', 'message' => 'Pilih minimal 1 pasukan Natar untuk dikirim.'];
+        }
+        if ($totalUnits > self::MAX_UNITS_PER_CONTRACT) {
+            return ['status' => 'error', 'message' => 'Maksimal ' . number_format(self::MAX_UNITS_PER_CONTRACT) . ' pasukan per kontrak.'];
+        }
+
+        $cost = ($currency === 'gold')
+            ? max(1, (int)ceil($totalSilverCost / self::SILVER_PER_GOLD))
+            : $totalSilverCost;
 
         // 3. Resolve Target Village
         $targetWid = 0;
@@ -530,30 +593,59 @@ class Assassin {
             }
         }
 
-        // 6. Calculate Duration and Timestamps
-        $duration = self::calculateDuration($sanctuaryWref, $targetWid);
+        // 6. Ensure Sanctuary village has tribe = 5 (Natars) and calculate real travel time
+        $assassinUser = self::getAssassinUser();
+        @mysqli_query($db, "UPDATE " . TB_PREFIX . "vdata SET tribe = 5 WHERE wref = $sanctuaryWref AND tribe != 5");
+
+        $duration = self::calculateDuration($sanctuaryWref, $targetWid, $cleanUnits);
         $startTime = time();
         $endTime = $startTime + $duration;
 
-        // 7. Insert contract
+        // 7. Dispatch real Natarian attack via standard attacks + movement (sort_type = 3)
+        // If only Birds Of Prey (u44) are sent, treat as Scout (attack_type = 1)
+        $attackType = !$hasNonScout ? 1 : (($contractType === self::CONTRACT_ARMY_RAID) ? 4 : 3);
+        $tSlots = array_fill(1, 10, 0);
+        foreach ($cleanUnits as $uId => $qty) {
+            $slot = (int)self::UNIT_CATALOG[$uId]['slot'];
+            $tSlots[$slot] = $qty;
+        }
+
+        $attackId = $database->addAttack(
+            $sanctuaryWref,
+            $tSlots[1], $tSlots[2], $tSlots[3], $tSlots[4], $tSlots[5],
+            $tSlots[6], $tSlots[7], $tSlots[8], $tSlots[9], $tSlots[10], 0,
+            $attackType, 0, 0, ($attackType === 1 ? 1 : 0),
+            0, 0, 0, 0, 0, 0, 0, 0
+        );
+
+        if ((int)$attackId <= 0) {
+            return ['status' => 'error', 'message' => 'Gagal menyiapkan pergerakan pasukan bayangan.'];
+        }
+
+        $database->addMovement(3, $sanctuaryWref, $targetWid, (int)$attackId, $startTime, $endTime);
+
+        // 8. Insert contract record for client tracking & anonymity
         $tNameEsc = mysqli_real_escape_string($db, $targetName);
+        $unitSummaryStr = implode(', ', $unitSummaryParts);
+        $summaryEsc = mysqli_real_escape_string($db, "Pasukan dikirim: {$unitSummaryStr}");
         $insertSql = "INSERT INTO " . TB_PREFIX . "assassin_contracts
             (client_uid, client_wid, target_wid, target_uid, target_name, target_x, target_y,
-             contract_type, cost_currency, cost_amount, duration, start_time, end_time, status, created_at)
+             contract_type, cost_currency, cost_amount, duration, start_time, end_time, status, result_summary, created_at)
             VALUES
             ($uid, $clientWid, $targetWid, $targetUid, '$tNameEsc', $targetX, $targetY,
-             '$contractType', '$currency', $cost, $duration, $startTime, $endTime, " . self::STATUS_IN_PROGRESS . ", $startTime)";
+             '$contractType', '$currency', $cost, $duration, $startTime, $endTime, " . self::STATUS_IN_PROGRESS . ", '$summaryEsc', $startTime)";
         mysqli_query($db, $insertSql);
         $contractId = mysqli_insert_id($db);
 
         return [
             'status' => 'success',
             'contract_id' => $contractId,
+            'attack_id' => (int)$attackId,
             'duration' => $duration,
             'end_time' => $endTime,
             'target_name' => $targetName,
             'target_coor' => "({$targetX}|{$targetY})",
-            'message' => 'Kontrak assassin berhasil disewa! Bayangan bergerak menuju target.'
+            'message' => "Kontrak disepakati! {$unitSummaryStr} telah diberangkatkan dari Kuil Bayangan menuju target."
         ];
     }
 
@@ -718,6 +810,10 @@ class Assassin {
 
             $result = null;
             switch ($type) {
+                case self::CONTRACT_ARMY_ATTACK:
+                case self::CONTRACT_ARMY_RAID:
+                    $result = self::resolveArmyContract($contract);
+                    break;
                 case self::CONTRACT_SHADOW_RAID:
                     $result = self::resolveShadowRaid($contract);
                     break;
@@ -748,7 +844,29 @@ class Assassin {
     }
 
     /**
-     * 1. Resolve Shadow Raid Contract.
+     * Resolve real-army Natar Assassin contract once arrival time has passed.
+     * Actual combat, hero survival, and defender battle reports are handled by AutomationBattleResolution.
+     */
+    protected static function resolveArmyContract(array $contract): array {
+        $clientUid = (int)$contract['client_uid'];
+        $targetName = $contract['target_name'];
+        $existingSummary = trim((string)($contract['result_summary'] ?? ''));
+
+        $summary = !empty($existingSummary)
+            ? $existingSummary . ' — Serangan telah tiba di sasaran.'
+            : "Pasukan bayangan Natar telah tiba dan bertempur di {$targetName}.";
+
+        $clientTopic = "[KONTRAK TIBA] Pasukan Bayangan Menyerang {$targetName}";
+        $clientMsg = "Pasukan Natar sewaan Anda telah mencapai desa {$targetName} ({$contract['target_x']}|{$contract['target_y']}) dan bertempur sesuai aturan perang normal.\n\n"
+                   . "📜 Rincian: {$summary}\n\n"
+                   . "Identitas Anda tetap dirahasiakan sepenuhnya dari target.";
+        self::sendDirectMessage($clientUid, 'Kuil Bayangan (Assassin Guild)', $clientTopic, $clientMsg);
+
+        return ['status' => self::STATUS_COMPLETED, 'summary' => $summary];
+    }
+
+    /**
+     * 1. Resolve Shadow Raid Contract (legacy).
      */
     protected static function resolveShadowRaid(array $contract): array {
         global $database;
