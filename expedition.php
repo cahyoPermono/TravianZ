@@ -865,6 +865,87 @@ for ($i = 1; $i <= 10; $i++) {
 				<a href="bandit.php" class="btn-exp-action btn-exp-create">&laquo; Kembali ke Radar Bandit</a>
 			</div>
 
+		<!-- JIKA EKSPEDISI SUDAH SELESAI / GAGAL / DIBATALKAN -->
+		<?php } elseif (!empty($expDetails) && in_array((int)$expDetails['expedition']['status'], [ExpeditionEngine::STATUS_RESOLVED, ExpeditionEngine::STATUS_FAILED, ExpeditionEngine::STATUS_CANCELLED], true)) { 
+			$exp = $expDetails['expedition'];
+			$expStatus = (int)$exp['status'];
+			$members = $expDetails['members'];
+			$isVictory = ($expStatus === ExpeditionEngine::STATUS_RESOLVED);
+			$isCancelled = ($expStatus === ExpeditionEngine::STATUS_CANCELLED);
+
+			$cardBorder = $isVictory ? '#16a34a' : ($isCancelled ? '#94a3b8' : '#dc2626');
+			$cardBg = $isVictory ? 'linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%)' : ($isCancelled ? '#f8fafc' : 'linear-gradient(180deg, #fef2f2 0%, #ffffff 100%)');
+			$headerBorder = $isVictory ? '#bbf7d0' : ($isCancelled ? '#e2e8f0' : '#fecaca');
+			$titleColor = $isVictory ? '#166534' : ($isCancelled ? '#475569' : '#991b1b');
+			$titleText = $isVictory
+				? '👑 EKSPEDISI SELESAI — KEMENANGAN!'
+				: ($isCancelled ? '❌ EKSPEDISI DIBATALKAN' : '💀 EKSPEDISI SELESAI — TERPUKUL MUNDUR');
+		?>
+			<div class="exp-card" style="border: 2px solid <?php echo $cardBorder; ?>; background: <?php echo $cardBg; ?>;">
+				<div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid <?php echo $headerBorder; ?>; padding-bottom: 8px; margin-bottom: 12px;">
+					<div>
+						<span style="font-size: 15px; font-weight: bold; color: <?php echo $titleColor; ?>;"><?php echo $titleText; ?></span>
+						<div style="font-size: 11px; color: #475569; margin-top: 2px;">
+							🎯 <?php echo htmlspecialchars($exp['camp_name']); ?> (<?php echo $campData['x']; ?>|<?php echo $campData['y']; ?>)
+						</div>
+					</div>
+					<div>
+						<span style="background: <?php echo $isVictory ? '#dcfce7' : ($isCancelled ? '#e2e8f0' : '#fee2e2'); ?>; color: <?php echo $titleColor; ?>; padding: 4px 10px; border-radius: 6px; font-weight: bold; font-size: 11px;">
+							<?php echo $isVictory ? '✅ Selesai (Menang)' : ($isCancelled ? 'Dibatalkan' : 'Selesai (Gagal)'); ?>
+						</span>
+					</div>
+				</div>
+
+				<div style="background: #ffffff; border: 1px solid <?php echo $headerBorder; ?>; border-radius: 6px; padding: 10px 12px; font-size: 11.5px; color: #334155; line-height: 1.5; margin-bottom: 12px;">
+					<?php if ($isVictory) { ?>
+						Serbuan gabungan Forward Camp telah <b>berhasil menaklukkan</b> target! Hadiah sumber daya, Silver, CP, dan Hero EXP telah didistribusikan sesuai kontribusi. Silakan buka menu <b>Reports (Laporan)</b> untuk melihat rincian pertempuran.
+					<?php } elseif ($isCancelled) { ?>
+						Sesi Forward Camp ini telah dibatalkan. Seluruh pasukan anggota telah dipulangkan kembali ke desa masing-masing dan kuota harian telah dikembalikan.
+					<?php } else { ?>
+						Serbuan gabungan Forward Camp tidak berhasil menembus pertahanan target. Silakan buka menu <b>Reports (Laporan)</b> untuk melihat rincian pertempuran.
+					<?php } ?>
+				</div>
+
+				<?php if (!$isCancelled && !empty($members)) { ?>
+					<div style="font-weight: bold; color: #334155; font-size: 11px; margin-bottom: 6px;">
+						👥 Status Kepulangan Pasukan (<?php echo count($members); ?> Pemain):
+					</div>
+					<div class="slot-grid">
+						<?php foreach ($members as $m) { 
+							$isSlotLeader = ((int)$m['uid'] === (int)$exp['leader_uid']);
+							$retTime = (int)($m['return_time'] ?? 0);
+							$remReturn = max(0, $retTime - time());
+						?>
+							<div class="slot-box filled <?php echo $isSlotLeader ? 'leader' : ''; ?>">
+								<div class="slot-role"><?php echo $isSlotLeader ? '👑 Leader' : '⚔️ Anggota'; ?></div>
+								<div class="slot-username" title="<?php echo htmlspecialchars($m['username'] ?? 'Pemain'); ?>"><?php echo htmlspecialchars($m['username'] ?? 'Pemain'); ?></div>
+								<div class="slot-power" style="font-size: 9px; color: #475569;">Damage: <?php echo number_format((int)($m['damage_dealt'] ?? 0)); ?></div>
+								<?php if ($remReturn > 0) { 
+									$rTimerNum = ++$session->timer;
+									$rFmt = sprintf('%02d:%02d:%02d', intdiv($remReturn, 3600), intdiv($remReturn % 3600, 60), $remReturn % 60);
+								?>
+									<div style="font-size: 8px; color: #0369a1; font-weight: bold; background: #e0f2fe; border-radius: 3px; padding: 1px 2px; margin-top: 2px;">
+										Pulang: <span id="rtimer<?php echo $rTimerNum; ?>" class="exp-live-timer" data-seconds="<?php echo $remReturn; ?>"><?php echo $rFmt; ?></span>
+									</div>
+								<?php } else { ?>
+									<div style="font-size: 8px; color: #16a34a; font-weight: bold; background: #dcfce7; border-radius: 3px; padding: 1px 2px; margin-top: 2px;">
+										✅ Tiba di desa
+									</div>
+								<?php } ?>
+							</div>
+						<?php } ?>
+					</div>
+				<?php } ?>
+
+				<div style="margin-top: 12px; border-top: 1px solid #f1f5f9; padding-top: 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+					<a href="bandit.php" style="color: #64748b; font-size: 11px; text-decoration: underline;">&laquo; Kembali ke Radar Bandit</a>
+					<div style="display: flex; gap: 8px;">
+						<a href="expedition.php" class="btn-exp-action" style="background: #e2e8f0; color: #334155; text-decoration: none;">📋 Daftar Ekspedisi</a>
+						<a href="berichte.php" class="btn-exp-action btn-exp-create" style="text-decoration: none;">📜 Buka Laporan (Reports) &raquo;</a>
+					</div>
+				</div>
+			</div>
+
 		<!-- JIKA STATUS EKSPEDISI SEDANG BERBARIS MENUJU SASARAN BOSS (STATUS_MARCHING = 4) -->
 		<?php } elseif (!empty($expDetails) && (int)$expDetails['expedition']['status'] === ExpeditionEngine::STATUS_MARCHING) { 
 			$exp = $expDetails['expedition'];
@@ -953,7 +1034,7 @@ for ($i = 1; $i <= 10; $i++) {
 			</div>
 
 		<!-- JIKA SEDANG MELIHAT SESI EKSPEDISI TERTENTU (LOBBY AKTIF) -->
-		<?php } elseif (!empty($expDetails)) { 
+		<?php } elseif (!empty($expDetails) && (int)$expDetails['expedition']['status'] === ExpeditionEngine::STATUS_LOBBY) { 
 			$exp = $expDetails['expedition'];
 			$members = $expDetails['members'];
 			$synergies = $expDetails['synergies'];
