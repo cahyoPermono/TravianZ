@@ -16,6 +16,7 @@ parse_str($rawContent, $parsed);
 
 $isIntel = (!empty($parsed['type']) && $parsed['type'] === 'bandit_intel');
 $isExpedition = (!empty($parsed['type']) && $parsed['type'] === 'expedition_report');
+$isAssassin = (!empty($parsed['type']) && $parsed['type'] === 'assassin_report');
 $expAction = $parsed['action'] ?? '';
 $expLosses = $parsed['losses_pct'] ?? '0';
 $expWood = (int)($parsed['wood'] ?? 0);
@@ -951,6 +952,146 @@ $conquerorLink = ($conquerorUid > 0)
         </div>
         <?php } ?>
 
+    </div>
+<?php } elseif ($isAssassin) {
+    $assAction = $parsed['action'] ?? 'shadow_raid';
+    $assTargetWid = (int)($parsed['target_wid'] ?? ($message->readingNotice['toWref'] ?? 0));
+    $assTargetName = (string)($parsed['target_name'] ?? 'Desa Anda');
+    $assTargetX = (int)($parsed['target_x'] ?? 0);
+    $assTargetY = (int)($parsed['target_y'] ?? 0);
+    $assSent = (int)($parsed['assassin_sent'] ?? 250);
+    $assTotalBefore = (int)($parsed['total_before'] ?? 0);
+    $assTotalKilled = (int)($parsed['total_killed'] ?? 0);
+    $assTotalSurvived = (int)($parsed['total_survived'] ?? max(0, $assTotalBefore - $assTotalKilled));
+    $assBeforeMap = json_decode((string)($parsed['before_json'] ?? '{}'), true);
+    if (!is_array($assBeforeMap)) $assBeforeMap = [];
+    $assKilledMap = json_decode((string)($parsed['killed_json'] ?? '{}'), true);
+    if (!is_array($assKilledMap)) $assKilledMap = [];
+    $assWood = (int)($parsed['wood'] ?? 0);
+    $assClay = (int)($parsed['clay'] ?? 0);
+    $assIron = (int)($parsed['iron'] ?? 0);
+    $assCrop = (int)($parsed['crop'] ?? 0);
+    $assTotalLoot = $assWood + $assClay + $assIron + $assCrop;
+    $assMapCheck = $generator->getMapCheck($assTargetWid);
+    $assVillageLink = ($assTargetWid > 0)
+        ? '<a href="karte.php?d=' . $assTargetWid . '&c=' . $assMapCheck . '" style="color:#fda4af;font-weight:bold;">' . htmlspecialchars($assTargetName, ENT_QUOTES, 'UTF-8') . ' (' . $assTargetX . '|' . $assTargetY . ')</a>'
+        : '<b>' . htmlspecialchars($assTargetName, ENT_QUOTES, 'UTF-8') . '</b>';
+?>
+    <div style="background: #0f172a; color: #f8fafc; border: 1px solid #991b1b; border-radius: 8px; padding: 16px; margin-bottom: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; border-bottom: 1px solid #334155; padding-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 24px;">🗡️</span>
+                <div>
+                    <h3 style="margin: 0; color: #f87171; font-size: 16px;">
+                        <?php
+                        if ($assAction === 'hero_assassinate') echo 'Laporan Pembunuhan Hero — Klan Assassin';
+                        elseif ($assAction === 'night_sabotage') echo 'Laporan Sabotase Malam — Klan Assassin';
+                        else echo 'Laporan Serbuan Bayangan — Klan Assassin';
+                        ?>
+                    </h3>
+                    <span style="color: #94a3b8; font-size: 12px;">Target Desa: <?php echo $assVillageLink; ?></span>
+                </div>
+            </div>
+            <span style="background: #450a0a; color: #fca5a5; border: 1px solid #dc2626; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: bold;">
+                Penyerang: Anonim (Klan Assassin)
+            </span>
+        </div>
+
+        <div style="background: #1e293b; border: 1px solid #334155; border-radius: 6px; padding: 10px 14px; margin-bottom: 12px; font-size: 12.5px;">
+            <div style="color: #cbd5e1; margin-bottom: 4px;">
+                <b style="color: #fbbf24;">Pasukan Penyerang yang Dikerahkan:</b>
+                <span style="color: #f8fafc; font-weight: bold;"><?php echo number_format($assSent); ?></span>
+                <?php echo ($assAction === 'shadow_raid') ? 'Pasukan Bayangan (Assassin)' : 'Agen Pembunuh Bayangan'; ?>
+            </div>
+            <div style="color: #94a3b8; font-size: 11.5px;">
+                Identitas penyewa kontrak dirahasiakan sepenuhnya oleh Kuil Bayangan.
+            </div>
+        </div>
+
+        <?php if ($assAction === 'shadow_raid') { ?>
+            <div style="background: #111827; border: 1px solid #334155; border-radius: 6px; padding: 12px; margin-bottom: 12px;">
+                <div style="font-weight: bold; color: #e2e8f0; margin-bottom: 8px; font-size: 13px;">
+                    ⚔️ Rincian Pasukan Bertahan Anda
+                </div>
+                <?php if (!empty($assBeforeMap)) { ?>
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 12px; color: #e2e8f0;">
+                        <thead>
+                            <tr style="background: #1e293b; color: #94a3b8; text-align: left;">
+                                <th style="padding: 6px 8px; border-bottom: 1px solid #334155;">Jenis Pasukan</th>
+                                <th style="padding: 6px 8px; border-bottom: 1px solid #334155; text-align: right;">Jumlah Awal</th>
+                                <th style="padding: 6px 8px; border-bottom: 1px solid #334155; text-align: right; color: #f87171;">Mati / Gugur</th>
+                                <th style="padding: 6px 8px; border-bottom: 1px solid #334155; text-align: right; color: #4ade80;">Tersisa</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($assBeforeMap as $uIdRaw => $beforeCntRaw) {
+                                $uId = (int)$uIdRaw;
+                                $beforeCnt = (int)$beforeCntRaw;
+                                $killedCnt = (int)($assKilledMap[$uId] ?? ($assKilledMap[(string)$uId] ?? 0));
+                                $survCnt = max(0, $beforeCnt - $killedCnt);
+                                $uName = (isset($technology) && method_exists($technology, 'getUnitName'))
+                                    ? $technology->getUnitName($uId)
+                                    : ('Unit #' . $uId);
+                            ?>
+                            <tr style="border-bottom: 1px solid #1e293b;">
+                                <td style="padding: 6px 8px;">
+                                    <img class="unit u<?php echo $uId; ?>" src="img/x.gif" alt="<?php echo htmlspecialchars($uName, ENT_QUOTES, 'UTF-8'); ?>" title="<?php echo htmlspecialchars($uName, ENT_QUOTES, 'UTF-8'); ?>" style="vertical-align: middle; margin-right: 6px;" />
+                                    <span><?php echo htmlspecialchars($uName, ENT_QUOTES, 'UTF-8'); ?></span>
+                                </td>
+                                <td style="padding: 6px 8px; text-align: right; font-weight: bold;"><?php echo number_format($beforeCnt); ?></td>
+                                <td style="padding: 6px 8px; text-align: right; font-weight: bold; color: #f87171;"><?php echo ($killedCnt > 0 ? '-' . number_format($killedCnt) : '0'); ?></td>
+                                <td style="padding: 6px 8px; text-align: right; font-weight: bold; color: #4ade80;"><?php echo number_format($survCnt); ?></td>
+                            </tr>
+                            <?php } ?>
+                        </tbody>
+                        <tfoot>
+                            <tr style="background: #1e293b; font-weight: bold;">
+                                <td style="padding: 7px 8px; border-top: 1px solid #475569;">Total Pasukan</td>
+                                <td style="padding: 7px 8px; border-top: 1px solid #475569; text-align: right;"><?php echo number_format($assTotalBefore); ?></td>
+                                <td style="padding: 7px 8px; border-top: 1px solid #475569; text-align: right; color: #f87171;"><?php echo ($assTotalKilled > 0 ? '-' . number_format($assTotalKilled) : '0'); ?></td>
+                                <td style="padding: 7px 8px; border-top: 1px solid #475569; text-align: right; color: #4ade80;"><?php echo number_format($assTotalSurvived); ?></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                <?php } else { ?>
+                    <div style="color: #94a3b8; font-size: 12px;">Tidak ada pasukan bertahan di desa saat serangan terjadi.</div>
+                <?php } ?>
+            </div>
+
+            <div style="background: #111827; border: 1px solid #334155; border-radius: 6px; padding: 12px;">
+                <div style="font-weight: bold; color: #e2e8f0; margin-bottom: 8px; font-size: 13px;">
+                    📦 Sumber Daya Yang Dijarah (Total: <?php echo number_format($assTotalLoot); ?>)
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px;">
+                    <div style="background: #090e1a; padding: 8px; border-radius: 6px; font-size: 12px; font-weight: bold; border: 1px solid #24324d;">
+                        🌲 Kayu: <span style="color: #f87171;">-<?php echo number_format($assWood); ?></span>
+                    </div>
+                    <div style="background: #090e1a; padding: 8px; border-radius: 6px; font-size: 12px; font-weight: bold; border: 1px solid #24324d;">
+                        🧱 Liat: <span style="color: #f87171;">-<?php echo number_format($assClay); ?></span>
+                    </div>
+                    <div style="background: #090e1a; padding: 8px; border-radius: 6px; font-size: 12px; font-weight: bold; border: 1px solid #24324d;">
+                        ⛏️ Besi: <span style="color: #f87171;">-<?php echo number_format($assIron); ?></span>
+                    </div>
+                    <div style="background: #090e1a; padding: 8px; border-radius: 6px; font-size: 12px; font-weight: bold; border: 1px solid #24324d;">
+                        🌾 Gandum: <span style="color: #f87171;">-<?php echo number_format($assCrop); ?></span>
+                    </div>
+                </div>
+            </div>
+        <?php } elseif ($assAction === 'hero_assassinate') { ?>
+            <div style="background: #450a0a; border: 1px solid #dc2626; border-radius: 6px; padding: 12px; font-size: 12.5px; color: #fecaca;">
+                ☠️ <b>Hero Anda Tewas Diracun!</b> Pembunuh bayaran menyusup di malam hari dan menghabisi Hero Anda (Health 0%). Anda harus membangkitkannya kembali di Balai Pahlawan.
+            </div>
+        <?php } elseif ($assAction === 'night_sabotage') {
+            $assBldName = (string)($parsed['building_name'] ?? 'Bangunan');
+            $assOldLvl = (int)($parsed['old_lvl'] ?? 0);
+            $assNewLvl = (int)($parsed['new_lvl'] ?? 0);
+        ?>
+            <div style="background: #1e293b; border: 1px solid #f97316; border-radius: 6px; padding: 12px; font-size: 12.5px; color: #fed7aa;">
+                🔥 <b>Bangunan Disabotase:</b> <?php echo htmlspecialchars($assBldName, ENT_QUOTES, 'UTF-8'); ?> diturunkan dari <b>Level <?php echo $assOldLvl; ?></b> menjadi <b>Level <?php echo $assNewLvl; ?></b>.
+            </div>
+        <?php } ?>
     </div>
 <?php } else { ?>
     <!-- Fallback / Plain Text / Bandit Victory & World Boss Display -->

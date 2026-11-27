@@ -764,6 +764,9 @@ class Assassin {
         // Get target defending garrison
         $unitRow = $database->getUnit($targetWid, false);
         $totalDefendersKilled = 0;
+        $totalDefendersBefore = 0;
+        $beforeMap = [];
+        $killedMap = [];
         $killedDetails = [];
 
         if (!empty($unitRow)) {
@@ -771,17 +774,23 @@ class Assassin {
             for ($u = 1; $u <= 100; $u++) {
                 $count = (int)($unitRow['u' . $u] ?? 0);
                 if ($count > 0) {
+                    $beforeMap[$u] = $count;
+                    $totalDefendersBefore += $count;
                     // Shadow blades eliminate 35% - 60% of defending troops
                     $killed = min($count, (int)ceil($count * (rand(35, 60) / 100)));
                     if ($killed > 0) {
                         $updates[] = "u{$u} = u{$u} - {$killed}";
                         $totalDefendersKilled += $killed;
+                        $killedMap[$u] = $killed;
                         $killedDetails[] = "{$killed} prajurit";
                     }
                 }
             }
             if (!empty($updates)) {
                 $database->query("UPDATE " . TB_PREFIX . "units SET " . implode(', ', $updates) . " WHERE vref = $targetWid");
+                if (method_exists($database, 'clearUnitsCache')) {
+                    $database->clearUnitsCache();
+                }
             }
         }
 
@@ -820,13 +829,34 @@ class Assassin {
 
         $summary = "Serbuan Bayangan berhasil! Membasmi {$totalDefendersKilled} penjaga dan merampas {$totalLoot} sumber daya untuk lumbung Anda.";
 
-        // --- 100% Anonymous Victim Message ---
+        // --- 100% Anonymous Victim Message & Battle Notice Report ---
         $victimTopic = "[SERANGAN MALAM] Desa {$targetName} Diserang Pasukan Bayangan!";
-        $victimMsg = "Di tengah kesunyian malam, sekelompok pembunuh bertopeng dari Klan Assassin menerobos tembok desa {$targetName}.\n\n"
-                   . "⚔️ Korban Jiwa Pertahanan: {$totalDefendersKilled} prajurit gugur.\n"
+        $victimMsg = "Di tengah kesunyian malam, sekelompok pembunuh bertopeng dari Klan Assassin (250 Pasukan Bayangan) menerobos tembok desa {$targetName}.\n\n"
+                   . "⚔️ Korban Jiwa Pertahanan: {$totalDefendersKilled} dari {$totalDefendersBefore} prajurit gugur.\n"
                    . "📦 Sumber Daya Yang Dijarah: {$lootWood} Kayu, {$lootClay} Tanah Liat, {$lootIron} Besi, {$lootCrop} Gandum (Total: {$totalLoot}).\n\n"
+                   . "Rincian lengkap pasukan yang gugur dapat dilihat di menu Laporan (Reports).\n"
                    . "Para penyerang lenyap ke dalam kegelapan tanpa meninggalkan petunjuk sedikitpun mengenai siapa yang menyewa mereka.";
         self::sendDirectMessage($targetUid, 'Klan Assassin (Topeng Hitam)', $victimTopic, $victimMsg);
+
+        $noticeData = http_build_query([
+            'type'           => 'assassin_report',
+            'action'         => self::CONTRACT_SHADOW_RAID,
+            'target_wid'     => $targetWid,
+            'target_name'    => $targetName,
+            'target_x'       => (int)($contract['target_x'] ?? 0),
+            'target_y'       => (int)($contract['target_y'] ?? 0),
+            'assassin_sent'  => 250,
+            'total_before'   => $totalDefendersBefore,
+            'total_killed'   => $totalDefendersKilled,
+            'total_survived' => max(0, $totalDefendersBefore - $totalDefendersKilled),
+            'before_json'    => json_encode($beforeMap),
+            'killed_json'    => json_encode($killedMap),
+            'wood'           => $lootWood,
+            'clay'           => $lootClay,
+            'iron'           => $lootIron,
+            'crop'           => $lootCrop,
+        ]);
+        $database->addNotice($targetUid, $targetWid, 0, 28, $victimTopic, $noticeData, $now);
 
         // --- Client Report ---
         $clientTopic = "[KONTRAK TUNTAS] Serbuan Bayangan di {$targetName}";
@@ -862,12 +892,23 @@ class Assassin {
 
             $summary = "Hero musuh berhasil diracun dan dieksekusi mati di kamarnya.";
 
-            // --- 100% Anonymous Victim Message ---
+            // --- 100% Anonymous Victim Message & Notice Report ---
             $victimTopic = "[KABAR DUKA] Hero Anda Ditemukan Tewas Diracun!";
             $victimMsg = "Tragedi berdarah terjadi di desa Anda! Hero Anda ditemukan terbujur kaku di kamarnya dengan luka tusuk belati beracun bertanda segel Klan Assassin.\n\n"
                        . "☠️ Status Hero: Tewas seketika (Health 0%).\n\n"
                        . "Sang pembunuh menyusup seperti hantu dan tidak meninggalkan jejak ataupun identitas penyewa. Anda harus membangkitkannya kembali.";
             self::sendDirectMessage($targetUid, 'Klan Assassin (Topeng Hitam)', $victimTopic, $victimMsg);
+
+            $noticeData = http_build_query([
+                'type'          => 'assassin_report',
+                'action'        => self::CONTRACT_HERO_ASSASSINATE,
+                'target_wid'    => $targetWid,
+                'target_name'   => $targetName,
+                'target_x'      => (int)($contract['target_x'] ?? 0),
+                'target_y'      => (int)($contract['target_y'] ?? 0),
+                'assassin_sent' => 1,
+            ]);
+            $database->addNotice($targetUid, $targetWid, 0, 28, $victimTopic, $noticeData, $now);
 
             // --- Client Report ---
             $clientTopic = "[KONTRAK TUNTAS] Eksekusi Hero di {$targetName}";
@@ -969,13 +1010,27 @@ class Assassin {
 
             $summary = "Sabotase sukses! Berhasil merusak dan menurunkan level {$bName} dari level {$oldLvl} menjadi level {$newLvl}.";
 
-            // --- 100% Anonymous Victim Message ---
+            // --- 100% Anonymous Victim Message & Notice Report ---
             $victimTopic = "[SABOTASE MALAM] {$bName} di Desa Anda Dirusak!";
             $victimMsg = "Sabotase misterius terjadi di desa {$targetName}!\n\n"
                        . "🔥 Bangunan Yang Dirusak: {$bName}\n"
                        . "📉 Perubahan Level: Level {$oldLvl} turun menjadi Level {$newLvl}.\n\n"
                        . "Pelaku melarikan diri melintasi bayang-bayang tanpa meninggalkan jejak atau bukti identitas pemesan.";
             self::sendDirectMessage($targetUid, 'Klan Assassin (Topeng Hitam)', $victimTopic, $victimMsg);
+
+            $noticeData = http_build_query([
+                'type'          => 'assassin_report',
+                'action'        => self::CONTRACT_NIGHT_SABOTAGE,
+                'target_wid'    => $targetWid,
+                'target_name'   => $targetName,
+                'target_x'      => (int)($contract['target_x'] ?? 0),
+                'target_y'      => (int)($contract['target_y'] ?? 0),
+                'assassin_sent' => 1,
+                'building_name' => $bName,
+                'old_lvl'       => $oldLvl,
+                'new_lvl'       => $newLvl,
+            ]);
+            $database->addNotice($targetUid, $targetWid, 0, 28, $victimTopic, $noticeData, $now);
 
             // --- Client Report ---
             $clientTopic = "[KONTRAK TUNTAS] Sabotase Berhasil di {$targetName}";
