@@ -5648,6 +5648,7 @@ class BotAI {
         $isAllianceTarget = false;
         $targetAlliance = null;
         $targetVillages = [];
+        $skippedProtectedCount = 0;
 
         // Check if targetInput is 'alliance:<id>' or matches an existing alliance tag/name
         $targetAliId = 0;
@@ -5681,6 +5682,17 @@ class BotAI {
                     }));
                     if (empty($targetVillages)) {
                         return ['status' => 'error', 'message' => "Aliansi target tidak memiliki desa yang valid (konten bandit diabaikan)."];
+                    }
+                    if ($attackType !== 2) {
+                        $now = time();
+                        $beforeProtectCount = count($targetVillages);
+                        $targetVillages = array_values(array_filter($targetVillages, function($tv) use ($now) {
+                            return (int)($tv['protect'] ?? 0) <= $now;
+                        }));
+                        $skippedProtectedCount = $beforeProtectCount - count($targetVillages);
+                        if (empty($targetVillages)) {
+                            return ['status' => 'error', 'message' => "Semua desa di aliansi target [{$targetAlliance['tag']}] {$targetAlliance['name']} sedang dalam masa perlindungan pemula dan tidak dapat diserang."];
+                        }
                     }
                 } else {
                     return ['status' => 'error', 'message' => "Aliansi target [{$targetAlliance['tag']}] {$targetAlliance['name']} tidak memiliki desa yang aktif."];
@@ -5722,6 +5734,14 @@ class BotAI {
 
             $targetOwner = (int)$singleTarget['owner'];
             $targetUser = $database->getUserField($targetOwner, 'username', 0);
+            if ($attackType !== 2) {
+                $isProtected = method_exists($database, 'hasBeginnerProtection')
+                    ? (bool)$database->hasBeginnerProtection((int)$singleTarget['wref'])
+                    : ((int)$database->getUserField($targetOwner, 'protect', 0) > time());
+                if ($isProtected) {
+                    return ['status' => 'error', 'message' => "Target '{$targetUser}' sedang dalam masa perlindungan pemula dan tidak dapat diserang."];
+                }
+            }
             $targetVillages = [[
                 'wref'     => (int)$singleTarget['wref'],
                 'owner'    => $targetOwner,
@@ -6159,6 +6179,9 @@ class BotAI {
             $skippedCount = count($dispatchedReports) - $actualDispatchedCount;
             $summaryMsg .= " ($skippedCount bot dilewati karena tidak memiliki unit yang sesuai).";
         }
+        if ($skippedProtectedCount > 0) {
+            $summaryMsg .= " ($skippedProtectedCount desa dalam masa perlindungan pemula dilewati).";
+        }
 
         return [
             'status'   => 'success',
@@ -6275,6 +6298,12 @@ class BotAI {
         $targetWid = (int)$targetVillage['wref'];
         if (self::isBanditTarget($targetWid)) {
             return ['status' => 'error', 'message' => "Target adalah Sarang Bandit / World Boss! Konten PvE Bandit hanya untuk pemain asli."];
+        }
+        $isProtected = method_exists($database, 'hasBeginnerProtection')
+            ? (bool)$database->hasBeginnerProtection($targetWid)
+            : ((int)$database->getUserField((int)$targetVillage['owner'], 'protect', 0) > time());
+        if ($isProtected) {
+            return ['status' => 'error', 'message' => "Target '{$targetVillage['username']}' sedang dalam masa perlindungan pemula dan tidak dapat diserang/ditaklukkan."];
         }
         $targetOwner = (int)$targetVillage['owner'];
         $targetX = (int)$targetVillage['x'];
