@@ -69,11 +69,9 @@ if ($userTribe <= 0) {
     $userTribe = (!empty($session->tribe) && $session->tribe > 0) ? (int)$session->tribe : 1;
 }
 
-// Cek ketersediaan Hero yang masih hidup dan berada di desa saat ini
+// Cek ketersediaan Hero yang masih hidup, berada di desa saat ini, dan belum berangkat (units.hero > 0)
 $heroInVillage = false;
 if (!empty($village->unitarray['hero']) && (int)$village->unitarray['hero'] > 0) {
-    $heroInVillage = true;
-} else {
     $heroCheck = $database->query_return("SELECT heroid, dead, wref FROM `" . TB_PREFIX . "hero` WHERE uid = $uid AND dead = 0 LIMIT 1");
     if (!empty($heroCheck[0]) && (int)$heroCheck[0]['wref'] === $currentVref) {
         $heroInVillage = true;

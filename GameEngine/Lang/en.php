@@ -1420,6 +1420,8 @@ tz_def('HEALING_TIME_NOW', 'Healing time now');
 tz_def('WOUNDED_TROOPS', 'Wounded troops');
 tz_def('NO_WOUNDED', 'There are no wounded troops in the hospital.');
 tz_def('HEAL_BUTTON', 'Heal');
+tz_def('DISCARD_BUTTON', 'Discard');
+tz_def('DISCARD_ALL_BUTTON', 'Discard all');
 tz_def('HEAL_COST_HINT', 'Healing costs 50% of the unit training cost.');
 tz_def('HEALING', 'Healing');
 tz_def('HEALING_IN_PROGRESS', 'Healing in progress');

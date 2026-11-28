@@ -118,13 +118,27 @@ if (!empty($woundedRows)) {
             <td class="val"><b><?php echo $availWounded; ?></b></td>
             <td class="val"><input class="text" type="text" name="hamt[<?php echo $wi; ?>]" id="hamt_<?php echo $wi; ?>" value="0" maxlength="6" /></td>
             <td class="max"><a href="#" onClick="document.getElementById('hamt_<?php echo $wi; ?>').value=<?php echo $maxHeal; ?>; return false;">(<?php echo $maxHeal; ?>)</a></td>
-            <td><button type="submit" name="hunit" value="<?php echo $wi; ?>" class="trav_buttons"><?php echo HEAL_BUTTON; ?></button></td>
+            <td>
+                <button type="submit" name="hunit" value="<?php echo $wi; ?>" class="trav_buttons"><?php echo HEAL_BUTTON; ?></button>
+                <button type="submit" name="dunit" value="<?php echo $wi; ?>" class="trav_buttons" style="margin-left:4px;background:#b91c1c;color:#fff;border-color:#991b1b;" onclick="return confirmDiscardWounded(<?php echo $wi; ?>, <?php echo $availWounded; ?>, '<?php echo htmlspecialchars(addslashes($uName), ENT_QUOTES); ?>');"><?php echo defined('DISCARD_BUTTON') ? DISCARD_BUTTON : 'Discard'; ?></button>
+            </td>
         </tr>
         <?php endfor; ?>
         </tbody>
     </table>
+    <div style="margin-top:8px;text-align:right;">
+        <button type="submit" name="discard_all" value="1" class="trav_buttons" style="background:#991b1b;color:#fff;border-color:#7f1d1d;" onclick="return confirm('Discard all wounded troops in the hospital? This cannot be undone.');"><?php echo defined('DISCARD_ALL_BUTTON') ? DISCARD_ALL_BUTTON : 'Discard all'; ?></button>
+    </div>
     <input type="hidden" name="ft" value="heal" />
     </form>
+    <script type="text/javascript">
+    function confirmDiscardWounded(unitId, avail, unitName) {
+        var inp = document.getElementById('hamt_' + unitId);
+        var val = inp ? parseInt(inp.value, 10) : 0;
+        var count = (!isNaN(val) && val > 0 && val <= avail) ? val : avail;
+        return confirm('Discard ' + count + ' ' + unitName + ' from hospital? This cannot be undone.');
+    }
+    </script>
     <p class="c"><?php echo HEAL_COST_HINT; ?></p>
     <?php else: ?>
     <p class="none"><?php echo NO_WOUNDED; ?></p>

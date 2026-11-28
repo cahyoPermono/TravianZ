@@ -822,10 +822,17 @@ class ExpeditionEngine {
         }
         $leaderTribe = ($vTribe > 0) ? $vTribe : (int)($leaderData['tribe'] ?? 1);
 
-        // Verifikasi keberadaan Hero di desa pemberangkatan jika dicentang
+        // 6. Verifikasi kepemilikan desa & kecukupan pasukan + ketersediaan Hero di desa
+        if ($fromWref <= 0) {
+            $fromWref = (int)$database->getVillageID($leaderUid);
+        }
+        $vUnits = $database->getUnit($fromWref, false);
+
+        // Verifikasi keberadaan Hero (baik di tabel hero maupun unitarray desa) jika dicentang
         if ($hasHero) {
             $heroCheck = $database->query_return("SELECT heroid FROM `" . TB_PREFIX . "hero` WHERE uid = $leaderUid AND dead = 0 AND wref = $fromWref LIMIT 1");
-            if (empty($heroCheck)) {
+            $heroUnitAvail = !empty($vUnits['hero']) && (int)$vUnits['hero'] > 0;
+            if (empty($heroCheck) || !$heroUnitAvail) {
                 $hasHero = false;
             }
         }
@@ -837,11 +844,6 @@ class ExpeditionEngine {
             return ['status' => 'error', 'message' => $minCheck['message']];
         }
 
-        // 6. Verifikasi kepemilikan desa & kecukupan pasukan
-        if ($fromWref <= 0) {
-            $fromWref = (int)$database->getVillageID($leaderUid);
-        }
-        $vUnits = $database->getUnit($fromWref, false);
         for ($i = 1; $i <= 10; $i++) {
             $unitCol = 'u' . (($leaderTribe - 1) * 10 + $i);
             $reqCount = (int)($troops['u' . $i] ?? ($troops[$i] ?? 0));
@@ -959,10 +961,13 @@ class ExpeditionEngine {
         }
         $userTribe = ($vTribe > 0) ? $vTribe : (int)($userData['tribe'] ?? 1);
 
-        // Verifikasi hero jika dicentang
+        $vUnits = $database->getUnit($fromWref, false);
+
+        // Verifikasi hero jika dicentang (harus hidup, berlokasi di desa ini, dan ada di tabel units desa)
         if ($hasHero) {
             $heroCheck = $database->query_return("SELECT heroid FROM `" . TB_PREFIX . "hero` WHERE uid = $uid AND dead = 0 AND wref = $fromWref LIMIT 1");
-            if (empty($heroCheck)) {
+            $heroUnitAvail = !empty($vUnits['hero']) && (int)$vUnits['hero'] > 0;
+            if (empty($heroCheck) || !$heroUnitAvail) {
                 $hasHero = false;
             }
         }
@@ -979,7 +984,6 @@ class ExpeditionEngine {
         }
 
         // 7. Cek ketersediaan pasukan di desa
-        $vUnits = $database->getUnit($fromWref, false);
         for ($i = 1; $i <= 10; $i++) {
             $unitCol = 'u' . (($userTribe - 1) * 10 + $i);
             $reqCount = (int)($troops['u' . $i] ?? ($troops[$i] ?? 0));
@@ -1058,6 +1062,9 @@ class ExpeditionEngine {
                 $uDeductUpdates[] = "`$globalCol` = GREATEST(0, `$globalCol` - $cnt)";
             }
         }
+        if ($hasHero) {
+            $uDeductUpdates[] = "`hero` = GREATEST(0, `hero` - 1)";
+        }
 
         // Potong dari units di desa asal
         if (!empty($uDeductUpdates)) {
@@ -1130,7 +1137,7 @@ class ExpeditionEngine {
             $mWref = (int)$m['from_wref'];
             $mTribe = (int)$m['tribe'];
 
-            // Kembalikan prajurit ke units desa asal
+            // Kembalikan prajurit & hero ke units desa asal
             $restoreUpdates = [];
             for ($i = 1; $i <= 10; $i++) {
                 $cnt = (int)($m['u' . $i] ?? 0);
@@ -1138,6 +1145,9 @@ class ExpeditionEngine {
                     $globalCol = 'u' . (($mTribe - 1) * 10 + $i);
                     $restoreUpdates[] = "`$globalCol` = `$globalCol` + $cnt";
                 }
+            }
+            if (!empty($m['has_hero'])) {
+                $restoreUpdates[] = "`hero` = LEAST(1, `hero` + 1)";
             }
 
             if (!empty($restoreUpdates) && $mWref > 0) {
@@ -1417,7 +1427,7 @@ class ExpeditionEngine {
             $returnDuration = 0;
             $returnEndTime = $now;
 
-            if ($totalSurv > 0) {
+            if ($totalSurv > 0 || $mHasHero) {
                 $returnDuration = self::calculateTravelTime($targetWref, $mWref, $mTribe, $cMember['troops_survived'], $mHasHero, $mUid);
                 $returnDuration = max(1, $returnDuration);
                 $returnEndTime = $now + $returnDuration;
@@ -1426,10 +1436,11 @@ class ExpeditionEngine {
                 for ($i = 1; $i <= 10; $i++) {
                     $t[$i] = (int)($cMember['troops_survived']['u' . $i] ?? 0);
                 }
+                $heroReturnCount = $mHasHero ? 1 : 0;
 
                 $attackId = $database->addAttack(
                     $mWref,
-                    $t[1], $t[2], $t[3], $t[4], $t[5], $t[6], $t[7], $t[8], $t[9], $t[10], 0,
+                    $t[1], $t[2], $t[3], $t[4], $t[5], $t[6], $t[7], $t[8], $t[9], $t[10], $heroReturnCount,
                     4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
                 );
 
@@ -1452,6 +1463,9 @@ class ExpeditionEngine {
                             $globalCol = 'u' . (($mTribe - 1) * 10 + $i);
                             $survivedUpdates[] = "`$globalCol` = `$globalCol` + {$t[$i]}";
                         }
+                    }
+                    if ($mHasHero) {
+                        $survivedUpdates[] = "`hero` = LEAST(1, `hero` + 1)";
                     }
                     if (!empty($survivedUpdates) && $mWref > 0) {
                         $database->query("INSERT INTO `" . TB_PREFIX . "units` (`vref`) VALUES ($mWref) ON DUPLICATE KEY UPDATE `vref` = `vref`");
@@ -1516,8 +1530,8 @@ class ExpeditionEngine {
                 ? ("\n🏥 Rumah Sakit: {$woundedCount} prajurit terluka telah dirawat di Rumah Sakit desa Anda dan siap disembuhkan.")
                 : "";
 
-            $returnNoticeMsg = ($totalSurv > 0)
-                ? ("\n🎺 Pergerakan Pulang: Pasukan yang selamat" . ($isVictory && ($rWood + $rClay + $rIron + $rCrop > 0) ? " beserta jarahan sumber daya" : "") . " sedang bergerak pulang menuju desa Anda (Tiba dalam {$retMin} menit pada jam {$retTimeFmt}). Pantau di Titik Temu!")
+            $returnNoticeMsg = ($totalSurv > 0 || $mHasHero)
+                ? ("\n🎺 Pergerakan Pulang: " . ($totalSurv > 0 ? "Pasukan yang selamat" . ($mHasHero ? " bersama Hero" : "") : "Hero Anda") . ($isVictory && ($rWood + $rClay + $rIron + $rCrop > 0) ? " beserta jarahan sumber daya" : "") . " sedang bergerak pulang menuju desa Anda (Tiba dalam {$retMin} menit pada jam {$retTimeFmt}). Pantau di Titik Temu!")
                 : "\n💀 Seluruh pasukan Anda gugur dalam pertempuran sengit ini.";
 
             if ($isVictory) {

@@ -111,6 +111,15 @@ class Technology {
 		global $building, $database, $village;
 		global $bid46, $bid48;
 
+		if(!empty($post['discard_all'])) {
+			$this->procDiscardAllWounded();
+			return;
+		}
+		if(isset($post['dunit'])) {
+			$this->procDiscardWounded($post);
+			return;
+		}
+
 		$unit = isset($post['hunit']) ? (int)$post['hunit'] : 0;
 		$amt = isset($post['hamt'][$unit]) ? (int)$post['hamt'][$unit] : 0;
 		if($unit < 1 || $unit > 100 || $amt <= 0) return;
@@ -165,6 +174,53 @@ class Technology {
 		if($database->modifyResource($village->wid, $wood, $clay, $iron, $crop, 0)) {
 			$database->deductWounded($village->wid, $unit, $amt);
 			$database->healUnit($village->wid, $unit, $amt, $each);
+		}
+	}
+
+	/**
+	 * Discard (dismiss) wounded troops from the Hospital (46) / Big Hospital (48)
+	 * to free up capacity for newer wounded troops.
+	 */
+	private function procDiscardWounded($post) {
+		global $building, $database, $village;
+
+		$unit = isset($post['dunit']) ? (int)$post['dunit'] : 0;
+		if($unit < 1 || $unit > 100) return;
+
+		$hospital = $building->getTypeLevel(46);
+		$bighospital = $building->getTypeLevel(48);
+		if($hospital <= 0 && $bighospital <= 0) return;
+
+		$wounded = $database->getWounded($village->wid);
+		$available = !empty($wounded) && isset($wounded['u'.$unit]) ? (int)$wounded['u'.$unit] : 0;
+		if($available <= 0) return;
+
+		$amt = isset($post['hamt'][$unit]) ? (int)$post['hamt'][$unit] : 0;
+		if($amt <= 0 || $amt > $available) {
+			$amt = $available;
+		}
+
+		$database->deductWounded($village->wid, $unit, $amt);
+	}
+
+	/**
+	 * Discard all wounded troops currently waiting in the Hospital (46) / Big Hospital (48).
+	 */
+	private function procDiscardAllWounded() {
+		global $building, $database, $village;
+
+		$hospital = $building->getTypeLevel(46);
+		$bighospital = $building->getTypeLevel(48);
+		if($hospital <= 0 && $bighospital <= 0) return;
+
+		$wounded = $database->getWounded($village->wid);
+		if(empty($wounded)) return;
+
+		for($wi = 1; $wi <= 100; $wi++) {
+			$avail = isset($wounded['u'.$wi]) ? (int)$wounded['u'.$wi] : 0;
+			if($avail > 0) {
+				$database->deductWounded($village->wid, $wi, $avail);
+			}
 		}
 	}
 
