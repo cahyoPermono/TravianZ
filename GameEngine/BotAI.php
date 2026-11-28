@@ -2451,6 +2451,10 @@ class BotAI {
                 self::clearConquestOrder($wid);
                 $activeOrder = null;
             } else {
+                $protReason = self::getTargetProtectionReason($tWid, (int)$tCheck[0]['owner'], (string)$tCheck[0]['username'], 3);
+                if ($protReason !== null) {
+                    return "Target penaklukan #{$tWid} ({$tCheck[0]['username']}) {$protReason}; gelombang penaklukan dihentikan.";
+                }
                 if (self::isNightTime()) {
                     return "Night sleep window active (20:00 - 08:00 WIB); persistent conquest to #{$tWid} paused until dawn";
                 }
@@ -5619,6 +5623,85 @@ class BotAI {
     }
 
     /**
+     * Check whether a target village/player is currently protected from attacks/raids/conquests.
+     * Mirrors Units::validateTargetPlayer() rules: Beginner Protection, PROTECTED_PLAYERS,
+     * Vacation Mode, and Banned/Admin/Multihunter accounts.
+     *
+     * @param int $targetWid Target village wref
+     * @param int $targetOwner Target owner user ID (optional, resolved if 0)
+     * @param string $targetUsername Target owner username (optional, resolved if empty)
+     * @param int $attackType 2 = Reinforcement (allowed), 3 = Normal Attack, 4 = Raid
+     * @return string|null Protection reason in Indonesian if protected, or null if attackable.
+     */
+    public static function getTargetProtectionReason(int $targetWid, int $targetOwner = 0, string $targetUsername = '', int $attackType = 3): ?string {
+        global $database;
+
+        // Reinforcements (type 2) are always allowed
+        if ($attackType === 2) {
+            return null;
+        }
+
+        if ($targetOwner <= 0 && $targetWid > 0) {
+            $vRow = $database->query_return("SELECT owner FROM " . TB_PREFIX . "vdata WHERE wref = $targetWid LIMIT 1");
+            $targetOwner = !empty($vRow[0]['owner']) ? (int)$vRow[0]['owner'] : 0;
+        }
+
+        if ($targetUsername === '' && $targetOwner > 0) {
+            $targetUsername = (string)$database->getUserField($targetOwner, 'username', 0, false);
+        }
+
+        // 1. Beginner Protection (u.protect > time())
+        $hasBeginnerProt = false;
+        if ($targetWid > 0 && method_exists($database, 'hasBeginnerProtection')) {
+            $hasBeginnerProt = (bool)$database->hasBeginnerProtection($targetWid);
+        } elseif ($targetOwner > 0) {
+            $hasBeginnerProt = ((int)$database->getUserField($targetOwner, 'protect', 0, false) > time());
+        }
+        if ($hasBeginnerProt) {
+            return 'sedang dalam masa perlindungan pemula (Beginner Protection)';
+        }
+
+        // 2. PROTECTED_PLAYERS list from Server Settings (case-insensitive)
+        if ($targetUsername !== '' && defined('PROTECTED_PLAYERS') && trim(PROTECTED_PLAYERS) !== '') {
+            foreach (explode(',', PROTECTED_PLAYERS) as $protectedName) {
+                $protectedName = trim($protectedName);
+                if ($protectedName !== '' && strcasecmp($protectedName, $targetUsername) === 0) {
+                    return 'termasuk dalam daftar pemain yang dilindungi (PROTECTED_PLAYERS)';
+                }
+            }
+        }
+
+        // 3. Vacation Mode (vac_mode == 1)
+        $inVacation = false;
+        if ($targetWid > 0 && method_exists($database, 'getvacmodexy')) {
+            $inVacation = (bool)$database->getvacmodexy($targetWid);
+        } elseif ($targetOwner > 0) {
+            $inVacation = ((int)$database->getUserField($targetOwner, 'vac_mode', 0, false) === 1);
+        }
+        if ($inVacation) {
+            return 'sedang dalam mode liburan (Vacation Mode)';
+        }
+
+        // 4. Banned / Multihunter / Protected Admin
+        if ($targetOwner > 0) {
+            $userAccess = (int)$database->getUserField($targetOwner, 'access', 0, false);
+            $multihunterAccess = defined('MULTIHUNTER') ? (int)MULTIHUNTER : 8;
+            $adminAccess = defined('ADMIN') ? (int)ADMIN : 9;
+            $allowAdminRaids = defined('ADMIN_ALLOW_INCOMING_RAIDS') ? (bool)ADMIN_ALLOW_INCOMING_RAIDS : false;
+
+            if (
+                $userAccess === 0 ||
+                ($userAccess === $multihunterAccess && $targetOwner === 5) ||
+                (!$allowAdminRaids && $userAccess === $adminAccess)
+            ) {
+                return 'adalah akun Admin / Multihunter / Terblokir yang dilindungi dari serangan';
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Dispatch an admin-commanded AI attack/raid against a specific player, village, or entire alliance.
      *
      * @param int|string $botUid 0 for closest bot, 'all' for all available bots, 'alliance:<id>' for all bots in alliance, or specific bot UID.
@@ -5684,14 +5767,18 @@ class BotAI {
                         return ['status' => 'error', 'message' => "Aliansi target tidak memiliki desa yang valid (konten bandit diabaikan)."];
                     }
                     if ($attackType !== 2) {
-                        $now = time();
                         $beforeProtectCount = count($targetVillages);
-                        $targetVillages = array_values(array_filter($targetVillages, function($tv) use ($now) {
-                            return (int)($tv['protect'] ?? 0) <= $now;
+                        $targetVillages = array_values(array_filter($targetVillages, function($tv) use ($attackType) {
+                            return self::getTargetProtectionReason(
+                                (int)$tv['wref'],
+                                (int)$tv['owner'],
+                                (string)($tv['username'] ?? ''),
+                                $attackType
+                            ) === null;
                         }));
                         $skippedProtectedCount = $beforeProtectCount - count($targetVillages);
                         if (empty($targetVillages)) {
-                            return ['status' => 'error', 'message' => "Semua desa di aliansi target [{$targetAlliance['tag']}] {$targetAlliance['name']} sedang dalam masa perlindungan pemula dan tidak dapat diserang."];
+                            return ['status' => 'error', 'message' => "Semua desa di aliansi target [{$targetAlliance['tag']}] {$targetAlliance['name']} sedang dalam status perlindungan (pemula / PROTECTED_PLAYERS / liburan / admin) dan tidak dapat diserang."];
                         }
                     }
                 } else {
@@ -5733,13 +5820,11 @@ class BotAI {
             }
 
             $targetOwner = (int)$singleTarget['owner'];
-            $targetUser = $database->getUserField($targetOwner, 'username', 0);
+            $targetUser = $database->getUserField($targetOwner, 'username', 0, false);
             if ($attackType !== 2) {
-                $isProtected = method_exists($database, 'hasBeginnerProtection')
-                    ? (bool)$database->hasBeginnerProtection((int)$singleTarget['wref'])
-                    : ((int)$database->getUserField($targetOwner, 'protect', 0) > time());
-                if ($isProtected) {
-                    return ['status' => 'error', 'message' => "Target '{$targetUser}' sedang dalam masa perlindungan pemula dan tidak dapat diserang."];
+                $protReason = self::getTargetProtectionReason((int)$singleTarget['wref'], $targetOwner, (string)$targetUser, $attackType);
+                if ($protReason !== null) {
+                    return ['status' => 'error', 'message' => "Target '{$targetUser}' {$protReason} dan tidak dapat diserang."];
                 }
             }
             $targetVillages = [[
@@ -6299,11 +6384,9 @@ class BotAI {
         if (self::isBanditTarget($targetWid)) {
             return ['status' => 'error', 'message' => "Target adalah Sarang Bandit / World Boss! Konten PvE Bandit hanya untuk pemain asli."];
         }
-        $isProtected = method_exists($database, 'hasBeginnerProtection')
-            ? (bool)$database->hasBeginnerProtection($targetWid)
-            : ((int)$database->getUserField((int)$targetVillage['owner'], 'protect', 0) > time());
-        if ($isProtected) {
-            return ['status' => 'error', 'message' => "Target '{$targetVillage['username']}' sedang dalam masa perlindungan pemula dan tidak dapat diserang/ditaklukkan."];
+        $protReason = self::getTargetProtectionReason($targetWid, (int)$targetVillage['owner'], (string)$targetVillage['username'], 3);
+        if ($protReason !== null) {
+            return ['status' => 'error', 'message' => "Target '{$targetVillage['username']}' {$protReason} dan tidak dapat diserang/ditaklukkan."];
         }
         $targetOwner = (int)$targetVillage['owner'];
         $targetX = (int)$targetVillage['x'];
